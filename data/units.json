@@ -1,0 +1,14 @@
+{
+  "playerParty": [
+    { "id": "leon",  "name": "Leon",  "classId": "Lord" },
+    { "id": "gareth", "name": "Gareth", "classId": "ArmorKnight" },
+    { "id": "erin",  "name": "Erin",  "classId": "Archer" },
+    { "id": "mira",  "name": "Mira",  "classId": "Mage" }
+  ],
+  "enemyRoster": [
+    { "id": "bandit1", "name": "Bandit",  "classId": "Bandit" },
+    { "id": "bandit2", "name": "Bandit",  "classId": "Bandit" },
+    { "id": "archer1", "name": "Archer",  "classId": "Archer" },
+    { "id": "soldier1", "name": "Soldier", "classId": "Soldier" }
+  ]
+}

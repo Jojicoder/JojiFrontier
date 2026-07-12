@@ -1,0 +1,34 @@
+{
+  "classes": [
+    {
+      "id": "Lord",
+      "baseStats": { "maxHp": 20, "strength": 7, "magic": 2, "speed": 8, "defense": 5, "resistance": 3, "move": 5 },
+      "weaponId": "iron_sword"
+    },
+    {
+      "id": "ArmorKnight",
+      "baseStats": { "maxHp": 28, "strength": 8, "magic": 0, "speed": 3, "defense": 10, "resistance": 2, "move": 3 },
+      "weaponId": "iron_lance"
+    },
+    {
+      "id": "Archer",
+      "baseStats": { "maxHp": 17, "strength": 6, "magic": 0, "speed": 7, "defense": 3, "resistance": 2, "move": 5 },
+      "weaponId": "hunter_bow"
+    },
+    {
+      "id": "Mage",
+      "baseStats": { "maxHp": 15, "strength": 1, "magic": 8, "speed": 6, "defense": 2, "resistance": 6, "move": 4 },
+      "weaponId": "fire_tome"
+    },
+    {
+      "id": "Bandit",
+      "baseStats": { "maxHp": 22, "strength": 9, "magic": 0, "speed": 4, "defense": 3, "resistance": 1, "move": 4 },
+      "weaponId": "iron_axe"
+    },
+    {
+      "id": "Soldier",
+      "baseStats": { "maxHp": 20, "strength": 6, "magic": 0, "speed": 5, "defense": 6, "resistance": 3, "move": 4 },
+      "weaponId": "iron_lance"
+    }
+  ]
+}
