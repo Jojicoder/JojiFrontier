@@ -1,14 +1,18 @@
 {
   "playerParty": [
-    { "id": "leon",  "name": "Leon",  "classId": "Lord" },
-    { "id": "gareth", "name": "Gareth", "classId": "ArmorKnight" },
-    { "id": "erin",  "name": "Erin",  "classId": "Archer" },
-    { "id": "mira",  "name": "Mira",  "classId": "Mage" }
+    { "id": "leon", "name": "Leon", "classId": "MarchCaptain" },
+    { "id": "gareth", "name": "Gareth", "classId": "VeteranGuard" },
+    { "id": "erin", "name": "Erin", "classId": "WatchArcher" },
+    { "id": "mira", "name": "Mira", "classId": "DawnChirurgeon" }
+  ],
+  "reserveRoster": [
+    { "id": "scout_reserve", "name": "Frontier Scout", "classId": "FrontierScout" },
+    { "id": "spear_reserve", "name": "March Spearman", "classId": "Spearman" }
   ],
   "enemyRoster": [
-    { "id": "bandit1", "name": "Bandit",  "classId": "Bandit" },
-    { "id": "bandit2", "name": "Bandit",  "classId": "Bandit" },
-    { "id": "archer1", "name": "Archer",  "classId": "Archer" },
-    { "id": "soldier1", "name": "Soldier", "classId": "Soldier" }
+    { "id": "bandit1", "name": "Raider", "classId": "Bandit" },
+    { "id": "bandit2", "name": "Raider", "classId": "Bandit" },
+    { "id": "archer1", "name": "Watch Archer", "classId": "WatchArcher" },
+    { "id": "soldier1", "name": "Deserter Spearman", "classId": "Spearman" }
   ]
 }

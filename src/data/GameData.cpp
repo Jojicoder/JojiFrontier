@@ -19,12 +19,13 @@ const ClassDefinition& GameData::classDefinition(UnitClass unitClass) const {
 
 std::optional<UnitClass> unitClassFromString(const std::string& name) {
     static const std::unordered_map<std::string, UnitClass> lookup = {
-        {"Lord", UnitClass::Lord},
-        {"ArmorKnight", UnitClass::ArmorKnight},
-        {"Archer", UnitClass::Archer},
-        {"Mage", UnitClass::Mage},
+        {"MarchCaptain", UnitClass::MarchCaptain},
+        {"VeteranGuard", UnitClass::VeteranGuard},
+        {"WatchArcher", UnitClass::WatchArcher},
+        {"FrontierScout", UnitClass::FrontierScout},
+        {"Spearman", UnitClass::Spearman},
+        {"DawnChirurgeon", UnitClass::DawnChirurgeon},
         {"Bandit", UnitClass::Bandit},
-        {"Soldier", UnitClass::Soldier},
     };
     auto it = lookup.find(name);
     if (it == lookup.end()) return std::nullopt;
@@ -109,6 +110,8 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
     };
 
     data.playerParty = readTemplates((*unitsJson)["playerParty"]);
+    if (unitsJson->contains("reserveRoster"))
+        data.reserveRoster = readTemplates((*unitsJson)["reserveRoster"]);
     data.enemyRoster = readTemplates((*unitsJson)["enemyRoster"]);
 
     return data;

@@ -12,7 +12,7 @@ namespace jf {
 struct Unit {
     std::string id;
     std::string name;
-    UnitClass unitClass = UnitClass::Lord;
+    UnitClass unitClass = UnitClass::MarchCaptain;
     Team team = Team::Player;
 
     Stats stats;
@@ -21,11 +21,16 @@ struct Unit {
 
     GridPos position{};
     bool hasActed = false;
+    int tilesMovedThisAction = 0;
 
     bool isAlive() const { return currentHp > 0; }
 
     int attackPower() const {
         return weapon.damageType == DamageType::Physical ? stats.strength : stats.magic;
+    }
+
+    int minimumAttackRange() const {
+        return unitClass == UnitClass::WatchArcher && weapon.minRange < 2 ? 2 : weapon.minRange;
     }
 };
 

@@ -27,6 +27,7 @@ struct GameData {
     std::unordered_map<std::string, Weapon> weaponsById;
     std::unordered_map<UnitClass, ClassDefinition> classesById;
     std::vector<UnitTemplate> playerParty;
+    std::vector<UnitTemplate> reserveRoster;
     std::vector<UnitTemplate> enemyRoster;
 
     const Weapon& weaponFor(UnitClass unitClass) const;

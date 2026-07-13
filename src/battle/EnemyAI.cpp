@@ -27,16 +27,17 @@ Unit* findNearestPlayer(BattleState& battle, const Unit& enemy) {
 bool attackIfPossible(BattleState& battle, Unit& enemy, Unit* preferredTarget) {
     auto inRange = [&](const Unit& target) {
         int dist = manhattanDistance(enemy.position, target.position);
-        return dist >= enemy.weapon.minRange && dist <= enemy.weapon.maxRange;
+        return dist >= enemy.minimumAttackRange() && dist <= enemy.weapon.maxRange;
     };
 
     if (preferredTarget && preferredTarget->isAlive() && inRange(*preferredTarget)) {
-        resolveAttack(enemy, *preferredTarget);
+        resolveAttack(enemy, *preferredTarget,
+                      battle.combatDefenseBonus(*preferredTarget, enemy));
         return true;
     }
     for (auto& u : battle.units()) {
         if (u.team == Team::Player && u.isAlive() && inRange(u)) {
-            resolveAttack(enemy, u);
+            resolveAttack(enemy, u, battle.combatDefenseBonus(u, enemy));
             return true;
         }
     }
@@ -59,7 +60,7 @@ void takeEnemyTurn(BattleState& battle, Unit& enemy) {
         return;
     }
 
-    std::vector<GridPos> reachable = computeReachableTiles(battle.units(), enemy);
+    std::vector<GridPos> reachable = computeReachableTiles(battle, enemy);
     GridPos bestTile = enemy.position;
     int bestDist = manhattanDistance(enemy.position, target->position);
     for (const GridPos& tile : reachable) {

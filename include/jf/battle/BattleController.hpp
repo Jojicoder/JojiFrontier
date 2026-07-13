@@ -14,6 +14,8 @@ enum class BattleInputState {
     SelectMove,
     SelectAction,
     SelectTarget,
+    SelectHealTarget,
+    SelectBoardTarget,
     ConfirmAttack,
     EnemyTurn,
     Victory,
@@ -40,14 +42,28 @@ public:
     const std::vector<GridPos>& reachableTiles() const { return reachableTiles_; }
     const std::vector<GridPos>& targetableTiles() const { return targetableTiles_; }
 
+    // Threat-range preview: every tile the selected unit could attack. While
+    // still choosing where to move, this is the union over every reachable
+    // move tile; once the unit has moved, it narrows to just its new tile.
+    const std::vector<GridPos>& attackRangeTiles() const { return attackRangeTiles_; }
+    const std::vector<GridPos>& healableTiles() const { return healableTiles_; }
+    const std::vector<GridPos>& boardTargetTiles() const { return boardTargetTiles_; }
+
     std::optional<CombatPreview> pendingPreview() const;
 
     // UI events. Each is a no-op if called outside its expected state.
     void selectUnit(Unit& unit);
     void selectMoveTile(GridPos pos);
+    void returnToMoveSelection();
     void chooseAttack();
+    void chooseHeal();
+    void selectHealTarget(GridPos pos);
+    bool useHealingItem(int amount);
+    void chooseProtectiveBoard();
+    bool selectBoardTarget(GridPos pos);
     void chooseWait();
     void selectTargetTile(GridPos pos);
+    void cancelAttackSelection();
     void confirmAttack();
     void cancelToUnitSelect();
 
@@ -68,6 +84,9 @@ private:
 
     std::vector<GridPos> reachableTiles_;
     std::vector<GridPos> targetableTiles_;
+    std::vector<GridPos> attackRangeTiles_;
+    std::vector<GridPos> healableTiles_;
+    std::vector<GridPos> boardTargetTiles_;
 
     float enemyActionTimer_ = 0.0f;
 };

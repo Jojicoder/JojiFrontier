@@ -16,11 +16,11 @@ struct CombatPreview {
 };
 
 // Deterministic damage: STR/MAG + weapon Might - target DEF/RES, floor of 1.
-int computeDamage(const Unit& attacker, const Unit& target);
+int computeDamage(const Unit& attacker, const Unit& target, int terrainDefense = 0);
 
-CombatPreview previewAttack(const Unit& attacker, const Unit& target);
+CombatPreview previewAttack(const Unit& attacker, const Unit& target, int terrainDefense = 0);
 
 // Applies damage to `target.currentHp`, clamped at 0.
-void resolveAttack(const Unit& attacker, Unit& target);
+void resolveAttack(const Unit& attacker, Unit& target, int terrainDefense = 0);
 
 } // namespace jf

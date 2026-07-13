@@ -1,13 +1,14 @@
 # JOJIFrontier
 
-A browser-playable (eventually) fantasy tactics RPG prototype: 4-character
-party combat on a fixed Mega Man Battle Network-style battlefield, with
+A browser-playable (eventually) fantasy tactics RPG prototype set on Asteria's
+Embermarch frontier: 4-character party combat on a fixed side-view battlefield, with
 Fire Emblem-inspired classes, deterministic damage, and an expedition
 risk/reward loop in place of character levels.
 
-This repository contains the **first playable battle prototype** only —
-one scripted battle, a Camp screen, and the Continue/Return expedition
-loop. Story, exploration, and full base building are not implemented yet.
+This repository contains the first playable **Silent Posts** expedition slice:
+three linked battles, a Camp screen, shared healing supplies, pending loot, and
+the Continue/Return expedition loop. Text exploration and full base building are
+not implemented yet.
 
 ## Build
 
@@ -33,24 +34,30 @@ Mouse only:
 - **Click a highlighted unit** during Player Phase to select it.
 - **Click a blue-highlighted tile** to move the selected unit (or click its
   own tile to stay in place).
-- **Attack / Wait** buttons in the side panel choose the unit's action.
+- **Attack / Items / Wait / Back** buttons in the bottom HUD choose or revise
+  the unit's action. A potion restores 8 HP and ends that unit's action.
 - **Click a red-highlighted tile** to pick an attack target.
-- **Confirm / Cancel** in the side panel resolves or backs out of the
+- **Confirm / Cancel** in the bottom HUD resolves or backs out of the
   attack after reviewing the combat preview.
 - Victory/Defeat/Camp screens are click-through buttons
   (`Proceed to Camp`, `Return to Base`, `Continue Expedition`, `Continue`).
 
 ## Implemented in this milestone
 
-- 3x8 fixed battlefield, single shared grid, one unit per tile.
-- 4-unit player party (Lord, Armor Knight, Archer, Mage) vs. a 4-unit
-  enemy roster (2 Bandits, 1 Archer, 1 Soldier), loaded from
+- 3x8 battlefield geometry, one unit per tile, with seeded terrain generated
+  anew for each expedition and field type.
+- Five terrain types (Floor, Ash, Rubble, Barrier, Watch Post), weighted
+  movement costs, impassable barriers, and Watch Post defense bonuses.
+- 4-unit player party (March Captain, Veteran Guard, Watch Archer, Dawn
+  Chirurgeon), with Frontier Scout and Spearman reserve data, versus a 4-unit
+  raider roster, loaded from
   `data/classes.json`, `data/units.json`, `data/weapons.json`.
 - Deterministic combat: `STR/MAG + weapon Might - target DEF/RES`,
   floored at 1 damage. No hit chance, no crits, no variance.
 - Fire Emblem-style Player Phase / Enemy Phase turn structure; each unit
   acts once per phase (`hasActed`), then phases alternate automatically.
-- Orthogonal BFS movement respecting `move` stat and tile occupancy
+- Orthogonal weighted movement respecting `move`, terrain, occupancy, allied
+  pass-through, and Veteran Guard Zone of Control
   (`jf::computeReachableTiles`), reused by both the player flow and AI.
 - `SelectUnit -> SelectMove -> SelectAction -> SelectTarget ->
   ConfirmAttack -> SelectUnit` input state machine
@@ -58,8 +65,10 @@ Mouse only:
 - Simple deterministic enemy AI: nearest-target-by-Manhattan-distance,
   attack if in range, otherwise close the distance and attack if now
   possible.
-- Victory/Defeat detection, a Camp placeholder screen (party HP, pending
-  loot, battles won), and the Continue Expedition / Return to Base loop.
+- Three linked Silent Posts encounters with field-specific random terrain and enemy setups,
+  stage-specific loot, survivor HP carryover, and a final Former Captain boss.
+- Victory/Defeat detection, Camp party status, expedition-long potion attrition, pending loot,
+  and the Continue Expedition / Return to Base loop.
 - Expedition loot is only "pending" until a safe return to base; a
   defeat clears it (`jf::ExpeditionState`).
 - Clean separation of rules (`jf::battle`, `jf::core`), data
@@ -72,12 +81,38 @@ Mouse only:
 
 - No character levels, XP, permanent death, critical hits, hit chance,
   or weapon durability.
-- No weapon triangle, terrain cost, obstacles, or diagonal movement.
-- No story, exploration, or full base-building systems — Camp is a
-  placeholder screen.
+- No weapon triangle or diagonal movement.
+- No text exploration or full base-building systems yet.
 - Class-specific battlefield behavior and AI are not yet differentiated
   beyond stats/weapon range.
-- Placeholder rectangle art; no animation.
+- Placeholder circular units and simple movement/phase animation.
+- Automated CTest coverage for weighted movement, barriers, attack range,
+  terrain defense, move rollback, and healing items.
+
+## Setting and reuse
+
+- [`docs/regions/ashbough_forest.md`](docs/regions/ashbough_forest.md)
+  records the proposed three-node introductory forest region.
+- [`docs/save_system.md`](docs/save_system.md) defines versioned desktop and
+  browser persistence, migration, backup, and export/import rules.
+- [`docs/exploration_system.md`](docs/exploration_system.md) defines the
+  node-based text exploration flow and its battle consequences.
+- [`docs/base_development.md`](docs/base_development.md) records the proposed
+  settlement stages, six facility trees, and shared unlock conditions.
+- [`docs/frontier_setting.md`](docs/frontier_setting.md) defines the proposed
+  Embermarch expedition scenario without overriding shared World Bible canon.
+- [`docs/reuse_plan.md`](docs/reuse_plan.md) records what can be adapted from
+  Joji Strategy Engine and JojiKingdomEngine, and what should remain separate.
+- [`docs/class_reference.md`](docs/class_reference.md) separates currently
+  implemented classes from World Bible archetypes and the recommended
+  Embermarch roster.
+
+Future setting and class work must follow [`AGENTS.md`](AGENTS.md). Verify the
+sibling canon repository with:
+
+```bash
+sh scripts/check_world_bible.sh
+```
 
 ## Project layout
 

@@ -57,6 +57,13 @@ add_executable(JOJIFrontier src/main.cpp)
 target_link_libraries(JOJIFrontier PRIVATE jf_lib raylib)
 target_include_directories(JOJIFrontier PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(jf_battle_tests tests/test_battle.cpp)
+    target_link_libraries(jf_battle_tests PRIVATE jf_lib)
+    add_test(NAME jf_battle_tests COMMAND jf_battle_tests)
+endif()
+
 if(APPLE AND NOT EMSCRIPTEN)
     target_link_libraries(JOJIFrontier PRIVATE
         "-framework IOKit"
