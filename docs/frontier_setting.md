@@ -1,5 +1,17 @@
 # JOJIFrontier Scenario Setting
 
+文書種別: **説明文書**
+
+参照正本: `../JojiWorldBible`、[`story_synopsis.md`](story_synopsis.md)
+
+この文書は世界設定とゲームの接続を説明し、共有設定・正式名称・歴史を新規定義しない。
+
+> 現在の10地域キャンペーンの日本語あらすじは
+> [`story_synopsis.md`](story_synopsis.md)を正本とする。このファイルの英語部分は初期試作の
+> シナリオ背景と実装経緯を保持するための参考資料であり、ゲーム画面の表示文言には使用しない。
+> エンバーマーチ国家設定との接続は同文書の
+> [エンバーマーチとの接続](story_synopsis.md#エンバーマーチとの接続)に従う。
+
 ## Status and canon boundary
 
 This is an engine-local scenario proposal for JOJIFrontier. Shared facts about

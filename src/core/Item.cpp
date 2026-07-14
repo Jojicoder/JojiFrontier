@@ -10,8 +10,8 @@ const ItemDefinition& itemDefinition(ItemType type) {
 }
 
 int healingAmount(ItemType type) {
-    if (type == ItemType::FirstAidKit) return 8;
-    if (type == ItemType::FieldTreatmentKit) return 16;
+    if (type == ItemType::FirstAidKit) return 20;
+    if (type == ItemType::FieldTreatmentKit) return 10;
     return 0;
 }
 

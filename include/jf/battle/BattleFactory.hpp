@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 #include "jf/battle/BattleState.hpp"
@@ -10,20 +11,31 @@
 
 namespace jf {
 
+// jf/core/Region.hpp - forward-declared only, to avoid a circular include
+// (Region.hpp needs FieldType from this header). BattleFactory.cpp includes
+// Region.hpp for the full definition.
+struct StageDescriptor;
+
 enum class FieldType {
     CinderwatchOutpost,
     AshRoad,
-    SignalTower
+    SignalTower,
+    AshboughVerge,
+    HerbwaterHollow,
+    BrokenwoodTerritory,
 };
 
-FieldType fieldTypeForStage(int stage);
 std::array<TerrainType, kGridRows * kGridCols> generateFieldTerrain(FieldType field,
                                                                     std::uint32_t seed);
 
-Unit instantiateUnit(const GameData& data, const UnitTemplate& unitTemplate, Team team, GridPos pos);
+// Per-unit loadouts selected from the unit page at the base.
+using WeaponOverrides = std::unordered_map<std::string, std::string>;
+
+Unit instantiateUnit(const GameData& data, const UnitTemplate& unitTemplate, Team team, GridPos pos,
+                     const WeaponOverrides* weaponOverrides = nullptr);
 
 // Fresh 4-vs-4 battle: full-HP player party plus a brand new enemy roster,
-// laid out on the fixed 3x8 battlefield.
+// laid out on the 3x8 battlefield with randomized terrain and formation.
 BattleState createFreshBattle(const GameData& data);
 
 // Used by "Continue Expedition": keeps the surviving players' current HP
@@ -31,19 +43,26 @@ BattleState createFreshBattle(const GameData& data);
 BattleState createContinuationBattle(const GameData& data, const std::vector<Unit>& survivingPlayers);
 
 // `customPlayerPositions`, when supplied, must have one entry per
-// data.playerParty member (same order) and overrides the fixed formation
+// data.playerParty member (same order) and overrides the randomized formation
 // spawns - used for free deployment (see ExplorationOutcome::enableFreeDeployment).
-BattleState createScenarioBattle(const GameData& data, int stage, std::uint32_t seed,
+// If `stage.surveyObjectiveId` is set, a secondary SecureTile objective is
+// added at a randomly chosen valid (passable, unoccupied) tile among the
+// enemy-side columns, after terrain/units are placed.
+BattleState createScenarioBattle(const GameData& data, const StageDescriptor& stage, std::uint32_t seed,
                                  ExplorationOutcome outcome = {},
-                                 const std::vector<GridPos>* customPlayerPositions = nullptr);
+                                 const std::vector<GridPos>* customPlayerPositions = nullptr,
+                                 const WeaponOverrides* weaponOverrides = nullptr);
 BattleState createScenarioContinuationBattle(const GameData& data,
                                                const std::vector<Unit>& survivingPlayers,
-                                               int stage,
+                                               const StageDescriptor& stage,
                                                std::uint32_t seed);
 
 // Builds the enemy roster for a stage/outcome without touching player units
 // or terrain - used to show the player what they're walking into during
-// free deployment, before the battle actually starts.
-std::vector<Unit> previewEnemies(const GameData& data, int stage, ExplorationOutcome outcome = {});
+// free deployment, before the battle actually starts. `seed` must match the
+// seed createScenarioBattle() will use so the preview's random starting
+// positions are the same ones the real battle spawns them at.
+std::vector<Unit> previewEnemies(const GameData& data, const StageDescriptor& stage, std::uint32_t seed,
+                                 ExplorationOutcome outcome = {});
 
 } // namespace jf

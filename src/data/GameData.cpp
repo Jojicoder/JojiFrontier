@@ -26,6 +26,8 @@ std::optional<UnitClass> unitClassFromString(const std::string& name) {
         {"Spearman", UnitClass::Spearman},
         {"DawnChirurgeon", UnitClass::DawnChirurgeon},
         {"Bandit", UnitClass::Bandit},
+        {"Wolf", UnitClass::Wolf},
+        {"AshenhornBoar", UnitClass::AshenhornBoar},
     };
     auto it = lookup.find(name);
     if (it == lookup.end()) return std::nullopt;
@@ -69,6 +71,9 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
         weapon.minRange = w.at("minRange").get<int>();
         weapon.maxRange = w.at("maxRange").get<int>();
         weapon.damageType = damageTypeFromString(w.at("damageType").get<std::string>());
+        if (w.contains("moveModifier")) weapon.moveModifier = w.at("moveModifier").get<int>();
+        if (w.contains("braceBoost")) weapon.braceBoost = w.at("braceBoost").get<bool>();
+        if (w.contains("causesKnockback")) weapon.causesKnockback = w.at("causesKnockback").get<bool>();
         data.weaponsById[weapon.id] = weapon;
     }
 

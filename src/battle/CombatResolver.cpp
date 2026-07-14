@@ -6,24 +6,27 @@ namespace jf {
 
 int computeDamage(const Unit& attacker, const Unit& target, int terrainDefense) {
     int defenseStat = attacker.weapon.damageType == DamageType::Physical
-                           ? target.stats.defense
+                           ? target.effectiveDefense()
                            : target.stats.resistance;
     int raw = attacker.attackPower() + attacker.weapon.might - defenseStat - terrainDefense;
     return std::max(raw, 1);
 }
 
-CombatPreview previewAttack(const Unit& attacker, const Unit& target, int terrainDefense) {
+CombatPreview previewAttack(const Unit& attacker, const Unit& target, int terrainDefense, int hitChance) {
     CombatPreview preview;
     preview.attackerName = attacker.name;
     preview.weaponName = attacker.weapon.name;
+    preview.weaponId = attacker.weapon.id;
     preview.damage = computeDamage(attacker, target, terrainDefense);
+    preview.hitChance = std::clamp(hitChance, 0, 100);
     preview.targetName = target.name;
     preview.targetHpBefore = target.currentHp;
     preview.targetHpAfter = std::max(target.currentHp - preview.damage, 0);
     return preview;
 }
 
-void resolveAttack(const Unit& attacker, Unit& target, int terrainDefense) {
+void resolveAttack(const Unit& attacker, Unit& target, int terrainDefense, bool hit) {
+    if (!hit) return;
     int damage = computeDamage(attacker, target, terrainDefense);
     target.currentHp = std::max(target.currentHp - damage, 0);
 }

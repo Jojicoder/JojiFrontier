@@ -1,5 +1,11 @@
 # Joji Engine Reuse Plan
 
+文書種別: **進捗記録**
+
+仕様索引: [`README.md`](README.md)
+
+この文書は流用候補と移行作業を管理し、ゲーム仕様を定義しない。
+
 ## Source projects
 
 - `../../JojiWorldBible`: source of truth for setting, names, systems, and tone.

@@ -23,7 +23,7 @@
     {
       "id": "Spearman",
       "baseStats": { "maxHp": 23, "strength": 7, "magic": 0, "speed": 5, "defense": 7, "resistance": 3, "move": 4 },
-      "weaponId": "iron_lance"
+      "weaponId": "iron_spear"
     },
     {
       "id": "DawnChirurgeon",
@@ -34,6 +34,16 @@
       "id": "Bandit",
       "baseStats": { "maxHp": 22, "strength": 9, "magic": 0, "speed": 4, "defense": 3, "resistance": 1, "move": 4 },
       "weaponId": "iron_axe"
+    },
+    {
+      "id": "Wolf",
+      "baseStats": { "maxHp": 16, "strength": 6, "magic": 0, "speed": 7, "defense": 2, "resistance": 1, "move": 5 },
+      "weaponId": "wolf_bite"
+    },
+    {
+      "id": "AshenhornBoar",
+      "baseStats": { "maxHp": 140, "strength": 9, "magic": 0, "speed": 3, "defense": 5, "resistance": 1, "move": 2 },
+      "weaponId": "boar_tusks"
     }
   ]
 }

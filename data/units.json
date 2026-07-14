@@ -6,8 +6,8 @@
     { "id": "mira", "name": "Mira", "classId": "DawnChirurgeon" }
   ],
   "reserveRoster": [
-    { "id": "scout_reserve", "name": "Frontier Scout", "classId": "FrontierScout" },
-    { "id": "spear_reserve", "name": "March Spearman", "classId": "Spearman" }
+    { "id": "scout_reserve", "name": "Nessa", "classId": "FrontierScout" },
+    { "id": "spear_reserve", "name": "Rowan", "classId": "Spearman" }
   ],
   "enemyRoster": [
     { "id": "bandit1", "name": "Raider", "classId": "Bandit" },

@@ -6,15 +6,22 @@ int movementCost(TerrainType terrain) {
     switch (terrain) {
         case TerrainType::Ash: return 2;
         case TerrainType::Rubble: return 2;
+        case TerrainType::Shallows: return 2;
         case TerrainType::Barrier: return 999;
         case TerrainType::Floor:
-        case TerrainType::WatchPost: return 1;
+        case TerrainType::WatchPost:
+        case TerrainType::Brush:
+        case TerrainType::HerbPatch: return 1;
     }
     return 1;
 }
 
 int defenseBonus(TerrainType terrain) {
     return terrain == TerrainType::WatchPost ? 2 : 0;
+}
+
+int evasionBonus(TerrainType terrain) {
+    return terrain == TerrainType::Brush ? 20 : 0;
 }
 
 bool isPassable(TerrainType terrain) {
@@ -28,6 +35,9 @@ std::string toString(TerrainType terrain) {
         case TerrainType::Rubble: return "Rubble";
         case TerrainType::Barrier: return "Barrier";
         case TerrainType::WatchPost: return "Watch Post";
+        case TerrainType::Brush: return "Brush";
+        case TerrainType::HerbPatch: return "Herb Patch";
+        case TerrainType::Shallows: return "Shallows";
     }
     return "Floor";
 }

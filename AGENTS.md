@@ -2,6 +2,18 @@
 
 Use this file as the default entry point for future work in this repository.
 
+## Documentation authority
+
+Read `docs/README.md` before changing design documents. It classifies files as
+authoritative specifications, explanatory documents, or progress records.
+
+- Put stable IDs, values, behavior, exceptions, save fields, and acceptance
+  criteria only in the owning authoritative specification.
+- Explanatory documents summarize and link; they do not define new rules.
+- Progress records describe implementation state and never override a spec.
+- When two specs overlap, consolidate the rule into the owner listed in
+  `docs/README.md` and replace the duplicate with a link.
+
 ## Required world reference
 
 Shared setting canon is owned by the sibling repository at
@@ -57,4 +69,3 @@ small IDs, numbers, and scenario facts required by the game.
 
 Run `sh scripts/check_world_bible.sh` to verify that the expected canon sources
 are available, then run the normal build and CTest suite.
-

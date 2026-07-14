@@ -1,10 +1,13 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <vector>
 
+#include "jf/battle/BattleEvents.hpp"
 #include "jf/battle/BattleState.hpp"
 #include "jf/battle/CombatResolver.hpp"
+#include "jf/battle/ObjectiveTracker.hpp"
 #include "jf/core/Grid.hpp"
 
 namespace jf {
@@ -15,6 +18,7 @@ enum class BattleInputState {
     SelectAction,
     SelectTarget,
     SelectHealTarget,
+    SelectItemTarget,
     SelectBoardTarget,
     ConfirmAttack,
     EnemyTurn,
@@ -47,9 +51,24 @@ public:
     // move tile; once the unit has moved, it narrows to just its new tile.
     const std::vector<GridPos>& attackRangeTiles() const { return attackRangeTiles_; }
     const std::vector<GridPos>& healableTiles() const { return healableTiles_; }
+    const std::vector<GridPos>& itemTargetTiles() const { return itemTargetTiles_; }
     const std::vector<GridPos>& boardTargetTiles() const { return boardTargetTiles_; }
 
     std::optional<CombatPreview> pendingPreview() const;
+
+    // Reports the most recent attack (player or enemy) so the front end can
+    // drive a purely-visual attack animation (e.g. a lunge toward the
+    // target) without BattleController knowing anything about rendering.
+    // `attackEventId()` increments every time an attack resolves; compare it
+    // frame-to-frame to detect a new event before reading the other two.
+    Unit* lastAttacker() const { return lastAttacker_; }
+    Unit* lastAttackTarget() const { return lastAttackTarget_; }
+    // Damage actually applied (0 on a miss) and whether it landed, for the
+    // same event `attackEventId()` reports - lets the front end show a
+    // hit/miss/damage message without duplicating combat math.
+    int lastDamage() const { return lastDamage_; }
+    bool lastAttackHit() const { return lastAttackHit_; }
+    std::uint64_t attackEventId() const { return attackEventId_; }
 
     // UI events. Each is a no-op if called outside its expected state.
     void selectUnit(Unit& unit);
@@ -59,9 +78,12 @@ public:
     void chooseHeal();
     void selectHealTarget(GridPos pos);
     bool useHealingItem(int amount);
+    bool chooseHealingItemTarget(int amount);
+    bool selectHealingItemTarget(GridPos pos);
     void chooseProtectiveBoard();
     bool selectBoardTarget(GridPos pos);
     void chooseWait();
+    void endPlayerTurn();
     void selectTargetTile(GridPos pos);
     void cancelAttackSelection();
     void confirmAttack();
@@ -73,10 +95,16 @@ public:
 
 private:
     void evaluateOutcome();
+    // Runs the docs/status_effects.md action-end pipeline, marks `unit`
+    // acted, and feeds an ActionResolvedEvent to the mission's Objective
+    // tracking (docs/mission_objectives.md) so kinds like SecureTile can
+    // credit it.
+    void finishPlayerAction(Unit& unit, ActionKind actionKind);
     Unit* nextUnactedEnemy();
 
     BattleState battle_;
     BattleInputState inputState_ = BattleInputState::SelectUnit;
+    ActionId nextActionId_ = 1;
 
     Unit* selectedUnit_ = nullptr;
     GridPos moveOrigin_{};
@@ -86,9 +114,17 @@ private:
     std::vector<GridPos> targetableTiles_;
     std::vector<GridPos> attackRangeTiles_;
     std::vector<GridPos> healableTiles_;
+    std::vector<GridPos> itemTargetTiles_;
     std::vector<GridPos> boardTargetTiles_;
 
     float enemyActionTimer_ = 0.0f;
+    int pendingHealingItemAmount_ = 0;
+
+    Unit* lastAttacker_ = nullptr;
+    Unit* lastAttackTarget_ = nullptr;
+    int lastDamage_ = 0;
+    bool lastAttackHit_ = true;
+    std::uint64_t attackEventId_ = 0;
 };
 
 } // namespace jf

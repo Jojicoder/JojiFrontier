@@ -4,3 +4,6 @@ build-web/
 .cache/
 compile_commands.json
 .DS_Store
+.claude/
+joji_frontier_save.json
+joji_frontier_save.json.bak

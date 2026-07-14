@@ -11,6 +11,10 @@ namespace jf {
 //   4. Otherwise end the turn without acting.
 // Kept as a free function (rather than a method per class) so future
 // class-specific AI can be swapped in per unit without touching BattleState.
-void takeEnemyTurn(BattleState& battle, Unit& enemy);
+// Returns the unit that was attacked this turn (nullptr if none) so the
+// caller (BattleController) can report an attack event for UI purposes
+// (e.g. driving a front-end attack animation) without EnemyAI knowing
+// anything about rendering.
+Unit* takeEnemyTurn(BattleState& battle, Unit& enemy);
 
 } // namespace jf

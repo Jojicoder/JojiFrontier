@@ -34,7 +34,9 @@ bool isStoppedByZoneOfControl(const std::vector<Unit>& units, const Unit& mover,
 namespace {
 
 std::vector<GridPos> computeReachableTilesImpl(const std::vector<Unit>& units, const Unit& mover,
-                                                const std::function<TerrainType(GridPos)>& terrainAt) {
+                                                const std::function<TerrainType(GridPos)>& terrainAt,
+                                                const std::function<bool(GridPos)>& blocksMovementAt = {},
+                                                const std::function<bool(GridPos)>& blocksStoppingAt = {}) {
     std::unordered_map<int, int> bestCost;
     using Node = std::pair<int, GridPos>;
     auto greaterCost = [](const Node& a, const Node& b) { return a.first > b.first; };
@@ -52,7 +54,7 @@ std::vector<GridPos> computeReachableTilesImpl(const std::vector<Unit>& units, c
         frontier.pop();
         int currentCost = bestCost[tileKey(current)];
         if (queuedCost != currentCost) continue;
-        if (currentCost >= mover.stats.move) continue;
+        if (currentCost >= mover.effectiveMove()) continue;
         if (current != mover.position && isStoppedByZoneOfControl(units, mover, current)) continue;
 
         for (const auto& dir : kDirections) {
@@ -60,6 +62,11 @@ std::vector<GridPos> computeReachableTilesImpl(const std::vector<Unit>& units, c
             if (!isInBounds(next)) continue;
             TerrainType terrain = terrainAt(next);
             if (!isPassable(terrain)) continue;
+            // docs/battle_objects.md "占有と通行": blocksMovement objects
+            // block expansion entirely, like impassable terrain; a
+            // blocksStopping-only object (e.g. an Exit) can still be passed
+            // through, it's just excluded from the final stoppable set below.
+            if (blocksMovementAt && blocksMovementAt(next)) continue;
             const Unit* occupant = unitAtTile(units, next, &mover);
             // Allies can be crossed but never used as a destination. Enemies
             // block path expansion entirely. Future Zone of Control belongs
@@ -70,7 +77,7 @@ std::vector<GridPos> computeReachableTilesImpl(const std::vector<Unit>& units, c
                                ? 1
                                : movementCost(terrain);
             int nextCost = currentCost + stepCost;
-            if (nextCost > mover.stats.move) continue;
+            if (nextCost > mover.effectiveMove()) continue;
             auto it = bestCost.find(tileKey(next));
             if (it != bestCost.end() && it->second <= nextCost) continue;
 
@@ -84,6 +91,10 @@ std::vector<GridPos> computeReachableTilesImpl(const std::vector<Unit>& units, c
     for (const auto& [key, cost] : bestCost) {
         GridPos pos{key / kGridCols, key % kGridCols};
         if (unitAtTile(units, pos, &mover) != nullptr) continue;
+        // A blocksStopping-only object (blocksMovement objects were already
+        // excluded from expansion above) can be passed through but never
+        // used as a stop/destination tile.
+        if (blocksStoppingAt && blocksStoppingAt(pos)) continue;
         reachable.push_back(pos);
     }
     return reachable;
@@ -96,8 +107,10 @@ std::vector<GridPos> computeReachableTiles(const std::vector<Unit>& units, const
 }
 
 std::vector<GridPos> computeReachableTiles(const BattleState& battle, const Unit& mover) {
-    return computeReachableTilesImpl(battle.units(), mover,
-                                     [&](GridPos pos) { return battle.terrainAt(pos); });
+    return computeReachableTilesImpl(
+        battle.units(), mover, [&](GridPos pos) { return battle.terrainAt(pos); },
+        [&](GridPos pos) { return battle.objectBlocksMovementAt(pos); },
+        [&](GridPos pos) { return battle.objectBlocksStoppingAt(pos); });
 }
 
 std::vector<GridPos> computeTargetableTiles(const std::vector<Unit>& units,

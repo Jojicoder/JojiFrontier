@@ -21,8 +21,8 @@ struct ItemDefinition {
 };
 
 inline constexpr std::array<ItemDefinition, 6> kItemCatalog{{
-    {ItemType::FirstAidKit, "First Aid Kit", "Restore 8 HP in battle or camp."},
-    {ItemType::FieldTreatmentKit, "Field Treatment Kit", "Restore 16 HP in battle or camp."},
+    {ItemType::FirstAidKit, "First Aid Kit", "Restore 20 HP at camp."},
+    {ItemType::FieldTreatmentKit, "Field Treatment Kit", "Restore 10 HP in battle or camp."},
     {ItemType::RescuePack, "Rescue Pack", "Revive one ally at camp with 25% HP."},
     {ItemType::CampRations, "Camp Rations", "Restore 5 HP to every living ally at camp."},
     {ItemType::ProtectiveBoard, "Protective Board", "Place a barrier on an adjacent empty tile."},

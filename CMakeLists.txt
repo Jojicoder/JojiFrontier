@@ -62,6 +62,20 @@ if(BUILD_TESTING)
     add_executable(jf_battle_tests tests/test_battle.cpp)
     target_link_libraries(jf_battle_tests PRIVATE jf_lib)
     add_test(NAME jf_battle_tests COMMAND jf_battle_tests)
+    # The default build type (RelWithDebInfo, see above) defines NDEBUG,
+    # which compiles every assert() in test_battle.cpp into a no-op -
+    # including asserts that both perform an action and check its result
+    # (e.g. assert(app.startExpedition())), so entire setup steps would
+    # silently never run. Force assertions on for this target regardless of
+    # build type so the test suite actually verifies (and executes) anything.
+    if(MSVC)
+        target_compile_options(jf_battle_tests PRIVATE /UNDEBUG)
+    else()
+        target_compile_options(jf_battle_tests PRIVATE -UNDEBUG)
+    endif()
+
+    add_executable(jf_forest_balance tools/forest_balance.cpp)
+    target_link_libraries(jf_forest_balance PRIVATE jf_lib)
 endif()
 
 if(APPLE AND NOT EMSCRIPTEN)
@@ -92,7 +106,9 @@ if(EMSCRIPTEN)
     target_link_options(JOJIFrontier PRIVATE
         "-sUSE_GLFW=3"
         "-sASYNCIFY"
+        "-lidbfs.js"
         "-sTOTAL_MEMORY=67108864"
+        "--pre-js=${CMAKE_SOURCE_DIR}/web/idbfs.js"
         "--preload-file=${CMAKE_SOURCE_DIR}/data@data"
         "--preload-file=${CMAKE_SOURCE_DIR}/assets@assets"
     )
