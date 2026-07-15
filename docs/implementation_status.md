@@ -152,8 +152,24 @@
 
 ## データ契約
 
+実装済み:
+
+- `data/terrain_profiles.json`を正本とする`TerrainProfile` Loader
+- 重み付き地形、特徴地形、列ごとの障害物上限、水平通路保証、特定地形の最低/最大数を
+  共通生成器で処理
+- 現行6フィールドをProfileへ移行し、`FieldType`列挙と地形生成率の地点別分岐を削除
+- 重複Profile ID、未知Terrain、重み合計100以外、不正な個数上下限、現行参照Profile欠落を
+  読込時に拒否
+- 新しい地形構成を`TerrainProfile`追加だけで生成できる回帰テスト
+- 薬草の沢で旧コードと正本が食い違っていた地形率を、通常床40%・浅瀬35%・茂み15%・
+  灰地10%へ修正
+
 設定済み・未実装:
 
+- Encounter、Site、Region、AI ProfileのJSON Definitionと横断Validation
+- 薬草地点、倒木、踏査地点、敵生成列をPlacement Ruleへ移す処理
+- 既存兵種パッシブを能力ID参照へ移し、新兵種追加時の`switch`変更を不要にする処理
+- Boss専用一時状態を`Unit`からRuntime Stateへ分離する処理
 - Facility、Research、RecipeをJSONへ分離する定義型、所有状態、旧ID Alias、起動時検証
 - 倉庫上限超過時の受取保留、倉庫整理、放棄確認、原子的な帰還Transaction
 - 全地域共通Checkpoint、Node変更時の退避、不正Routeの隔離復旧
@@ -212,6 +228,48 @@
 - Guard Spear
 - 武器耐久は不採用
 - Spearman向け分岐武器と調整特性を拠点で管理
+
+装備スキル(M4-A、`docs/initial_skill_effects.md`):
+
+- 実装済み: 装備選択・Save往復・戦闘開始時Charge初期化・Charge/Cooldown管理(既存)、
+  戦闘中にスキルを選んで発動するExecutor経路(`BattleController::chooseSkill()`/
+  `selectSkillTarget()`、新設)。**Skill IDごとのif分岐ではなく、4つの再利用可能な
+  「形状テーブル」(`healSkillShapes`/`isCleanseShape`/`attackSkillShapes`/
+  `buffSkillShapes`/`markSkillShapes`、いずれも`BattleController.cpp`の匿名namespace)を
+  検索する形へリファクタ済み**。同じ形状のSkillはテーブルへ1行足すだけで実装できる(実例:
+  `ambush`と`extended_lockdown`はどちらもテーブル1行のみで新規コード無し/最小追加で
+  実装)。実効果があるのは11 Skill:
+  暁の衛生兵`emergency_treatment`(Heal形状。HP50%以下の味方を射程2から12回復、戦闘1回)、
+  `cleanse`(状態解除形状。自身または隣接味方1人の毒・炎上・移動低下・防御低下・よろめきを
+  全解除、CD2)、`protective_treatment`(バフ形状・単体。RES+3、次のEnemy Phase終了まで、
+  CD2)、監視弓兵`suppressing_shot`(攻撃形状。敵1体・武器射程・通常攻撃+移動低下付与、
+  CD2)、行軍隊長`hold_formation`(バフ形状・AoE即時。自身と隣接味方全員DEF+2、次のEnemy
+  Phase終了まで、CD2)、槍兵`halting_thrust`(攻撃形状。`suppressing_shot`と同じテーブル行を
+  共有)、辺境斥候`ambush`(攻撃形状。Damage+3、未行動の敵限定、戦闘1回)、古参守備兵
+  `extended_lockdown`(バフ形状・自身のみ即時。Zone of Control範囲を距離1→2、次のEnemy
+  Phase終了まで、CD2。`Movement.cpp`の`isStoppedByZoneOfControl()`が`Unit::
+  zocRangeExtended`を直接参照)。バフ形状は`BuffKind{Resistance,Defense,ZocRange}`という
+  enumと`Unit::resistanceUpActive`/`defenseUpActive`/`zocRangeExtended`、
+  `effectiveResistance()`/`effectiveDefense()`拡張、専用の`clearSkillBuffsAtEnemyPhaseEnd()`
+  (通常のmoveDown/defenseDownは「対象自身の陣営の次Phase終了」で切れるが、この3つは常に
+  「次のEnemy Phase終了」固定)が必要だった。監視弓兵`mark_target`(Mark形状。敵1体・武器
+  射程、Damageなし、次にこの敵が受ける攻撃へDamage+2・命中時に消費、CD2)は攻撃せず
+  `Unit::markedBonusDamage`を設定するだけの新形状で、`CombatResolver.cpp`の
+  `computeDamage()`は読むだけ(`previewAttack()`用に純関数のまま維持)、`resolveAttack()`
+  側で命中時だけ0へ戻す。行軍隊長`support_order`(Mark形状。隣接味方1人・自身除く、
+  Damage-3の被ダメージ軽減シールド、1 Phase 1回)は`markedBonusDamage`を符号付きにして
+  `targetsAlly`フラグを足しただけで、新規フィールド0個・`mark_target`と全く同じ消費経路を
+  再利用して実装できた。行軍隊長`advance_order`(隣接する未行動味方1人・自身除く、MOV+1、
+  このPlayer Phase終了まで、戦闘1回)は形状テーブルへ押し込まず`isCleanseShape`と同じ
+  素朴な専用分岐にした - 既存3バフが全て「次のEnemy Phase終了」固定で切れるのに対し、
+  これだけ「今の」Player Phase終了で切れるため。`Unit::moveUpActive`/`effectiveMove()`
+  拡張、`applyMoveUp()`/`clearMoveUpAtPlayerPhaseEnd()`(Player Phase終了処理へ追加)が
+  必要だった。戦闘HUD「スキル」メニューでの装備スキル表示(使用不能理由付き)も追加
+- 設定済み・未実装: 残り7 Skillの実効果(`initial_skill_effects.md`に全て定義済み。
+  反応・地形操作・自己移動・条件付き効果など、現状の5形状テーブルに当てはまらないものは
+  実装時に専用コードか新しい形状テーブルが必要)、Skill Previewと実Resolverの共有、
+  状態異常・地形・Boss補正のSkillへの反映、反応Skill
+  (`counterthrust`)の自動発動、AIによるSkill使用判断
 
 ## 遠征と探索
 
@@ -364,7 +422,22 @@
 全施設研究ノードの安定ID・効果・Discovery・素材・前提・解放地域・種別は
 [`facility_research.md`](facility_research.md)で設定完了。共同研究4系統も設定済みだがコード未実装。
 製作・所持ルールは[`item_system.md`](item_system.md)で設定完了し、消耗品1個製作、各99個上限、
-武器と特性の実物個数制、探索道具の恒久一意所有を採用する。現行コードのバッグ直結方式とは未接続。
+武器と特性の実物個数制、探索道具の恒久一意所有を採用する。**消耗品6種は接続済み**
+(`GameApp::craftItem()`が木材・獣皮・薬草を消費して`BaseState::itemStorage`(ID毎99上限)へ
+1個製作し、`addPreparedItem()`/`removePreparedItem()`が所持数とバッグ間で個数を移動、
+未使用分は`resetToBase()`で帰還・敗北・遠征リタイアいずれの経路でも所持数へ戻る)。
+武器・調整特性・探索道具の実物個数制/恒久所有は未接続のまま。
+
+消耗品6種の製作レシピ(このセッションで新規設定、素材は灰枝の森産の基本素材のみ):
+
+| 消耗品 | 材料 |
+|---|---|
+| 救急セット | 薬草2、獣皮1 |
+| 野戦治療キット | 薬草1、木材1 |
+| 救命包 | 薬草2、獣皮2 |
+| 野営食 | 木材2、薬草1 |
+| 防護板 | 木材3 |
+| 帰還信号弾 | 木材2、獣皮2 |
 施設一覧、施設詳細、建設確認、研究詳細・確認、製作画面は
 [`facility_ui.md`](facility_ui.md)で設定完了。現行UIの施設Lv、施設枠、解体・再建操作は正式仕様では
 廃止予定であり、新UIへの置換はPhase 8で行う。
@@ -390,6 +463,11 @@
 - 恒久状態変更時のオートセーブ
 - 探索開始時とキャンプ時の簡略版遠征中断セーブ（`regionId`含む）
 - Export / Import（`exports/`/`imports/`フォルダ経由、`.preimport.bak`退避）
+- M3-A(最小スライス): `applySaveData()`がCheckpointの`routeProgress`不正Node ID
+  や`expeditionStage`範囲外を検出した際、旧実装は当該遠征を警告なく完全破棄して
+  いたバグを修正。region/partyが有効な場合はPending Loot/Discoveries/Bag/
+  Site Access更新/地域完了フラグとパーティHPを保持したまま地域入口へ退避する
+  ようにした（`docs/expedition_recovery.md`「更新後の復旧」優先順位4に対応）
 
 未実装:
 
@@ -397,6 +475,10 @@
 - Schema 2以降のスキーマ移行処理
 - Web同期完了を待つ処理
 - Emscripten実ビルドとブラウザ更新試験
+- M3-Aの残り: Attempt ID/Checkpoint Kindの正式な型、Route/Node/Region Alias
+  解決、`QuarantinedExpedition`（自動退避不能な矛盾Saveの隔離状態）、地形・敵・
+  増援のgenerator-version対応Snapshot再利用。Route Graphが現状1本（Ashbough
+  Forest）しかなく改版されたことがないため、実要件が生じるまで据え置き
 
 ## ローカライズ
 

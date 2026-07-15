@@ -5,7 +5,6 @@
 #include <utility>
 #include <vector>
 
-#include "jf/battle/BattleFactory.hpp"
 #include "jf/core/BaseState.hpp"
 #include "jf/core/Exploration.hpp"
 #include "jf/core/UnitClass.hpp"
@@ -23,7 +22,7 @@ namespace jf {
 // never touches the shared roster.
 struct StageDescriptor {
     std::string id;
-    FieldType fieldType;
+    std::string terrainProfileId;
 
     std::vector<UnitTemplate> enemyRoster;
     // Cinderwatch stage 0's "only 3 of the 4-unit roster appear" rule.

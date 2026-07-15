@@ -33,5 +33,6 @@ bool hasZoneOfControl(UnitClass unitClass);
 bool ignoresAshPenalty(UnitClass unitClass);
 bool hasBrace(UnitClass unitClass);
 bool canHeal(UnitClass unitClass);
+int passiveEvasionBonus(UnitClass unitClass);
 
 } // namespace jf

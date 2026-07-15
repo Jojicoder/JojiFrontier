@@ -51,7 +51,8 @@ Mouse only:
 - 4-unit player party (March Captain, Veteran Guard, Watch Archer, Dawn
   Chirurgeon), with Frontier Scout and Spearman reserve data, versus a 4-unit
   raider roster, loaded from
-  `data/classes.json`, `data/units.json`, `data/weapons.json`.
+  `data/classes.json`, `data/units.json`, `data/weapons.json`, and
+  `data/terrain_profiles.json`.
 - Deterministic combat: `STR/MAG + weapon Might - target DEF/RES`,
   floored at 1 damage. No hit chance, no crits, no variance.
 - Fire Emblem-style Player Phase / Enemy Phase turn structure; each unit
@@ -120,7 +121,7 @@ sh scripts/check_world_bible.sh
 JOJIFrontier/
 ├── CMakeLists.txt
 ├── assets/                 # placeholder art (currently empty)
-├── data/                   # classes.json, units.json, weapons.json
+├── data/                   # unit, class, weapon, and terrain profile definitions
 ├── include/jf/
 │   ├── battle/              # BattleState, BattleController, Movement, CombatResolver, EnemyAI, BattleFactory
 │   ├── core/                # Stats, Weapon, UnitClass, Unit, Grid, ExpeditionState, GameApp

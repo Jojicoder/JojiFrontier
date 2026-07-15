@@ -97,6 +97,7 @@
 | 地点成果と施設解放 | `stage_facility_progression.md` |
 | 施設画面 | `facility_ui.md` |
 | 消耗品・探索道具 | `item_system.md` |
+| 商店 | `shop_system.md` |
 | 倉庫上限・受取保留 | `inventory_overflow.md` |
 | 集会所・会話条件 | `gathering_place.md` |
 
@@ -115,6 +116,7 @@
 | `frontier_setting.md` | 世界とゲームの接続説明 | World Bible、`story_synopsis.md` |
 | `tactical_design_reference.md` | 戦術設計の参考書 | 兵種、Skill、AI、Objective各正本 |
 | `combat_resolution_order.md` | 行動解決順の解説 | `battle_resolution_contract.md` |
+| `item_catalog.md` | 所持品・素材分類の参照一覧 | `item_system.md`、`class_reference.md`、`character_progression.md`、`stage_facility_progression.md` |
 
 説明文書へ数値やIDを追加する必要が生じた場合は、先に担当正本へ追加し、説明文書からリンクする。
 

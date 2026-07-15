@@ -85,8 +85,9 @@ std::vector<Unit> buildEnemies(const GameData& data, const StageDescriptor& stag
     enemyCount -= std::min(enemyCount, static_cast<std::size_t>(std::max(0, outcome.enemiesRemoved)));
     // docs/regions/ashbough_forest.md "折れ木の縄張り": "灰角大猪は右2列の候補
     // から生成する" - narrower than the usual 3-column enemy zone.
-    const int enemyZoneMinCol =
-        stage.fieldType == FieldType::BrokenwoodTerritory ? kRightZoneMaxCol - 1 : kRightZoneMinCol;
+    const int enemyZoneMinCol = stage.terrainProfileId == kBrokenwoodTerritoryTerrain
+                                    ? kRightZoneMaxCol - 1
+                                    : kRightZoneMinCol;
     std::vector<GridPos> spawns = randomSpawnPositions(enemyZoneMinCol, kRightZoneMaxCol, seed ^ kEnemySpawnSalt);
     for (std::size_t i = 0; i < enemyCount; ++i) {
         GridPos pos = i < spawns.size() ? spawns[i] : enemySpawnFallback();
@@ -136,9 +137,12 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
     std::size_t spawnIndex = 0;
     if (survivors) {
         for (const Unit& survivor : *survivors) {
-            if (survivor.team != Team::Player) continue;
+            if (survivor.team != Team::Player || !survivor.isAlive()) continue;
             Unit unit = survivor;
-            unit.position = spawnIndex < playerSpawns.size() ? playerSpawns[spawnIndex] : playerSpawnFallback();
+            unit.position = (customPlayerPositions && spawnIndex < customPlayerPositions->size())
+                                ? (*customPlayerPositions)[spawnIndex]
+                                : (spawnIndex < playerSpawns.size() ? playerSpawns[spawnIndex]
+                                                                    : playerSpawnFallback());
             ++spawnIndex;
             unit.hasActed = false;
             units.push_back(unit);
@@ -157,7 +161,7 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
         if (unit.team == Team::Player && unit.isAlive())
             unit.currentHp = std::max(1, unit.currentHp - std::max(0, outcome.partyDamage));
     }
-    auto terrain = generateFieldTerrain(stage.fieldType, seed);
+    auto terrain = generateFieldTerrain(data.terrainProfile(stage.terrainProfileId), seed);
     for (const Unit& unit : units) {
         const int key = unit.position.row * kGridCols + unit.position.col;
         if (!isPassable(terrain[key])) terrain[key] = TerrainType::Floor;
@@ -165,7 +169,7 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
     BattleState battle(std::move(units), terrain, seed);
 
     std::vector<GridPos> herbTiles;
-    if (stage.fieldType == FieldType::HerbwaterHollow) {
+    if (stage.terrainProfileId == kHerbwaterHollowTerrain) {
         // docs/regions/ashbough_forest.md "薬草の沢": "盤面中央に浅瀬と薬草地点
         // 2マス" - exactly 2 HerbPatch tiles in the center 4 columns (2-5),
         // chosen after units are placed (like chooseSurveyTile() below) so
@@ -186,7 +190,7 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
         }
     }
 
-    if (stage.fieldType == FieldType::BrokenwoodTerritory) {
+    if (stage.terrainProfileId == kBrokenwoodTerritoryTerrain) {
         // docs/regions/ashbough_forest.md "折れ木の縄張り"/"ランダム初期配置":
         // 1 fallen log in the center 4 columns (2-5) by default, +1 more
         // (route B) preferring a distinct row from the first. Never on the
@@ -272,10 +276,10 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
 }
 } // namespace
 
-std::array<TerrainType, kGridRows * kGridCols> generateFieldTerrain(FieldType field,
+std::array<TerrainType, kGridRows * kGridCols> generateFieldTerrain(const TerrainProfile& profile,
                                                                     std::uint32_t seed) {
     std::array<TerrainType, kGridRows * kGridCols> terrain{};
-    std::mt19937 rng(seed ^ (static_cast<std::uint32_t>(field) * 0x9e3779b9u));
+    std::mt19937 rng(seed ^ (profile.seedSalt * 0x9e3779b9u));
     std::uniform_int_distribution<int> roll(0, 99);
     std::array<int, kGridCols> barriersPerColumn{};
     std::vector<GridPos> candidates;
@@ -285,42 +289,21 @@ std::array<TerrainType, kGridRows * kGridCols> generateFieldTerrain(FieldType fi
             GridPos pos{row, col};
             candidates.push_back(pos);
 
-            int value = roll(rng);
+            const int value = roll(rng);
             TerrainType type = TerrainType::Floor;
-            if (field == FieldType::CinderwatchOutpost) {
-                if (value < 24) type = TerrainType::Rubble;
-                else if (value < 34) type = TerrainType::WatchPost;
-                else if (value < 42) type = TerrainType::Ash;
-                else if (value < 48) type = TerrainType::Barrier;
-            } else if (field == FieldType::AshRoad) {
-                if (value < 38) type = TerrainType::Ash;
-                else if (value < 55) type = TerrainType::Rubble;
-                else if (value < 62) type = TerrainType::WatchPost;
-                else if (value < 68) type = TerrainType::Barrier;
-            } else if (field == FieldType::SignalTower) {
-                if (value < 23) type = TerrainType::WatchPost;
-                else if (value < 43) type = TerrainType::Rubble;
-                else if (value < 54) type = TerrainType::Ash;
-                else if (value < 61) type = TerrainType::Barrier;
-            } else if (field == FieldType::HerbwaterHollow) {
-                // 薬草の沢: Floor 40%, Shallows 35%, Brush 15%, Ash 10%.
-                if (value < 35) type = TerrainType::Shallows;
-                else if (value < 50) type = TerrainType::Ash;
-                else if (value < 65) type = TerrainType::Brush;
-            } else if (field == FieldType::BrokenwoodTerritory) {
-                // 折れ木の縄張り: Floor 55%, Ash 25%, Brush 20%.
-                if (value < 25) type = TerrainType::Ash;
-                else if (value < 45) type = TerrainType::Brush;
-            } else {
-                // Ashbough Verge: Floor 65%, Brush 15%, Ash 20%.
-                if (value < 20) type = TerrainType::Ash;
-                else if (value < 35) type = TerrainType::Brush;
+            int upperBound = 0;
+            for (const WeightedTerrain& entry : profile.weights) {
+                upperBound += entry.weight;
+                if (value < upperBound) {
+                    type = entry.terrain;
+                    break;
+                }
             }
 
             // At most one barrier per column prevents a complete vertical
             // wall while allowing every edge-zone tile to be generated.
-            if (type == TerrainType::Barrier) {
-                if (barriersPerColumn[col] >= 1) type = TerrainType::Rubble;
+            if (type == TerrainType::Barrier && profile.maxBarriersPerColumn > 0) {
+                if (barriersPerColumn[col] >= profile.maxBarriersPerColumn) type = TerrainType::Rubble;
                 else ++barriersPerColumn[col];
             }
             terrain[row * kGridCols + col] = type;
@@ -330,41 +313,30 @@ std::array<TerrainType, kGridRows * kGridCols> generateFieldTerrain(FieldType fi
     // Every field always has at least one tile that communicates its identity.
     std::shuffle(candidates.begin(), candidates.end(), rng);
     if (!candidates.empty()) {
-        TerrainType signature = field == FieldType::AshRoad ? TerrainType::Ash
-                               : field == FieldType::SignalTower ? TerrainType::WatchPost
-                               : field == FieldType::AshboughVerge ? TerrainType::Brush
-                               : field == FieldType::HerbwaterHollow ? TerrainType::Shallows
-                               : field == FieldType::BrokenwoodTerritory ? TerrainType::Brush
-                                                                 : TerrainType::Rubble;
         GridPos pos = candidates.front();
-        terrain[pos.row * kGridCols + pos.col] = signature;
+        terrain[pos.row * kGridCols + pos.col] = profile.signatureTerrain;
     }
-    // docs/regions/ashbough_forest.md "地形生成率の適用": 林縁の茂みは最低2マス、
-    // 最大4マス。縄張りは最低2マス、最大7マス。
-    std::optional<std::pair<int, int>> brushBounds;
-    if (field == FieldType::AshboughVerge) brushBounds = {2, 4};
-    else if (field == FieldType::BrokenwoodTerritory) brushBounds = {2, 7};
-    if (brushBounds) {
-        const auto [minBrush, maxBrush] = *brushBounds;
-        std::vector<std::size_t> brushTiles;
+    if (profile.countBounds) {
+        const auto [boundedTerrain, minimum, maximum] = *profile.countBounds;
+        std::vector<std::size_t> boundedTiles;
         for (std::size_t i = 0; i < terrain.size(); ++i) {
-            if (terrain[i] == TerrainType::Brush) brushTiles.push_back(i);
+            if (terrain[i] == boundedTerrain) boundedTiles.push_back(i);
         }
-        std::shuffle(brushTiles.begin(), brushTiles.end(), rng);
-        while (static_cast<int>(brushTiles.size()) > maxBrush) {
-            terrain[brushTiles.back()] = TerrainType::Floor;
-            brushTiles.pop_back();
+        std::shuffle(boundedTiles.begin(), boundedTiles.end(), rng);
+        while (static_cast<int>(boundedTiles.size()) > maximum) {
+            terrain[boundedTiles.back()] = TerrainType::Floor;
+            boundedTiles.pop_back();
         }
         for (GridPos pos : candidates) {
-            if (static_cast<int>(brushTiles.size()) >= minBrush) break;
+            if (static_cast<int>(boundedTiles.size()) >= minimum) break;
             std::size_t index = static_cast<std::size_t>(pos.row * kGridCols + pos.col);
             if (terrain[index] == TerrainType::Floor) {
-                terrain[index] = TerrainType::Brush;
-                brushTiles.push_back(index);
+                terrain[index] = boundedTerrain;
+                boundedTiles.push_back(index);
             }
         }
     }
-    if (!hasRouteAcross(terrain)) {
+    if (profile.ensureHorizontalRoute && !hasRouteAcross(terrain)) {
         for (TerrainType& tile : terrain) {
             if (tile == TerrainType::Barrier) tile = TerrainType::Rubble;
         }
@@ -446,8 +418,10 @@ BattleState createScenarioBattle(const GameData& data, const StageDescriptor& st
 BattleState createScenarioContinuationBattle(const GameData& data,
                                                const std::vector<Unit>& survivingPlayers,
                                                const StageDescriptor& stage,
-                                               std::uint32_t seed) {
-    return assembleScenario(data, &survivingPlayers, stage, seed);
+                                               std::uint32_t seed,
+                                               ExplorationOutcome outcome,
+                                               const std::vector<GridPos>* customPlayerPositions) {
+    return assembleScenario(data, &survivingPlayers, stage, seed, outcome, customPlayerPositions);
 }
 
 std::vector<Unit> previewEnemies(const GameData& data, const StageDescriptor& stage, std::uint32_t seed,

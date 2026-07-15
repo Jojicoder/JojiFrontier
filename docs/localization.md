@@ -163,6 +163,26 @@ data/locales/en.json
 疑問文の単独`?`は許可するが、代替Glyphとして現れる`?`と連続`??`は許可しない。Debugでは欠落Keyを
 目立つ専用表示にし、Releaseビルドは検証失敗時に作成しない。
 
+## 新規表示文を追加するときのチェックリスト
+
+Text Key移行が完了するまでの間、新しい兵種・素材・Discovery・地域・武器などを追加した際に
+`？？`(Glyph欠落によるTofu)や英日混在を再発させないための暫定チェックリスト。
+
+1. 新しい内部ID(兵種、素材、Discovery、武器など)を追加したら、対応する`pick(en, ja)`または
+   Lookup Tableのエントリを**必ず同じコミットで**追加する。片方だけ追加して終わらせない。
+2. 日本語表示文は`src/main.cpp`の`loadAppFont()`内`charsetSource`へ**必ず**追加する。追加を
+   忘れるとFontのGlyph Atlasに含まれず、実行時に無言でTofu/`？？`になる。追加箇所は主に次の3つ:
+   - 兵種enumのループ(`toString`/`classNameFor`/`classRoleFor`用、2箇所)
+   - `materialNameFor`の対象ID列挙
+   - 地域・地点固有の文字列(`missionNameJa`など)は文字列リテラルへ直接追記
+3. 同じ日本語文字列を、意味の異なる別の内部ID(例: 地域の違う討伐対象の素材)へ使い回さない。
+   IDごとに固有の表示名を用意する。`kAshveilFangMaterial`(沈黙した監視所群の素材)と
+   `kAshenhornFangMaterial`(灰枝の森・灰角大猪の素材)を誤って同じ「灰角の大牙」に割り当てていた
+   バグが実例(`materialNameFor`で修正済み)。
+4. `unitDisplayNameFor`のような、データ層が渡す英語表示名(`enemyRoster`の名前欄など)を翻訳する
+   Lookup Tableにも、新しい敵種を追加したら必ずエントリを足す。戦場ユニット名ラベルはここを経由する。
+5. 追加後は日本語モードで実際に画面を確認する(ビルドが通ることは`？？`が出ないことの証明にならない)。
+
 ## 移行順
 
 1. Locale loader、Formatter、言語設定を作る

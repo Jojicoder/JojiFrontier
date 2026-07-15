@@ -24,7 +24,10 @@ const Unit* unitAtTile(const std::vector<Unit>& units, GridPos pos, const Unit* 
 bool isStoppedByZoneOfControl(const std::vector<Unit>& units, const Unit& mover, GridPos pos) {
     for (const Unit& unit : units) {
         if (!unit.isAlive() || unit.team == mover.team || !hasZoneOfControl(unit.unitClass)) continue;
-        if (manhattanDistance(unit.position, pos) == 1) return true;
+        // 古参守備兵`extended_lockdown` (docs/initial_skill_effects.md):
+        // extends this unit's own ZoC from range 1 to range 2.
+        const int range = unit.zocRangeExtended ? 2 : 1;
+        if (manhattanDistance(unit.position, pos) <= range) return true;
     }
     return false;
 }

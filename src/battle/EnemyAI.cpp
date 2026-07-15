@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <climits>
+#include <cstdlib>
 
 #include "jf/battle/CombatResolver.hpp"
 #include "jf/battle/Movement.hpp"
@@ -73,21 +74,9 @@ Unit* attackIfPossible(BattleState& battle, Unit& enemy, Unit* preferredTarget) 
     return nullptr;
 }
 
-// docs/regions/ashbough_forest.md "狼AI". Wolves share one target priority
-// (isolated ally > lowest HP > nearest > UnitId order) and only commit to an
-// attack once 2+ of them can converge on it - a lone wolf holds back instead
-// of walking into a player's threat range. All comparisons are positional/
-// stat-based with a stable UnitId tiebreak, so the same board state always
-// produces the same decision.
-int adjacentAllyCount(const BattleState& battle, const Unit& player) {
-    int count = 0;
-    for (const Unit& u : battle.units()) {
-        if (&u == &player || u.team != Team::Player || !u.isAlive()) continue;
-        if (manhattanDistance(u.position, player.position) == 1) ++count;
-    }
-    return count;
-}
-
+// docs/regions/ashbough_forest.md "狼AI". Wolves use ordinary move-then-
+// attack behavior and focus the living player with the lowest current HP.
+// Distance and UnitId provide deterministic tie breaks.
 Unit* chooseWolfTarget(BattleState& battle, const Unit& wolf) {
     std::vector<Unit*> players;
     for (Unit& u : battle.units()) {
@@ -95,9 +84,6 @@ Unit* chooseWolfTarget(BattleState& battle, const Unit& wolf) {
     }
     if (players.empty()) return nullptr;
     std::stable_sort(players.begin(), players.end(), [&](Unit* a, Unit* b) {
-        int adjA = adjacentAllyCount(battle, *a);
-        int adjB = adjacentAllyCount(battle, *b);
-        if (adjA != adjB) return adjA < adjB; // fewer nearby allies = more isolated = higher priority
         if (a->currentHp != b->currentHp) return a->currentHp < b->currentHp;
         int distA = manhattanDistance(wolf.position, a->position);
         int distB = manhattanDistance(wolf.position, b->position);
@@ -107,73 +93,15 @@ Unit* chooseWolfTarget(BattleState& battle, const Unit& wolf) {
     return players.front();
 }
 
-bool canReachAttackRange(BattleState& battle, Unit& wolf, const Unit& target) {
-    int distNow = manhattanDistance(wolf.position, target.position);
-    if (distNow >= wolf.minimumAttackRange() && distNow <= wolf.weapon.maxRange) return true;
-    if (wolf.hasActed) return false; // already committed to its final position this phase
-    for (GridPos tile : computeReachableTiles(battle, wolf)) {
-        int dist = manhattanDistance(tile, target.position);
-        if (dist >= wolf.minimumAttackRange() && dist <= wolf.weapon.maxRange) return true;
-    }
-    return false;
-}
-
-int wolvesAbleToReach(BattleState& battle, const Unit& target) {
-    int count = 0;
-    for (Unit& u : battle.units()) {
-        if (u.team == Team::Enemy && u.unitClass == UnitClass::Wolf && u.isAlive() &&
-            canReachAttackRange(battle, u, target)) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-bool tileThreatenedByAnyPlayer(const BattleState& battle, GridPos tile) {
-    for (const Unit& u : battle.units()) {
-        if (u.team != Team::Player || !u.isAlive()) continue;
-        int dist = manhattanDistance(u.position, tile);
-        if (dist >= u.minimumAttackRange() && dist <= u.weapon.maxRange) return true;
-    }
-    return false;
-}
-
 Unit* takeWolfPackTurn(BattleState& battle, Unit& wolf) {
     Unit* target = chooseWolfTarget(battle, wolf);
     if (!target) {
-        finishEnemyAction(battle, wolf, ActionKind::Wait);
+        // No living player remains. Outcome evaluation will end the battle;
+        // wolves never use a gameplay wait decision.
+        finishEnemyAction(battle, wolf, ActionKind::Move);
         return nullptr;
     }
 
-    if (wolvesAbleToReach(battle, *target) >= 2) {
-        // Pack is ready: behave like a normal attacker (move-then-attack).
-        const AliveSnapshot aliveBeforeAttack = captureAliveSnapshot(battle);
-        if (Unit* attacked = attackIfPossible(battle, wolf, target)) {
-            emitUnitDefeatedEvents(battle, aliveBeforeAttack);
-            finishEnemyAction(battle, wolf, ActionKind::Attack);
-            return attacked;
-        }
-        std::vector<GridPos> reachable = computeReachableTiles(battle, wolf);
-        GridPos bestTile = wolf.position;
-        int bestDist = manhattanDistance(wolf.position, target->position);
-        for (GridPos tile : reachable) {
-            int dist = manhattanDistance(tile, target->position);
-            if (dist < bestDist) {
-                bestDist = dist;
-                bestTile = tile;
-            }
-        }
-        battle.moveUnit(wolf, bestTile);
-        Unit* attacked = attackIfPossible(battle, wolf, target);
-        if (attacked) emitUnitDefeatedEvents(battle, aliveBeforeAttack);
-        finishEnemyAction(battle, wolf, attacked ? ActionKind::Attack : ActionKind::Move);
-        return attacked;
-    }
-
-    // A lone wolf avoids entering a new threat area, but it does not become
-    // harmless once a player is already adjacent. In that case it bites and
-    // then remains exposed, preserving the cautious identity without giving
-    // the player a free adjacent enemy.
     const AliveSnapshot aliveBeforeAttack = captureAliveSnapshot(battle);
     if (Unit* attacked = attackIfPossible(battle, wolf, target)) {
         emitUnitDefeatedEvents(battle, aliveBeforeAttack);
@@ -181,22 +109,34 @@ Unit* takeWolfPackTurn(BattleState& battle, Unit& wolf) {
         return attacked;
     }
 
-    // Alone and out of range: advance without stepping into a player's
-    // current threat range.
+    // Every wolf closes on the pack's preferred target. Reaching attack
+    // range this turn outranks merely reducing distance, so terrain or an
+    // awkward formation cannot leave the pack waiting indefinitely.
     std::vector<GridPos> reachable = computeReachableTiles(battle, wolf);
     GridPos bestTile = wolf.position;
-    int bestDist = manhattanDistance(wolf.position, target->position);
+    int bestDist = std::numeric_limits<int>::max();
+    bool foundMove = false;
+    bool bestCanAttack = false;
     for (GridPos tile : reachable) {
-        if (tileThreatenedByAnyPlayer(battle, tile)) continue;
+        if (tile == wolf.position) continue;
         int dist = manhattanDistance(tile, target->position);
-        if (dist < bestDist) {
+        const bool attacksFromTile = dist >= wolf.minimumAttackRange() && dist <= wolf.weapon.maxRange;
+        const bool stableTieBreak = tile.row < bestTile.row ||
+                                    (tile.row == bestTile.row && tile.col < bestTile.col);
+        if (!foundMove || (attacksFromTile && !bestCanAttack) ||
+            (attacksFromTile == bestCanAttack &&
+             (dist < bestDist || (dist == bestDist && stableTieBreak)))) {
+            foundMove = true;
+            bestCanAttack = attacksFromTile;
             bestDist = dist;
             bestTile = tile;
         }
     }
-    battle.moveUnit(wolf, bestTile);
-    finishEnemyAction(battle, wolf, ActionKind::Move);
-    return nullptr;
+    if (foundMove) battle.moveUnit(wolf, bestTile);
+    Unit* attacked = attackIfPossible(battle, wolf, target);
+    if (attacked) emitUnitDefeatedEvents(battle, aliveBeforeAttack);
+    finishEnemyAction(battle, wolf, attacked ? ActionKind::Attack : ActionKind::Move);
+    return attacked;
 }
 
 // docs/regions/ashbough_forest.md "灰角大猪"/"行動優先順位". Values from the
@@ -205,7 +145,7 @@ Unit* takeWolfPackTurn(BattleState& battle, Unit& wolf) {
 // never touches RES and this boss's collision stun needs both.
 constexpr int kBoarChargeRangeNormal = 3;
 constexpr int kBoarChargeRangeEnraged = 4;
-constexpr int kBoarChargePowerBonus = 50;
+constexpr int kBoarChargePowerBonus = 10;
 constexpr int kBoarSweepPowerBonus = 2;
 constexpr int kBoarEnragedStrength = 11;
 constexpr int kBoarBaseDefense = 5;
@@ -229,19 +169,42 @@ std::vector<Unit*> boarSweepTargets(BattleState& battle, const Unit& boar) {
     return targets;
 }
 
-// A charge target exists if a living ally sits on the boar's own row,
-// toward the player side (lower column), within `range` tiles.
-bool boarChargeTargetAvailable(BattleState& battle, const Unit& boar, int range) {
-    for (const Unit& u : battle.units()) {
-        if (u.team != Team::Player || !u.isAlive() || u.position.row != boar.position.row) continue;
-        int dist = boar.position.col - u.position.col;
-        if (dist > 0 && dist <= range) return true;
+Unit* performBoarSweep(BattleState& battle, Unit& boar) {
+    std::vector<Unit*> targets = boarSweepTargets(battle, boar);
+    if (targets.empty()) return nullptr;
+    const int power = boar.stats.strength + kBoarSweepPowerBonus;
+    const AliveSnapshot aliveBefore = captureAliveSnapshot(battle);
+    for (Unit* target : targets) {
+        const int damage = std::max(power - target->effectiveDefense(), 1);
+        target->currentHp = std::max(target->currentHp - damage, 0);
     }
-    return false;
+    emitUnitDefeatedEvents(battle, aliveBefore);
+    return targets.front();
+}
+
+// Returns the direction of the best charge target on the boar's row. A
+// charge can travel either left or right; lowest HP, then nearest, then ID
+// keeps the choice aggressive and deterministic.
+int boarChargeDirectionForTarget(BattleState& battle, const Unit& boar, int range) {
+    const Unit* best = nullptr;
+    int bestDistance = range + 1;
+    for (const Unit& unit : battle.units()) {
+        if (unit.team != Team::Player || !unit.isAlive() || unit.position.row != boar.position.row) continue;
+        const int distance = std::abs(unit.position.col - boar.position.col);
+        if (distance == 0 || distance > range) continue;
+        if (!best || unit.currentHp < best->currentHp ||
+            (unit.currentHp == best->currentHp && distance < bestDistance) ||
+            (unit.currentHp == best->currentHp && distance == bestDistance && unit.id < best->id)) {
+            best = &unit;
+            bestDistance = distance;
+        }
+    }
+    if (!best) return 0;
+    return best->position.col < boar.position.col ? -1 : 1;
 }
 
 // Executes a telegraphed charge along the boar's current row: advances up
-// to `range` tiles toward decreasing column, damaging (STR+4-DEF, doesn't
+// to `range` tiles in the direction locked during telegraphing, damaging
 // stop for) every player unit it passes over, and stopping the instant it
 // reaches a movement-blocking Battle Object (a fallen log) or the board
 // edge. A log collision destroys the log, applies the DEF2/RES0 stun (one
@@ -250,12 +213,13 @@ void executeBoarCharge(BattleState& battle, Unit& boar) {
     const int range = boar.bossEnraged ? kBoarChargeRangeEnraged : kBoarChargeRangeNormal;
     const int power = boar.stats.strength + kBoarChargePowerBonus;
     const int row = boar.position.row;
+    const int direction = boar.chargeDirection < 0 ? -1 : 1;
     int endCol = boar.position.col;
     bool collided = false;
 
     for (int step = 1; step <= range; ++step) {
-        int col = boar.position.col - step;
-        if (col < 0) break; // board edge: stop at the last valid tile from the previous iteration
+        int col = boar.position.col + direction * step;
+        if (col < 0 || col >= kGridCols) break;
         GridPos pos{row, col};
         endCol = col;
 
@@ -278,6 +242,9 @@ void executeBoarCharge(BattleState& battle, Unit& boar) {
 
     boar.position = GridPos{row, endCol};
     boar.chargeTelegraphed = false;
+    boar.chargeDirection = -1;
+    boar.chargeCooldownActions = 1;
+    ++boar.chargesExecuted;
     if (collided) {
         boar.bossStunnedNextEnemyPhase = true;
         boar.bossWeakenedFromStun = true;
@@ -302,6 +269,12 @@ Unit* takeBoarBossTurn(BattleState& battle, Unit& boar) {
         boar.stats.resistance = kBoarBaseResistance;
     }
 
+    // A bidirectional charge could otherwise bounce across the board every
+    // other action forever. One intervening action must use sweep, a normal
+    // attack, or movement; it never becomes a free wait.
+    const bool chargeOnCooldown = boar.chargeCooldownActions > 0 || boar.chargesExecuted >= 2;
+    if (chargeOnCooldown) --boar.chargeCooldownActions;
+
     // 2. Enrage is an instant, non-turn-consuming state update, checked
     // first so it can influence this same turn's decision.
     if (!boar.bossEnraged && boar.currentHp * 2 <= boar.stats.maxHp) {
@@ -321,30 +294,26 @@ Unit* takeBoarBossTurn(BattleState& battle, Unit& boar) {
     // still makes this substantially worse because every occupant is hit,
     // but leaving exactly one unit in front of the boss is no longer a safe
     // state where the boar silently gives up its attack.
-    std::vector<Unit*> sweepTargets = boarSweepTargets(battle, boar);
-    if (!sweepTargets.empty()) {
-        const int power = boar.stats.strength + kBoarSweepPowerBonus;
-        const AliveSnapshot aliveBefore = captureAliveSnapshot(battle);
-        for (Unit* target : sweepTargets) {
-            int damage = std::max(power - target->effectiveDefense(), 1);
-            target->currentHp = std::max(target->currentHp - damage, 0);
-        }
-        emitUnitDefeatedEvents(battle, aliveBefore);
+    if (Unit* swept = performBoarSweep(battle, boar)) {
         finishEnemyAction(battle, boar, ActionKind::Attack);
-        return sweepTargets.front();
+        return swept;
     }
 
     // 5. Telegraph a charge if a target is reachable along the current row.
-    if (boarChargeTargetAvailable(battle, boar, range)) {
+    if (!chargeOnCooldown) {
+        const int direction = boarChargeDirectionForTarget(battle, boar, range);
+        if (direction != 0) {
         boar.chargeTelegraphed = true;
-        finishEnemyAction(battle, boar, ActionKind::Wait);
+        boar.chargeDirection = direction;
+        finishEnemyAction(battle, boar, ActionKind::Skill);
         return nullptr;
+        }
     }
 
     // Enraged behavior never falls back to an ordinary move. Reposition to
     // a reachable tile on a living player's row, then lock that row for the
     // next charge. This move+telegraph still consumes only this one action.
-    if (boar.bossEnraged) {
+    if (boar.bossEnraged && !chargeOnCooldown) {
         std::vector<GridPos> reachable = computeReachableTiles(battle, boar);
         GridPos bestTile = boar.position;
         int bestScore = std::numeric_limits<int>::max();
@@ -362,26 +331,58 @@ Unit* takeBoarBossTurn(BattleState& battle, Unit& boar) {
         }
         if (bestTile != boar.position) battle.moveUnit(boar, bestTile);
         boar.chargeTelegraphed = true;
-        finishEnemyAction(battle, boar, ActionKind::Wait);
+        boar.chargeDirection = boarChargeDirectionForTarget(battle, boar, range);
+        if (boar.chargeDirection == 0) boar.chargeDirection = -1;
+        finishEnemyAction(battle, boar, ActionKind::Skill);
         return nullptr;
     }
 
-    // 6. Otherwise, close the distance with ordinary movement.
+    // 6. Otherwise, close the distance, then immediately re-evaluate every
+    // offensive option. A normal turn never ends after movement alone when
+    // an attack or charge telegraph is available from the new tile.
     Unit* target = findNearestPlayer(battle, boar);
+    bool moved = false;
     if (target) {
         std::vector<GridPos> reachable = computeReachableTiles(battle, boar);
         GridPos bestTile = boar.position;
         int bestDist = manhattanDistance(boar.position, target->position);
+        bool bestEnablesCharge = !chargeOnCooldown &&
+                                 boarChargeDirectionForTarget(battle, boar, range) != 0;
         for (const GridPos& tile : reachable) {
             int dist = manhattanDistance(tile, target->position);
-            if (dist < bestDist) {
+            const int chargeDistance = std::abs(tile.col - target->position.col);
+            const bool enablesCharge = !chargeOnCooldown && tile.row == target->position.row &&
+                                       chargeDistance > 0 && chargeDistance <= range;
+            if ((enablesCharge && !bestEnablesCharge) ||
+                (enablesCharge == bestEnablesCharge && dist < bestDist)) {
+                bestEnablesCharge = enablesCharge;
                 bestDist = dist;
                 bestTile = tile;
             }
         }
-        battle.moveUnit(boar, bestTile);
+        if (bestTile != boar.position) moved = battle.moveUnit(boar, bestTile);
     }
-    finishEnemyAction(battle, boar, ActionKind::Move);
+
+    if (Unit* swept = performBoarSweep(battle, boar)) {
+        finishEnemyAction(battle, boar, ActionKind::Attack);
+        return swept;
+    }
+    if (!chargeOnCooldown) {
+        const int direction = boarChargeDirectionForTarget(battle, boar, range);
+        if (direction != 0) {
+        boar.chargeTelegraphed = true;
+        boar.chargeDirection = direction;
+        finishEnemyAction(battle, boar, ActionKind::Skill);
+        return nullptr;
+        }
+    }
+    const AliveSnapshot aliveBeforeAttack = captureAliveSnapshot(battle);
+    if (Unit* attacked = attackIfPossible(battle, boar, target)) {
+        emitUnitDefeatedEvents(battle, aliveBeforeAttack);
+        finishEnemyAction(battle, boar, ActionKind::Attack);
+        return attacked;
+    }
+    finishEnemyAction(battle, boar, moved ? ActionKind::Move : ActionKind::Wait);
     return nullptr;
 }
 

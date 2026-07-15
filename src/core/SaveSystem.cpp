@@ -95,6 +95,34 @@ std::unordered_map<std::string, SiteAccessState> siteAccessMapFromJson(const jso
     return result;
 }
 
+// Same "raw enum int, same order as ItemType's declaration" convention
+// already used by expeditionToJson()'s bag array below - ItemType has no
+// string-id table of its own (unlike RegionId/SiteAccessState, which are
+// permanent enough to need a strict-parse string form).
+json itemStorageToJson(const std::unordered_map<ItemType, int>& itemStorage) {
+    json result = json::array();
+    for (const auto& [type, count] : itemStorage) {
+        if (count <= 0) continue;
+        result.push_back({{"type", static_cast<int>(type)}, {"count", count}});
+    }
+    return result;
+}
+
+std::unordered_map<ItemType, int> itemStorageFromJson(const json& value) {
+    std::unordered_map<ItemType, int> result;
+    if (!value.is_array()) return result;
+    for (const json& entry : value) {
+        if (!entry.is_object() || !entry.contains("type") || !entry.contains("count")) continue;
+        int rawType = entry.at("type").get<int>();
+        int count = entry.at("count").get<int>();
+        if (rawType < static_cast<int>(ItemType::FirstAidKit) || rawType > static_cast<int>(ItemType::ReturnFlare) ||
+            count <= 0)
+            continue;
+        result[static_cast<ItemType>(rawType)] = count;
+    }
+    return result;
+}
+
 json pendingSiteAccessToJson(const std::vector<std::pair<std::string, SiteAccessState>>& updates) {
     json result = json::array();
     for (const auto& [key, state] : updates) result.push_back({{"key", key}, {"state", static_cast<int>(state)}});
@@ -264,6 +292,7 @@ std::string serializeSave(const SaveData& save) {
             {"builtNodes", save.base.builtNodeIds},
             {"siteAccess", siteAccessMapToJson(save.base.siteAccess)},
             {"completedRegions", completedRegions},
+            {"itemStorage", itemStorageToJson(save.base.itemStorage)},
         }},
         {"selectedPartyIds", save.selectedPartyIds},
         {"weaponOverrides", classMapToJson(save.weaponOverrides)},
@@ -318,6 +347,7 @@ std::optional<SaveData> deserializeSave(const std::string& jsonText, std::string
         if (base.contains("unlockedNodes")) save.base.unlockedNodeIds = base["unlockedNodes"].get<std::unordered_set<std::string>>();
         if (base.contains("builtNodes")) save.base.builtNodeIds = base["builtNodes"].get<std::unordered_set<std::string>>();
         if (base.contains("siteAccess")) save.base.siteAccess = siteAccessMapFromJson(base["siteAccess"]);
+        if (base.contains("itemStorage")) save.base.itemStorage = itemStorageFromJson(base["itemStorage"]);
         if (base.contains("completedRegions")) {
             if (!base["completedRegions"].is_array()) throw std::runtime_error("Invalid completedRegions");
             for (const json& entry : base["completedRegions"]) {

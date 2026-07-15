@@ -22,5 +22,6 @@ bool hasZoneOfControl(UnitClass unitClass) { return unitClass == UnitClass::Vete
 bool ignoresAshPenalty(UnitClass unitClass) { return unitClass == UnitClass::FrontierScout; }
 bool hasBrace(UnitClass unitClass) { return unitClass == UnitClass::Spearman; }
 bool canHeal(UnitClass unitClass) { return unitClass == UnitClass::DawnChirurgeon; }
+int passiveEvasionBonus(UnitClass unitClass) { return unitClass == UnitClass::FrontierScout ? 10 : 0; }
 
 } // namespace jf

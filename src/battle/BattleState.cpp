@@ -35,7 +35,9 @@ int BattleState::combatDefenseBonus(const Unit& defender, const Unit& attacker) 
 }
 
 int BattleState::combatHitChance(const Unit& defender) const {
-    return std::clamp(100 - evasionBonus(terrainAt(defender.position)), 0, 100);
+    const int totalEvasion = evasionBonus(terrainAt(defender.position)) +
+                             passiveEvasionBonus(defender.unitClass);
+    return std::clamp(100 - totalEvasion, 0, 100);
 }
 
 bool BattleState::rollAttackHit(const Unit& defender) {

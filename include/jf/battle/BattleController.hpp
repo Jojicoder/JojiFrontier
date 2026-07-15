@@ -8,6 +8,7 @@
 #include "jf/battle/BattleState.hpp"
 #include "jf/battle/CombatResolver.hpp"
 #include "jf/battle/ObjectiveTracker.hpp"
+#include "jf/battle/SkillCharges.hpp"
 #include "jf/core/Grid.hpp"
 
 namespace jf {
@@ -20,6 +21,7 @@ enum class BattleInputState {
     SelectHealTarget,
     SelectItemTarget,
     SelectBoardTarget,
+    SelectSkillTarget,
     ConfirmAttack,
     EnemyTurn,
     Victory,
@@ -53,6 +55,12 @@ public:
     const std::vector<GridPos>& healableTiles() const { return healableTiles_; }
     const std::vector<GridPos>& itemTargetTiles() const { return itemTargetTiles_; }
     const std::vector<GridPos>& boardTargetTiles() const { return boardTargetTiles_; }
+    const std::vector<GridPos>& skillTargetTiles() const { return skillTargetTiles_; }
+    // docs/skill_system.md "使用不能スキルは非表示にせず、理由付きで無効表示":
+    // both equip slots' current availability, straight from SkillCharges'
+    // charge/cooldown bookkeeping (doesn't know about "already acted this
+    // turn" - callers combine that with inputState() themselves).
+    std::vector<SkillAvailability> selectedUnitSkills() const;
 
     std::optional<CombatPreview> pendingPreview() const;
 
@@ -82,6 +90,15 @@ public:
     bool selectHealingItemTarget(GridPos pos);
     void chooseProtectiveBoard();
     bool selectBoardTarget(GridPos pos);
+    // docs/implementation_roadmap.md M4 item 1 "Skill Effect Executor": the
+    // first equipped-skill executor slice. Only 暁の衛生兵's
+    // `emergency_treatment` (docs/initial_skill_effects.md) actually has an
+    // effect implemented so far - chooseSkill() no-ops for any other skill
+    // id, same as chooseHeal()/chooseAttack() no-op when nothing's
+    // targetable. The other 17 skills are deliberately not attempted in this
+    // slice; see the roadmap for what's deferred and why.
+    void chooseSkill(int slotIndex);
+    bool selectSkillTarget(GridPos pos);
     void chooseWait();
     void endPlayerTurn();
     void selectTargetTile(GridPos pos);
@@ -116,6 +133,8 @@ private:
     std::vector<GridPos> healableTiles_;
     std::vector<GridPos> itemTargetTiles_;
     std::vector<GridPos> boardTargetTiles_;
+    std::vector<GridPos> skillTargetTiles_;
+    int pendingSkillSlot_ = -1;
 
     float enemyActionTimer_ = 0.0f;
     int pendingHealingItemAmount_ = 0;

@@ -254,6 +254,32 @@ std::optional<std::string> GameApp::nextMissionNameJa() const {
     return std::nullopt;
 }
 
+std::optional<std::vector<std::string>> GameApp::nextSiteEnemyRosterNames() const {
+    std::optional<std::string> nextStageId;
+    if (!expedition_.routeProgress) {
+        RegionDescriptor region = currentRegion();
+        std::size_t next = static_cast<std::size_t>(expedition_.stageIndex + 1);
+        if (next >= region.stages.size()) return std::nullopt;
+        nextStageId = region.stages[next].id;
+    } else {
+        const RegionRouteGraph& graph = regionRouteGraph(expedition_.regionId);
+        const RouteNodeDefinition* node = nextRouteNode(graph, expedition_.routeProgress->currentNodeId);
+        while (node && node->kind != RouteNodeKind::Site) {
+            if (node->kind == RouteNodeKind::Exit) return std::nullopt;
+            node = nextRouteNode(graph, node->id);
+        }
+        if (!node || !node->stageId) return std::nullopt;
+        nextStageId = *node->stageId;
+    }
+    for (const StageDescriptor& stage : currentRegion().stages) {
+        if (stage.id != *nextStageId) continue;
+        std::vector<std::string> names;
+        for (const UnitTemplate& enemy : stage.enemyRoster) names.push_back(enemy.name);
+        return names;
+    }
+    return std::nullopt;
+}
+
 void GameApp::syncPartySnapshotFromBattle() {
     if ((screen_ != Screen::Battle && screen_ != Screen::Camp) || !battleController_) return;
     std::vector<Unit> party;
@@ -334,14 +360,30 @@ bool GameApp::togglePartyMember(const std::string& unitId) {
     return true;
 }
 
+bool GameApp::craftItem(ItemType type) {
+    if (screen_ != Screen::Base) return false;
+    const std::vector<ItemCraftCost> cost = itemCraftCost(type);
+    for (const ItemCraftCost& line : cost)
+        if (baseState_.storageCount(line.materialId) < line.quantity) return false;
+    for (const ItemCraftCost& line : cost) baseState_.consumeStorage(line.materialId, line.quantity);
+    baseState_.addItemStorage(type, 1);
+    markPersistentStateChanged();
+    return true;
+}
+
 bool GameApp::addPreparedItem(ItemType item) {
     if (screen_ != Screen::Base || preparedBag_.size() >= ExpeditionState::kBagCapacity) return false;
+    if (!baseState_.consumeItemStorage(item, 1)) return false;
     preparedBag_.push_back(item);
+    markPersistentStateChanged();
     return true;
 }
 
 void GameApp::removePreparedItem(std::size_t index) {
-    if (screen_ == Screen::Base && index < preparedBag_.size()) preparedBag_.erase(preparedBag_.begin() + index);
+    if (screen_ != Screen::Base || index >= preparedBag_.size()) return;
+    baseState_.addItemStorage(preparedBag_[index], 1);
+    preparedBag_.erase(preparedBag_.begin() + index);
+    markPersistentStateChanged();
 }
 
 std::vector<GameApp::RegionSummary> GameApp::regionSummaries() const {
@@ -542,11 +584,14 @@ bool GameApp::chooseExplorationRoute(ExplorationChoice choice) {
     ExplorationOutcome outcome = stageRouteOutcome(stage, choice);
     if (outcome.enableFreeDeployment) {
         deploymentOutcome_ = outcome;
-        deploymentTerrain_ = generateFieldTerrain(stage.fieldType, expeditionSeed_);
+        deploymentTerrain_ = generateFieldTerrain(activeExpeditionData_.terrainProfile(stage.terrainProfileId),
+                                                  expeditionSeed_);
         deploymentPlayers_.clear();
-        for (const UnitTemplate& unitTemplate : activeExpeditionData_.playerParty) {
-            deploymentPlayers_.push_back(
-                instantiateUnit(activeExpeditionData_, unitTemplate, Team::Player, GridPos{0, 0}));
+        for (const Unit& snapshot : expeditionPartyUnits_) {
+            if (snapshot.team != Team::Player || !snapshot.isAlive()) continue;
+            Unit unit = snapshot;
+            unit.position = {0, 0};
+            deploymentPlayers_.push_back(std::move(unit));
         }
         deploymentPlaced_.assign(deploymentPlayers_.size(), false);
         deploymentEnemyPreview_ = previewEnemies(activeExpeditionData_, stage, expeditionSeed_, outcome);
@@ -558,8 +603,8 @@ bool GameApp::chooseExplorationRoute(ExplorationChoice choice) {
         return true;
     }
 
-    battleController_ = std::make_unique<BattleController>(
-        createScenarioBattle(activeExpeditionData_, stage, expeditionSeed_, outcome, nullptr, &weaponOverrides_));
+    battleController_ = std::make_unique<BattleController>(createScenarioContinuationBattle(
+        activeExpeditionData_, expeditionPartyUnits_, stage, expeditionSeed_, outcome));
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
     screen_ = Screen::Battle;
@@ -591,8 +636,8 @@ bool GameApp::confirmDeployment() {
     if (screen_ != Screen::PreBattleDeployment || !allDeploymentUnitsPlaced()) return false;
     std::vector<GridPos> positions;
     for (const Unit& unit : deploymentPlayers_) positions.push_back(unit.position);
-    battleController_ = std::make_unique<BattleController>(createScenarioBattle(
-        activeExpeditionData_, currentStage(), expeditionSeed_, deploymentOutcome_, &positions, &weaponOverrides_));
+    battleController_ = std::make_unique<BattleController>(createScenarioContinuationBattle(
+        activeExpeditionData_, expeditionPartyUnits_, currentStage(), expeditionSeed_, deploymentOutcome_, &positions));
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
     screen_ = Screen::Battle;
@@ -958,6 +1003,13 @@ bool GameApp::applySaveData(const SaveData& save) {
 }
 
 void GameApp::resetToBase() {
+    // docs/item_system.md "未使用消耗品は帰還・敗北のどちらでも倉庫へ戻る。
+    // 使用済み消耗品は敗北しても戻らない。" - expedition_.bag only ever holds
+    // what hasn't been consumed yet (useCampItem/useBattleHealingItem/etc.
+    // remove consumed items via ExpeditionState::consume()), so whatever
+    // remains here at the end of ANY exit path (safe return, defeat, or a
+    // harsh retireExpedition()) goes back to owned storage unconditionally.
+    for (ItemType item : expedition_.bag) baseState_.addItemStorage(item, 1);
     expedition_ = ExpeditionState{};
     stageDiscoveryAwarded_ = {};
     expeditionPartyUnits_.clear();

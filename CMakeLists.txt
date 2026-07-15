@@ -61,6 +61,7 @@ include(CTest)
 if(BUILD_TESTING)
     add_executable(jf_battle_tests tests/test_battle.cpp)
     target_link_libraries(jf_battle_tests PRIVATE jf_lib)
+    target_compile_definitions(jf_battle_tests PRIVATE JF_SOURCE_DATA_DIR="${CMAKE_SOURCE_DIR}/data")
     add_test(NAME jf_battle_tests COMMAND jf_battle_tests)
     # The default build type (RelWithDebInfo, see above) defines NDEBUG,
     # which compiles every assert() in test_battle.cpp into a no-op -
@@ -76,6 +77,9 @@ if(BUILD_TESTING)
 
     add_executable(jf_forest_balance tools/forest_balance.cpp)
     target_link_libraries(jf_forest_balance PRIVATE jf_lib)
+
+    add_executable(jf_class_duel tools/class_duel.cpp)
+    target_link_libraries(jf_class_duel PRIVATE jf_lib)
 endif()
 
 if(APPLE AND NOT EMSCRIPTEN)

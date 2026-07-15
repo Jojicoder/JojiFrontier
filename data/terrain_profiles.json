@@ -1,0 +1,91 @@
+{
+  "terrainProfiles": [
+    {
+      "id": "cinderwatch_outpost",
+      "generationVersion": 1,
+      "seedSalt": 0,
+      "weights": [
+        { "terrain": "Rubble", "weight": 24 },
+        { "terrain": "WatchPost", "weight": 10 },
+        { "terrain": "Ash", "weight": 8 },
+        { "terrain": "Barrier", "weight": 6 },
+        { "terrain": "Floor", "weight": 52 }
+      ],
+      "signatureTerrain": "Rubble",
+      "maxBarriersPerColumn": 1,
+      "ensureHorizontalRoute": true
+    },
+    {
+      "id": "ash_road",
+      "generationVersion": 1,
+      "seedSalt": 1,
+      "weights": [
+        { "terrain": "Ash", "weight": 38 },
+        { "terrain": "Rubble", "weight": 17 },
+        { "terrain": "WatchPost", "weight": 7 },
+        { "terrain": "Barrier", "weight": 6 },
+        { "terrain": "Floor", "weight": 32 }
+      ],
+      "signatureTerrain": "Ash",
+      "maxBarriersPerColumn": 1,
+      "ensureHorizontalRoute": true
+    },
+    {
+      "id": "signal_tower",
+      "generationVersion": 1,
+      "seedSalt": 2,
+      "weights": [
+        { "terrain": "WatchPost", "weight": 23 },
+        { "terrain": "Rubble", "weight": 20 },
+        { "terrain": "Ash", "weight": 11 },
+        { "terrain": "Barrier", "weight": 7 },
+        { "terrain": "Floor", "weight": 39 }
+      ],
+      "signatureTerrain": "WatchPost",
+      "maxBarriersPerColumn": 1,
+      "ensureHorizontalRoute": true
+    },
+    {
+      "id": "ashbough_verge",
+      "generationVersion": 1,
+      "seedSalt": 3,
+      "weights": [
+        { "terrain": "Ash", "weight": 20 },
+        { "terrain": "Brush", "weight": 15 },
+        { "terrain": "Floor", "weight": 65 }
+      ],
+      "signatureTerrain": "Brush",
+      "maxBarriersPerColumn": 0,
+      "ensureHorizontalRoute": true,
+      "countBounds": { "terrain": "Brush", "minimum": 2, "maximum": 4 }
+    },
+    {
+      "id": "herbwater_hollow",
+      "generationVersion": 1,
+      "seedSalt": 4,
+      "weights": [
+        { "terrain": "Shallows", "weight": 35 },
+        { "terrain": "Ash", "weight": 10 },
+        { "terrain": "Brush", "weight": 15 },
+        { "terrain": "Floor", "weight": 40 }
+      ],
+      "signatureTerrain": "Shallows",
+      "maxBarriersPerColumn": 0,
+      "ensureHorizontalRoute": true
+    },
+    {
+      "id": "brokenwood_territory",
+      "generationVersion": 1,
+      "seedSalt": 5,
+      "weights": [
+        { "terrain": "Ash", "weight": 25 },
+        { "terrain": "Brush", "weight": 20 },
+        { "terrain": "Floor", "weight": 55 }
+      ],
+      "signatureTerrain": "Brush",
+      "maxBarriersPerColumn": 0,
+      "ensureHorizontalRoute": true,
+      "countBounds": { "terrain": "Brush", "minimum": 2, "maximum": 7 }
+    }
+  ]
+}

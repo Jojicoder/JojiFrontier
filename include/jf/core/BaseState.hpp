@@ -6,6 +6,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include "jf/core/Item.hpp"
+
 namespace jf {
 
 // docs/implementation_roadmap.md Phase 3 "周回・地域経路の開拓" /
@@ -77,6 +79,35 @@ struct BaseState {
     // here only when its own region-level completion is committed on a safe
     // return - never inferred from SiteAccessState, and never removed.
     std::unordered_set<RegionId> completedRegionIds;
+
+    // docs/item_system.md "製作単位と倉庫上限": consumables owned but not
+    // currently packed into an expedition bag - crafted via GameApp::
+    // craftItem() (consumes storage materials), consumed into preparedBag_
+    // via GameApp::addPreparedItem(), and refunded on removePreparedItem()
+    // or whenever an expedition ends with the item still unused (see
+    // GameApp::resetToBase()). Absent key = 0 owned, not "unknown".
+    std::unordered_map<ItemType, int> itemStorage;
+
+    int ownedItemCount(ItemType type) const {
+        auto it = itemStorage.find(type);
+        return it == itemStorage.end() ? 0 : it->second;
+    }
+
+    static constexpr int kItemStorageCap = 99;
+
+    void addItemStorage(ItemType type, int quantity) {
+        if (quantity <= 0) return;
+        int& count = itemStorage[type];
+        count = std::min(count + quantity, kItemStorageCap);
+    }
+
+    bool consumeItemStorage(ItemType type, int quantity) {
+        if (quantity <= 0) return true;
+        auto it = itemStorage.find(type);
+        if (it == itemStorage.end() || it->second < quantity) return false;
+        it->second -= quantity;
+        return true;
+    }
 
     int storageCount(const LootId& id) const {
         auto it = std::find_if(storage.begin(), storage.end(), [&](const LootStack& s) { return s.id == id; });

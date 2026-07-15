@@ -1,7 +1,7 @@
 {
   "weapons": [
     { "id": "iron_sword", "name": "Iron Sword", "might": 5, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
-    { "id": "iron_lance", "name": "Iron Lance", "might": 6, "minRange": 1, "maxRange": 2, "damageType": "Physical" },
+    { "id": "iron_lance", "name": "Iron Lance", "might": 6, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
     { "id": "iron_axe",   "name": "Iron Axe",   "might": 7, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
     { "id": "watch_bow",  "name": "Watch Bow",  "might": 5, "minRange": 2, "maxRange": 3, "damageType": "Physical" },
     { "id": "scout_blade", "name": "Scout Blade", "might": 4, "minRange": 1, "maxRange": 1, "damageType": "Physical" },

@@ -7,8 +7,12 @@ namespace jf {
 int computeDamage(const Unit& attacker, const Unit& target, int terrainDefense) {
     int defenseStat = attacker.weapon.damageType == DamageType::Physical
                            ? target.effectiveDefense()
-                           : target.stats.resistance;
-    int raw = attacker.attackPower() + attacker.weapon.might - defenseStat - terrainDefense;
+                           : target.effectiveResistance();
+    // 監視弓兵`mark_target` (docs/initial_skill_effects.md): only reads the
+    // mark here (stays pure for previewAttack()'s use) - resolveAttack()
+    // clears it once a real hit actually consumes it.
+    int raw = attacker.attackPower() + attacker.weapon.might - defenseStat - terrainDefense +
+              target.markedBonusDamage;
     return std::max(raw, 1);
 }
 
@@ -29,6 +33,7 @@ void resolveAttack(const Unit& attacker, Unit& target, int terrainDefense, bool 
     if (!hit) return;
     int damage = computeDamage(attacker, target, terrainDefense);
     target.currentHp = std::max(target.currentHp - damage, 0);
+    target.markedBonusDamage = 0; // consumed by this real hit, if it was set
 }
 
 } // namespace jf

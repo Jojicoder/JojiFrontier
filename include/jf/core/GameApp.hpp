@@ -70,7 +70,16 @@ public:
     bool useCampItem(ItemType item, const std::string& unitId = {});
 
     bool togglePartyMember(const std::string& unitId);
+    // docs/item_system.md: crafts one unit of `type` from base storage
+    // materials (see itemCraftCost()) into baseState_.itemStorage, capped at
+    // BaseState::kItemStorageCap. All-or-nothing: fails without consuming
+    // anything if any single material is short.
+    bool craftItem(ItemType type);
+    // Moves one owned (baseState_.itemStorage) unit of `item` into the
+    // prepared bag - fails if none are owned or the bag is already full.
     bool addPreparedItem(ItemType item);
+    // Returns the removed item to baseState_.itemStorage (it was never
+    // consumed, just packed).
     void removePreparedItem(std::size_t index);
     // `regionId` defaults to Ashbough Forest, the only region guaranteed
     // unlocked on a new game (docs/region_unlocks.md: "新規ゲームで解放される
@@ -223,6 +232,14 @@ public:
     std::string currentMissionNameJa() const;
     bool currentSiteContentImplemented() const { return currentStage().contentImplemented; }
     std::optional<std::string> nextMissionNameJa() const;
+    // Camp screen decision-support (docs/campaign_balance.md "初見で途中帰還
+    // することを失敗扱いにせず、情報と安全路を持ち帰る正規の進行にする"): the
+    // next site's enemy roster names, gated the same way as
+    // explorationEnemyPreview() - only meaningful to show once
+    // scoutNetworkUnlocked(), so this doesn't hand out free intel beyond
+    // what that facility node already grants. std::nullopt at the region's
+    // last site (nothing ahead to preview) or if there's no next site yet.
+    std::optional<std::vector<std::string>> nextSiteEnemyRosterNames() const;
     std::uint32_t expeditionSeed() const { return expeditionSeed_; }
     SaveData createSaveData(const std::string& language) const;
     bool applySaveData(const SaveData& save);

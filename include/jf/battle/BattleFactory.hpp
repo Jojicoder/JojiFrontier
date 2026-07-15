@@ -6,26 +6,17 @@
 #include <vector>
 
 #include "jf/battle/BattleState.hpp"
-#include "jf/data/GameData.hpp"
 #include "jf/core/Exploration.hpp"
+#include "jf/core/TerrainProfile.hpp"
+#include "jf/data/GameData.hpp"
 
 namespace jf {
 
-// jf/core/Region.hpp - forward-declared only, to avoid a circular include
-// (Region.hpp needs FieldType from this header). BattleFactory.cpp includes
-// Region.hpp for the full definition.
+// jf/core/Region.hpp - forward-declared to keep the battle factory independent
+// from campaign definitions. BattleFactory.cpp includes the full definition.
 struct StageDescriptor;
 
-enum class FieldType {
-    CinderwatchOutpost,
-    AshRoad,
-    SignalTower,
-    AshboughVerge,
-    HerbwaterHollow,
-    BrokenwoodTerritory,
-};
-
-std::array<TerrainType, kGridRows * kGridCols> generateFieldTerrain(FieldType field,
+std::array<TerrainType, kGridRows * kGridCols> generateFieldTerrain(const TerrainProfile& profile,
                                                                     std::uint32_t seed);
 
 // Per-unit loadouts selected from the unit page at the base.
@@ -55,7 +46,9 @@ BattleState createScenarioBattle(const GameData& data, const StageDescriptor& st
 BattleState createScenarioContinuationBattle(const GameData& data,
                                                const std::vector<Unit>& survivingPlayers,
                                                const StageDescriptor& stage,
-                                               std::uint32_t seed);
+                                               std::uint32_t seed,
+                                               ExplorationOutcome outcome = {},
+                                               const std::vector<GridPos>* customPlayerPositions = nullptr);
 
 // Builds the enemy roster for a stage/outcome without touching player units
 // or terrain - used to show the player what they're walking into during

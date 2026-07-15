@@ -31,6 +31,22 @@ void applyDefenseDown(Unit& target) {
     target.defenseDownActive = true;
 }
 
+void applyResistanceUp(Unit& target) {
+    target.resistanceUpActive = true;
+}
+
+void applyDefenseUp(Unit& target) {
+    target.defenseUpActive = true;
+}
+
+void applyZocRangeExtension(Unit& target) {
+    target.zocRangeExtended = true;
+}
+
+void applyMoveUp(Unit& target) {
+    target.moveUpActive = true;
+}
+
 void applyStagger(Unit& target) {
     if (target.staggerImmune) return;
     target.staggerActive = true;
@@ -48,6 +64,10 @@ void clearAllStatusEffects(BattleState& battle) {
     for (Unit& unit : battle.units()) {
         clearAllStatusEffects(unit);
         unit.staggerImmune = false;
+        unit.resistanceUpActive = false;
+        unit.defenseUpActive = false;
+        unit.zocRangeExtended = false;
+        unit.moveUpActive = false;
     }
 }
 
@@ -81,6 +101,18 @@ void processPhaseEndStatusEffects(BattleState& battle, Team team) {
         unit.defenseDownActive = false;
         unit.staggerImmune = false;
     }
+}
+
+void clearSkillBuffsAtEnemyPhaseEnd(BattleState& battle) {
+    for (Unit& unit : battle.units()) {
+        unit.resistanceUpActive = false;
+        unit.defenseUpActive = false;
+        unit.zocRangeExtended = false;
+    }
+}
+
+void clearMoveUpAtPlayerPhaseEnd(BattleState& battle) {
+    for (Unit& unit : battle.units()) unit.moveUpActive = false;
 }
 
 } // namespace jf

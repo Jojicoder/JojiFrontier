@@ -1,7 +1,9 @@
 #pragma once
 
 #include <array>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace jf {
 
@@ -31,5 +33,18 @@ inline constexpr std::array<ItemDefinition, 6> kItemCatalog{{
 
 const ItemDefinition& itemDefinition(ItemType type);
 int healingAmount(ItemType type);
+
+struct ItemCraftCost {
+    std::string materialId;
+    int quantity = 1;
+};
+
+// docs/item_system.md "製作単位と倉庫上限": crafting one consumable at a time,
+// consuming materials into a permanent (per-ID, 99-cap) owned count separate
+// from the expedition bag - see BaseState::itemStorage. Recipes use only
+// Ashbough Forest's basic materials (wood/hide/herb) since these are the
+// first items a new outpost can craft; no region-locked key material is
+// spent on consumables.
+std::vector<ItemCraftCost> itemCraftCost(ItemType type);
 
 } // namespace jf

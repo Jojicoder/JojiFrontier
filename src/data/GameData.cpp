@@ -17,6 +17,10 @@ const ClassDefinition& GameData::classDefinition(UnitClass unitClass) const {
     return classesById.at(unitClass);
 }
 
+const TerrainProfile& GameData::terrainProfile(const std::string& id) const {
+    return terrainProfilesById.at(id);
+}
+
 std::optional<UnitClass> unitClassFromString(const std::string& name) {
     static const std::unordered_map<std::string, UnitClass> lookup = {
         {"MarchCaptain", UnitClass::MarchCaptain},
@@ -60,6 +64,68 @@ std::optional<json> readJsonFile(const std::string& path) {
 
 std::optional<GameData> loadGameData(const std::string& dataDir) {
     GameData data;
+
+    auto terrainJson = readJsonFile(dataDir + "/terrain_profiles.json");
+    if (!terrainJson || !terrainJson->contains("terrainProfiles") ||
+        !(*terrainJson)["terrainProfiles"].is_array()) {
+        std::cerr << "terrain_profiles.json must contain a terrainProfiles array" << std::endl;
+        return std::nullopt;
+    }
+    for (const auto& p : (*terrainJson)["terrainProfiles"]) {
+        TerrainProfile profile;
+        try {
+            profile.id = p.at("id").get<std::string>();
+            profile.generationVersion = p.at("generationVersion").get<int>();
+            profile.seedSalt = p.at("seedSalt").get<std::uint32_t>();
+            for (const auto& w : p.at("weights")) {
+                auto terrain = terrainTypeFromString(w.at("terrain").get<std::string>());
+                if (!terrain) {
+                    std::cerr << "Unknown terrain in profile " << profile.id << std::endl;
+                    return std::nullopt;
+                }
+                profile.weights.push_back({*terrain, w.at("weight").get<int>()});
+            }
+            auto signature = terrainTypeFromString(p.at("signatureTerrain").get<std::string>());
+            if (!signature) {
+                std::cerr << "Unknown signature terrain in profile " << profile.id << std::endl;
+                return std::nullopt;
+            }
+            profile.signatureTerrain = *signature;
+            profile.maxBarriersPerColumn = p.value("maxBarriersPerColumn", 0);
+            profile.ensureHorizontalRoute = p.value("ensureHorizontalRoute", true);
+            if (p.contains("countBounds")) {
+                auto bounded = terrainTypeFromString(p.at("countBounds").at("terrain").get<std::string>());
+                if (!bounded) {
+                    std::cerr << "Unknown bounded terrain in profile " << profile.id << std::endl;
+                    return std::nullopt;
+                }
+                profile.countBounds = TerrainCountBounds{
+                    *bounded,
+                    p.at("countBounds").at("minimum").get<int>(),
+                    p.at("countBounds").at("maximum").get<int>()};
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Invalid terrain profile: " << e.what() << std::endl;
+            return std::nullopt;
+        }
+        std::string validationError;
+        if (!validateTerrainProfile(profile, &validationError)) {
+            std::cerr << "Invalid terrain profile " << profile.id << ": " << validationError << std::endl;
+            return std::nullopt;
+        }
+        if (!data.terrainProfilesById.emplace(profile.id, std::move(profile)).second) {
+            std::cerr << "Duplicate terrain profile id" << std::endl;
+            return std::nullopt;
+        }
+    }
+    for (const char* requiredId : {kCinderwatchOutpostTerrain, kAshRoadTerrain, kSignalTowerTerrain,
+                                   kAshboughVergeTerrain, kHerbwaterHollowTerrain,
+                                   kBrokenwoodTerritoryTerrain}) {
+        if (!data.terrainProfilesById.contains(requiredId)) {
+            std::cerr << "Missing terrain profile referenced by current content: " << requiredId << std::endl;
+            return std::nullopt;
+        }
+    }
 
     auto weaponsJson = readJsonFile(dataDir + "/weapons.json");
     if (!weaponsJson) return std::nullopt;

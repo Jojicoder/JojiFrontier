@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "jf/core/Stats.hpp"
+#include "jf/core/TerrainProfile.hpp"
 #include "jf/core/UnitClass.hpp"
 #include "jf/core/Weapon.hpp"
 
@@ -25,6 +26,7 @@ struct UnitTemplate {
 
 struct GameData {
     std::unordered_map<std::string, Weapon> weaponsById;
+    std::unordered_map<std::string, TerrainProfile> terrainProfilesById;
     std::unordered_map<UnitClass, ClassDefinition> classesById;
     std::vector<UnitTemplate> playerParty;
     std::vector<UnitTemplate> reserveRoster;
@@ -32,11 +34,12 @@ struct GameData {
 
     const Weapon& weaponFor(UnitClass unitClass) const;
     const ClassDefinition& classDefinition(UnitClass unitClass) const;
+    const TerrainProfile& terrainProfile(const std::string& id) const;
 };
 
 std::optional<UnitClass> unitClassFromString(const std::string& name);
 
-// Loads classes.json, units.json and weapons.json from dataDir.
+// Loads terrain_profiles.json, classes.json, units.json and weapons.json from dataDir.
 // Returns std::nullopt (and prints diagnostics) on failure.
 std::optional<GameData> loadGameData(const std::string& dataDir);
 

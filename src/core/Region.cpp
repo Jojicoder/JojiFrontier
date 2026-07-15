@@ -22,7 +22,7 @@ RegionDescriptor cinderwatchGateRegion() {
 
     StageDescriptor stage0;
     stage0.id = "cinderwatch_outpost";
-    stage0.fieldType = FieldType::CinderwatchOutpost;
+    stage0.terrainProfileId = kCinderwatchOutpostTerrain;
     stage0.enemyCountOverride = 3; // only 3 of the 4-unit shared roster appear
     stage0.baseVictoryLoot = {{"gate_tools", 1}, {"ash_road_map", 1}, {"hide", 2}, {"wood", 4}};
     stage0.discoveries = {kCinderwatchReconDiscovery};
@@ -32,7 +32,7 @@ RegionDescriptor cinderwatchGateRegion() {
 
     StageDescriptor stage1;
     stage1.id = "ironwatch_stores";
-    stage1.fieldType = FieldType::AshRoad;
+    stage1.terrainProfileId = kAshRoadTerrain;
     stage1.baseVictoryLoot = {{"field_medicine", 1}, {"watch_ledger", 1}, {"wood", 3}, {"herb", 2}};
     stage1.discoveries = {kFieldMedicineDiscovery, kHerbThicketDiscovery};
     stage1.missionNameEn = "Ironwatch Stores";
@@ -41,7 +41,7 @@ RegionDescriptor cinderwatchGateRegion() {
 
     StageDescriptor stage2;
     stage2.id = "signal_tower";
-    stage2.fieldType = FieldType::SignalTower;
+    stage2.terrainProfileId = kSignalTowerTerrain;
     stage2.boostedFirstEnemy = StageDescriptor::BoostedEnemy{"Former Captain", 10, 2};
     stage2.baseVictoryLoot = {
         {"signal_lens", 1}, {"captains_seal", 1}, {kAshveilFangMaterial, 1}, {"wood", 3}, {"hide", 3}};
@@ -64,7 +64,7 @@ RegionDescriptor ashboughForestRegion() {
 
     StageDescriptor verge;
     verge.id = "ashbough_verge";
-    verge.fieldType = FieldType::AshboughVerge;
+    verge.terrainProfileId = kAshboughVergeTerrain;
     verge.enemyRoster = {
         {"ashbough_wolf1", "Wolf", UnitClass::Wolf},
         {"ashbough_wolf2", "Wolf", UnitClass::Wolf},
@@ -96,13 +96,12 @@ RegionDescriptor ashboughForestRegion() {
     // and the common "薬草地点確保" Any-of-2-tiles bonus are implemented.
     StageDescriptor herbwater;
     herbwater.id = "herbwater_hollow";
-    herbwater.fieldType = FieldType::HerbwaterHollow;
+    herbwater.terrainProfileId = kHerbwaterHollowTerrain;
     herbwater.enemyRoster = {
         {"herbwater_wolf1", "Wolf", UnitClass::Wolf},
         {"herbwater_wolf2", "Wolf", UnitClass::Wolf},
         {"herbwater_wolf3", "Wolf", UnitClass::Wolf},
         {"herbwater_wolf4", "Wolf", UnitClass::Wolf},
-        {"herbwater_wolf5", "Wolf", UnitClass::Wolf},
     };
     // 通常勝利: 木材1
     herbwater.baseVictoryLoot = {{"wood", 1}};
@@ -137,13 +136,10 @@ RegionDescriptor ashboughForestRegion() {
     // uncontested Enemy Phase.
     StageDescriptor brokenwood;
     brokenwood.id = "brokenwood_territory";
-    brokenwood.fieldType = FieldType::BrokenwoodTerritory;
+    brokenwood.terrainProfileId = kBrokenwoodTerritoryTerrain;
     brokenwood.enemyRoster = {
         {"ashenhorn_boar", "Ashenhorn Boar", UnitClass::AshenhornBoar},
         {"brokenwood_guard_wolf", "Wolf", UnitClass::Wolf},
-        {"brokenwood_guard_wolf2", "Wolf", UnitClass::Wolf},
-        {"brokenwood_guard_wolf3", "Wolf", UnitClass::Wolf},
-        {"brokenwood_guard_wolf4", "Wolf", UnitClass::Wolf},
     };
     // ボス撃破保証: 灰角の大牙1、木材2、獣皮2
     brokenwood.baseVictoryLoot = {{kAshenhornFangMaterial, 1}, {"wood", 2}, {"hide", 2}};

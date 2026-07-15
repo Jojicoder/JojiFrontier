@@ -58,6 +58,33 @@ struct Unit {
     bool defenseDownActive = false; // DEF penalty until this unit's side's next phase ends
     bool staggerActive = false;     // no movement on this unit's next action
     bool staggerImmune = false;     // cannot be re-staggered until this unit's side's next phase ends
+    // 暁の衛生兵`protective_treatment` (docs/initial_skill_effects.md): RES+3
+    // until the next Enemy Phase ends. See jf/battle/StatusEffects.hpp's
+    // applyResistanceUp()/clearSkillBuffsAtEnemyPhaseEnd() for why this
+    // clears differently from the debuff flags above.
+    bool resistanceUpActive = false;
+    // 行軍隊長`hold_formation` (docs/initial_skill_effects.md): DEF+2 until
+    // the next Enemy Phase ends, same clearing timing as resistanceUpActive
+    // above (see clearSkillBuffsAtEnemyPhaseEnd()).
+    bool defenseUpActive = false;
+    // 古参守備兵`extended_lockdown` (docs/initial_skill_effects.md): extends
+    // this unit's own Zone of Control from range 1 to range 2 until the next
+    // Enemy Phase ends - same clearing timing as the two buffs above. Only
+    // meaningful on a unit with hasZoneOfControl(unitClass) already true.
+    bool zocRangeExtended = false;
+    // 監視弓兵`mark_target`(positive, on an enemy)/行軍隊長`support_order`
+    // (negative, a damage-reduction shield on an ally) (docs/
+    // initial_skill_effects.md): 0 = no effect. Adds this (signed) amount to
+    // the next successful hit this unit takes from any attacker
+    // (computeDamage() only reads it - stays pure for previewAttack() -
+    // resolveAttack() clears it back to 0 once a real attack actually lands,
+    // "その後解除").
+    int markedBonusDamage = 0;
+    // 行軍隊長`advance_order` (docs/initial_skill_effects.md): MOV+1 until
+    // THIS Player Phase ends (not the next Enemy Phase end, unlike every
+    // other buff flag above) - see jf/battle/StatusEffects.hpp's
+    // applyMoveUp()/clearMoveUpAtPlayerPhaseEnd().
+    bool moveUpActive = false;
 
     // The 2 equipped-skill slots (docs/skill_system.md). See
     // jf/battle/SkillCharges.hpp for lifecycle management.
@@ -69,10 +96,13 @@ struct Unit {
     // saved anyway (matches how the generic status-effect fields above are
     // already modeled). Charge always travels along the boar's own current
     // row (docs: "同じ行を...進む") and it can't move between telegraphing
-    // and executing (execution is checked before any repositioning), so the
-    // telegraph only needs to be a flag, not a stored row/target.
+    // and executing (execution is checked before any repositioning). The
+    // row stays fixed while chargeDirection stores left/right travel.
     bool bossEnraged = false;               // HP<=50%, triggers once
     bool chargeTelegraphed = false;         // executes next turn, then clears
+    int chargeDirection = -1;               // -1 = left, +1 = right; fixed when telegraphed
+    int chargeCooldownActions = 0;          // intervening aggressive actions before another telegraph
+    int chargesExecuted = 0;                // at most 2 per battle
     bool bossStunnedNextEnemyPhase = false; // set on log collision; skips one turn
     bool bossWeakenedFromStun = false;      // DEF/RES overridden low while true
 
@@ -92,6 +122,7 @@ struct Unit {
     int effectiveMove() const {
         if (staggerActive && !isBoss) return 0;
         int mov = stats.move;
+        if (moveUpActive) mov += 1; // 行軍隊長`advance_order`
         if (staggerActive) mov = std::max(mov - 1, 0);
         if (moveDownActive) mov = std::max(mov - statusMoveDownAmount(isBoss), 1);
         return mov;
@@ -100,8 +131,16 @@ struct Unit {
     // Defense after 防御低下 (docs/status_effects.md - RES is never lowered
     // by it).
     int effectiveDefense() const {
-        if (!defenseDownActive) return stats.defense;
-        return std::max(stats.defense - statusDefenseDownAmount(isBoss), 0);
+        int def = stats.defense;
+        if (defenseUpActive) def += 2;
+        if (defenseDownActive) def = std::max(def - statusDefenseDownAmount(isBoss), 0);
+        return def;
+    }
+
+    // RES after protective_treatment's buff (docs/initial_skill_effects.md -
+    // a flat +3, no boss scaling specified, unlike the debuff amounts above).
+    int effectiveResistance() const {
+        return resistanceUpActive ? stats.resistance + 3 : stats.resistance;
     }
 };
 
