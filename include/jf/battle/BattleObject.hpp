@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -31,6 +32,17 @@ enum class BattleObjectStateKind { Active, Disabled, Opened, Destroyed };
 using BattleObjectId = std::string;
 using BattleObjectDefinitionId = std::string;
 
+// docs/battle_objects.md "操作": Interact is a separate command from
+// Attack that ends the actor's turn. Basic range is 1 (adjacent); a Marker
+// may instead require ending the move on the same tile (range 0).
+struct ObjectInteractionDefinition {
+    std::string interactionId;
+    int range = 1;
+    std::unordered_set<UnitClass> allowedClasses; // empty == any class
+    BattleObjectStateKind requiredState = BattleObjectStateKind::Active;
+    int maxUses = 1;
+};
+
 // Immutable for the life of the battle - only BattleObjectState changes.
 struct BattleObjectDefinition {
     BattleObjectDefinitionId definitionId;
@@ -46,6 +58,12 @@ struct BattleObjectDefinition {
     bool canBeAttacked = false;
     bool canBeRepaired = false;
     std::unordered_set<std::string> tags;
+    // Battle Object統合(Interact配線): 未設定ならこのDefinitionはInteract不可
+    // (踏査地点や倒木のように、専用の操作を持たないObjectの既定)。設定時は
+    // resolveObjectInteraction()へそのまま渡し、成功したら遷移先として
+    // interactionResultStateを使う。
+    std::optional<ObjectInteractionDefinition> interaction;
+    BattleObjectStateKind interactionResultState = BattleObjectStateKind::Opened;
 };
 
 struct BattleObjectState {
@@ -80,16 +98,5 @@ inline bool validateObjectDefinition(const BattleObjectDefinition& def, std::vec
     }
     return valid;
 }
-
-// docs/battle_objects.md "操作": Interact is a separate command from
-// Attack that ends the actor's turn. Basic range is 1 (adjacent); a Marker
-// may instead require ending the move on the same tile (range 0).
-struct ObjectInteractionDefinition {
-    std::string interactionId;
-    int range = 1;
-    std::unordered_set<UnitClass> allowedClasses; // empty == any class
-    BattleObjectStateKind requiredState = BattleObjectStateKind::Active;
-    int maxUses = 1;
-};
 
 } // namespace jf

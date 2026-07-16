@@ -27,7 +27,21 @@ bool objectiveSatisfied(const BattleState& battle, const ObjectiveDefinition& de
             return unit != nullptr && !unit->isAlive();
         }
         case ObjectiveKind::SecureTile:
+        case ObjectiveKind::EscapeUnits:
+            // Both are credited by handleObjectiveEvent() below, which
+            // already sets Completed the instant each one's own completion
+            // condition (one credit for SecureTile, requiredEscapeCount
+            // distinct credits for EscapeUnits) is met.
             return progress.status == ObjectiveStatus::Completed;
+        case ObjectiveKind::DestroyObject: {
+            // Same "unknown target is unsatisfiable, not an automatic win"
+            // rule as DefeatUnit - a mission-authoring mistake must not
+            // silently pass.
+            const BattleObjectState* object = battle.findObject(def.target.objectId);
+            return object != nullptr && object->state == BattleObjectStateKind::Destroyed;
+        }
+        case ObjectiveKind::SurviveRounds:
+            return battle.round() > def.target.surviveUntilRound;
     }
     return false;
 }
@@ -50,16 +64,22 @@ void handleObjectiveEvent(BattleMissionState& mission, const BattleEvent& event)
     if (!resolved) return;
 
     for (const ObjectiveDefinition& def : mission.definitions) {
-        if (def.kind != ObjectiveKind::SecureTile) continue;
-        // Only the side the objective is written for can secure it - an
-        // enemy ending its action on a player objective's tile must not
+        if (def.kind != ObjectiveKind::SecureTile && def.kind != ObjectiveKind::EscapeUnits) continue;
+        // Only the side the objective is written for can secure/escape it -
+        // an enemy ending its action on a player objective's tile must not
         // credit it.
         if (resolved->actorTeam != def.target.securingTeam) continue;
         ObjectiveProgress& progress = mission.progress[def.id];
         if (progress.status == ObjectiveStatus::Completed) continue;
-        if (resolved->endPosition.row == def.target.tile.row && resolved->endPosition.col == def.target.tile.col) {
+        if (resolved->endPosition.row != def.target.tile.row || resolved->endPosition.col != def.target.tile.col)
+            continue;
+        progress.creditedTargetIds.insert(resolved->actorUnitId);
+        // SecureTile: any single credit completes it. EscapeUnits: needs
+        // requiredEscapeCount DISTINCT units (creditedTargetIds is a set, so
+        // the same unit ending multiple actions here only counts once).
+        if (def.kind == ObjectiveKind::SecureTile ||
+            progress.creditedTargetIds.size() >= static_cast<std::size_t>(def.target.requiredEscapeCount)) {
             progress.status = ObjectiveStatus::Completed;
-            progress.creditedTargetIds.insert(resolved->actorUnitId);
         }
     }
 }
@@ -198,6 +218,39 @@ std::vector<std::string> validateBattleMission(const BattleMissionState& mission
                 }
                 if (battle.unitAt(def.target.tile)) {
                     errors.push_back("SecureTile objective '" + def.id +
+                                     "' targets a tile occupied at battle start");
+                }
+            }
+        } else if (def.kind == ObjectiveKind::SurviveRounds) {
+            // round_ starts at 1 (BattleState.hpp) - a target of 0 would be
+            // trivially satisfied the instant the battle starts.
+            if (def.target.surviveUntilRound < 1) {
+                errors.push_back("SurviveRounds objective '" + def.id + "' needs surviveUntilRound >= 1");
+            }
+        } else if (def.kind == ObjectiveKind::DestroyObject) {
+            const BattleObjectState* object = battle.findObject(def.target.objectId);
+            if (!object) {
+                errors.push_back("DestroyObject objective '" + def.id + "' targets unknown object '" +
+                                 def.target.objectId + "'");
+            } else {
+                const BattleObjectDefinition* objectDef = battle.objectDefinition(object->definitionId);
+                if (!objectDef || !objectDef->canBeAttacked) {
+                    errors.push_back("DestroyObject objective '" + def.id +
+                                     "' targets an object that can't be destroyed");
+                }
+            }
+        } else if (def.kind == ObjectiveKind::EscapeUnits) {
+            if (def.target.requiredEscapeCount < 1) {
+                errors.push_back("EscapeUnits objective '" + def.id + "' needs requiredEscapeCount >= 1");
+            }
+            if (!isInBounds(def.target.tile)) {
+                errors.push_back("EscapeUnits objective '" + def.id + "' targets an out-of-bounds tile");
+            } else {
+                if (!isPassable(battle.terrainAt(def.target.tile))) {
+                    errors.push_back("EscapeUnits objective '" + def.id + "' targets an impassable tile");
+                }
+                if (battle.unitAt(def.target.tile)) {
+                    errors.push_back("EscapeUnits objective '" + def.id +
                                      "' targets a tile occupied at battle start");
                 }
             }

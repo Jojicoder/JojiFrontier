@@ -21,6 +21,10 @@ const TerrainProfile& GameData::terrainProfile(const std::string& id) const {
     return terrainProfilesById.at(id);
 }
 
+const StageContentData& GameData::stageContent(const std::string& id) const {
+    return stageContentById.at(id);
+}
+
 std::optional<UnitClass> unitClassFromString(const std::string& name) {
     static const std::unordered_map<std::string, UnitClass> lookup = {
         {"MarchCaptain", UnitClass::MarchCaptain},
@@ -36,6 +40,23 @@ std::optional<UnitClass> unitClassFromString(const std::string& name) {
     auto it = lookup.find(name);
     if (it == lookup.end()) return std::nullopt;
     return it->second;
+}
+
+std::optional<ExplorationChoice> explorationChoiceFromString(const std::string& name) {
+    if (name == "FrontalAdvance") return ExplorationChoice::FrontalAdvance;
+    if (name == "CollapsedSidePath") return ExplorationChoice::CollapsedSidePath;
+    if (name == "ScoutRoute") return ExplorationChoice::ScoutRoute;
+    return std::nullopt;
+}
+
+std::optional<BattleObjectKind> battleObjectKindFromString(const std::string& name) {
+    if (name == "Marker") return BattleObjectKind::Marker;
+    if (name == "Barrier") return BattleObjectKind::Barrier;
+    if (name == "Device") return BattleObjectKind::Device;
+    if (name == "Container") return BattleObjectKind::Container;
+    if (name == "SpawnPoint") return BattleObjectKind::SpawnPoint;
+    if (name == "ExitPoint") return BattleObjectKind::ExitPoint;
+    return std::nullopt;
 }
 
 namespace {
@@ -193,6 +214,167 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
     if (unitsJson->contains("reserveRoster"))
         data.reserveRoster = readTemplates((*unitsJson)["reserveRoster"]);
     data.enemyRoster = readTemplates((*unitsJson)["enemyRoster"]);
+
+    auto readLootStacks = [](const json& arr) {
+        std::vector<LootStack> result;
+        for (const auto& l : arr) result.push_back({l.at("id").get<std::string>(), l.at("quantity").get<int>()});
+        return result;
+    };
+
+    auto regionsJson = readJsonFile(dataDir + "/regions.json");
+    if (!regionsJson || !regionsJson->contains("stages") || !(*regionsJson)["stages"].is_array()) {
+        std::cerr << "regions.json must contain a stages array" << std::endl;
+        return std::nullopt;
+    }
+    for (const auto& s : (*regionsJson)["stages"]) {
+        StageContentData stage;
+        try {
+            stage.id = s.at("id").get<std::string>();
+            stage.terrainProfileId = s.at("terrainProfileId").get<std::string>();
+            if (!data.terrainProfilesById.contains(stage.terrainProfileId)) {
+                std::cerr << "Stage " << stage.id << " references unknown terrain profile "
+                          << stage.terrainProfileId << std::endl;
+                return std::nullopt;
+            }
+            if (s.contains("enemyRoster")) stage.enemyRoster = readTemplates(s.at("enemyRoster"));
+            if (s.contains("baseVictoryLoot")) stage.baseVictoryLoot = readLootStacks(s.at("baseVictoryLoot"));
+            if (s.contains("routeVictoryLootDelta")) {
+                for (const auto& d : s.at("routeVictoryLootDelta")) {
+                    auto choice = explorationChoiceFromString(d.at("choice").get<std::string>());
+                    if (!choice) {
+                        std::cerr << "Stage " << stage.id << " has an unknown ExplorationChoice" << std::endl;
+                        return std::nullopt;
+                    }
+                    stage.routeVictoryLootDelta.emplace_back(*choice, readLootStacks(d.at("loot")));
+                }
+            }
+            if (s.contains("surveyObjectiveId")) stage.surveyObjectiveId = s.at("surveyObjectiveId").get<std::string>();
+            if (s.contains("surveyBonusLoot")) stage.surveyBonusLoot = readLootStacks(s.at("surveyBonusLoot"));
+            if (s.contains("discoveries")) stage.discoveries = s.at("discoveries").get<std::vector<std::string>>();
+            stage.missionNameEn = s.at("missionNameEn").get<std::string>();
+            stage.missionNameJa = s.at("missionNameJa").get<std::string>();
+
+            if (s.contains("routeOutcomes")) {
+                for (const auto& o : s.at("routeOutcomes")) {
+                    auto choice = explorationChoiceFromString(o.at("choice").get<std::string>());
+                    if (!choice) {
+                        std::cerr << "Stage " << stage.id << " has an unknown ExplorationChoice in routeOutcomes"
+                                  << std::endl;
+                        return std::nullopt;
+                    }
+                    ExplorationOutcome outcome;
+                    outcome.partyDamage = o.value("partyDamage", 0);
+                    outcome.enemiesRemoved = o.value("enemiesRemoved", 0);
+                    outcome.enableFreeDeployment = o.value("enableFreeDeployment", false);
+                    outcome.deploymentMaxColumn = o.value("deploymentMaxColumn", 0);
+                    if (o.contains("restrictedAutoSpawnMaxColumn"))
+                        outcome.restrictedAutoSpawnMaxColumn = o.at("restrictedAutoSpawnMaxColumn").get<int>();
+                    outcome.extraBarrierCount = o.value("extraBarrierCount", 0);
+                    outcome.enableReinforcementWave = o.value("enableReinforcementWave", false);
+                    stage.routeOutcomes.emplace_back(*choice, outcome);
+                }
+            }
+            if (s.contains("scoutRouteRequiredClass")) {
+                auto classId = unitClassFromString(s.at("scoutRouteRequiredClass").get<std::string>());
+                if (!classId) {
+                    std::cerr << "Stage " << stage.id << " has an unknown scoutRouteRequiredClass" << std::endl;
+                    return std::nullopt;
+                }
+                stage.scoutRouteRequiredClass = *classId;
+            }
+            stage.scoutRouteDisabled = s.value("scoutRouteDisabled", false);
+            if (s.contains("timedReinforcement")) {
+                const auto& r = s.at("timedReinforcement");
+                TimedReinforcementData reinforcement;
+                reinforcement.id = r.at("id").get<std::string>();
+                reinforcement.spawnRound = r.value("spawnRound", 2);
+                reinforcement.spawnPhase =
+                    r.value("spawnPhase", std::string("EnemyPhase")) == "PlayerPhase" ? Phase::PlayerPhase
+                                                                                       : Phase::EnemyPhase;
+                reinforcement.announceRoundsBefore = r.value("announceRoundsBefore", 1);
+                reinforcement.requiredForElimination = r.value("requiredForElimination", true);
+                reinforcement.units = readTemplates(r.at("units"));
+                for (const auto& p : r.at("orderedSpawnCandidates")) {
+                    reinforcement.orderedSpawnCandidates.push_back({p.at("row").get<int>(), p.at("col").get<int>()});
+                }
+                stage.timedReinforcement = std::move(reinforcement);
+            }
+            if (s.contains("herbPatchGeneration")) {
+                const auto& h = s.at("herbPatchGeneration");
+                stage.herbPatchGeneration = StageContentData::HerbPatchGenerationData{
+                    h.value("count", 2), h.value("zoneMinCol", 0), h.value("zoneMaxCol", kGridCols - 1)};
+            }
+            if (s.contains("objectPlacementRules")) {
+                for (const auto& r : s.at("objectPlacementRules")) {
+                    const auto& d = r.at("definition");
+                    auto kind = battleObjectKindFromString(d.at("kind").get<std::string>());
+                    if (!kind) {
+                        std::cerr << "Stage " << stage.id << " has an unknown BattleObjectKind" << std::endl;
+                        return std::nullopt;
+                    }
+                    BattleObjectDefinition definition;
+                    definition.definitionId = d.at("definitionId").get<std::string>();
+                    definition.kind = *kind;
+                    definition.maxDurability = d.value("maxDurability", 0);
+                    definition.defense = d.value("defense", 0);
+                    definition.resistance = d.value("resistance", 0);
+                    definition.canOccupy = d.value("canOccupy", false);
+                    definition.blocksMovement = d.value("blocksMovement", false);
+                    definition.blocksStopping = d.value("blocksStopping", false);
+                    definition.blocksDeployment = d.value("blocksDeployment", false);
+                    definition.blocksProjectiles = d.value("blocksProjectiles", false);
+                    definition.canBeAttacked = d.value("canBeAttacked", false);
+                    definition.canBeRepaired = d.value("canBeRepaired", false);
+                    if (d.contains("tags")) {
+                        for (const std::string& tag : d.at("tags").get<std::vector<std::string>>())
+                            definition.tags.insert(tag);
+                    }
+                    std::vector<std::string> validationErrors;
+                    if (!validateObjectDefinition(definition, &validationErrors)) {
+                        std::cerr << "Stage " << stage.id << " has an invalid object definition "
+                                  << definition.definitionId << ":";
+                        for (const std::string& error : validationErrors) std::cerr << " " << error;
+                        std::cerr << std::endl;
+                        return std::nullopt;
+                    }
+                    stage.objectPlacementRules.push_back(StageContentData::ObjectPlacementRuleData{
+                        definition, r.at("idPrefix").get<std::string>(), r.value("count", 1),
+                        r.value("scalesWithExtraBarrierOutcome", false), r.value("zoneMinCol", 0),
+                        r.value("zoneMaxCol", kGridCols - 1), r.value("avoidFirstEnemyRow", false)});
+                }
+            }
+            if (s.contains("enemyCountOverride")) stage.enemyCountOverride = s.at("enemyCountOverride").get<std::size_t>();
+            if (s.contains("enemyZoneWidth")) stage.enemyZoneWidth = s.at("enemyZoneWidth").get<int>();
+            if (s.contains("boostedFirstEnemy")) {
+                const auto& b = s.at("boostedFirstEnemy");
+                stage.boostedFirstEnemy = StageContentData::BoostedEnemyData{
+                    b.at("displayName").get<std::string>(), b.value("maxHpBonus", 0), b.value("defenseBonus", 0)};
+            }
+            if (s.contains("understaffedReinforcement")) {
+                const auto& u = s.at("understaffedReinforcement");
+                auto classId = unitClassFromString(u.at("classId").get<std::string>());
+                if (!classId) {
+                    std::cerr << "Stage " << stage.id << " has an unknown understaffedReinforcement classId"
+                              << std::endl;
+                    return std::nullopt;
+                }
+                stage.understaffedReinforcement =
+                    UnitTemplate{u.at("id").get<std::string>(), u.at("name").get<std::string>(), *classId};
+                stage.understaffedThreshold = s.value("understaffedThreshold", 4);
+            }
+            if (s.contains("logCollisionBonusLoot"))
+                stage.logCollisionBonusLoot = readLootStacks(s.at("logCollisionBonusLoot"));
+            if (s.contains("noCasualtiesBonusLoot"))
+                stage.noCasualtiesBonusLoot = readLootStacks(s.at("noCasualtiesBonusLoot"));
+        } catch (const std::exception& e) {
+            std::cerr << "Invalid stage in regions.json: " << e.what() << std::endl;
+            return std::nullopt;
+        }
+        if (!data.stageContentById.emplace(stage.id, std::move(stage)).second) {
+            std::cerr << "Duplicate stage id in regions.json: " << s.at("id").get<std::string>() << std::endl;
+            return std::nullopt;
+        }
+    }
 
     return data;
 }

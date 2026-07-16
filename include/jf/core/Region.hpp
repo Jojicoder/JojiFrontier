@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include "jf/battle/BattleObject.hpp"
 #include "jf/core/BaseState.hpp"
 #include "jf/core/Exploration.hpp"
 #include "jf/core/UnitClass.hpp"
@@ -29,6 +30,10 @@ struct StageDescriptor {
     std::vector<UnitTemplate> enemyRoster;
     // Cinderwatch stage 0's "only 3 of the 4-unit roster appear" rule.
     std::optional<std::size_t> enemyCountOverride;
+    // docs/regions/ashbough_forest.md "折れ木の縄張り": "灰角大猪は右2列の候補
+    // から生成する" - narrower than the usual 3-column enemy spawn zone.
+    // nullopt means the usual width (kSpawnZoneWidth, BattleFactory.cpp).
+    std::optional<int> enemyZoneWidth;
     // Cinderwatch stage 2's "Former Captain" reskin/buff of enemyRoster[0].
     struct BoostedEnemy {
         std::string displayName;
@@ -73,6 +78,22 @@ struct StageDescriptor {
     std::optional<std::string> surveyObjectiveId;
     std::vector<LootStack> surveyBonusLoot;
 
+    // docs/implementation_roadmap.md M1-E slice3 "薬草地点...はBattle Object/
+    // Placement Ruleとして配置し、地点名で判定しない": generalizes what used
+    // to be `if (stage.terrainProfileId == kHerbwaterHollowTerrain)` in
+    // BattleFactory.cpp into region data, same idea as
+    // `ObjectPlacementRule` above for the fallen_log Barrier. When set,
+    // `count` HerbPatch Terrain tiles are chosen (post Unit-placement, same
+    // timing as `chooseSurveyTile()`) from `[zoneMinCol, zoneMaxCol]`; if
+    // `surveyObjectiveId` is also set, one SecureTile Objective per chosen
+    // tile replaces the single-random-tile fallback.
+    struct HerbPatchGenerationRule {
+        int count = 2;
+        int zoneMinCol = 0;
+        int zoneMaxCol = kGridCols - 1;
+    };
+    std::optional<HerbPatchGenerationRule> herbPatchGeneration;
+
     // Per-route outcome override (docs/regions/ashbough_forest.md: each
     // site's 3 exploration choices can have genuinely different effects, not
     // just different numbers plugged into the same shared shape). Empty
@@ -98,6 +119,34 @@ struct StageDescriptor {
     // through the Objective system.
     std::vector<LootStack> logCollisionBonusLoot;
     std::vector<LootStack> noCasualtiesBonusLoot;
+
+    // docs/battle_objects.md "ランダム生成": generalizes what used to be
+    // Brokenwood Territory's fallen_log-only ad-hoc block in BattleFactory.cpp
+    // into region data, so a future region declares its random Battle
+    // Objects here instead of adding another `if (stage.terrainProfileId ==
+    // ...)` branch to the factory. `definition` is registered as-is (a
+    // region owns its own Object's stats, same as `enemyRoster` owns its own
+    // Unit stats); `idPrefix` becomes `<idPrefix>_1`, `_2`, ... for however
+    // many actually get placed.
+    struct ObjectPlacementRule {
+        BattleObjectDefinition definition;
+        std::string idPrefix;
+        int count = 1;
+        // docs/regions/ashbough_forest.md "折れ木の縄張り" route B: +1 on top
+        // of `count` when the chosen route's ExplorationOutcome carries a
+        // positive extraBarrierCount. False for every rule that doesn't vary
+        // by route.
+        bool scalesWithExtraBarrierOutcome = false;
+        int zoneMinCol = 0;
+        int zoneMaxCol = kGridCols - 1;
+        // "予告済み突進には適用しない" doesn't apply here (this is initial
+        // placement, not projectile line-of-sight) - this instead mirrors
+        // the fallen log's own placement rule: never share the first living
+        // Enemy Unit's row, so a Boss (typically that first Enemy) can't
+        // find its charge lane blocked before Round 1.
+        bool avoidFirstEnemyRow = false;
+    };
+    std::vector<ObjectPlacementRule> objectPlacementRules;
 
     std::vector<DiscoveryId> discoveries;
     std::string missionNameEn;

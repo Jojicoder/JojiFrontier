@@ -36,9 +36,22 @@
   (`jf/core/StatusEffect.hpp`、`jf/battle/StatusEffects.hpp`)。付与する攻撃・スキルはまだ存在しない
 - スキル共通基盤: 初期6兵種18スキルのメタデータ、装備2枠、使用回数・クールダウン管理
   (`jf/core/Skill.hpp`、`jf/battle/SkillCharges.hpp`)。個別スキルの戦闘効果は未実装
-- 任務目標・戦闘イベント基盤: `EliminateTeam`/`DefeatUnit`/`SecureTile`、AND/ORグループ、
-  `UnitDefeatedEvent`を含む戦闘イベント、勝敗評価(`jf/battle/ObjectiveTracker.hpp`)。
-  `BattleController`はこの評価結果だけでVictory/Defeatへ遷移する
+- 任務目標・戦闘イベント基盤: `EliminateTeam`/`DefeatUnit`/`SecureTile`/`DestroyObject`/
+  `SurviveRounds`/`EscapeUnits`、AND/ORグループ、`UnitDefeatedEvent`を含む戦闘イベント、
+  勝敗評価(`jf/battle/ObjectiveTracker.hpp`)。`BattleController`はこの評価結果だけで
+  Victory/Defeatへ遷移する。`DestroyObject`(2026-07追加)は`DefeatUnit`と同じ「対象
+  BattleStateを都度評価するLive評価」パターンで、対象ObjectのStateが`Destroyed`かを見るだけ
+  (`ObjectDestroyedEvent`自体は消費しない)。未知Object IDや`canBeAttacked=false`なObjectへの
+  参照は`validateBattleMission()`が起動時に拒否する。`SurviveRounds`(2026-07続き)も同じ
+  Live評価で`battle.round() > target.surviveUntilRound`を見るだけ(「指定ラウンドの終了まで」
+  なので到達ではなく超過を要求)。`surviveUntilRound < 1`(round_の初期値1に対し即座に
+  満たされてしまう)は起動時検証で拒否。`EscapeUnits`(2026-07続き)は`SecureTile`と同じ
+  `ActionResolvedEvent`credit機構を再利用しつつ、`creditedTargetIds`(既存のSet)が
+  `requiredEscapeCount`件の異なるUnit IDに達するまでCompletedにしない点だけ拡張した
+  (同一Unitが複数回行動終了しても1件としてしかカウントしない)。`docs/mission_objectives.md`
+  が定める`UnitRetreated`Event経由の脱出(ExitPointへ実際に離脱するAI/撤退駆動の経路)は
+  対象外 - ExitPointの実挙動が前提のため別Slice。3種ともまだ出荷済みコンテンツからは
+  未接続(地域書側の`surveyObjectiveId`相当の配線は次のSlice)
 - M1-A Event Batch完成(`battle_resolution_contract.md`の直近スコープ4項目): `emitUnitDefeatedEvents()`
   が`AliveSnapshot`(unordered_map)自体ではなく`battle.units()`(固定順のvector)を辿るよう修正し、
   同時撃破のEvent発行順が実行ごとに変わっていた不具合(ハッシュ順依存の非決定性)を解消した。
@@ -60,6 +73,51 @@
   `ObjectDestroyedEvent`を追加(Payload variantに追加しただけで、まだ何もこれらを発行する
   呼び出し元は存在しない)。倒木のブロック/破壊、踏査地点の占有共存、Interactの検証規則の
   回帰テストを追加
+- Battle Objectの攻撃対象化(2026-07続き): 上記`resolveObjectAttack()`に呼び出し元を追加。
+  `BattleController`へ`ConfirmObjectAttack`(`ConfirmSkillAttack`と同じ並行状態パターン)・
+  `objectTargetableTiles_`・`pendingObjectPreview()`・`confirmObjectAttack()`を追加し、
+  `chooseAttack()`/`selectTargetTile()`がUnitに加えてcanBeAttackedなObjectも対象にできる
+  ようにした。`main.cpp`へConfirm/Cancelボタン・専用Preview Popup・Tileハイライト・
+  ヒット/破壊バナー(`battle.object_hit_message`/`battle.object_destroyed_message`)を追加。
+  出荷済みの唯一のBattle Object(Brokenwood Territoryの`fallen_log`)を`canBeAttacked=true`/
+  `maxDurability=16`へ変更し実際に攻撃可能にした(従来は`blocksMovement`専用登録で、
+  配線後も対象外のままだった)。攻撃による破壊は`ObjectDestroyedEvent`のみ発行する設計とした
+  - 通常攻撃でObjectの状態が変わるのは「破壊」の1パターンだけのため
+- Battle ObjectのInteractコマンド配線(2026-07続き): `resolveObjectInteraction()`自体は既に
+  完成していたが、どのDefinitionがInteract可能かを表す場所が無く呼び出し元もUIも無かった。
+  `BattleObjectDefinition`へ`std::optional<ObjectInteractionDefinition> interaction`と
+  結果State`interactionResultState`を追加し、`BattleController`へ`SelectInteractTarget`
+  (Preview/Confirmを挟まず`chooseHeal()`と同じ即時解決パターン)・`objectInteractableTiles_`・
+  `canInteract()`(UIのButton表示可否を読み取り専用で判定)・`chooseInteract()`・
+  `selectInteractTarget()`(成功時のみ`ObjectStateChangedEvent`を発行)を追加。`ActionKind`へ
+  `Interact`を新設。`main.cpp`はSelectAction画面の固定5Slotが埋まっているため、
+  `canInteract()`がtrueの時だけ現れる6個目のButtonと専用Tileハイライト色を追加した。
+  出荷済みコンテンツにInteract可能なObjectがまだ1つも無いため(`fallen_log`は攻撃対象のみ)、
+  通常プレイでこのButtonは現状表示されない - 次にDeviceコンテンツが追加された時点で
+  自動的に有効になる
+- Battle ObjectのBattleFactoryランダム生成統合(2026-07、`battle_objects.md`「ランダム生成」の
+  手順3・5・6一部): 折れ木の縄張りの`fallen_log`専用だった`if (stage.terrainProfileId == ...)`
+  Ad-hocブロックを、`StageDescriptor::ObjectPlacementRule`(`BattleObjectDefinition`本体・
+  配置数・Route B用`extraBarrierCount`加算・配置列範囲・「最初の生存Enemyと同じ行を避ける」
+  フラグを1件にまとめたデータ)を読む汎用`BattleFactory.cpp`の`placeRandomObjects()`へ一般化。
+  地域書(`Region.cpp`)側は`brokenwood.objectPlacementRules`へ1件登録するだけになり、次の
+  地域がBarrier/Containerを乱数配置したくなった時に`BattleFactory.cpp`へ新しい
+  `if`分岐を足す必要がない。`blocksMovement`なRuleは配置前に
+  `hasRouteAcrossWithBlockedTiles()`(`hasRouteAcross()`のBattleState版、Object込みで
+  「盤面を横断する経路が最低1本残るか」を確認)で検証し、唯一の経路を塞ぐ候補は次の
+  シャッフル候補へ回す(手順7の「安全な固定配置へ戻す」フォールバックは未実装 - 現状の
+  地域は候補さえあれば経路を塞がずに収まるため)。既存の`fallen_log`回帰テスト(列2-5固定、
+  ボスと同じ行に出ない、Route Aで1本・Route Bで2本)はテキスト変更なしで全て通過。
+  リファクタ中、`jf_forest_balance`のBrokenwood勝率が89.7%→13.7%まで急落する事象を検知して
+  調査した結果、原因は今回のリファクタではなく前Slice(Battle Objectの攻撃対象化)由来の
+  潜在バグと判明: `tools/forest_balance.cpp`の`attackIfPossible()`が、射程内にUnitが
+  1体もおらずcanBeAttackedなObject(`fallen_log`)だけが対象という新しいケースで
+  `chooseAttack()`が`SelectTarget`へ遷移したまま`cancelAttackSelection()`を呼ばずに
+  `false`を返し、以降の全Policy関数が期待する`SelectAction`と食い違ってその戦闘が
+  永久停止(Round上限までTimeout)していた。`attackIfPossible()`にUnit対象が見つからない
+  場合の`cancelAttackSelection()`呼び出しを追加して修正(実プレイの`main.cpp`は
+  Cancelボタンがあるため無関係 - このBotだけの潜在バグだった)。修正後
+  `jf_forest_balance`はBrokenwood 89.7%/87.7%、Timeout一桁まで回復したことを確認済み
 - M1-D Region Mission接続: 灰枝の森の共通Definition移行・MissionFlowのPending変換・
   BattleControllerの地域非依存は既存設計(`RegionDescriptor`/`StageDescriptor`/
   `GameApp::proceedToCamp()`)で既に満たされていることを確認。`GameApp::proceedToCamp()`に
@@ -104,6 +162,21 @@
   `Unit::bossRuntime.telegraph`経由に移行、`jf::BossTelegraphChangedEvent`を発行。
   Objective側の退場理由Filter(許可した退場理由でのみBoss素材を付与)は、`Retreated`等を
   実際に使うBoss・敵がまだいないため未着手
+- Boss突進予告のUI表示(2026-07続き): `BossTelegraphChangedEvent`も増援Wave予告と同じ
+  制約(`consumedEventIds`がペイロードを保持しない書き込み専用の重複排除セット)を持つため、
+  `main.cpp`は`Unit::bossRuntime.telegraph.state`を毎フレームポーリングする方式
+  (`reinforcementUiStates()`と同じ手法、`bossTelegraphUiStates()`として追加)で
+  `None→Announced`遷移を検知し`pushBattleMessage()`でバナーを表示する。
+  `BossTelegraph::lockedTiles`(「攻撃列」の空間情報)は定義されていたが
+  `EnemyAI.cpp`の3箇所の予告生成コードがいずれも`{}`のまま一度も設定していなかったため、
+  `executeBoarCharge()`の実行時Walk(行固定・盤面端または遮蔽Objectで打ち切り)を
+  副作用なしで再現する`computeBoarChargeTiles()`を新設して予告時に実際に埋めるよう
+  修正した。これにより`main.cpp`はイベントを介さずこの確定済みフィールドを読むだけで
+  済み、`objectTargetableTiles()`等と同じ`containsTile`+`DrawRectangleRec`パターンで
+  警告色のTileハイライトを表示する。既存の灰角大猪突進テスト3件に、予告直後の
+  `lockedTiles`が実行時に実際に通過するTile列と一致することの確認を追加(意図的に
+  `computeBoarChargeTiles()`を空配列へ差し替えて失敗することを確認した上で復元)。
+  ヘッドレス環境のため実機(raylibウィンドウ)上での目視確認は未実施
 - 増援Wave(2026-07、M4項目5): `jf::ReinforcementWave`(`jf/battle/Reinforcement.hpp`、
   `ReinforcementState{Scheduled,Announced,Spawned,Prevented,Cancelled}`)、
   `validateReinforcementWaves()`、`BattleState::addReinforcementWave()`/
@@ -112,6 +185,14 @@
   (必須Wave未解決の間`EliminateTeam`を早期成立させない)を実装。地域接続は薬草の沢の採取
   ルート(`StageDescriptor::timedReinforcement`、2ラウンド目に狼1体)のみ - 以前「増援の
   仕組み自体が未実装」として保留していたHollowの既知ギャップが解消された
+- 増援Wave予告のUI表示(2026-07、M4項目5続き): `ReinforcementAnnouncedEvent`は
+  `consumedEventIds`という書き込み専用の重複排除セットにしか痕跡が残らずペイロードを
+  読み出せないため、`src/main.cpp`に`reinforcementUiStates()`(Wave id→直近状態のMap)を
+  新設し、既存の`lastSeenAttackEvent`/`lowHpWarnedUnits()`と同じ「毎フレームポーリングし
+  差分検出」方式で`Scheduled→Announced`遷移を検知、`pushBattleMessage()`で
+  `battle.reinforcement_announced`バナーを1回だけ表示するようにした。表示は`spawnRound`
+  のみ(実出現Tileは非表示のまま)。Boss予告UI(`BossTelegraphChangedEvent`)は今回の対象外で
+  依然未配線
 - AI候補/Score/小隊予約/兵種別Profile(2026-07、M4項目6・7、簡略版): `enemy_ai_rules.md`の
   完全仕様(8 Role、6 Faction、撤退/降伏、Object操作候補)より小さい、`jf::AiCandidate`/
   `jf::AiProfile`(Wolf/Human/Defender/Ranged/Support/Banditの6種)/`generateAiCandidates()`/
@@ -161,12 +242,6 @@
 - `RootActionId`と順序付き`BattleEventEnvelope`による正式なRoot Action分解(M1-A実装Sliceの
   残り項目。現状は個別のBattleController呼び出し順で同等の効果を得ているのみで、契約が
   定めるデータ構造そのものはまだ存在しない)
-- Battle ObjectのBattleController/UI統合: 攻撃対象選択がUnitしか選べず、Objectを対象にできない
-  (`resolveObjectAttack()`は関数として存在するが呼び出し元がない)。Interactコマンドの
-  BattleController API・UIボタンも未配線。`ObjectStateChangedEvent`/`ObjectDestroyedEvent`を
-  実際に発行する呼び出し元も存在しない
-- Battle ObjectのBattleFactoryランダム生成統合(`battle_objects.md`「ランダム生成」の手順1〜7)。
-  地域書がObject配置を指定してもまだ反映されない
 - Battle ObjectのSave Snapshot(Object ID、Definition ID、位置、Team、State、耐久、操作回数、
   乱数配置結果の保存・復元)
 - `region_mission_data_contract.md`の`RegionDefinition`/`SiteDefinition`/
@@ -175,8 +250,8 @@
   (`routeOutcomes`、`scoutRouteDisabled`、Ad-hoc副目標フィールド等)で対応できており、
   まだ本格的な移行コストに見合っていない。次地域(灰鉄採石場、5地点)を追加するM9系まで
   持ち越す想定に変更
-- 薬草の沢の「薬草を採取」ルートはRound 2の狼1体Waveまで実装済み。未実装なのは増援HUDと、
-  他地域のEncounter Definitionから同じ共通Waveを生成するデータ移行
+- 薬草の沢の「薬草を採取」ルートはRound 2の狼1体Waveと予告バナー表示まで実装済み。
+  未実装なのは他地域のEncounter Definitionから同じ共通Waveを生成するデータ移行
 - 特定Unit限定の踏査Objective(暁の衛生兵専用踏査など)。`ObjectiveTarget`にUnit単位の制約が
   なく、`herbwater_hollow_surveyed`のようなRegionProgress記録の仕組みも未実装
 - 遠征継続時だけの1回限りボーナス回復(薬草の沢の「薬草地点確保後、継続時+2」)。
@@ -188,13 +263,16 @@
 - Boss共通基盤(`battle_resolution_contract.md`「Boss段階移行」)。灰角大猪の激昂・突進・
   薙ぎ払いは今回この個体専用のAI関数として実装しており、複数Bossで再利用できる汎用Boss
   Definitionモデルへの一般化はM4「Skill・AI・Boss共通化」の対象
-- Boss予告Message・突進予告列・激昂境界の戦闘UI表示(`main.cpp`は未配線)
+- 激昂境界の戦闘UI表示(HP50%閾値の表示自体は未配線、`bossRuntime.stageIndex`は
+  データとしては保持済み)。突進予告Message・予告列のハイライトは2026-07に配線完了
+  (下記「Boss突進予告のUI表示」参照)
 - Device/Container/SpawnPointの実際の挙動(修理、Wave接続、破壊後Terrain変換)。データモデルの
   種別だけ定義済みで、専用ロジックは未着手
 - Root Action単位の完全な行動解決順、同時発生規則のうち増援・Boss段階移行・反応Skill部分
 - 通常反撃なし。槍兵の反撃準備だけが行う反応攻撃
-- Encounter/地域Definitionから増援Waveを生成する接続と増援HUD。Wave Runtimeの予告、封鎖、
-  出現直後行動不可、必須全滅条件、Checkpointからの決定論的再生成は実装済み
+- Encounter/地域Definitionから増援Waveを生成する接続(現状は薬草の沢1件のみ)。Wave
+  Runtimeの予告、封鎖、出現直後行動不可、必須全滅条件、Checkpointからの決定論的再生成、
+  予告のUI表示(バナー)は実装済み
 - Boss Objectiveの許可退場理由Filter。状態異常補正、予告固定、段階移行、退場理由Eventは実装済み
 - 本編後の深層遠征向け複数マスBoss Footprint
 - 倒木、装置、Container、増援口、Exitを統合するBattle Object
@@ -221,11 +299,50 @@
   灰地10%へ修正
 - 倉庫上限超過時の受取保留・倉庫整理・放棄確認・原子的な帰還Transaction(M3-C、
   詳細は`implementation_roadmap.md`「M3-C 倉庫超過」)
+- `data/regions.json`を正本とする`StageDescriptor`部分Loader(2026-07、M1-E Slice1続き):
+  `StageDescriptor`自体をJSON化対象にする方針を採り、JSON化可能な安定Subsetを
+  `GameData::StageContentData`として切り出した(`id`/`terrainProfileId`/`enemyRoster`/
+  `baseVictoryLoot`/`routeVictoryLootDelta`/`surveyObjectiveId`/`surveyBonusLoot`/
+  `discoveries`/`missionNameEn`/`missionNameJa`)。`GameData::loadGameData()`が
+  重複ID・存在しないTerrain Profile参照・未知`ExplorationChoice`文字列を起動時に拒否する。
+  `Region.cpp`の`stageDescriptorFromContent()`がこのSubsetから`StageDescriptor`の共通部分を
+  組み立て、灰枝の林縁(構成が最も単純なStage)をC++直書きから完全移行した実証済み。
+  倒木・薬草地点の乱数配置(`ObjectPlacementRule`/`HerbPatchGenerationRule`)は元々
+  `StageDescriptor`側のC++フィールドとして先に一般化済みのため、今回のJSON化対象には
+  未だ含めていない。続けて`StageContentData`へ`routeOutcomes`/`scoutRouteRequiredClass`/
+  `scoutRouteDisabled`/`timedReinforcement`/`herbPatchGeneration`を追加し、増援Wave・
+  衛生兵限定ルートを持つ薬草の沢も完全移行した。続けて`objectPlacementRules`
+  (`BattleObjectDefinition`をそのまま埋め込み)・`enemyCountOverride`・`boostedFirstEnemy`・
+  `understaffedReinforcement`/`understaffedThreshold`・`logCollisionBonusLoot`/
+  `noCasualtiesBonusLoot`もSchemaへ追加し、折れ木の縄張り(出荷済みの中で最も複雑なStage)と
+  沈黙した監視所群3地点(`enemyRoster`をJSON側で意図的に省略 - 空Rosterは既存の
+  「`GameData::enemyRoster`という共有Rosterを使う」という意味を保持)も完全移行した。
+  これで出荷済み6 Stage全てが`data/regions.json`駆動になり、`Region.cpp`から地点固有の
+  StageDescriptor直書きは無くなった。`jf_forest_balance`実測は全て移行前後で完全に同一
+  (Byte-identical)
+- `BattleFactory.cpp`最後の名前分岐を除去(2026-07): 折れ木の縄張り専用の
+  `stage.terrainProfileId == kBrokenwoodTerritoryTerrain`(敵生成列を右2列に絞る)を
+  `StageDescriptor::enemyZoneWidth`(既定`nullopt`=3列)として一般化。`assembleScenario()`/
+  `buildEnemies()`は`stage.id`/`stage.terrainProfileId`の値そのものを条件分岐に一切使わなく
+  なった(`terrainProfileId`は`data.terrainProfile()`を引くためのKeyとしてのみ使用)
+- コンテンツ構造検証`jf_content_tests`を新設(2026-07、M1-E Slice7一部): `jf_locale_tests`と
+  同様CTest登録済みで`ctest`実行のたびに自動検証する。全Region×全Stageを100 Seedずつ
+  実際に生成し、Unit配置の盤内・通行可能・非重複、敵数の一致、Object配置数・列範囲・
+  非重複、HerbPatch枚数の一致、盤面左右端間の経路存在(無制限BFS)、同一Seedからの
+  決定論的再生成を検証する。Route Graph到達可能性・Objective達成可能性の静的検査は
+  対象外(M9で分岐Routeが増えてから着手)
+- 薬草地点・倒木の乱数配置を`StageDescriptor::HerbPatchGenerationRule`/
+  `ObjectPlacementRule`という地域書側のデータへ一般化(2026-07)。`if (stage.terrainProfileId
+  == ...)`というAd-hoc分岐だった折れ木の縄張りの倒木・薬草の沢の薬草地点の両方をこの形へ
+  移行済み。踏査地点(`chooseSurveyTile()`)は元々地点名で分岐しない共通関数のため対象外と
+  判断(詳細は`implementation_roadmap.md`「M1-E コンテンツ追加基盤」Slice3)
 
 設定済み・未実装:
 
-- Encounter、Site、Region、AI ProfileのJSON Definitionと横断Validation
-- 薬草地点、倒木、踏査地点、敵生成列をPlacement Ruleへ移す処理
+- Encounter、Site、Region、AI ProfileのJSON Definitionと横断Validation(`StageDescriptor`の
+  一部フィールドは出荷済み6 Stage全てでJSON化済み。Encounter生成ロジック自体・AI Profile・
+  `region_mission_data_contract.md`が定めるフルSchemaへの全面移行はM9まで持ち越し)
+- 敵生成列をPlacement Ruleへ移す処理(薬草地点・倒木は完了、詳細は上記)
 - 既存兵種パッシブを能力ID参照へ移し、新兵種追加時の`switch`変更を不要にする処理
 - Boss専用一時状態を`Unit`からRuntime Stateへ分離する処理
 - Facility、Research、RecipeをJSONへ分離する定義型、所有状態、旧ID Alias、起動時検証
@@ -499,7 +616,8 @@
 - 正式仕様へ追加した、地域入口から連続する経路確保済み地点の一括通過、既知Campでの停止選択、
   地点別`reconLoot`（初回通常素材の50〜70%）は未実装。現行UIは地点ごとに安全通過を選ぶ
 - Pending加入候補、候補重複防止、安全帰還後の候補登録、集会所加入
-- 残り7種のObjectiveKind（`BattleObjectState`が必要な装置・破壊・防衛・脱出系）
+- 残り4種のObjectiveKind（`DestroyObject`/`SurviveRounds`/`EscapeUnits`は2026-07に実装済み。
+  複数地点確保・装置操作・対象保護・条件付き撃破が残る）
 - 戦闘開始画面・HUD・結果画面のUI、`MissionFlow`の報酬台帳
 
 設定済み・未実装の接続仕様:

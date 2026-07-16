@@ -171,6 +171,11 @@
   "battle.miss_message": "{attacker}の攻撃は{target}に外れた！",
   "battle.low_hp_message": "{target}が瀕死状態に！",
   "battle.fallen_message": "{target}が戦闘不能に！",
+  "battle.reinforcement_announced": "増援の気配 - あと{round}ラウンドで到着！",
+  "battle.object_hit_message": "{attacker}の攻撃が{object}に{damage}ダメージ！",
+  "battle.object_destroyed_message": "{object}が破壊された！",
+  "battle.boss_charge_telegraphed": "大猪が突進の狙いを定めている！",
+  "battle.boss_enraged": "大猪が激昂した！",
 
   "ui.prep.title": "遠征準備",
   "ui.prep.party_choose4": "パーティ(4人選択)",
@@ -184,6 +189,7 @@
 
   "ui.battle.select_unit_prompt": "行動するユニットを選択してください。",
   "ui.button.attack": "こうげき",
+  "ui.button.interact": "操作",
   "ui.button.items": "アイテム",
   "ui.button.skills": "スキル",
   "ui.button.heal": "治療",

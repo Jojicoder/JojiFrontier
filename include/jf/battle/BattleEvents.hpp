@@ -21,7 +21,7 @@ using ActionId = std::uint64_t;
 
 // Only the values SecureTile's "攻撃、スキル、アイテム、待機のいずれかを確定"
 // eligibility needs to distinguish today.
-enum class ActionKind { Move, Attack, Skill, Item, Wait };
+enum class ActionKind { Move, Attack, Skill, Item, Wait, Interact };
 
 struct ActionResolvedEvent {
     ActionId actionId;

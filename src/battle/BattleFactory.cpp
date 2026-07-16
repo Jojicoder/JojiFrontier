@@ -74,6 +74,117 @@ bool hasRouteAcross(const std::array<TerrainType, kGridRows * kGridCols>& terrai
     return false;
 }
 
+// Same reachability check as hasRouteAcross(), but against an already-
+// assembled BattleState plus a set of not-yet-placed Object Tiles (so
+// placeRandomObjects() below can ask "would placing a blocksMovement Object
+// here still leave a route?" before actually placing it). `battle.objects()`
+// itself is irrelevant here on purpose - a rule only needs to check against
+// Objects its own retry loop is about to add, since nothing else calls
+// placeRandomObjects() more than once per assembleScenario().
+bool hasRouteAcrossWithBlockedTiles(const BattleState& battle, const std::vector<GridPos>& blocked) {
+    auto isBlocked = [&](GridPos pos) {
+        return std::find(blocked.begin(), blocked.end(), pos) != blocked.end();
+    };
+    std::array<bool, kGridRows * kGridCols> visited{};
+    std::queue<GridPos> open;
+    for (int row = 0; row < kGridRows; ++row) {
+        GridPos start{row, 0};
+        if (isPassable(battle.terrainAt(start)) && !isBlocked(start)) {
+            visited[row * kGridCols] = true;
+            open.push(start);
+        }
+    }
+    constexpr GridPos directions[] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+    while (!open.empty()) {
+        GridPos current = open.front();
+        open.pop();
+        if (current.col == kGridCols - 1) return true;
+        for (GridPos direction : directions) {
+            GridPos next{current.row + direction.row, current.col + direction.col};
+            if (!isInBounds(next)) continue;
+            int key = next.row * kGridCols + next.col;
+            if (visited[key] || !isPassable(battle.terrainAt(next)) || isBlocked(next)) continue;
+            visited[key] = true;
+            open.push(next);
+        }
+    }
+    return false;
+}
+
+// docs/battle_objects.md "ランダム生成": StageDescriptor::objectPlacementRules
+// generalizes what used to be Brokenwood Territory's fallen_log-only ad-hoc
+// block, so a future region declares Object placement as data instead of a
+// new `if (stage.terrainProfileId == ...)` branch here. Terrain (step 1) and
+// Unit spawns (step 2) are already fixed inputs by the time this runs, so
+// this only covers steps 3/5/part of 6: register each rule's Definition,
+// pick candidate Tiles in its zone (excluding the first Enemy's row when
+// asked), prefer distinct rows first the way the original fallen_log logic
+// did, and skip any candidate that would leave zero route across the board.
+// Step 7's "上限到達後は安全な固定配置へ戻す" fallback isn't implemented - a
+// candidate that would sever the only route is simply skipped rather than
+// retried against a region-specific fixed Tile (no shipped region needs
+// more blocksMovement Objects than comfortably fit its zone yet).
+void placeRandomObjects(BattleState& battle, const StageDescriptor& stage, const ExplorationOutcome& outcome,
+                        std::uint32_t seed) {
+    for (std::size_t ruleIndex = 0; ruleIndex < stage.objectPlacementRules.size(); ++ruleIndex) {
+        const StageDescriptor::ObjectPlacementRule& rule = stage.objectPlacementRules[ruleIndex];
+        battle.registerObjectDefinition(rule.definition);
+
+        int avoidedRow = -1;
+        if (rule.avoidFirstEnemyRow) {
+            for (const Unit& unit : battle.units()) {
+                if (unit.team == Team::Enemy) { avoidedRow = unit.position.row; break; }
+            }
+        }
+
+        std::vector<GridPos> candidates;
+        for (int row = 0; row < kGridRows; ++row) {
+            if (row == avoidedRow) continue;
+            for (int col = rule.zoneMinCol; col <= rule.zoneMaxCol; ++col) {
+                GridPos pos{row, col};
+                if (isPassable(battle.terrainAt(pos)) && !battle.unitAt(pos) && !battle.objectAt(pos))
+                    candidates.push_back(pos);
+            }
+        }
+        std::mt19937 rng(seed ^ (0x1B873593u + static_cast<std::uint32_t>(ruleIndex)));
+        std::shuffle(candidates.begin(), candidates.end(), rng);
+
+        const int targetCount =
+            rule.count + (rule.scalesWithExtraBarrierOutcome ? std::max(0, outcome.extraBarrierCount) : 0);
+
+        std::vector<GridPos> chosen;
+        std::vector<int> usedRows;
+        auto tryPlace = [&](GridPos pos) {
+            if (static_cast<int>(chosen.size()) >= targetCount) return;
+            if (rule.definition.blocksMovement && !hasRouteAcrossWithBlockedTiles(battle, [&] {
+                    std::vector<GridPos> blocked = chosen;
+                    blocked.push_back(pos);
+                    return blocked;
+                }())) {
+                return;
+            }
+            chosen.push_back(pos);
+            usedRows.push_back(pos.row);
+        };
+        for (GridPos candidate : candidates) {
+            if (static_cast<int>(chosen.size()) >= targetCount) break;
+            if (std::find(usedRows.begin(), usedRows.end(), candidate.row) != usedRows.end()) continue;
+            tryPlace(candidate);
+        }
+        for (GridPos candidate : candidates) {
+            if (static_cast<int>(chosen.size()) >= targetCount) break;
+            if (std::find(chosen.begin(), chosen.end(), candidate) != chosen.end()) continue;
+            tryPlace(candidate);
+        }
+
+        for (std::size_t i = 0; i < chosen.size(); ++i) {
+            battle.placeObject({rule.idPrefix + "_" + std::to_string(i + 1), rule.definition.definitionId,
+                               chosen[i], BattleObjectTeam::Neutral, BattleObjectStateKind::Active,
+                               rule.definition.maxDurability, 0});
+        }
+    }
+}
+
 // docs/implementation_roadmap.md "Phase 1.5": enemy composition/count/boost
 // now comes entirely from the StageDescriptor rather than a raw stage int,
 // so a region never needs a parallel copy of this function.
@@ -84,10 +195,10 @@ std::vector<Unit> buildEnemies(const GameData& data, const StageDescriptor& stag
     std::size_t enemyCount = std::min(stage.enemyCountOverride.value_or(roster.size()), roster.size());
     enemyCount -= std::min(enemyCount, static_cast<std::size_t>(std::max(0, outcome.enemiesRemoved)));
     // docs/regions/ashbough_forest.md "折れ木の縄張り": "灰角大猪は右2列の候補
-    // から生成する" - narrower than the usual 3-column enemy zone.
-    const int enemyZoneMinCol = stage.terrainProfileId == kBrokenwoodTerritoryTerrain
-                                    ? kRightZoneMaxCol - 1
-                                    : kRightZoneMinCol;
+    // から生成する" - narrower than the usual 3-column enemy zone
+    // (docs/implementation_roadmap.md M1-E: driven by `stage.enemyZoneWidth`,
+    // data/regions.json, rather than a name-based branch here).
+    const int enemyZoneMinCol = kRightZoneMaxCol - stage.enemyZoneWidth.value_or(kSpawnZoneWidth) + 1;
     std::vector<GridPos> spawns = randomSpawnPositions(enemyZoneMinCol, kRightZoneMaxCol, seed ^ kEnemySpawnSalt);
     for (std::size_t i = 0; i < enemyCount; ++i) {
         GridPos pos = i < spawns.size() ? spawns[i] : enemySpawnFallback();
@@ -180,72 +291,28 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
     BattleState battle(std::move(units), terrain, seed);
 
     std::vector<GridPos> herbTiles;
-    if (stage.terrainProfileId == kHerbwaterHollowTerrain) {
+    if (stage.herbPatchGeneration) {
         // docs/regions/ashbough_forest.md "薬草の沢": "盤面中央に浅瀬と薬草地点
-        // 2マス" - exactly 2 HerbPatch tiles in the center 4 columns (2-5),
-        // chosen after units are placed (like chooseSurveyTile() below) so
-        // they never land on an already-occupied tile - the herb zone's
-        // edge columns (2 and 5) can otherwise overlap a spawn zone's edge.
+        // 2マス" - chosen after units are placed (like chooseSurveyTile()
+        // below) so they never land on an already-occupied tile - the herb
+        // zone's edge columns can otherwise overlap a spawn zone's edge.
+        const auto& rule = *stage.herbPatchGeneration;
         std::vector<GridPos> candidates;
         for (int row = 0; row < kGridRows; ++row) {
-            for (int col = 2; col <= 5; ++col) {
+            for (int col = rule.zoneMinCol; col <= rule.zoneMaxCol; ++col) {
                 GridPos pos{row, col};
                 if (isPassable(battle.terrainAt(pos)) && !battle.unitAt(pos)) candidates.push_back(pos);
             }
         }
         std::mt19937 rng(seed ^ 0x51ED270Bu);
         std::shuffle(candidates.begin(), candidates.end(), rng);
-        for (std::size_t i = 0; i < candidates.size() && i < 2; ++i) {
+        for (std::size_t i = 0; i < candidates.size() && static_cast<int>(i) < rule.count; ++i) {
             battle.setTerrain(candidates[i], TerrainType::HerbPatch);
             herbTiles.push_back(candidates[i]);
         }
     }
 
-    if (stage.terrainProfileId == kBrokenwoodTerritoryTerrain) {
-        // docs/regions/ashbough_forest.md "折れ木の縄張り"/"ランダム初期配置":
-        // 1 fallen log in the center 4 columns (2-5) by default, +1 more
-        // (route B) preferring a distinct row from the first. Never on the
-        // boss's own row, so a charge can't trivially collide turn one.
-        BattleObjectDefinition logDef;
-        logDef.definitionId = "fallen_log";
-        logDef.kind = BattleObjectKind::Barrier;
-        logDef.blocksMovement = true;
-        battle.registerObjectDefinition(logDef);
-
-        const Unit* boss = nullptr;
-        for (const Unit& unit : battle.units()) {
-            if (unit.team == Team::Enemy) { boss = &unit; break; }
-        }
-        std::vector<GridPos> logCandidates;
-        for (int row = 0; row < kGridRows; ++row) {
-            if (boss && row == boss->position.row) continue;
-            for (int col = 2; col <= 5; ++col) {
-                GridPos pos{row, col};
-                if (isPassable(battle.terrainAt(pos)) && !battle.unitAt(pos)) logCandidates.push_back(pos);
-            }
-        }
-        std::mt19937 logRng(seed ^ 0x1B873593u);
-        std::shuffle(logCandidates.begin(), logCandidates.end(), logRng);
-
-        const int logCount = 1 + std::max(0, outcome.extraBarrierCount);
-        std::vector<GridPos> chosenLogs;
-        std::vector<int> usedRows;
-        for (GridPos candidate : logCandidates) {
-            if (static_cast<int>(chosenLogs.size()) >= logCount) break;
-            if (std::find(usedRows.begin(), usedRows.end(), candidate.row) != usedRows.end()) continue;
-            chosenLogs.push_back(candidate);
-            usedRows.push_back(candidate.row);
-        }
-        for (GridPos candidate : logCandidates) {
-            if (static_cast<int>(chosenLogs.size()) >= logCount) break;
-            if (std::find(chosenLogs.begin(), chosenLogs.end(), candidate) != chosenLogs.end()) continue;
-            chosenLogs.push_back(candidate);
-        }
-        for (std::size_t i = 0; i < chosenLogs.size(); ++i) {
-            battle.placeObject({"fallen_log_" + std::to_string(i + 1), "fallen_log", chosenLogs[i],
-                               BattleObjectTeam::Neutral, BattleObjectStateKind::Active, 0, 0});
-        }
-    }
+    placeRandomObjects(battle, stage, outcome, seed);
 
     if (stage.surveyObjectiveId) {
         // docs/regions/ashbough_forest.md "薬草の沢"'s common secondary is

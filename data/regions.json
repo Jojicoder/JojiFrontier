@@ -1,0 +1,153 @@
+{
+  "stages": [
+    {
+      "id": "ashbough_verge",
+      "terrainProfileId": "ashbough_verge",
+      "enemyRoster": [
+        { "id": "ashbough_wolf1", "name": "Wolf", "classId": "Wolf" },
+        { "id": "ashbough_wolf2", "name": "Wolf", "classId": "Wolf" },
+        { "id": "ashbough_wolf3", "name": "Wolf", "classId": "Wolf" },
+        { "id": "ashbough_wolf4", "name": "Wolf", "classId": "Wolf" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "wood", "quantity": 2 },
+        { "id": "hide", "quantity": 1 }
+      ],
+      "routeVictoryLootDelta": [
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "wood", "quantity": -2 }] },
+        { "choice": "ScoutRoute", "loot": [{ "id": "hide", "quantity": 1 }] }
+      ],
+      "surveyObjectiveId": "ashbough_verge_surveyed",
+      "surveyBonusLoot": [{ "id": "wood", "quantity": 1 }],
+      "missionNameEn": "Ashbough Verge",
+      "missionNameJa": "灰枝の林縁"
+    },
+    {
+      "id": "herbwater_hollow",
+      "terrainProfileId": "herbwater_hollow",
+      "enemyRoster": [
+        { "id": "herbwater_wolf1", "name": "Wolf", "classId": "Wolf" },
+        { "id": "herbwater_wolf2", "name": "Wolf", "classId": "Wolf" },
+        { "id": "herbwater_wolf3", "name": "Wolf", "classId": "Wolf" },
+        { "id": "herbwater_wolf4", "name": "Wolf", "classId": "Wolf" }
+      ],
+      "baseVictoryLoot": [{ "id": "wood", "quantity": 1 }],
+      "routeVictoryLootDelta": [
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "herb", "quantity": 2 }] },
+        { "choice": "ScoutRoute", "loot": [{ "id": "quality_herb", "quantity": 1 }] }
+      ],
+      "surveyObjectiveId": "herbwater_hollow_herb_secured",
+      "surveyBonusLoot": [{ "id": "herb", "quantity": 1 }],
+      "herbPatchGeneration": { "count": 2, "zoneMinCol": 2, "zoneMaxCol": 5 },
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath", "enableReinforcementWave": true },
+        { "choice": "ScoutRoute", "restrictedAutoSpawnMaxColumn": 1 }
+      ],
+      "scoutRouteRequiredClass": "DawnChirurgeon",
+      "timedReinforcement": {
+        "id": "herbwater_harvest_wolf",
+        "spawnRound": 2,
+        "spawnPhase": "EnemyPhase",
+        "announceRoundsBefore": 1,
+        "requiredForElimination": true,
+        "units": [{ "id": "herbwater_reinforcement_wolf", "name": "Wolf", "classId": "Wolf" }],
+        "orderedSpawnCandidates": [
+          { "row": 0, "col": 7 },
+          { "row": 1, "col": 7 },
+          { "row": 2, "col": 7 }
+        ]
+      },
+      "missionNameEn": "Herbwater Hollow",
+      "missionNameJa": "薬草の沢"
+    },
+    {
+      "id": "brokenwood_territory",
+      "terrainProfileId": "brokenwood_territory",
+      "enemyZoneWidth": 2,
+      "enemyRoster": [
+        { "id": "ashenhorn_boar", "name": "Ashenhorn Boar", "classId": "AshenhornBoar" },
+        { "id": "brokenwood_guard_wolf", "name": "Wolf", "classId": "Wolf" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "ashenhorn_fang", "quantity": 1 },
+        { "id": "wood", "quantity": 2 },
+        { "id": "hide", "quantity": 2 }
+      ],
+      "routeVictoryLootDelta": [
+        { "choice": "FrontalAdvance", "loot": [{ "id": "wood", "quantity": 1 }] }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance", "restrictedAutoSpawnMaxColumn": 1 },
+        { "choice": "CollapsedSidePath", "restrictedAutoSpawnMaxColumn": 1, "extraBarrierCount": 1 }
+      ],
+      "scoutRouteDisabled": true,
+      "objectPlacementRules": [
+        {
+          "definition": {
+            "definitionId": "fallen_log",
+            "kind": "Barrier",
+            "blocksMovement": true,
+            "canBeAttacked": true,
+            "maxDurability": 16,
+            "defense": 3,
+            "resistance": 3
+          },
+          "idPrefix": "fallen_log",
+          "count": 1,
+          "scalesWithExtraBarrierOutcome": true,
+          "zoneMinCol": 2,
+          "zoneMaxCol": 5,
+          "avoidFirstEnemyRow": true
+        }
+      ],
+      "understaffedReinforcement": { "id": "brokenwood_guard_wolf2", "name": "Wolf", "classId": "Wolf" },
+      "logCollisionBonusLoot": [{ "id": "ashenhorn_fragment", "quantity": 1 }],
+      "noCasualtiesBonusLoot": [{ "id": "hide", "quantity": 1 }],
+      "missionNameEn": "Brokenwood Territory",
+      "missionNameJa": "折れ木の縄張り"
+    },
+    {
+      "id": "cinderwatch_outpost",
+      "terrainProfileId": "cinderwatch_outpost",
+      "enemyCountOverride": 3,
+      "baseVictoryLoot": [
+        { "id": "gate_tools", "quantity": 1 },
+        { "id": "ash_road_map", "quantity": 1 },
+        { "id": "hide", "quantity": 2 },
+        { "id": "wood", "quantity": 4 }
+      ],
+      "discoveries": ["cinderwatch_recon_records"],
+      "missionNameEn": "Cinderwatch Gate",
+      "missionNameJa": "シンダーウォッチ関門"
+    },
+    {
+      "id": "ironwatch_stores",
+      "terrainProfileId": "ash_road",
+      "baseVictoryLoot": [
+        { "id": "field_medicine", "quantity": 1 },
+        { "id": "watch_ledger", "quantity": 1 },
+        { "id": "wood", "quantity": 3 },
+        { "id": "herb", "quantity": 2 }
+      ],
+      "discoveries": ["ironwatch_field_medicine_records", "herb_thicket_grounds"],
+      "missionNameEn": "Ironwatch Stores",
+      "missionNameJa": "アイアンウォッチ物資庫"
+    },
+    {
+      "id": "signal_tower",
+      "terrainProfileId": "signal_tower",
+      "boostedFirstEnemy": { "displayName": "Former Captain", "maxHpBonus": 10, "defenseBonus": 2 },
+      "baseVictoryLoot": [
+        { "id": "signal_lens", "quantity": 1 },
+        { "id": "captains_seal", "quantity": 1 },
+        { "id": "ashveil_fang", "quantity": 1 },
+        { "id": "wood", "quantity": 3 },
+        { "id": "hide", "quantity": 3 }
+      ],
+      "discoveries": ["signal_tower_return_signal_records"],
+      "missionNameEn": "The Last Signal",
+      "missionNameJa": "最後の信号塔"
+    }
+  ]
+}

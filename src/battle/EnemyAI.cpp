@@ -198,12 +198,41 @@ int boarChargeDirectionForTarget(BattleState& battle, const Unit& boar, int rang
     return best->position.col < boar.position.col ? -1 : 1;
 }
 
+// Side-effect-free preview of executeBoarCharge()'s walk, for populating
+// BossTelegraph::lockedTiles at telegraph time (docs/boss_common_rules.md's
+// "攻撃列" - the UI's danger-zone highlight). Since the boar doesn't move
+// between telegraph and execution and nothing else changes the board mid-
+// Enemy-Phase, this predicts the exact tiles executeBoarCharge() will later
+// walk: stops at the board edge (tile not included) or at a movement-
+// blocking Battle Object (that tile IS included, since the log itself gets
+// hit/destroyed there).
+std::vector<GridPos> computeBoarChargeTiles(const BattleState& battle, const Unit& boar, int direction, int range) {
+    std::vector<GridPos> tiles;
+    const int row = boar.position.row;
+    for (int step = 1; step <= range; ++step) {
+        int col = boar.position.col + direction * step;
+        if (col < 0 || col >= kGridCols) break;
+        GridPos pos{row, col};
+        tiles.push_back(pos);
+
+        const BattleObjectState* object = battle.objectAt(pos);
+        if (object && object->state != BattleObjectStateKind::Destroyed) {
+            const BattleObjectDefinition* def = battle.objectDefinition(object->definitionId);
+            if (def && def->blocksMovement) break;
+        }
+    }
+    return tiles;
+}
+
 // Executes a telegraphed charge along the boar's current row: advances up
 // to `range` tiles in the direction locked during telegraphing, damaging
 // stop for) every player unit it passes over, and stopping the instant it
 // reaches a movement-blocking Battle Object (a fallen log) or the board
 // edge. A log collision destroys the log, applies the DEF2/RES0 stun (one
 // skipped Enemy Phase), and records it for the "倒木衝突" secondary reward.
+// (Mirrors computeBoarChargeTiles()'s walk above, which is what populates
+// BossTelegraph::lockedTiles at telegraph time - kept as a separate loop
+// here since this one also applies damage/destroys the log.)
 void executeBoarCharge(BattleState& battle, Unit& boar) {
     const int range = boar.bossEnraged ? kBoarChargeRangeEnraged : kBoarChargeRangeNormal;
     const int power = boar.stats.strength + kBoarChargePowerBonus;
@@ -316,7 +345,7 @@ Unit* takeBoarBossTurn(BattleState& battle, Unit& boar) {
         boar.chargeDirection = direction;
         boar.bossRuntime.telegraph = {"ashenhorn_charge", TelegraphShape::Line,
                                       TelegraphState::Announced, battle.round(), battle.round() + 1,
-                                      {}, {}, direction};
+                                      {}, computeBoarChargeTiles(battle, boar, direction, range), direction};
         handleObjectiveEvent(battle.missionState(),
                              {battle.issueEventId(), 0,
                               BossTelegraphChangedEvent{boar.id, "ashenhorn_charge", true}});
@@ -350,7 +379,8 @@ Unit* takeBoarBossTurn(BattleState& battle, Unit& boar) {
         if (boar.chargeDirection == 0) boar.chargeDirection = -1;
         boar.bossRuntime.telegraph = {"ashenhorn_charge", TelegraphShape::Line,
                                       TelegraphState::Announced, battle.round(), battle.round() + 1,
-                                      {}, {}, boar.chargeDirection};
+                                      {}, computeBoarChargeTiles(battle, boar, boar.chargeDirection, range),
+                                      boar.chargeDirection};
         handleObjectiveEvent(battle.missionState(),
                              {battle.issueEventId(), 0,
                               BossTelegraphChangedEvent{boar.id, "ashenhorn_charge", true}});
@@ -395,7 +425,7 @@ Unit* takeBoarBossTurn(BattleState& battle, Unit& boar) {
         boar.chargeDirection = direction;
         boar.bossRuntime.telegraph = {"ashenhorn_charge", TelegraphShape::Line,
                                       TelegraphState::Announced, battle.round(), battle.round() + 1,
-                                      {}, {}, direction};
+                                      {}, computeBoarChargeTiles(battle, boar, direction, range), direction};
         handleObjectiveEvent(battle.missionState(),
                              {battle.issueEventId(), 0,
                               BossTelegraphChangedEvent{boar.id, "ashenhorn_charge", true}});

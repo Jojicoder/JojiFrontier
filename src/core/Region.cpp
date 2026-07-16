@@ -6,11 +6,66 @@ namespace jf {
 
 namespace {
 
+// docs/implementation_roadmap.md M1-E slice1: builds the common fields a
+// StageDescriptor shares with GameData::StageContentData (the JSON-loadable
+// Schema, jf/data/GameData.hpp) from `data/regions.json`'s Loader output.
+// Callers still set whatever richer fields this Schema doesn't cover yet
+// directly on the returned StageDescriptor (this is the "段階的に" part of
+// the migration - see StageContentData's own comment for what's covered).
+StageDescriptor stageDescriptorFromContent(const StageContentData& content) {
+    StageDescriptor stage;
+    stage.id = content.id;
+    stage.terrainProfileId = content.terrainProfileId;
+    stage.enemyRoster = content.enemyRoster;
+    stage.baseVictoryLoot = content.baseVictoryLoot;
+    stage.routeVictoryLootDelta = content.routeVictoryLootDelta;
+    stage.surveyObjectiveId = content.surveyObjectiveId;
+    stage.surveyBonusLoot = content.surveyBonusLoot;
+    stage.discoveries = content.discoveries;
+    stage.missionNameEn = content.missionNameEn;
+    stage.missionNameJa = content.missionNameJa;
+    stage.routeOutcomes = content.routeOutcomes;
+    stage.scoutRouteRequiredClass = content.scoutRouteRequiredClass;
+    stage.scoutRouteDisabled = content.scoutRouteDisabled;
+    if (content.timedReinforcement) {
+        const auto& r = *content.timedReinforcement;
+        stage.timedReinforcement = StageDescriptor::TimedReinforcement{
+            r.id, r.spawnRound, r.spawnPhase, r.announceRoundsBefore,
+            r.requiredForElimination, r.units, r.orderedSpawnCandidates};
+    }
+    if (content.herbPatchGeneration) {
+        stage.herbPatchGeneration = StageDescriptor::HerbPatchGenerationRule{
+            content.herbPatchGeneration->count, content.herbPatchGeneration->zoneMinCol,
+            content.herbPatchGeneration->zoneMaxCol};
+    }
+    for (const auto& rule : content.objectPlacementRules) {
+        stage.objectPlacementRules.push_back(StageDescriptor::ObjectPlacementRule{
+            rule.definition, rule.idPrefix, rule.count, rule.scalesWithExtraBarrierOutcome, rule.zoneMinCol,
+            rule.zoneMaxCol, rule.avoidFirstEnemyRow});
+    }
+    stage.enemyCountOverride = content.enemyCountOverride;
+    stage.enemyZoneWidth = content.enemyZoneWidth;
+    if (content.boostedFirstEnemy) {
+        stage.boostedFirstEnemy = StageDescriptor::BoostedEnemy{
+            content.boostedFirstEnemy->displayName, content.boostedFirstEnemy->maxHpBonus,
+            content.boostedFirstEnemy->defenseBonus};
+    }
+    stage.understaffedReinforcement = content.understaffedReinforcement;
+    stage.understaffedThreshold = content.understaffedThreshold;
+    stage.logCollisionBonusLoot = content.logCollisionBonusLoot;
+    stage.noCasualtiesBonusLoot = content.noCasualtiesBonusLoot;
+    return stage;
+}
+
 // Matches docs/base_development.md's "最初の縦切り実装" table exactly - this
 // is a byte-for-byte migration of the old kVictoryLoot/kMissionNames/
 // kStageDiscoveries/fieldTypeForStage/stage==0/stage==2 special cases into
 // data, so Cinderwatch's behavior is unchanged by this refactor.
-RegionDescriptor cinderwatchGateRegion() {
+// docs/implementation_roadmap.md M1-E slice1続き: all 3 stages now sourced
+// from `data/regions.json` (enemyRoster deliberately absent from all 3 -
+// empty means "use GameData::enemyRoster", the shared roster these stages
+// have always drawn from, per StageDescriptor's own top-of-file comment).
+RegionDescriptor cinderwatchGateRegion(const GameData& data) {
     RegionDescriptor region;
     region.id = RegionId::CinderwatchGate;
     // docs/regions/cinderwatch_gate.md: "# 第2地域 沈黙した監視所群" / "日本語名
@@ -20,35 +75,9 @@ RegionDescriptor cinderwatchGateRegion() {
     region.displayNameEn = "Silenced Watchpost Cluster";
     region.displayNameJa = "沈黙した監視所群";
 
-    StageDescriptor stage0;
-    stage0.id = "cinderwatch_outpost";
-    stage0.terrainProfileId = kCinderwatchOutpostTerrain;
-    stage0.enemyCountOverride = 3; // only 3 of the 4-unit shared roster appear
-    stage0.baseVictoryLoot = {{"gate_tools", 1}, {"ash_road_map", 1}, {"hide", 2}, {"wood", 4}};
-    stage0.discoveries = {kCinderwatchReconDiscovery};
-    stage0.missionNameEn = "Cinderwatch Gate";
-    stage0.missionNameJa = "シンダーウォッチ関門";
-    region.stages.push_back(stage0);
-
-    StageDescriptor stage1;
-    stage1.id = "ironwatch_stores";
-    stage1.terrainProfileId = kAshRoadTerrain;
-    stage1.baseVictoryLoot = {{"field_medicine", 1}, {"watch_ledger", 1}, {"wood", 3}, {"herb", 2}};
-    stage1.discoveries = {kFieldMedicineDiscovery, kHerbThicketDiscovery};
-    stage1.missionNameEn = "Ironwatch Stores";
-    stage1.missionNameJa = "アイアンウォッチ物資庫";
-    region.stages.push_back(stage1);
-
-    StageDescriptor stage2;
-    stage2.id = "signal_tower";
-    stage2.terrainProfileId = kSignalTowerTerrain;
-    stage2.boostedFirstEnemy = StageDescriptor::BoostedEnemy{"Former Captain", 10, 2};
-    stage2.baseVictoryLoot = {
-        {"signal_lens", 1}, {"captains_seal", 1}, {kAshveilFangMaterial, 1}, {"wood", 3}, {"hide", 3}};
-    stage2.discoveries = {kReturnSignalDiscovery};
-    stage2.missionNameEn = "The Last Signal";
-    stage2.missionNameJa = "最後の信号塔";
-    region.stages.push_back(stage2);
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("cinderwatch_outpost")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("ironwatch_stores")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("signal_tower")));
 
     return region;
 }
@@ -56,34 +85,17 @@ RegionDescriptor cinderwatchGateRegion() {
 // docs/regions/ashbough_forest.md "1. 灰枝の林縁" - the only location
 // implemented so far (docs/implementation_roadmap.md Phase 2 scope). Its 4
 // wolves are a self-contained roster, not part of GameData::enemyRoster.
-RegionDescriptor ashboughForestRegion() {
+RegionDescriptor ashboughForestRegion(const GameData& data) {
     RegionDescriptor region;
     region.id = RegionId::AshboughForest;
     region.displayNameEn = "Ashbough Forest";
     region.displayNameJa = "灰枝の森";
 
-    StageDescriptor verge;
-    verge.id = "ashbough_verge";
-    verge.terrainProfileId = kAshboughVergeTerrain;
-    verge.enemyRoster = {
-        {"ashbough_wolf1", "Wolf", UnitClass::Wolf},
-        {"ashbough_wolf2", "Wolf", UnitClass::Wolf},
-        {"ashbough_wolf3", "Wolf", UnitClass::Wolf},
-        {"ashbough_wolf4", "Wolf", UnitClass::Wolf},
-    };
-    // 通常勝利: 木材2、獣皮1
-    verge.baseVictoryLoot = {{"wood", 2}, {"hide", 1}};
-    // 急行ルート: 木材-2 (通常勝利の木材なし) / 斥候ルート: 獣皮+1
-    verge.routeVictoryLootDelta = {
-        {ExplorationChoice::CollapsedSidePath, {{"wood", -2}}},
-        {ExplorationChoice::ScoutRoute, {{"hide", 1}}},
-    };
-    // 副目標「踏査地点を確保」: 木材+1
-    verge.surveyObjectiveId = "ashbough_verge_surveyed";
-    verge.surveyBonusLoot = {{"wood", 1}};
-    verge.missionNameEn = "Ashbough Verge";
-    verge.missionNameJa = "灰枝の林縁";
-    region.stages.push_back(verge);
+    // docs/implementation_roadmap.md M1-E slice1: the first stage fully
+    // sourced from `data/regions.json` rather than authored inline here -
+    // every field it uses (roster, victory/route loot, survey bonus,
+    // mission names) fits StageContentData's Schema.
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("ashbough_verge")));
 
     // docs/regions/ashbough_forest.md "2. 薬草の沢". Reinforcement (a 4th
     // wolf arriving turn 2 on the harvest route), the Dawn Chirurgeon-only
@@ -94,45 +106,12 @@ RegionDescriptor ashboughForestRegion() {
     // still needs a per-battle-instance required-unit-id. The main
     // objective, 3 exploration choices, terrain (Shallows + 2 HerbPatch),
     // and the common "薬草地点確保" Any-of-2-tiles bonus are implemented.
-    StageDescriptor herbwater;
-    herbwater.id = "herbwater_hollow";
-    herbwater.terrainProfileId = kHerbwaterHollowTerrain;
-    herbwater.enemyRoster = {
-        {"herbwater_wolf1", "Wolf", UnitClass::Wolf},
-        {"herbwater_wolf2", "Wolf", UnitClass::Wolf},
-        {"herbwater_wolf3", "Wolf", UnitClass::Wolf},
-        {"herbwater_wolf4", "Wolf", UnitClass::Wolf},
-    };
-    // 通常勝利: 木材1
-    herbwater.baseVictoryLoot = {{"wood", 1}};
-    // 採取ルート: 薬草2 + Round 2 wolf / 衛生兵ルート: 高品質薬草1
-    herbwater.routeVictoryLootDelta = {
-        {ExplorationChoice::CollapsedSidePath, {{"herb", 2}}},
-        {ExplorationChoice::ScoutRoute, {{"quality_herb", 1}}},
-    };
-    // 共通副目標「薬草地点確保」: 薬草+1 (either of the 2 HerbPatch tiles)
-    herbwater.surveyObjectiveId = "herbwater_hollow_herb_secured";
-    herbwater.surveyBonusLoot = {{"herb", 1}};
-    // 衛生兵ルート: 増援なし・味方全員を左2列のランダム候補へ制限。まだ辺境斥候の
-    // 「自由配置」ではなく「乱数配置を2列に絞る」効果である点に注意。
-    herbwater.routeOutcomes = {
-        {ExplorationChoice::FrontalAdvance, {}},
-        {ExplorationChoice::CollapsedSidePath, {.enableReinforcementWave = true}},
-        {ExplorationChoice::ScoutRoute, {.restrictedAutoSpawnMaxColumn = 1}},
-    };
-    herbwater.scoutRouteRequiredClass = UnitClass::DawnChirurgeon;
-    herbwater.timedReinforcement = StageDescriptor::TimedReinforcement{
-        .id = "herbwater_harvest_wolf",
-        .spawnRound = 2,
-        .spawnPhase = Phase::EnemyPhase,
-        .announceRoundsBefore = 1,
-        .requiredForElimination = true,
-        .units = {{"herbwater_reinforcement_wolf", "Wolf", UnitClass::Wolf}},
-        .orderedSpawnCandidates = {{0, 7}, {1, 7}, {2, 7}},
-    };
-    herbwater.missionNameEn = "Herbwater Hollow";
-    herbwater.missionNameJa = "薬草の沢";
-    region.stages.push_back(herbwater);
+    // docs/implementation_roadmap.md M1-E slice1続き: fully sourced from
+    // `data/regions.json` - the second stage migrated after Ashbough Verge,
+    // proving the Schema extension (routeOutcomes/scoutRouteRequiredClass/
+    // timedReinforcement/herbPatchGeneration) covers a stage this much
+    // richer than Verge's.
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("herbwater_hollow")));
 
     // docs/regions/ashbough_forest.md "3. 折れ木の縄張り"/"灰角大猪". Route C
     // ("[辺境猟兵]獣の痕跡を追う") is out of scope per the doc's own text - it
@@ -142,51 +121,23 @@ RegionDescriptor ashboughForestRegion() {
     // The escort wolf remains active while the boar loses its own turn to a
     // fallen-log collision, preventing the stun window from becoming a fully
     // uncontested Enemy Phase.
-    StageDescriptor brokenwood;
-    brokenwood.id = "brokenwood_territory";
-    brokenwood.terrainProfileId = kBrokenwoodTerritoryTerrain;
-    brokenwood.enemyRoster = {
-        {"ashenhorn_boar", "Ashenhorn Boar", UnitClass::AshenhornBoar},
-        {"brokenwood_guard_wolf", "Wolf", UnitClass::Wolf},
-    };
-    // ボス撃破保証: 灰角の大牙1、木材2、獣皮2
-    brokenwood.baseVictoryLoot = {{kAshenhornFangMaterial, 1}, {"wood", 2}, {"hide", 2}};
-    // A(慎重に): 通常倒木を回収して木材+1。B(誘導): 倒木を罠として破損させるため
-    // 追加木材なし。
-    brokenwood.routeVictoryLootDelta = {
-        {ExplorationChoice::FrontalAdvance, {{"wood", 1}}},
-    };
-    // 両ルートとも「味方4人は左2列のランダム候補」。Bだけ倒木をもう1本追加。
-    brokenwood.routeOutcomes = {
-        {ExplorationChoice::FrontalAdvance, {.restrictedAutoSpawnMaxColumn = 1}},
-        {ExplorationChoice::CollapsedSidePath, {.restrictedAutoSpawnMaxColumn = 1, .extraBarrierCount = 1}},
-    };
-    brokenwood.scoutRouteDisabled = true;
-    // 実測(jf_forest_balance)の結果、Verge/Hollowで頭数が減った状態のまま
-    // Territoryへ入っても、生き残った仲間はHPが十分残っていることが多く、
-    // 減った頭数なりの調整が敵側に無かった。campaign_balance.mdの優先度3番
-    // 「予告された増援・地形変化」に沿って、4人未満で突入した場合だけ護衛狼を
-    // もう1体追加する(灰角大猪自身のHP/ダメージは変更しない)。
-    brokenwood.understaffedReinforcement =
-        UnitTemplate{"brokenwood_guard_wolf2", "Wolf", UnitClass::Wolf};
-    // 副目標「倒木衝突」: 灰角の欠片1 / 副目標「無傷」: 獣皮1 (both routes)
-    brokenwood.logCollisionBonusLoot = {{"ashenhorn_fragment", 1}};
-    brokenwood.noCasualtiesBonusLoot = {{"hide", 1}};
-    brokenwood.missionNameEn = "Brokenwood Territory";
-    brokenwood.missionNameJa = "折れ木の縄張り";
-    region.stages.push_back(brokenwood);
+    // docs/implementation_roadmap.md M1-E slice1続き: fully sourced from
+    // `data/regions.json` - the richest stage migrated so far (roster,
+    // route loot/outcomes, disabled scout route, objectPlacementRules,
+    // understaffedReinforcement, both Ad-hoc bonus loot fields).
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("brokenwood_territory")));
 
     return region;
 }
 
 } // namespace
 
-RegionDescriptor regionDescriptor(RegionId id, const GameData& /*data*/) {
+RegionDescriptor regionDescriptor(RegionId id, const GameData& data) {
     switch (id) {
-        case RegionId::CinderwatchGate: return cinderwatchGateRegion();
-        case RegionId::AshboughForest: return ashboughForestRegion();
+        case RegionId::CinderwatchGate: return cinderwatchGateRegion(data);
+        case RegionId::AshboughForest: return ashboughForestRegion(data);
     }
-    return cinderwatchGateRegion();
+    return cinderwatchGateRegion(data);
 }
 
 std::string toString(RegionId id) {

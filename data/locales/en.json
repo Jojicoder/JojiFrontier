@@ -171,6 +171,11 @@
   "battle.miss_message": "{attacker}'s attack misses {target}!",
   "battle.low_hp_message": "{target} is on the brink of collapse!",
   "battle.fallen_message": "{target} has fallen!",
+  "battle.reinforcement_announced": "Reinforcements are moving in - arriving in {round} round(s)!",
+  "battle.object_hit_message": "{attacker} strikes the {object} for {damage}!",
+  "battle.object_destroyed_message": "The {object} is destroyed!",
+  "battle.boss_charge_telegraphed": "The boar is lining up a charge!",
+  "battle.boss_enraged": "The boar has become enraged!",
 
   "ui.prep.title": "EXPEDITION PREPARATION",
   "ui.prep.party_choose4": "Party - choose 4",
@@ -184,6 +189,7 @@
 
   "ui.battle.select_unit_prompt": "Select a unit to act.",
   "ui.button.attack": "Attack",
+  "ui.button.interact": "Interact",
   "ui.button.items": "Items",
   "ui.button.skills": "Skills",
   "ui.button.heal": "Heal",

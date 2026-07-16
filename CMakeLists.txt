@@ -80,6 +80,20 @@ if(BUILD_TESTING)
     target_compile_definitions(jf_locale_tests PRIVATE JF_SOURCE_DATA_DIR="${CMAKE_SOURCE_DIR}/data")
     add_test(NAME jf_locale_tests COMMAND jf_locale_tests)
 
+    # docs/implementation_roadmap.md M1-E slice7 "コンテンツ検査ツール": structural
+    # validation (route reachability, spawn/placement legality, determinism) for
+    # every shipped Region/Stage, run automatically on every `ctest` the same
+    # way jf_locale_tests gates data/locales/*.json.
+    add_executable(jf_content_tests tests/test_content.cpp)
+    target_link_libraries(jf_content_tests PRIVATE jf_lib)
+    target_compile_definitions(jf_content_tests PRIVATE JF_SOURCE_DATA_DIR="${CMAKE_SOURCE_DIR}/data")
+    add_test(NAME jf_content_tests COMMAND jf_content_tests)
+    if(MSVC)
+        target_compile_options(jf_content_tests PRIVATE /UNDEBUG)
+    else()
+        target_compile_options(jf_content_tests PRIVATE -UNDEBUG)
+    endif()
+
     # docs/localization.md「自動検証」item 6 stand-in (M3-B stage 6): fails if
     # a new `kJa*` constant (main.cpp's pre-Locale-migration pattern) shows up
     # again anywhere but the one documented exception.

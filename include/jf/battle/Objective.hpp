@@ -15,14 +15,37 @@ using ObjectiveId = std::string;
 using ObjectiveGroupId = std::string;
 
 // docs/mission_objectives.md "目標の種類". Deliberate subset for this pass
-// (matches docs/implementation_roadmap.md Phase 1 item 3): the remaining 7
-// kinds (SecureTiles/SurviveRounds/EscapeUnits/OperateObject/DestroyObject/
-// ProtectUnit/DefeatWithCondition) need the BattleObject/reinforcement model,
-// which isn't built yet.
+// (matches docs/implementation_roadmap.md Phase 1 item 3): the remaining 4
+// kinds (SecureTiles/OperateObject/ProtectUnit/DefeatWithCondition) still
+// need further Mechanic work (multi-tile grouping, SpawnPoint/Device real
+// behavior, etc.) of their own.
 enum class ObjectiveKind {
     EliminateTeam,
     DefeatUnit,
-    SecureTile
+    SecureTile,
+    // docs/mission_objectives.md "脱出": "条件を満たす必要人数が脱出マスで
+    //行動終了" - same ActionResolved-credit mechanism as SecureTile (see
+    // handleObjectiveEvent()), except completion requires
+    // target.requiredEscapeCount DISTINCT units having credited it rather
+    // than just one. Deliberately doesn't cover the doc's alternate
+    // `UnitRetreated`-driven escape path (an AI-controlled unit fleeing off
+    // the board via ExitPoint rather than a player ending an action there) -
+    // that needs ExitPoint's real board behavior, not just this Event kind.
+    EscapeUnits,
+    // docs/battle_objects.md's "耐久とダメージ"/"破壊後の状態": satisfied once
+    // the target Object's BattleObjectState reaches Destroyed. Live-evaluated
+    // against BattleState (like DefeatUnit), no event-driven credit needed -
+    // ObjectDestroyedEvent already fires exactly once per Object elsewhere
+    // (BattleObjectResolver.hpp), this Objective just reads the resulting
+    // state rather than consuming that Event itself.
+    DestroyObject,
+    // docs/mission_objectives.md "防衛": "指定ラウンド終了まで敗北条件を回避" -
+    // satisfied once battle.round() has moved past target.surviveUntilRound
+    // (i.e. that round actually ended). Needs no extra "avoided defeat"
+    // check of its own: evaluateBattleOutcome() already checks
+    // allPlayersDefeated() before any primary group, so a defeat never lets
+    // this objective's satisfaction matter.
+    SurviveRounds
 };
 
 enum class ObjectiveStatus {
@@ -38,12 +61,15 @@ enum class ObjectiveGroupRule {
     Any  // OR
 };
 
-// Only the fields the 3 implemented kinds need.
+// Only the fields the implemented kinds need.
 struct ObjectiveTarget {
     Team team = Team::Enemy;         // EliminateTeam
     std::string unitId;               // DefeatUnit
     GridPos tile{};                   // SecureTile
     Team securingTeam = Team::Player; // SecureTile: only this team's actions credit it
+    std::string objectId;             // DestroyObject
+    int surviveUntilRound = 0;        // SurviveRounds
+    int requiredEscapeCount = 1;      // EscapeUnits: distinct units needed on `tile`
 };
 
 struct ObjectiveDefinition {
@@ -62,9 +88,11 @@ struct ObjectiveGroupDefinition {
 struct ObjectiveProgress {
     ObjectiveId id;
     ObjectiveStatus status = ObjectiveStatus::Active;
-    // SecureTile: which unit(s) already credited it, so re-ending an action
-    // on the same tile doesn't re-fire (docs: "同じ対象を複数回調査してcurrent
-    // を増やせないよう").
+    // SecureTile/EscapeUnits: which unit(s) already credited it, so
+    // re-ending an action on the same tile doesn't re-fire (docs: "同じ対象を
+    // 複数回調査してcurrentを増やせないよう") and, for EscapeUnits, so the
+    // same unit ending multiple actions there doesn't count twice toward
+    // requiredEscapeCount.
     std::unordered_set<std::string> creditedTargetIds;
 };
 

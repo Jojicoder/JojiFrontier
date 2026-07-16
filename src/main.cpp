@@ -542,8 +542,8 @@ std::string terrainNameFor(jf::TerrainType terrain) {
     return jf::toString(terrain);
 }
 
-std::string battleObjectNameFor(const jf::BattleObjectDefinition& definition) {
-    switch (definition.kind) {
+std::string battleObjectNameForKind(jf::BattleObjectKind kind) {
+    switch (kind) {
         case jf::BattleObjectKind::Barrier: return tr("battle_object.barrier");
         case jf::BattleObjectKind::Marker: return tr("battle_object.marker");
         case jf::BattleObjectKind::SpawnPoint: return tr("battle_object.spawn_point");
@@ -551,7 +551,12 @@ std::string battleObjectNameFor(const jf::BattleObjectDefinition& definition) {
         case jf::BattleObjectKind::Device: return tr("battle_object.device");
         case jf::BattleObjectKind::Container: return tr("battle_object.container");
     }
-    return definition.definitionId;
+    return "";
+}
+
+std::string battleObjectNameFor(const jf::BattleObjectDefinition& definition) {
+    std::string name = battleObjectNameForKind(definition.kind);
+    return name.empty() ? definition.definitionId : name;
 }
 
 // Unit/enemy names come from data/units.json (or a stage-specific rename
@@ -859,6 +864,45 @@ std::unordered_set<std::string>& lowHpWarnedUnits() {
 }
 constexpr float kLowHpRatioThreshold = 0.25f;
 
+// Per-wave last-seen state, so a Scheduled -> Announced transition fires the
+// banner exactly once (ReinforcementAnnouncedEvent itself isn't readable from
+// here - BattleMissionState::consumedEventIds is a write-only dedup set with
+// no stored payload, so this polls BattleState::reinforcementWaves() instead,
+// the same technique lowHpWarnedUnits() above uses for attack events).
+std::unordered_map<std::string, jf::ReinforcementState>& reinforcementUiStates() {
+    static std::unordered_map<std::string, jf::ReinforcementState> states;
+    return states;
+}
+
+std::string reinforcementAnnouncedMessageText(int spawnRound) {
+    return tr("battle.reinforcement_announced", {{"round", std::to_string(spawnRound)}});
+}
+
+// Same technique as reinforcementUiStates() above, keyed by Boss Unit id -
+// BossTelegraphChangedEvent has the same write-only consumedEventIds
+// limitation, so this polls Unit::bossRuntime.telegraph.state instead.
+std::unordered_map<std::string, jf::TelegraphState>& bossTelegraphUiStates() {
+    static std::unordered_map<std::string, jf::TelegraphState> states;
+    return states;
+}
+
+std::string bossChargeTelegraphedMessageText() {
+    return tr("battle.boss_charge_telegraphed");
+}
+
+// Same technique as bossTelegraphUiStates() above, keyed by Boss Unit id -
+// BossStageChangedEvent (fired the instant Unit::bossEnraged flips) has the
+// same write-only consumedEventIds limitation, so this polls the field
+// directly instead.
+std::unordered_map<std::string, bool>& bossEnrageUiStates() {
+    static std::unordered_map<std::string, bool> states;
+    return states;
+}
+
+std::string bossEnragedMessageText() {
+    return tr("battle.boss_enraged");
+}
+
 std::string hitMessageText(const std::string& attackerName, const std::string& targetName, int damage) {
     return tr("battle.hit_message",
              {{"attacker", attackerName}, {"target", targetName}, {"damage", std::to_string(damage)}});
@@ -874,6 +918,15 @@ std::string lowHpMessageText(const std::string& targetName) {
 
 std::string fallenMessageText(const std::string& targetName) {
     return tr("battle.fallen_message", {{"target", targetName}});
+}
+
+std::string objectHitMessageText(const std::string& attackerName, const std::string& objectName, int damage) {
+    return tr("battle.object_hit_message",
+             {{"attacker", attackerName}, {"object", objectName}, {"damage", std::to_string(damage)}});
+}
+
+std::string objectDestroyedMessageText(const std::string& objectName) {
+    return tr("battle.object_destroyed_message", {{"object", objectName}});
 }
 
 void drawGrid(const jf::BattleController& controller, float dt) {
@@ -908,6 +961,51 @@ void drawGrid(const jf::BattleController& controller, float dt) {
                 }
             }
         }
+    }
+
+    // Detect a wave's Scheduled -> Announced transition and surface it as a
+    // one-shot banner (see reinforcementUiStates() above for why polling,
+    // not the event itself, is the read path).
+    auto& waveStates = reinforcementUiStates();
+    for (const jf::ReinforcementWave& wave : battle.reinforcementWaves()) {
+        auto [it, inserted] = waveStates.try_emplace(wave.id, jf::ReinforcementState::Scheduled);
+        if (it->second != jf::ReinforcementState::Announced && wave.state == jf::ReinforcementState::Announced) {
+            pushBattleMessage(reinforcementAnnouncedMessageText(wave.spawnRound), Color{235, 190, 120, 255});
+        }
+        it->second = wave.state;
+    }
+
+    // Same idea for a Boss's telegraphed charge (docs/boss_common_rules.md's
+    // "予告"): a None/Executed/Cancelled -> Announced transition fires the
+    // banner once, and while pending() the telegraphed danger-zone tiles
+    // (BossTelegraph::lockedTiles, computed at telegraph time in
+    // EnemyAI.cpp's computeBoarChargeTiles()) get highlighted below.
+    auto& telegraphStates = bossTelegraphUiStates();
+    std::vector<jf::GridPos> telegraphDangerTiles;
+    for (const jf::Unit& unit : battle.units()) {
+        const jf::BossTelegraph& telegraph = unit.bossRuntime.telegraph;
+        auto [it, inserted] = telegraphStates.try_emplace(unit.id, jf::TelegraphState::None);
+        if (it->second != jf::TelegraphState::Announced && telegraph.state == jf::TelegraphState::Announced) {
+            pushBattleMessage(bossChargeTelegraphedMessageText(), Color{235, 150, 60, 255});
+        }
+        it->second = telegraph.state;
+        if (telegraph.pending())
+            telegraphDangerTiles.insert(telegraphDangerTiles.end(), telegraph.lockedTiles.begin(),
+                                       telegraph.lockedTiles.end());
+    }
+
+    // Same idea for a Boss crossing its enrage HP threshold
+    // (docs/regions/ashbough_forest.md「HPが半分以下になると激昂し」): a
+    // false -> true transition on Unit::bossEnraged fires a one-shot banner.
+    // Unlike the telegraph above, this is a permanent stat change with no
+    // tile of its own, so no highlight is drawn for it.
+    auto& enrageStates = bossEnrageUiStates();
+    for (const jf::Unit& unit : battle.units()) {
+        auto [it, inserted] = enrageStates.try_emplace(unit.id, false);
+        if (!it->second && unit.bossEnraged) {
+            pushBattleMessage(bossEnragedMessageText(), Color{225, 90, 90, 255});
+        }
+        it->second = unit.bossEnraged;
     }
 
     drawBattlefieldBackdrop();
@@ -983,6 +1081,9 @@ void drawGrid(const jf::BattleController& controller, float dt) {
             if (containsTile(controller.targetableTiles(), pos) ||
                 (controller.pendingTarget() && controller.pendingTarget()->position == pos))
                 DrawRectangleRec(rect, Color{230, 28, 38, 185});
+            if (containsTile(controller.objectTargetableTiles(), pos) ||
+                (controller.pendingObjectTarget() && controller.pendingObjectTarget()->position == pos))
+                DrawRectangleRec(rect, Color{230, 28, 38, 185});
             if (containsTile(controller.healableTiles(), pos))
                 DrawRectangleRec(rect, Color{55, 205, 115, 155});
             if (containsTile(controller.itemTargetTiles(), pos))
@@ -991,6 +1092,10 @@ void drawGrid(const jf::BattleController& controller, float dt) {
                 DrawRectangleRec(rect, Color{220, 185, 70, 150});
             if (containsTile(controller.skillTargetTiles(), pos))
                 DrawRectangleRec(rect, Color{90, 200, 235, 165});
+            if (containsTile(controller.objectInteractableTiles(), pos))
+                DrawRectangleRec(rect, Color{190, 150, 235, 165});
+            if (containsTile(telegraphDangerTiles, pos))
+                DrawRectangleRec(rect, Color{235, 150, 60, 140});
         }
     }
 
@@ -1187,6 +1292,37 @@ void drawCombatPreviewPopup(const jf::CombatPreview& preview) {
              tx, ty, 19, Color{235, 90, 90, 255});
 }
 
+// Battle Object統合: drawCombatPreviewPopup()のObject版。Objectには命中率・
+// 反撃・状態異常が無いためDamageと耐久のみを表示する簡略版。
+void drawObjectAttackPreviewPopup(const jf::ObjectAttackPreview& preview) {
+    DrawRectangle(0, 0, kScreenWidth, static_cast<int>(kHudY), Color{0, 0, 0, 100});
+
+    float panelW = 480.0f;
+    float panelH = 196.0f;
+    float x = (static_cast<float>(kScreenWidth) - panelW) / 2.0f;
+    float y = 120.0f;
+
+    Rectangle panel{x, y, panelW, panelH};
+    drawCard(panel, kColorCard, withAlpha(kColorAccentGold, 235), 0.08f);
+
+    int tx = static_cast<int>(x) + 24;
+    int ty = static_cast<int>(y) + 18;
+
+    std::string attackerName = unitDisplayNameFor(preview.attackerName);
+    std::string objectName = battleObjectNameForKind(preview.objectKind);
+
+    drawText(tr("ui.combat.preview_title"), tx, ty, 20, kColorAccentGold);
+    ty += 34;
+    drawText(attackerName + "  ->  " + objectName, tx, ty, 22, kColorTextPrimary);
+    ty += 44;
+    drawText(tr("ui.combat.damage") + ": " + std::to_string(preview.damage), tx, ty, 19,
+             Color{255, 140, 120, 255});
+    ty += 30;
+    drawText(objectName + " HP: " + std::to_string(preview.durabilityBefore) + " -> " +
+                 std::to_string(preview.durabilityAfter),
+             tx, ty, 19, Color{235, 90, 90, 255});
+}
+
 struct TooltipLine {
     std::string text;
     Color color;
@@ -1320,6 +1456,11 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
     int thirdActionX = fourthActionX - buttonWidth - buttonGap;
     int secondActionX = thirdActionX - buttonWidth - buttonGap;
     int firstActionX = secondActionX - buttonWidth - buttonGap;
+    // Battle Object統合(Interact配線): 5固定Slotの外側に置く6個目。他4Actionと
+    // 違い「対象があるSelectAction中だけ現れる」条件付きButtonのため、既存Slotを
+    // ずらさず追加した(現状出荷済みコンテンツにInteract可能なObjectが無いため
+    // 通常プレイでは表示されない)。
+    int sixthActionX = firstActionX - buttonWidth - buttonGap;
 
     DrawRectangleGradientV(0, hudTop, kScreenWidth, kScreenHeight - hudTop, Color{24, 28, 39, 255},
                            Color{15, 17, 24, 255});
@@ -1369,6 +1510,9 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
             break;
         case jf::BattleInputState::SelectSkillTarget:
             stepLabel = tr("ui.battle.choose_skill_target");
+            break;
+        case jf::BattleInputState::SelectInteractTarget:
+            stepLabel = tr("ui.button.interact");
             break;
         default:
             break;
@@ -1422,6 +1566,11 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
             break;
         case jf::BattleInputState::SelectAction:
             if (!gBattleItemMenuOpen && !gBattleSkillMenuOpen) {
+                if (controller.canInteract() &&
+                    button(Rectangle{static_cast<float>(sixthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
+                           tr("ui.button.interact"), mouse, clicked)) {
+                    controller.chooseInteract();
+                }
                 if (button(Rectangle{static_cast<float>(firstActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
                            tr("ui.button.attack"), mouse, clicked)) {
                     controller.chooseAttack();
@@ -1559,6 +1708,29 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
                        tr("ui.button.cancel"), mouse, clicked))
                 controller.cancelAttackSelection();
             break;
+        case jf::BattleInputState::ConfirmObjectAttack:
+            // Battle Object統合: 同じConfirm/Cancelペア。Previewは
+            // drawCombatPreviewPopup相当の別ポップアップ側で描画。
+            if (button(Rectangle{static_cast<float>(thirdActionX), hudTop + 43.0f, buttonWidth, buttonHeight},
+                       tr("ui.button.confirm"), mouse, clicked)) {
+                // attackEventId()方式(lastAttacker_/lastAttackTarget_)はUnit
+                // 専用のためObjectには使えない - ここでConfirm直前にPreviewを
+                // 読み、確定後のバナー文言をその場で組み立てる
+                auto preview = controller.pendingObjectPreview();
+                controller.confirmObjectAttack();
+                if (preview) {
+                    std::string objectName = battleObjectNameForKind(preview->objectKind);
+                    pushBattleMessage(
+                        objectHitMessageText(unitDisplayNameFor(preview->attackerName), objectName, preview->damage),
+                        Color{255, 205, 120, 255});
+                    if (preview->durabilityAfter <= 0)
+                        pushBattleMessage(objectDestroyedMessageText(objectName), Color{225, 90, 90, 255});
+                }
+            }
+            if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 43.0f, buttonWidth, buttonHeight},
+                       tr("ui.button.cancel"), mouse, clicked))
+                controller.cancelAttackSelection();
+            break;
         case jf::BattleInputState::SelectMove:
             if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
                        tr("ui.button.cancel"), mouse, clicked))
@@ -1569,6 +1741,7 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
         case jf::BattleInputState::SelectItemTarget:
         case jf::BattleInputState::SelectBoardTarget:
         case jf::BattleInputState::SelectSkillTarget:
+        case jf::BattleInputState::SelectInteractTarget:
             if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
                        tr("ui.button.back"), mouse, clicked))
                 controller.cancelAttackSelection();
@@ -3022,6 +3195,9 @@ void handleGridClick(jf::GameApp& app, jf::GridPos pos) {
         case jf::BattleInputState::SelectSkillTarget:
             controller.selectSkillTarget(pos);
             break;
+        case jf::BattleInputState::SelectInteractTarget:
+            controller.selectInteractTarget(pos);
+            break;
         default:
             break;
     }
@@ -3136,6 +3312,7 @@ int main() {
 
             if (controller.inputState() != jf::BattleInputState::ConfirmAttack &&
                 controller.inputState() != jf::BattleInputState::ConfirmSkillAttack &&
+                controller.inputState() != jf::BattleInputState::ConfirmObjectAttack &&
                 controller.inputState() != jf::BattleInputState::Victory &&
                 controller.inputState() != jf::BattleInputState::Defeat) {
                 drawHoverInfo(controller, mouse);
@@ -3150,6 +3327,10 @@ int main() {
                 // preview (already folds in any flat bonus damage).
                 if (auto preview = controller.pendingSkillPreview()) {
                     drawCombatPreviewPopup(*preview);
+                }
+            } else if (controller.inputState() == jf::BattleInputState::ConfirmObjectAttack) {
+                if (auto preview = controller.pendingObjectPreview()) {
+                    drawObjectAttackPreviewPopup(*preview);
                 }
             }
 

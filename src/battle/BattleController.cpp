@@ -14,6 +14,28 @@ namespace jf {
 namespace {
 constexpr float kEnemyActionDelay = 0.6f;
 
+// Battle Object統合(Interact配線): candidate Object Tiles for `actor`,
+// filtered by the same checks resolveObjectInteraction() re-verifies at
+// confirm time (requiredState/maxUses/allowedClasses/range) minus the
+// mutation - so a Tile only shows here if selectInteractTarget() will
+// actually accept it. Shared by chooseInteract() (populates the cached
+// Tile list) and canInteract() (read-only "should the UI even show the
+// button" query).
+std::vector<GridPos> computeInteractableObjectTiles(const BattleState& battle, const Unit& actor) {
+    std::vector<GridPos> tiles;
+    for (const BattleObjectState& object : battle.objects()) {
+        const BattleObjectDefinition* def = battle.objectDefinition(object.definitionId);
+        if (!def || !def->interaction) continue;
+        const ObjectInteractionDefinition& interaction = *def->interaction;
+        if (object.state != interaction.requiredState) continue;
+        if (object.interactionCount >= interaction.maxUses) continue;
+        if (!interaction.allowedClasses.empty() && !interaction.allowedClasses.count(actor.unitClass)) continue;
+        if (manhattanDistance(actor.position, object.position) > interaction.range) continue;
+        tiles.push_back(object.position);
+    }
+    return tiles;
+}
+
 // docs/implementation_roadmap.md M4-A: reusable equipped-skill effect shapes
 // (docs/initial_skill_effects.md). A new skill that matches one of these
 // shapes only needs a new table row here, not new branching logic in
@@ -294,9 +316,64 @@ void BattleController::chooseAttack() {
     if (inputState_ != BattleInputState::SelectAction || !selectedUnit_) return;
 
     targetableTiles_ = computeTargetableTiles(battle_.units(), *selectedUnit_, selectedUnit_->position);
-    if (targetableTiles_.empty()) return;
+
+    // Battle Object統合: Unit同様、射程内かつcanBeAttackedなObjectのTileも
+    // 別Vectorとして収集する(computeTargetableTiles()自体はUnit専用のまま、
+    // ここではUnitを一切見ないObject用の判定を独立して行う)。
+    objectTargetableTiles_.clear();
+    for (const BattleObjectState& object : battle_.objects()) {
+        if (object.state == BattleObjectStateKind::Destroyed) continue;
+        const BattleObjectDefinition* def = battle_.objectDefinition(object.definitionId);
+        if (!def || !def->canBeAttacked) continue;
+        int dist = manhattanDistance(selectedUnit_->position, object.position);
+        if (dist >= selectedUnit_->minimumAttackRange() && dist <= selectedUnit_->weapon.maxRange)
+            objectTargetableTiles_.push_back(object.position);
+    }
+
+    if (targetableTiles_.empty() && objectTargetableTiles_.empty()) return;
 
     inputState_ = BattleInputState::SelectTarget;
+}
+
+bool BattleController::canInteract() const {
+    if (!selectedUnit_) return false;
+    return !computeInteractableObjectTiles(battle_, *selectedUnit_).empty();
+}
+
+void BattleController::chooseInteract() {
+    if (inputState_ != BattleInputState::SelectAction || !selectedUnit_) return;
+
+    objectInteractableTiles_ = computeInteractableObjectTiles(battle_, *selectedUnit_);
+    if (objectInteractableTiles_.empty()) return;
+
+    inputState_ = BattleInputState::SelectInteractTarget;
+}
+
+void BattleController::selectInteractTarget(GridPos pos) {
+    if (inputState_ != BattleInputState::SelectInteractTarget || !selectedUnit_) return;
+    if (std::find(objectInteractableTiles_.begin(), objectInteractableTiles_.end(), pos) ==
+        objectInteractableTiles_.end()) {
+        return;
+    }
+
+    BattleObjectState* target = battle_.objectAt(pos);
+    if (!target) return;
+    const BattleObjectDefinition* def = battle_.objectDefinition(target->definitionId);
+    if (!def || !def->interaction) return;
+
+    if (resolveObjectInteraction(*selectedUnit_, *target, *def->interaction, def->interactionResultState)) {
+        handleObjectiveEvent(battle_.missionState(),
+                             BattleEvent{battle_.issueEventId(), 0,
+                                        ObjectStateChangedEvent{target->id, def->interactionResultState}});
+    }
+
+    finishPlayerAction(*selectedUnit_, ActionKind::Interact);
+    selectedUnit_ = nullptr;
+    objectInteractableTiles_.clear();
+    reachableTiles_.clear();
+    attackRangeTiles_.clear();
+    inputState_ = BattleInputState::SelectUnit;
+    evaluateOutcome();
 }
 
 void BattleController::chooseHeal() {
@@ -585,6 +662,22 @@ std::optional<CombatPreview> BattleController::pendingSkillPreview() const {
     return preview;
 }
 
+std::optional<ObjectAttackPreview> BattleController::pendingObjectPreview() const {
+    if (inputState_ != BattleInputState::ConfirmObjectAttack || !selectedUnit_ || !pendingObjectTarget_) {
+        return std::nullopt;
+    }
+    const BattleObjectDefinition* def = battle_.objectDefinition(pendingObjectTarget_->definitionId);
+    if (!def) return std::nullopt;
+    ObjectAttackPreview preview;
+    preview.attackerName = selectedUnit_->name;
+    preview.objectId = pendingObjectTarget_->id;
+    preview.objectKind = def->kind;
+    preview.damage = computeObjectDamage(*selectedUnit_, *def);
+    preview.durabilityBefore = pendingObjectTarget_->durability;
+    preview.durabilityAfter = std::max(preview.durabilityBefore - preview.damage, 0);
+    return preview;
+}
+
 void BattleController::confirmSkillAttack() {
     if (inputState_ != BattleInputState::ConfirmSkillAttack || !selectedUnit_ || !pendingTarget_ ||
         pendingSkillSlot_ < 0) {
@@ -688,11 +781,25 @@ void BattleController::selectTargetTile(GridPos pos) {
             break;
         }
     }
-    if (!isTargetable) return;
+    if (isTargetable) {
+        pendingTarget_ = battle_.unitAt(pos);
+        if (!pendingTarget_) return;
+        inputState_ = BattleInputState::ConfirmAttack;
+        return;
+    }
 
-    pendingTarget_ = battle_.unitAt(pos);
-    if (!pendingTarget_) return;
-    inputState_ = BattleInputState::ConfirmAttack;
+    bool isObjectTargetable = false;
+    for (const GridPos& tile : objectTargetableTiles_) {
+        if (tile == pos) {
+            isObjectTargetable = true;
+            break;
+        }
+    }
+    if (!isObjectTargetable) return;
+
+    pendingObjectTarget_ = battle_.objectAt(pos);
+    if (!pendingObjectTarget_) return;
+    inputState_ = BattleInputState::ConfirmObjectAttack;
 }
 
 void BattleController::cancelAttackSelection() {
@@ -707,14 +814,19 @@ void BattleController::cancelAttackSelection() {
          inputState_ != BattleInputState::SelectItemTarget &&
          inputState_ != BattleInputState::SelectBoardTarget &&
          inputState_ != BattleInputState::SelectSkillTarget &&
+         inputState_ != BattleInputState::SelectInteractTarget &&
          inputState_ != BattleInputState::ConfirmAttack &&
-         inputState_ != BattleInputState::ConfirmSkillAttack) ||
+         inputState_ != BattleInputState::ConfirmSkillAttack &&
+         inputState_ != BattleInputState::ConfirmObjectAttack) ||
         !selectedUnit_) {
         return;
     }
 
     pendingTarget_ = nullptr;
+    pendingObjectTarget_ = nullptr;
     targetableTiles_.clear();
+    objectTargetableTiles_.clear();
+    objectInteractableTiles_.clear();
     healableTiles_.clear();
     itemTargetTiles_.clear();
     pendingHealingItemAmount_ = 0;
@@ -746,9 +858,37 @@ void BattleController::confirmAttack() {
     pendingTarget_ = nullptr;
     reachableTiles_.clear();
     targetableTiles_.clear();
+    objectTargetableTiles_.clear();
     attackRangeTiles_.clear();
     healableTiles_.clear();
     boardTargetTiles_.clear();
+    inputState_ = BattleInputState::SelectUnit;
+    evaluateOutcome();
+}
+
+void BattleController::confirmObjectAttack() {
+    if (inputState_ != BattleInputState::ConfirmObjectAttack || !selectedUnit_ || !pendingObjectTarget_) return;
+
+    // docs/battle_objects.md: ObjectDestroyedEvent fires exactly once, the
+    // moment durability first reaches 0 - resolveObjectAttack()'s return
+    // value already reports that instant. Partial (non-lethal) damage
+    // leaves the object's BattleObjectStateKind unchanged, so no
+    // ObjectStateChangedEvent applies here (that event is for
+    // resolveObjectInteraction()'s Active/Disabled/Opened transitions).
+    const bool destroyedNow = resolveObjectAttack(battle_, *selectedUnit_, *pendingObjectTarget_);
+    if (destroyedNow) {
+        handleObjectiveEvent(battle_.missionState(),
+                             BattleEvent{battle_.issueEventId(), 0,
+                                        ObjectDestroyedEvent{pendingObjectTarget_->id}});
+    }
+    finishPlayerAction(*selectedUnit_, ActionKind::Attack);
+
+    selectedUnit_ = nullptr;
+    pendingObjectTarget_ = nullptr;
+    reachableTiles_.clear();
+    targetableTiles_.clear();
+    objectTargetableTiles_.clear();
+    attackRangeTiles_.clear();
     inputState_ = BattleInputState::SelectUnit;
     evaluateOutcome();
 }

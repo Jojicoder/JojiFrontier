@@ -47,12 +47,17 @@ bool contains(const std::vector<jf::GridPos>& tiles, jf::GridPos pos) {
 
 jf::GameData makeFactoryData() {
     jf::GameData data;
-    static const auto terrainProfiles = [] {
+    static const auto realData = [] {
         auto loaded = jf::loadGameData(JF_SOURCE_DATA_DIR);
         assert(loaded);
-        return loaded->terrainProfilesById;
+        return *loaded;
     }();
-    data.terrainProfilesById = terrainProfiles;
+    data.terrainProfilesById = realData.terrainProfilesById;
+    // regionDescriptor(RegionId::AshboughForest, ...) reads Ashbough Verge's
+    // stage content straight from data/regions.json (docs/implementation_
+    // roadmap.md M1-E slice1) - this synthetic GameData needs the real
+    // Loader's copy of it too, same reasoning as terrainProfilesById above.
+    data.stageContentById = realData.stageContentById;
     jf::Stats stats{.maxHp = 20, .strength = 6, .magic = 0, .speed = 5,
                     .defense = 2, .resistance = 1, .move = 4};
     jf::Weapon sword{.id = "sword", .name = "Sword", .might = 5, .minRange = 1,
@@ -2645,6 +2650,71 @@ int main() {
     }
 
     {
+        // EscapeUnits (docs/mission_objectives.md "脱出"): same
+        // ActionResolved-on-tile credit as SecureTile, but needs
+        // requiredEscapeCount DISTINCT units, not just one. The same unit
+        // ending multiple actions there only ever counts once
+        // (creditedTargetIds is a set).
+        jf::ObjectiveDefinition escape;
+        escape.id = "escape_point";
+        escape.kind = jf::ObjectiveKind::EscapeUnits;
+        escape.primary = true;
+        escape.groupId = "primary";
+        escape.target.tile = {1, 7};
+        escape.target.securingTeam = jf::Team::Player;
+        escape.target.requiredEscapeCount = 2;
+        jf::BattleMissionState mission;
+        mission.groups.push_back({"primary", jf::ObjectiveGroupRule::All});
+        mission.definitions.push_back(escape);
+        mission.progress[escape.id] = jf::ObjectiveProgress{escape.id};
+
+        jf::BattleEvent firstEscapes{
+            1, 1, jf::ActionResolvedEvent{1, "scout", jf::Team::Player, jf::ActionKind::Wait, {1, 7}}};
+        jf::handleObjectiveEvent(mission, firstEscapes);
+        assert(mission.progress.at("escape_point").status == jf::ObjectiveStatus::Active); // only 1 of 2
+
+        // The same unit ending a second action on the tile must not count
+        // as a second distinct escapee.
+        jf::BattleEvent sameUnitAgain{
+            2, 2, jf::ActionResolvedEvent{2, "scout", jf::Team::Player, jf::ActionKind::Wait, {1, 7}}};
+        jf::handleObjectiveEvent(mission, sameUnitAgain);
+        assert(mission.progress.at("escape_point").status == jf::ObjectiveStatus::Active);
+        assert(mission.progress.at("escape_point").creditedTargetIds.size() == 1);
+
+        jf::BattleEvent secondEscapes{
+            3, 3, jf::ActionResolvedEvent{3, "guard", jf::Team::Player, jf::ActionKind::Wait, {1, 7}}};
+        jf::handleObjectiveEvent(mission, secondEscapes);
+        assert(mission.progress.at("escape_point").status == jf::ObjectiveStatus::Completed);
+
+        // Validation: requiredEscapeCount must be >= 1, and the tile must be
+        // in-bounds/passable/unoccupied at battle start (same rules as
+        // SecureTile).
+        jf::Unit player = makeUnit("player", jf::Team::Player, {1, 0});
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {2, 7});
+        jf::BattleState battle({player, enemy}, {}, 0, mission);
+        auto errors = jf::validateBattleMission(mission, battle);
+        assert(errors.empty());
+
+        jf::ObjectiveDefinition badEscape = escape;
+        badEscape.id = "bad_escape";
+        badEscape.target.requiredEscapeCount = 0;
+        jf::BattleMissionState badMission = mission;
+        badMission.definitions = {badEscape};
+        badMission.progress = {{badEscape.id, jf::ObjectiveProgress{badEscape.id}}};
+        auto badErrors = jf::validateBattleMission(badMission, battle);
+        assert(!badErrors.empty());
+
+        jf::ObjectiveDefinition occupiedEscape = escape;
+        occupiedEscape.id = "occupied_escape";
+        occupiedEscape.target.tile = {2, 7}; // enemy's own start tile
+        jf::BattleMissionState occupiedMission = mission;
+        occupiedMission.definitions = {occupiedEscape};
+        occupiedMission.progress = {{occupiedEscape.id, jf::ObjectiveProgress{occupiedEscape.id}}};
+        auto occupiedErrors = jf::validateBattleMission(occupiedMission, battle);
+        assert(!occupiedErrors.empty());
+    }
+
+    {
         // DefeatUnit with a target id that doesn't exist in the battle is a
         // mission-authoring error, not an automatic win.
         jf::Unit player = makeUnit("player", jf::Team::Player, {1, 0});
@@ -2662,6 +2732,121 @@ int main() {
         jf::BattleState battle({player, enemy}, {}, 0, mission);
         jf::syncObjectiveProgress(battle);
         assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Ongoing);
+    }
+
+    {
+        // DestroyObject (docs/battle_objects.md): live-evaluated against the
+        // target Object's BattleObjectState, same "unknown target never
+        // trivially wins" rule as DefeatUnit.
+        jf::Unit player = makeUnit("player", jf::Team::Player, {1, 0});
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 7});
+        jf::BattleObjectDefinition crateDef;
+        crateDef.definitionId = "supply_crate";
+        crateDef.kind = jf::BattleObjectKind::Container;
+        crateDef.canBeAttacked = true;
+        crateDef.maxDurability = 10;
+
+        jf::ObjectiveDefinition destroyCrate;
+        destroyCrate.id = "destroy_crate";
+        destroyCrate.kind = jf::ObjectiveKind::DestroyObject;
+        destroyCrate.primary = true;
+        destroyCrate.groupId = "primary";
+        destroyCrate.target.objectId = "crate1";
+        jf::BattleMissionState mission;
+        mission.groups.push_back({"primary", jf::ObjectiveGroupRule::All});
+        mission.definitions.push_back(destroyCrate);
+        mission.progress[destroyCrate.id] = jf::ObjectiveProgress{destroyCrate.id};
+
+        jf::BattleState battle({player, enemy}, {}, 0, mission);
+        assert(battle.registerObjectDefinition(crateDef));
+        assert(battle.placeObject({"crate1", "supply_crate", {1, 4}}));
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Ongoing);
+
+        jf::BattleObjectState* crate = battle.findObject("crate1");
+        assert(crate != nullptr);
+        crate->durability = 0;
+        crate->state = jf::BattleObjectStateKind::Destroyed;
+        jf::syncObjectiveProgress(battle);
+        assert(battle.missionState().progress.at("destroy_crate").status == jf::ObjectiveStatus::Completed);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+
+        // Validation: an unknown object id, and a reference to a real but
+        // non-attackable object, are both rejected rather than accepted as
+        // an unwinnable-but-well-formed mission.
+        jf::ObjectiveDefinition destroyGhost = destroyCrate;
+        destroyGhost.id = "destroy_ghost";
+        destroyGhost.target.objectId = "no_such_object";
+        jf::BattleMissionState ghostMission = mission;
+        ghostMission.definitions = {destroyGhost};
+        ghostMission.progress = {{destroyGhost.id, jf::ObjectiveProgress{destroyGhost.id}}};
+        auto ghostErrors = jf::validateBattleMission(ghostMission, battle);
+        assert(!ghostErrors.empty());
+
+        jf::BattleObjectDefinition markerDef;
+        markerDef.definitionId = "waypoint";
+        markerDef.kind = jf::BattleObjectKind::Marker;
+        markerDef.canOccupy = true;
+        assert(battle.registerObjectDefinition(markerDef));
+        assert(battle.placeObject({"marker1", "waypoint", {2, 4}}));
+        jf::ObjectiveDefinition destroyMarker = destroyCrate;
+        destroyMarker.id = "destroy_marker";
+        destroyMarker.target.objectId = "marker1";
+        jf::BattleMissionState markerMission = mission;
+        markerMission.definitions = {destroyMarker};
+        markerMission.progress = {{destroyMarker.id, jf::ObjectiveProgress{destroyMarker.id}}};
+        auto markerErrors = jf::validateBattleMission(markerMission, battle);
+        assert(!markerErrors.empty());
+    }
+
+    {
+        // SurviveRounds (docs/mission_objectives.md "防衛"): "指定ラウンド
+        //終了まで敗北条件を回避" - satisfied once battle.round() has moved
+        // past the target, not merely reached it (round 2 must actually END
+        // before a target of 2 is satisfied).
+        jf::Unit player = makeUnit("player", jf::Team::Player, {1, 0});
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 7}); // far enough away: no combat happens
+        jf::ObjectiveDefinition survive;
+        survive.id = "survive_2";
+        survive.kind = jf::ObjectiveKind::SurviveRounds;
+        survive.primary = true;
+        survive.groupId = "primary";
+        survive.target.surviveUntilRound = 2;
+        jf::BattleMissionState mission;
+        mission.groups.push_back({"primary", jf::ObjectiveGroupRule::All});
+        mission.definitions.push_back(survive);
+        mission.progress[survive.id] = jf::ObjectiveProgress{survive.id};
+
+        jf::BattleController controller(jf::BattleState({player, enemy}, {}, 0, mission));
+        assert(controller.battle().round() == 1);
+        jf::syncObjectiveProgress(controller.battle());
+        assert(jf::evaluateBattleOutcome(controller.battle()).kind == jf::BattleOutcomeKind::Ongoing);
+
+        controller.endPlayerTurn();
+        for (int i = 0; i < 10 && controller.inputState() == jf::BattleInputState::EnemyTurn; ++i)
+            controller.update(1.0f);
+        assert(controller.inputState() == jf::BattleInputState::SelectUnit);
+        assert(controller.battle().round() == 2);
+        jf::syncObjectiveProgress(controller.battle());
+        assert(jf::evaluateBattleOutcome(controller.battle()).kind == jf::BattleOutcomeKind::Ongoing);
+
+        controller.endPlayerTurn();
+        for (int i = 0; i < 10 && controller.inputState() == jf::BattleInputState::EnemyTurn; ++i)
+            controller.update(1.0f);
+        assert(controller.inputState() == jf::BattleInputState::SelectUnit);
+        assert(controller.battle().round() == 3);
+        jf::syncObjectiveProgress(controller.battle());
+        assert(jf::evaluateBattleOutcome(controller.battle()).kind == jf::BattleOutcomeKind::Victory);
+
+        // Validation: surviveUntilRound must be >= 1 (0 would be trivially
+        // satisfied the instant the battle starts, round_'s initial value).
+        jf::ObjectiveDefinition badSurvive = survive;
+        badSurvive.target.surviveUntilRound = 0;
+        jf::BattleMissionState badMission = mission;
+        badMission.definitions = {badSurvive};
+        badMission.progress = {{badSurvive.id, jf::ObjectiveProgress{badSurvive.id}}};
+        auto surviveErrors = jf::validateBattleMission(badMission, controller.battle());
+        assert(!surviveErrors.empty());
     }
 
     {
@@ -2940,6 +3125,11 @@ int main() {
         assert(battle.units()[1].chargeTelegraphed);
         assert(battle.units()[1].position == (jf::GridPos{1, 5})); // hasn't moved yet
         assert(battle.units()[0].currentHp == battle.units()[0].stats.maxHp); // untouched
+        // The UI's danger-zone highlight reads BossTelegraph::lockedTiles,
+        // populated at telegraph time - must match the tiles the charge
+        // actually walks below (range 3, direction -1 from col 5).
+        assert((battle.units()[1].bossRuntime.telegraph.lockedTiles ==
+               std::vector<jf::GridPos>{{1, 4}, {1, 3}, {1, 2}}));
 
         battle.units()[1].hasActed = false; // simulate the next turn
         jf::takeEnemyTurn(battle, battle.units()[1]);
@@ -2962,6 +3152,8 @@ int main() {
         jf::takeEnemyTurn(battle, battle.units()[1]);
         assert(battle.units()[1].chargeTelegraphed);
         assert(battle.units()[1].chargeDirection == 1);
+        assert((battle.units()[1].bossRuntime.telegraph.lockedTiles ==
+               std::vector<jf::GridPos>{{1, 3}, {1, 4}, {1, 5}}));
 
         battle.units()[1].hasActed = false;
         jf::takeEnemyTurn(battle, battle.units()[1]);
@@ -2990,6 +3182,10 @@ int main() {
 
         jf::takeEnemyTurn(battle, battle.units()[1]); // telegraph
         assert(battle.units()[1].chargeTelegraphed);
+        // The log at col 4 is the first obstacle in range - lockedTiles stops
+        // there (the log's own tile IS included, it gets hit/destroyed),
+        // never reaching the ally at col 2.
+        assert((battle.units()[1].bossRuntime.telegraph.lockedTiles == std::vector<jf::GridPos>{{1, 4}}));
         battle.units()[1].hasActed = false;
         jf::takeEnemyTurn(battle, battle.units()[1]); // execute -> collides at col 4
 
@@ -3018,6 +3214,29 @@ int main() {
         battle.units()[1].hasActed = false;
         jf::takeEnemyTurn(battle, battle.units()[1]);
         assert(battle.units()[1].stats.defense == 5 && battle.units()[1].stats.resistance == 1);
+    }
+
+    {
+        // 灰角大猪の激昂(docs/regions/ashbough_forest.md「HPが半分以下になると
+        // 激昂し」): bossEnraged flips exactly once, the instant HP drops to
+        // (or below) 50% - a non-turn-consuming state update that happens
+        // before that same turn's charge telegraph (docs/boss_common_rules.md
+        // "Phase移行").
+        jf::Unit boar = makeUnit("boar", jf::Team::Enemy, {1, 5}, 2, jf::UnitClass::AshenhornBoar);
+        boar.stats.strength = 9;
+        boar.stats.maxHp = 56;
+        boar.currentHp = 28; // exactly 50%
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {1, 2}); // same row, distance 3
+        jf::BattleState battle({ally, boar});
+
+        assert(!battle.units()[1].bossEnraged);
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(battle.units()[1].bossEnraged);
+        assert(battle.units()[1].bossRuntime.stageIndex == 1);
+        // Same turn's telegraph already reflects the enraged range (4, not 3).
+        assert(battle.units()[1].chargeTelegraphed);
+        assert((battle.units()[1].bossRuntime.telegraph.lockedTiles ==
+               std::vector<jf::GridPos>{{1, 4}, {1, 3}, {1, 2}, {1, 1}}));
     }
 
     {
@@ -3680,6 +3899,125 @@ int main() {
     }
 
     {
+        // docs/implementation_roadmap.md M1-E slice1/2: regions.json is the
+        // first Loader/Validation pass for StageDescriptor content (Ashbough
+        // Verge, per StageContentData's own comment on which fields are
+        // covered so far). Confirms the real Loader actually reaches the
+        // fields Region.cpp's stageDescriptorFromContent() reads.
+        auto loaded = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(loaded);
+        assert(loaded->stageContentById.contains("ashbough_verge"));
+        const jf::StageContentData& verge = loaded->stageContentById.at("ashbough_verge");
+        assert(verge.terrainProfileId == jf::kAshboughVergeTerrain);
+        assert(verge.enemyRoster.size() == 4);
+        for (const jf::UnitTemplate& t : verge.enemyRoster) assert(t.classId == jf::UnitClass::Wolf);
+        assert(verge.baseVictoryLoot.size() == 2);
+        assert(verge.routeVictoryLootDelta.size() == 2);
+        assert(verge.surveyObjectiveId == "ashbough_verge_surveyed");
+        assert(verge.surveyBonusLoot.size() == 1 && verge.surveyBonusLoot[0].id == "wood" &&
+              verge.surveyBonusLoot[0].quantity == 1);
+        assert(verge.missionNameEn == "Ashbough Verge" && verge.missionNameJa == "灰枝の林縁");
+
+        // The real regionDescriptor() output built from this Loader must
+        // match the hand-authored values every other test in this file
+        // exercises through GameApp/BattleFactory - this is the "無挙動
+        // 移行" fixture check for the one stage that's already migrated.
+        const jf::RegionDescriptor region = jf::regionDescriptor(jf::RegionId::AshboughForest, *loaded);
+        const jf::StageDescriptor& vergeStage = region.stages[0];
+        assert(vergeStage.id == "ashbough_verge");
+        assert(vergeStage.baseVictoryLoot.size() == 2);
+        bool sawWoodMinus2 = false, sawHidePlus1 = false;
+        for (const auto& [choice, loot] : vergeStage.routeVictoryLootDelta) {
+            if (choice == jf::ExplorationChoice::CollapsedSidePath) {
+                assert(loot.size() == 1 && loot[0].id == "wood" && loot[0].quantity == -2);
+                sawWoodMinus2 = true;
+            } else if (choice == jf::ExplorationChoice::ScoutRoute) {
+                assert(loot.size() == 1 && loot[0].id == "hide" && loot[0].quantity == 1);
+                sawHidePlus1 = true;
+            }
+        }
+        assert(sawWoodMinus2 && sawHidePlus1);
+
+        // docs/implementation_roadmap.md M1-E slice1続き: Herbwater Hollow is
+        // the second stage migrated to regions.json, proving the Schema
+        // extension (routeOutcomes/scoutRouteRequiredClass/
+        // timedReinforcement/herbPatchGeneration) on a richer stage than
+        // Ashbough Verge's.
+        assert(loaded->stageContentById.contains("herbwater_hollow"));
+        const jf::StageContentData& herbContent = loaded->stageContentById.at("herbwater_hollow");
+        assert(herbContent.scoutRouteRequiredClass == jf::UnitClass::DawnChirurgeon);
+        assert(herbContent.herbPatchGeneration && herbContent.herbPatchGeneration->count == 2 &&
+              herbContent.herbPatchGeneration->zoneMinCol == 2 && herbContent.herbPatchGeneration->zoneMaxCol == 5);
+        assert(herbContent.timedReinforcement && herbContent.timedReinforcement->id == "herbwater_harvest_wolf" &&
+              herbContent.timedReinforcement->spawnRound == 2 &&
+              herbContent.timedReinforcement->orderedSpawnCandidates.size() == 3);
+        assert(herbContent.routeOutcomes.size() == 3);
+
+        const jf::StageDescriptor& herbStage = region.stages[1];
+        assert(herbStage.id == "herbwater_hollow");
+        assert(herbStage.scoutRouteRequiredClass == jf::UnitClass::DawnChirurgeon);
+        assert(herbStage.herbPatchGeneration && herbStage.herbPatchGeneration->count == 2);
+        assert(herbStage.timedReinforcement && herbStage.timedReinforcement->units.size() == 1 &&
+              herbStage.timedReinforcement->units[0].classId == jf::UnitClass::Wolf);
+        bool sawReinforcementRoute = false;
+        for (const auto& [choice, outcome] : herbStage.routeOutcomes) {
+            if (choice == jf::ExplorationChoice::CollapsedSidePath) {
+                assert(outcome.enableReinforcementWave);
+                sawReinforcementRoute = true;
+            }
+        }
+        assert(sawReinforcementRoute);
+
+        // docs/implementation_roadmap.md M1-E slice1続き: Brokenwood
+        // Territory - the richest stage migrated (roster, route loot/
+        // outcomes, disabled scout route, objectPlacementRules,
+        // understaffedReinforcement, both Ad-hoc bonus loot fields) - and
+        // the Cinderwatch trio (simpler, but the first stages whose
+        // enemyRoster is deliberately absent from JSON, meaning "use
+        // GameData::enemyRoster").
+        assert(loaded->stageContentById.contains("brokenwood_territory"));
+        const jf::StageContentData& brokenContent = loaded->stageContentById.at("brokenwood_territory");
+        assert(brokenContent.objectPlacementRules.size() == 1);
+        assert(brokenContent.objectPlacementRules[0].definition.definitionId == "fallen_log");
+        assert(brokenContent.objectPlacementRules[0].definition.canBeAttacked);
+        assert(brokenContent.objectPlacementRules[0].scalesWithExtraBarrierOutcome);
+        assert(brokenContent.understaffedReinforcement &&
+              brokenContent.understaffedReinforcement->id == "brokenwood_guard_wolf2");
+        assert(brokenContent.scoutRouteDisabled);
+        assert(brokenContent.logCollisionBonusLoot.size() == 1 && brokenContent.noCasualtiesBonusLoot.size() == 1);
+
+        const jf::StageDescriptor& brokenStage = region.stages[2];
+        assert(brokenStage.id == "brokenwood_territory");
+        assert(brokenStage.objectPlacementRules.size() == 1);
+        assert(brokenStage.objectPlacementRules[0].definition.maxDurability == 16);
+        assert(brokenStage.understaffedReinforcement && brokenStage.understaffedThreshold == 4);
+        assert(brokenStage.scoutRouteDisabled);
+
+        jf::RegionDescriptor cinderwatch = jf::regionDescriptor(jf::RegionId::CinderwatchGate, *loaded);
+        assert(cinderwatch.stages.size() == 3);
+        assert(cinderwatch.stages[0].id == "cinderwatch_outpost" && cinderwatch.stages[0].enemyRoster.empty() &&
+              cinderwatch.stages[0].enemyCountOverride == 3);
+        assert(cinderwatch.stages[2].id == "signal_tower" && cinderwatch.stages[2].boostedFirstEnemy &&
+              cinderwatch.stages[2].boostedFirstEnemy->displayName == "Former Captain" &&
+              cinderwatch.stages[2].boostedFirstEnemy->maxHpBonus == 10);
+
+        // Invalid regions.json (a stage referencing an unknown terrain
+        // profile) must fail the whole Load, never silently drop the stage -
+        // corrupt only a *scratch copy* of the data dir, same reasoning as
+        // the Locale test's "never touch the real source file" comment.
+        const std::filesystem::path scratchDir =
+            std::filesystem::temp_directory_path() / "jf_regions_test_scratch";
+        std::filesystem::remove_all(scratchDir);
+        std::filesystem::copy(JF_SOURCE_DATA_DIR, scratchDir, std::filesystem::copy_options::recursive);
+        std::ofstream corrupted(scratchDir / "regions.json", std::ios::trunc);
+        corrupted << R"({"stages": [{"id": "bad_stage", "terrainProfileId": "no_such_profile",
+                       "missionNameEn": "x", "missionNameJa": "x"}]})";
+        corrupted.close();
+        assert(!jf::loadGameData(scratchDir.string()));
+        std::filesystem::remove_all(scratchDir);
+    }
+
+    {
         // 薬草の沢, そのまま通過: all-wolf roster (exact headcount is a
         // tunable balance value, checked against the live region data
         // instead of a hardcoded number), no attrition, base reward 木材1.
@@ -3866,6 +4204,13 @@ int main() {
         assert(boarCount == 1 && wolfCount == expectedWolfCount &&
                enemyCount == static_cast<int>(brokenwoodStage.enemyRoster.size()));
         assert(logCount == 1);
+        // Battle Object統合(2026-07): the shipped fallen_log Barrier is now a
+        // real attack target, not just a movement-blocking prop.
+        const jf::BattleObjectDefinition* logDef = battle.objectDefinition("fallen_log");
+        assert(logDef != nullptr && logDef->canBeAttacked && logDef->maxDurability > 0);
+        for (const jf::BattleObjectState& object : battle.objects()) {
+            if (object.definitionId == "fallen_log") assert(object.durability == logDef->maxDurability);
+        }
 
         // Defeat the boss outright (bypassing its AI) and win normally.
         for (jf::Unit& unit : battle.units())
@@ -3995,6 +4340,10 @@ int main() {
                 assert(object.position.col >= 2 && object.position.col <= 5);
                 assert(object.position.row != boss->position.row);
             }
+            // docs/implementation_roadmap.md M1-E: enemyZoneWidth=2
+            // (data/regions.json) - the boar always spawns in the
+            // rightmost 2 columns, not the usual 3.
+            assert(boss->position.col >= jf::kGridCols - 2);
         }
     }
 
@@ -4256,6 +4605,97 @@ int main() {
     }
 
     {
+        // Battle Object統合: BattleController経由でObjectを攻撃対象として
+        // 選択・確定できること(resolveObjectAttack()自体は上のテストで検証済み
+        // - ここではchooseAttack()/selectTargetTile()/confirmObjectAttack()の
+        // 配線を検証する)。
+        jf::Unit attacker = makeUnit("attacker", jf::Team::Player, {1, 0});
+        attacker.stats.strength = 5;
+        attacker.weapon.might = 3; // 8 power, 0 defense -> 8 damage per hit
+        // A distant, untouched enemy so the default EliminateTeam objective
+        // doesn't trivially auto-resolve to Victory (no enemies at all would
+        // otherwise make evaluateOutcome() fire immediately).
+        jf::Unit farEnemy = makeUnit("far_enemy", jf::Team::Enemy, {jf::kGridRows - 1, jf::kGridCols - 1});
+        // A second, not-yet-acted Player unit so isTeamDone(Player) stays
+        // false after the attacker acts - otherwise evaluateOutcome() would
+        // auto-advance straight to EnemyTurn, same as any single-actor test.
+        jf::Unit reserve = makeUnit("reserve", jf::Team::Player, {2, 0});
+        jf::BattleController controller(jf::BattleState({attacker, reserve, farEnemy}));
+
+        jf::BattleObjectDefinition barrier;
+        barrier.definitionId = "fallen_tree";
+        barrier.kind = jf::BattleObjectKind::Barrier;
+        barrier.maxDurability = 10;
+        barrier.canBeAttacked = true;
+        barrier.blocksMovement = true;
+        assert(controller.battle().registerObjectDefinition(barrier));
+        assert(controller.battle().placeObject({"tree1", "fallen_tree", {1, 1}}));
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile({1, 0}); // no actual move, just leaves SelectMove
+        controller.chooseAttack();
+        assert(contains(controller.objectTargetableTiles(), {1, 1}));
+        assert(controller.targetableTiles().empty()); // no Unit target exists
+
+        controller.selectTargetTile({1, 1});
+        assert(controller.inputState() == jf::BattleInputState::ConfirmObjectAttack);
+        assert(controller.pendingObjectTarget() != nullptr);
+        assert(controller.pendingObjectTarget()->id == "tree1");
+
+        auto preview = controller.pendingObjectPreview();
+        assert(preview.has_value());
+        assert(preview->damage == 8);
+        assert(preview->durabilityBefore == 10);
+        assert(preview->durabilityAfter == 2);
+
+        controller.confirmObjectAttack();
+        assert(controller.inputState() == jf::BattleInputState::SelectUnit);
+        const jf::BattleObjectState* tree = controller.battle().findObject("tree1");
+        assert(tree != nullptr);
+        assert(tree->durability == 2);
+        assert(tree->state == jf::BattleObjectStateKind::Active);
+        // One real state transition (ActionResolved from finishPlayerAction());
+        // ObjectDestroyedEvent hasn't fired yet since the tree is still Active.
+        assert(controller.battle().missionState().consumedEventIds.size() == 1);
+    }
+
+    {
+        // Battle Object統合: a lethal hit through the real BattleController
+        // flow fires ObjectDestroyedEvent (reaching consumedEventIds) exactly
+        // once, and the object becomes passable immediately afterward.
+        jf::Unit attacker = makeUnit("attacker", jf::Team::Player, {1, 0});
+        attacker.stats.strength = 99;
+        jf::Unit farEnemy = makeUnit("far_enemy", jf::Team::Enemy, {jf::kGridRows - 1, jf::kGridCols - 1});
+        // Second not-yet-acted Player unit, same reason as the test above -
+        // keeps isTeamDone(Player) false so the Phase doesn't also end this
+        // Batch (which would add PhaseEnded/PhaseStarted events on top).
+        jf::Unit reserve = makeUnit("reserve", jf::Team::Player, {2, 0});
+        jf::BattleController controller(jf::BattleState({attacker, reserve, farEnemy}));
+
+        jf::BattleObjectDefinition barrier;
+        barrier.definitionId = "fallen_tree";
+        barrier.kind = jf::BattleObjectKind::Barrier;
+        barrier.maxDurability = 6;
+        barrier.canBeAttacked = true;
+        barrier.blocksMovement = true;
+        assert(controller.battle().registerObjectDefinition(barrier));
+        assert(controller.battle().placeObject({"tree1", "fallen_tree", {1, 1}}));
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile({1, 0});
+        controller.chooseAttack();
+        controller.selectTargetTile({1, 1});
+        controller.confirmObjectAttack();
+
+        const jf::BattleObjectState* tree = controller.battle().findObject("tree1");
+        assert(tree != nullptr);
+        assert(tree->state == jf::BattleObjectStateKind::Destroyed);
+        assert(!controller.battle().objectBlocksMovementAt({1, 1}));
+        // ActionResolved + ObjectDestroyed, both reaching consumedEventIds.
+        assert(controller.battle().missionState().consumedEventIds.size() == 2);
+    }
+
+    {
         // 踏査地点 (Marker): steppable (doesn't block movement/stopping) and
         // coexists with a Unit on the same tile - only Object/Object
         // placement collides, never Object/Unit.
@@ -4333,6 +4773,62 @@ int main() {
         device.state = jf::BattleObjectStateKind::Active;
         assert(!jf::resolveObjectInteraction(engineer, device, interaction, jf::BattleObjectStateKind::Opened));
         assert(device.interactionCount == 1);
+    }
+
+    {
+        // 操作 (Interact) 配線: BattleController経由でInteractコマンドを
+        // 実行できること(resolveObjectInteraction()自体は上のテストで検証済み
+        // - ここではcanInteract()/chooseInteract()/objectInteractableTiles()/
+        // selectInteractTarget()の配線を検証する)。allowedClassesを満たさない
+        // Unitの場合はそもそも候補Tileに現れないことも確認する(main.cppの
+        // canInteract()による条件付きButton表示の前提)。
+        jf::Unit wrongClass = makeUnit("wrong_class", jf::Team::Player, {1, 0}, 4, jf::UnitClass::MarchCaptain);
+        jf::Unit engineer = makeUnit("engineer", jf::Team::Player, {2, 1}, 4, jf::UnitClass::Spearman);
+        jf::Unit farEnemy = makeUnit("far_enemy", jf::Team::Enemy, {jf::kGridRows - 1, jf::kGridCols - 1});
+        jf::BattleController controller(jf::BattleState({wrongClass, engineer, farEnemy}));
+
+        jf::BattleObjectDefinition leverDef;
+        leverDef.definitionId = "lever";
+        leverDef.kind = jf::BattleObjectKind::Device;
+        leverDef.interaction = jf::ObjectInteractionDefinition{};
+        leverDef.interaction->interactionId = "pull_lever";
+        leverDef.interaction->range = 1;
+        leverDef.interaction->allowedClasses = {jf::UnitClass::Spearman};
+        leverDef.interaction->requiredState = jf::BattleObjectStateKind::Active;
+        leverDef.interaction->maxUses = 1;
+        leverDef.interactionResultState = jf::BattleObjectStateKind::Opened;
+        assert(controller.battle().registerObjectDefinition(leverDef));
+        assert(controller.battle().placeObject({"lever1", "lever", {1, 1}}));
+
+        // Wrong class, adjacent: chooseInteract() no-ops, stays in SelectAction.
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile({1, 0});
+        assert(!controller.canInteract());
+        controller.chooseInteract();
+        assert(controller.inputState() == jf::BattleInputState::SelectAction);
+        controller.cancelToUnitSelect();
+
+        // Right class, adjacent: full flow through to a real state change.
+        controller.selectUnit(*controller.battle().unitAt({2, 1}));
+        controller.selectMoveTile({2, 1});
+        assert(controller.canInteract());
+        controller.chooseInteract();
+        assert(controller.inputState() == jf::BattleInputState::SelectInteractTarget);
+        assert(contains(controller.objectInteractableTiles(), {1, 1}));
+
+        // A Tile the lever isn't on is rejected without mutating anything.
+        controller.selectInteractTarget({1, 0});
+        assert(controller.inputState() == jf::BattleInputState::SelectInteractTarget);
+
+        controller.selectInteractTarget({1, 1});
+        assert(controller.inputState() == jf::BattleInputState::SelectUnit);
+        const jf::BattleObjectState* lever = controller.battle().findObject("lever1");
+        assert(lever != nullptr);
+        assert(lever->state == jf::BattleObjectStateKind::Opened);
+        assert(lever->interactionCount == 1);
+        // ActionResolved + ObjectStateChanged, both reaching consumedEventIds.
+        assert(controller.battle().missionState().consumedEventIds.size() == 2);
+        assert(controller.battle().unitAt({2, 1})->hasActed);
     }
 
     {
@@ -4527,6 +5023,9 @@ int main() {
         jf::BattleState withWave = jf::createScenarioBattle(data, *stage, 42, harvest);
         assert(withWave.reinforcementWaves().size() == 1);
         assert(withWave.reinforcementWaves()[0].id == "herbwater_harvest_wolf");
+        // The Announced-transition banner (main.cpp's reinforcementUiStates())
+        // reports this spawnRound, so its data source must actually carry it.
+        assert(withWave.reinforcementWaves()[0].spawnRound == 2);
         jf::BattleState withoutWave = jf::createScenarioBattle(
             data, *stage, 42, jf::stageRouteOutcome(*stage, jf::ExplorationChoice::FrontalAdvance));
         assert(withoutWave.reinforcementWaves().empty());

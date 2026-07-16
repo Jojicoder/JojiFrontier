@@ -5,6 +5,8 @@
 #include <vector>
 
 #include "jf/battle/BattleEvents.hpp"
+#include "jf/battle/BattleObject.hpp"
+#include "jf/battle/BattleObjectResolver.hpp"
 #include "jf/battle/BattleState.hpp"
 #include "jf/battle/CombatResolver.hpp"
 #include "jf/battle/ObjectiveTracker.hpp"
@@ -31,9 +33,30 @@ enum class BattleInputState {
     // shape still resolves immediately on target selection (see
     // selectSkillTarget()).
     ConfirmSkillAttack,
+    // Battle ObjectのBattleController統合: SelectTarget中にcanBeAttackedな
+    // Objectの乗るTileを選んだ時だけ遷移する、ConfirmAttackと並行する状態
+    // (Unit相手のConfirmAttackとは異なりObjectには命中率・反撃・状態異常が
+    // 無いため、previewAttack()を再利用せず専用のPreviewを持つ)。
+    ConfirmObjectAttack,
+    // Battle Object統合(Interact配線): chooseInteract()がSelectActionから
+    // 遷移する専用State。操作は攻撃と違いPreview/Confirmを挟まず、対象Tile
+    // 選択(selectInteractTarget())の時点でresolveObjectInteraction()まで
+    // 即座に解決する(chooseHeal()/selectHealTarget()と同じ即時解決パターン)。
+    SelectInteractTarget,
     EnemyTurn,
     Victory,
     Defeat
+};
+
+// docs/battle_objects.md "耐久とダメージ": ConfirmObjectAttack用の簡易Preview。
+// Unit相手のCombatPreviewと違い命中率・反撃・状態異常の概念が無いため専用の型にした。
+struct ObjectAttackPreview {
+    std::string attackerName;
+    BattleObjectId objectId;
+    BattleObjectKind objectKind;
+    int damage = 0;
+    int durabilityBefore = 0;
+    int durabilityAfter = 0;
 };
 
 // Drives the SelectUnit -> SelectMove -> SelectAction -> SelectTarget ->
@@ -51,10 +74,18 @@ public:
 
     Unit* selectedUnit() const { return selectedUnit_; }
     Unit* pendingTarget() const { return pendingTarget_; }
+    BattleObjectState* pendingObjectTarget() const { return pendingObjectTarget_; }
 
     // Cached for the currently selected unit; empty outside the relevant states.
     const std::vector<GridPos>& reachableTiles() const { return reachableTiles_; }
     const std::vector<GridPos>& targetableTiles() const { return targetableTiles_; }
+    // Battle Object統合: chooseAttack()が射程内のcanBeAttackedなObject Tileを
+    // 別Vectorとして収集したもの(UnitとObjectが同一Tileに同時に存在することは
+    // 無い前提のため、targetableTiles_とは重複しない)。
+    const std::vector<GridPos>& objectTargetableTiles() const { return objectTargetableTiles_; }
+    // Battle Object統合(Interact配線): chooseInteract()が射程内で
+    // interactionを持ち、現在requiredStateにあるObjectのTileを収集したもの。
+    const std::vector<GridPos>& objectInteractableTiles() const { return objectInteractableTiles_; }
 
     // Threat-range preview: every tile the selected unit could attack. While
     // still choosing where to move, this is the union over every reachable
@@ -75,6 +106,13 @@ public:
     // state the 3 attack-shape skills enter instead of resolving instantly.
     // nullopt outside that state.
     std::optional<CombatPreview> pendingSkillPreview() const;
+    // Battle Object統合: pendingPreview()のObject版。ConfirmObjectAttack以外ではnullopt。
+    std::optional<ObjectAttackPreview> pendingObjectPreview() const;
+    // Battle Object統合(Interact配線): read-only query for the front end to
+    // decide whether to even show an Interact button, without mutating
+    // input state the way chooseInteract() does. True iff the selected unit
+    // currently has at least one Object in interact range.
+    bool canInteract() const;
 
     // Reports the most recent attack (player or enemy) so the front end can
     // drive a purely-visual attack animation (e.g. a lunge toward the
@@ -95,6 +133,13 @@ public:
     void selectMoveTile(GridPos pos);
     void returnToMoveSelection();
     void chooseAttack();
+    // Battle Object統合(Interact配線): SelectAction -> SelectInteractTarget。
+    // No-op (stays in SelectAction) if nothing is currently interactable.
+    void chooseInteract();
+    // Resolves resolveObjectInteraction() immediately on a valid target Tile,
+    // same one-step pattern as selectHealTarget(). No-op outside
+    // SelectInteractTarget or on an invalid/no-longer-valid target.
+    void selectInteractTarget(GridPos pos);
     void chooseHeal();
     void selectHealTarget(GridPos pos);
     bool useHealingItem(int amount);
@@ -122,6 +167,9 @@ public:
     // M4 item 3: resolves the attack-shape skill selectSkillTarget() staged
     // into ConfirmSkillAttack. No-op outside that state.
     void confirmSkillAttack();
+    // Battle Object統合: selectTargetTile()がObject Tileを選んだ時に遷移する
+    // ConfirmObjectAttackを解決する。No-op outside that state.
+    void confirmObjectAttack();
     void cancelToUnitSelect();
 
     // Advances the enemy phase by dt seconds (paced so the player can follow
@@ -144,6 +192,7 @@ private:
     Unit* selectedUnit_ = nullptr;
     GridPos moveOrigin_{};
     Unit* pendingTarget_ = nullptr;
+    BattleObjectState* pendingObjectTarget_ = nullptr;
     // 辺境斥候`trailblaze`(道拓き): the exact path the selected unit's most
     // recent move took, captured in selectMoveTile() before the move
     // actually happens (computeMovementPath() needs the mover's position to
@@ -152,6 +201,8 @@ private:
 
     std::vector<GridPos> reachableTiles_;
     std::vector<GridPos> targetableTiles_;
+    std::vector<GridPos> objectTargetableTiles_;
+    std::vector<GridPos> objectInteractableTiles_;
     std::vector<GridPos> attackRangeTiles_;
     std::vector<GridPos> healableTiles_;
     std::vector<GridPos> itemTargetTiles_;

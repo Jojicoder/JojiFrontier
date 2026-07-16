@@ -331,7 +331,18 @@ bool attackIfPossible(BattleController& controller) {
             bestScore = score;
         }
     }
-    if (!best) return false;
+    if (!best) {
+        // Battle Object統合: chooseAttack() also transitions to SelectTarget
+        // when the only thing in range is a canBeAttacked Object (e.g.
+        // Brokenwood Territory's fallen_log) with no Unit anywhere nearby.
+        // This bot doesn't targets Objects, so back out the same way a
+        // player clicking "Cancel" would - leaving inputState() stuck at
+        // SelectTarget here would desync it from every other policy
+        // function below (they all expect SelectAction) and stall the whole
+        // battle until roundLimit.
+        controller.cancelAttackSelection();
+        return false;
+    }
     controller.selectTargetTile(best->position);
     controller.confirmAttack();
     return true;
