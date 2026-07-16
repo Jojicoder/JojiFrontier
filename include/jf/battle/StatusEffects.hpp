@@ -25,6 +25,13 @@ void applyDefenseUp(Unit& target);
 // 古参守備兵`extended_lockdown`: same "always expires at Team::Enemy's phase
 // end" timing as the two buffs above.
 void applyZocRangeExtension(Unit& target);
+// 槍兵`spear_wall`: same "always expires at Team::Enemy's phase end" timing
+// as the three buffs above, but conditional (see Unit::braceSkillActive).
+void applyBraceBonus(Unit& target);
+// 古参守備兵`provoke`: sets Unit::provokedByUnitId on the ENEMY being
+// provoked (not the caster) - also clears at Team::Enemy's phase end, same
+// timing as the buffs above (see clearSkillBuffsAtEnemyPhaseEnd()).
+void applyProvoke(Unit& target, const std::string& casterId);
 // 行軍隊長`advance_order`: MOV+1, but expires at THIS Player Phase's own end
 // (see clearMoveUpAtPlayerPhaseEnd()) rather than the next Enemy Phase end -
 // a genuinely different timing from the 3 buffs above.
@@ -32,6 +39,8 @@ void applyMoveUp(Unit& target);
 // No-op while the target is stagger-immune (docs/status_effects.md
 // "よろめき" 再付与耐性).
 void applyStagger(Unit& target);
+void applyStatusEffect(Unit& target, StatusEffectType effect);
+void applyWeaponOnHitStatuses(const Unit& attacker, Unit& target);
 
 // 万能薬・状態治療スキル: clears every status effect on one unit. Leaves
 // staggerImmune untouched - that is a cooldown against reapplication, not a
@@ -60,8 +69,10 @@ void processPhaseEndStatusEffects(BattleState& battle, Team team);
 
 // Call once, right alongside processPhaseEndStatusEffects(battle,
 // Team::Enemy), when the Enemy Phase ends - clears resistanceUpActive,
-// defenseUpActive, and zocRangeExtended on every living unit regardless of
-// team (see applyResistanceUp()/applyDefenseUp()/applyZocRangeExtension()).
+// defenseUpActive, zocRangeExtended, braceSkillActive, and provokedByUnitId
+// on every living unit regardless of team (see applyResistanceUp()/
+// applyDefenseUp()/applyZocRangeExtension()/applyBraceBonus()/
+// applyProvoke()).
 void clearSkillBuffsAtEnemyPhaseEnd(BattleState& battle);
 
 // Call once, right alongside processPhaseEndStatusEffects(battle,

@@ -9,6 +9,7 @@
 #include "jf/battle/CombatResolver.hpp"
 #include "jf/battle/ObjectiveTracker.hpp"
 #include "jf/battle/SkillCharges.hpp"
+#include "jf/battle/AiSystem.hpp"
 #include "jf/core/Grid.hpp"
 
 namespace jf {
@@ -23,6 +24,13 @@ enum class BattleInputState {
     SelectBoardTarget,
     SelectSkillTarget,
     ConfirmAttack,
+    // M4 item 3 (Preview/Resolverの一致): between SelectSkillTarget and
+    // actual resolution for the 3 attack-shape skills (suppressing_shot/
+    // halting_thrust/ambush) only - mirrors ConfirmAttack's preview/confirm
+    // gate so their predicted damage is never a surprise. Every other skill
+    // shape still resolves immediately on target selection (see
+    // selectSkillTarget()).
+    ConfirmSkillAttack,
     EnemyTurn,
     Victory,
     Defeat
@@ -63,6 +71,10 @@ public:
     std::vector<SkillAvailability> selectedUnitSkills() const;
 
     std::optional<CombatPreview> pendingPreview() const;
+    // M4 item 3: same idea as pendingPreview(), for the ConfirmSkillAttack
+    // state the 3 attack-shape skills enter instead of resolving instantly.
+    // nullopt outside that state.
+    std::optional<CombatPreview> pendingSkillPreview() const;
 
     // Reports the most recent attack (player or enemy) so the front end can
     // drive a purely-visual attack animation (e.g. a lunge toward the
@@ -90,20 +102,26 @@ public:
     bool selectHealingItemTarget(GridPos pos);
     void chooseProtectiveBoard();
     bool selectBoardTarget(GridPos pos);
-    // docs/implementation_roadmap.md M4 item 1 "Skill Effect Executor": the
-    // first equipped-skill executor slice. Only 暁の衛生兵's
-    // `emergency_treatment` (docs/initial_skill_effects.md) actually has an
-    // effect implemented so far - chooseSkill() no-ops for any other skill
-    // id, same as chooseHeal()/chooseAttack() no-op when nothing's
-    // targetable. The other 17 skills are deliberately not attempted in this
-    // slice; see the roadmap for what's deferred and why.
+    // docs/implementation_roadmap.md M4-A "Skill Effect Executor": all 18
+    // equipped skills across the 6 initial classes have real in-battle
+    // effects (see the shape tables/dedicated branches in
+    // BattleController.cpp's anonymous namespace). chooseSkill() still
+    // no-ops for a skill id that matches none of them, same as
+    // chooseHeal()/chooseAttack() no-op when nothing's targetable.
     void chooseSkill(int slotIndex);
+    // For the 3 attack-shape skills, this only transitions to
+    // ConfirmSkillAttack (see pendingSkillPreview()/confirmSkillAttack()) -
+    // it does not resolve the attack itself. Every other skill shape
+    // resolves immediately here.
     bool selectSkillTarget(GridPos pos);
     void chooseWait();
     void endPlayerTurn();
     void selectTargetTile(GridPos pos);
     void cancelAttackSelection();
     void confirmAttack();
+    // M4 item 3: resolves the attack-shape skill selectSkillTarget() staged
+    // into ConfirmSkillAttack. No-op outside that state.
+    void confirmSkillAttack();
     void cancelToUnitSelect();
 
     // Advances the enemy phase by dt seconds (paced so the player can follow
@@ -126,6 +144,11 @@ private:
     Unit* selectedUnit_ = nullptr;
     GridPos moveOrigin_{};
     Unit* pendingTarget_ = nullptr;
+    // 辺境斥候`trailblaze`(道拓き): the exact path the selected unit's most
+    // recent move took, captured in selectMoveTile() before the move
+    // actually happens (computeMovementPath() needs the mover's position to
+    // still be the origin). Consumed if trailblaze resolves this action.
+    std::vector<GridPos> lastMovementPath_;
 
     std::vector<GridPos> reachableTiles_;
     std::vector<GridPos> targetableTiles_;
@@ -137,6 +160,7 @@ private:
     int pendingSkillSlot_ = -1;
 
     float enemyActionTimer_ = 0.0f;
+    AiSquadReservations enemyReservations_;
     int pendingHealingItemAmount_ = 0;
 
     Unit* lastAttacker_ = nullptr;

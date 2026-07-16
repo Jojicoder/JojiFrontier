@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -56,17 +57,68 @@ inline std::unordered_set<std::string> initialUnlockedFacilityNodes() {
     return {"operations_tent", "communal_tent"};
 }
 
+// Region key material: bringing this home is what makes the outpost
+// eligible to advance from Encampment to Pioneer Outpost (stage 1). Per the
+// design doc, this material is reserved for outpost advancement and is not
+// spent on weapon crafting. Declared here (ahead of BaseState) so
+// BaseState::materialStorageCap() below can reference it.
+inline constexpr const char* kAshveilFangMaterial = "ashveil_fang";
+// docs/regions/ashbough_forest.md "折れ木の縄張り"'s 灰角の大牙 - a distinct key
+// material from Cinderwatch's kAshveilFangMaterial (different creature,
+// different region).
+inline constexpr const char* kAshenhornFangMaterial = "ashenhorn_fang";
+
+// docs/inventory_overflow.md「上限」: the only "探索道具・キー素材(1個上限)"
+// ids that exist in code today are these two region key materials - listed
+// here as a single place both BaseState::materialStorageCap() and any future
+// key-material addition can extend.
+inline std::array<const char*, 2> regionKeyMaterialIds() {
+    return {kAshveilFangMaterial, kAshenhornFangMaterial};
+}
+
+// docs/inventory_overflow.md「受取保留」: what a safe return's reward grant
+// couldn't fit into warehouse caps gets moved here instead of being silently
+// discarded, converted, or auto-sold.
+struct OverflowStack {
+    // Lightweight per-return identifier (see GameApp::returnToBase()) - not
+    // the full RewardGrantId/ExpeditionAttemptId ledger docs/expedition_rewards.md
+    // specifies, since that ledger itself is still unimplemented
+    // (docs/implementation_roadmap.md M1-D item 1, deferred as low-value while
+    // only one region exists). Re-display safety instead comes from
+    // returnToBase()'s existing `screen_ != Screen::Camp` guard, the same
+    // pattern that already fixed a proceedToCamp() double-grant bug.
+    std::string grantId;
+    // LootId for materials, or "item:<ItemType int>" for consumables - a
+    // namespace prefix keeps the two id spaces from ever colliding (ItemType
+    // has no string form of its own; see SaveSystem.cpp's itemStorageToJson()
+    // for the established "raw enum int" convention this mirrors).
+    std::string itemId;
+    int quantity = 0;
+};
+
+struct RewardOverflowState {
+    std::vector<OverflowStack> stacks;
+    // docs/inventory_overflow.md: "保留上限は合計200 Stack" - a safe return
+    // that would push the total over this must not commit at all (see
+    // GameApp::returnToBase()'s pre-check), so this is a hard ceiling read
+    // before committing, not a truncation applied after.
+    static constexpr int kMaxStacks = 200;
+};
+
 struct BaseState {
     std::vector<LootStack> storage;
     std::unordered_set<DiscoveryId> discoveryRegistry;
     OutpostStage outpostStage = OutpostStage::Encampment;
 
-    // Permanent research record - once a node is here it stays even if a
-    // physical facility housing it is later dismantled.
+    // Permanent research record - once a node is here it stays forever
+    // (docs/base_development.md: no dismantling exists).
     std::unordered_set<std::string> unlockedNodeIds = initialUnlockedFacilityNodes();
-    // Which facility-slot nodes are currently physically built (subset of
-    // unlockedNodeIds restricted to FacilityNode::occupiesFacilitySlot nodes).
-    std::unordered_set<std::string> builtNodeIds;
+    // docs/facility_data_contract.md's `constructedFacilityIds`: the subset of
+    // unlockedNodeIds restricted to FacilityNode::occupiesFacilitySlot nodes -
+    // i.e. which of the 4 optional facilities have been built. Once a node is
+    // in this set it never leaves (no dismantling); serialized under the
+    // legacy JSON key "builtNodes" (SaveSystem.cpp), unaffected by this rename.
+    std::unordered_set<std::string> constructedFacilityIds;
 
     // docs/exploration_system.md "周回と地域経路の開拓": permanent per-site
     // progression, keyed by Region::siteAccessKey(). Only ever raised via
@@ -129,20 +181,25 @@ struct BaseState {
         if (it->quantity == 0) storage.erase(it);
         return true;
     }
-};
 
-// Facility-slot capacity by outpost stage (docs/base_development.md: "開拓拠点
-// の有効施設枠は2... 次の拠点段階で有効枠を増やす"). Only the stage-1 value (2)
-// is given explicitly; later stages extrapolate the same growth rate.
-inline int facilitySlotCapacity(OutpostStage stage) {
-    switch (stage) {
-        case OutpostStage::Encampment: return 0;
-        case OutpostStage::PioneerOutpost: return 2;
-        case OutpostStage::FrontierSettlement: return 4;
-        case OutpostStage::PioneerCity: return 6;
+    // Capacity-sensitive operations must preflight against these caps before
+    // calling addStorage()/addItemStorage(). Safe return does that for both
+    // secured materials and unused bag items; crafting refuses at the item cap.
+    static constexpr int kMaterialStorageCap = 999;
+    static constexpr int kKeyMaterialStorageCap = 1;
+
+    RewardOverflowState rewardOverflow;
+
+    // docs/inventory_overflow.md 「上限」: 探索道具・キー素材は1個上限。region-
+    // specific key materials (brought home to unlock outpost stages) are the
+    // only ids in that category that currently exist in code - see
+    // eligibleForOutpostStage() below, which reads these same two ids.
+    int materialStorageCap(const LootId& id) const {
+        for (const char* keyId : regionKeyMaterialIds())
+            if (id == keyId) return kKeyMaterialStorageCap;
+        return kMaterialStorageCap;
     }
-    return 0;
-}
+};
 
 // Command Tent's "Scout Network" branch discovery — secured by returning
 // safely from the Cinderwatch Gate encounter (expedition stage 0).
@@ -179,16 +236,6 @@ inline std::string tuningTraitIdToString(TuningTraitId id) {
 inline TuningTraitId tuningTraitIdFromString(const std::string& value) {
     return value == "hide_wrapped_grip" ? TuningTraitId::HideWrappedGrip : TuningTraitId::None;
 }
-
-// Region key material: bringing this home is what makes the outpost
-// eligible to advance from Encampment to Pioneer Outpost (stage 1). Per the
-// design doc, this material is reserved for outpost advancement and is not
-// spent on weapon crafting.
-inline constexpr const char* kAshveilFangMaterial = "ashveil_fang";
-// docs/regions/ashbough_forest.md "折れ木の縄張り"'s 灰角の大牙 - a distinct key
-// material from Cinderwatch's kAshveilFangMaterial (different creature,
-// different region).
-inline constexpr const char* kAshenhornFangMaterial = "ashenhorn_fang";
 
 // Data-driven eligibility check (docs/base_development.md: "解放条件はUIに
 // ハードコードせずデータから評価する") — the key material sitting in storage

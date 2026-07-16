@@ -75,6 +75,16 @@ if(BUILD_TESTING)
         target_compile_options(jf_battle_tests PRIVATE -UNDEBUG)
     endif()
 
+    add_executable(jf_locale_tests tests/test_locale.cpp)
+    target_link_libraries(jf_locale_tests PRIVATE jf_lib)
+    target_compile_definitions(jf_locale_tests PRIVATE JF_SOURCE_DATA_DIR="${CMAKE_SOURCE_DIR}/data")
+    add_test(NAME jf_locale_tests COMMAND jf_locale_tests)
+
+    # docs/localization.md「自動検証」item 6 stand-in (M3-B stage 6): fails if
+    # a new `kJa*` constant (main.cpp's pre-Locale-migration pattern) shows up
+    # again anywhere but the one documented exception.
+    add_test(NAME check_localization COMMAND bash ${CMAKE_SOURCE_DIR}/tools/check_localization.sh)
+
     add_executable(jf_forest_balance tools/forest_balance.cpp)
     target_link_libraries(jf_forest_balance PRIVATE jf_lib)
 

@@ -6,8 +6,10 @@
 
 #include "jf/battle/BattleObject.hpp"
 #include "jf/battle/Phase.hpp"
+#include "jf/battle/Reinforcement.hpp"
 #include "jf/core/Grid.hpp"
 #include "jf/core/UnitClass.hpp"
+#include "jf/core/UnitExitReason.hpp"
 
 namespace jf {
 
@@ -32,6 +34,34 @@ struct ActionResolvedEvent {
 struct UnitDefeatedEvent {
     std::string unitId;
     Team team;
+    UnitExitReason exitReason = UnitExitReason::Defeated;
+};
+
+// docs/boss_common_rules.md "Phase移行": fired exactly once per real Boss
+// stage transition (e.g. the Ashenhorn Boar's enrage at HP<=50%), never
+// more than once for the same Action Batch even if multiple thresholds are
+// crossed at once. `stageIndex` is 0 at battle start and increments once
+// per transition - a boss with only one transition (today, every shipped
+// boss) only ever reaches 1.
+struct BossStageChangedEvent {
+    std::string unitId;
+    int stageIndex;
+};
+
+struct BossTelegraphChangedEvent {
+    std::string unitId;
+    std::string actionId;
+    bool announced;
+};
+
+struct ReinforcementAnnouncedEvent {
+    std::string waveId;
+    int spawnRound;
+};
+
+struct ReinforcementResolvedEvent {
+    std::string waveId;
+    ReinforcementResult result;
 };
 
 struct PhaseStartedEvent {
@@ -63,7 +93,9 @@ struct ObjectDestroyedEvent {
 };
 
 using BattleEventPayload = std::variant<ActionResolvedEvent, UnitDefeatedEvent, PhaseStartedEvent, PhaseEndedEvent,
-                                        RoundEndedEvent, ObjectStateChangedEvent, ObjectDestroyedEvent>;
+                                        RoundEndedEvent, ObjectStateChangedEvent, ObjectDestroyedEvent,
+                                        BossStageChangedEvent, BossTelegraphChangedEvent,
+                                        ReinforcementAnnouncedEvent, ReinforcementResolvedEvent>;
 
 struct BattleEvent {
     BattleEventId id;

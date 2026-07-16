@@ -195,8 +195,7 @@ bool GameApp::useCampItem(ItemType item, const std::string& unitId) {
         return true;
     }
     if (item == ItemType::ReturnFlare) {
-        returnToBase();
-        return true;
+        return returnToBase();
     }
     Unit* target = battleController_->battle().findUnit(unitId);
     if (!target || target->team != Team::Player) return false;
@@ -275,6 +274,15 @@ std::optional<std::vector<std::string>> GameApp::nextSiteEnemyRosterNames() cons
         if (stage.id != *nextStageId) continue;
         std::vector<std::string> names;
         for (const UnitTemplate& enemy : stage.enemyRoster) names.push_back(enemy.name);
+        // docs/regions/ashbough_forest.md "折れ木の縄張り": show the
+        // understaffed reinforcement too when it will actually spawn, so
+        // this preview doesn't undercount what the battle will contain.
+        if (stage.understaffedReinforcement) {
+            int livingPlayerCount = 0;
+            for (const Unit& unit : expeditionPartyUnits_) livingPlayerCount += unit.isAlive();
+            if (livingPlayerCount < stage.understaffedThreshold)
+                names.push_back(stage.understaffedReinforcement->name);
+        }
         return names;
     }
     return std::nullopt;
@@ -318,17 +326,63 @@ bool GameApp::advanceRouteToNextSite() {
     return false;
 }
 
-void GameApp::returnToBase() {
-    if (screen_ != Screen::Camp) return;
+bool GameApp::returnToBase() {
+    if (screen_ != Screen::Camp) return false;
+
+    // docs/inventory_overflow.md「帰還処理」: compute what fits before
+    // mutating anything, so a 200-Stack ceiling breach (checked below) leaves
+    // storage/overflow untouched rather than partially applied.
+    std::unordered_map<LootId, int> materialAdds;
+    for (const LootStack& loot : expedition_.pendingLoot) materialAdds[loot.id] += loot.quantity;
+
+    std::unordered_map<LootId, int> fitPlan;
+    std::vector<std::pair<LootId, int>> overflowPlan;
+    for (const auto& [id, quantity] : materialAdds) {
+        const bool isKeyMaterial = baseState_.materialStorageCap(id) == BaseState::kKeyMaterialStorageCap;
+        const int cap = baseState_.materialStorageCap(id);
+        const int current = baseState_.storageCount(id);
+        const int room = std::max(0, cap - current);
+        const int fits = std::min(room, quantity);
+        if (fits > 0) fitPlan[id] = fits;
+        // docs/inventory_overflow.md「保留中のキー素材...は存在させない。これらは
+        // 重複除去して直接恒久化する」: a key material's excess beyond its
+        // 1-cap is deduplicated away here, never queued as overflow.
+        if (!isKeyMaterial) {
+            const int overflow = quantity - fits;
+            if (overflow > 0) overflowPlan.push_back({id, overflow});
+        }
+    }
+
+    // Unused expedition items are already owned by the player, but they still
+    // need the same capacity-safe commit as newly secured materials. This also
+    // makes imported/older saves safe when their storage and bag totals exceed
+    // the current per-item cap.
+    std::unordered_map<ItemType, int> returnedItems;
+    for (ItemType item : expedition_.bag) ++returnedItems[item];
+    std::unordered_map<ItemType, int> itemFitPlan;
+    for (const auto& [item, quantity] : returnedItems) {
+        const int room = std::max(0, BaseState::kItemStorageCap - baseState_.ownedItemCount(item));
+        const int fits = std::min(room, quantity);
+        if (fits > 0) itemFitPlan[item] = fits;
+        const int overflow = quantity - fits;
+        if (overflow > 0)
+            overflowPlan.push_back({"item:" + std::to_string(static_cast<int>(item)), overflow});
+    }
+
+    if (baseState_.rewardOverflow.stacks.size() + overflowPlan.size() > RewardOverflowState::kMaxStacks)
+        return false;
+
     justSecuredLoot_ = true;
     lastSecuredLoot_.clear();
-    for (const LootStack& loot : expedition_.pendingLoot) {
-        lastSecuredLoot_.push_back(loot.id);
-        auto stored = std::find_if(baseState_.storage.begin(), baseState_.storage.end(),
-                                   [&](const LootStack& entry) { return entry.id == loot.id; });
-        if (stored == baseState_.storage.end()) baseState_.storage.push_back(loot);
-        else stored->quantity += loot.quantity;
+    for (const LootStack& loot : expedition_.pendingLoot) lastSecuredLoot_.push_back(loot.id);
+    for (const auto& [id, quantity] : fitPlan) baseState_.addStorage(id, quantity);
+    for (const auto& [item, quantity] : itemFitPlan) baseState_.addItemStorage(item, quantity);
+    if (!overflowPlan.empty()) {
+        const std::string grantId = "return-" + std::to_string(++returnGrantSequence_);
+        for (const auto& [id, quantity] : overflowPlan)
+            baseState_.rewardOverflow.stacks.push_back({grantId, id, quantity});
     }
+
     for (const DiscoveryId& discovery : expedition_.pendingDiscoveries)
         baseState_.discoveryRegistry.insert(discovery);
     for (const auto& [key, achieved] : expedition_.pendingSiteAccessUpdates) {
@@ -336,9 +390,37 @@ void GameApp::returnToBase() {
         if (it == baseState_.siteAccess.end() || it->second < achieved) baseState_.siteAccess[key] = achieved;
     }
     for (RegionId regionId : expedition_.pendingRegionCompletions) baseState_.completedRegionIds.insert(regionId);
+    // The bag has been committed above; resetToBase() must not return it a
+    // second time.
+    expedition_.bag.clear();
     resetToBase();
     justSecuredLoot_ = true;
     markPersistentStateChanged();
+    return true;
+}
+
+bool GameApp::discardStorage(const LootId& id, int quantity) {
+    if (quantity <= 0) return false;
+    if (baseState_.materialStorageCap(id) == BaseState::kKeyMaterialStorageCap) return false;
+    if (!baseState_.consumeStorage(id, quantity)) return false;
+    markPersistentStateChanged();
+    return true;
+}
+
+bool GameApp::discardItemStorage(ItemType type, int quantity) {
+    if (quantity <= 0) return false;
+    if (!baseState_.consumeItemStorage(type, quantity)) return false;
+    markPersistentStateChanged();
+    return true;
+}
+
+bool GameApp::discardOverflowStack(std::size_t index, int quantity) {
+    auto& stacks = baseState_.rewardOverflow.stacks;
+    if (index >= stacks.size() || quantity <= 0 || stacks[index].quantity < quantity) return false;
+    stacks[index].quantity -= quantity;
+    if (stacks[index].quantity == 0) stacks.erase(stacks.begin() + static_cast<std::ptrdiff_t>(index));
+    markPersistentStateChanged();
+    return true;
 }
 
 void GameApp::acknowledgeLootSecured() {
@@ -362,6 +444,7 @@ bool GameApp::togglePartyMember(const std::string& unitId) {
 
 bool GameApp::craftItem(ItemType type) {
     if (screen_ != Screen::Base) return false;
+    if (baseState_.ownedItemCount(type) >= BaseState::kItemStorageCap) return false;
     const std::vector<ItemCraftCost> cost = itemCraftCost(type);
     for (const ItemCraftCost& line : cost)
         if (baseState_.storageCount(line.materialId) < line.quantity) return false;
@@ -594,7 +677,8 @@ bool GameApp::chooseExplorationRoute(ExplorationChoice choice) {
             deploymentPlayers_.push_back(std::move(unit));
         }
         deploymentPlaced_.assign(deploymentPlayers_.size(), false);
-        deploymentEnemyPreview_ = previewEnemies(activeExpeditionData_, stage, expeditionSeed_, outcome);
+        deploymentEnemyPreview_ = previewEnemies(activeExpeditionData_, stage, expeditionSeed_, outcome,
+                                                 static_cast<int>(deploymentPlayers_.size()));
         for (const Unit& enemy : deploymentEnemyPreview_) {
             const int key = enemy.position.row * kGridCols + enemy.position.col;
             if (!isPassable(deploymentTerrain_[key])) deploymentTerrain_[key] = TerrainType::Floor;
@@ -719,40 +803,14 @@ bool GameApp::unlockFacilityNode(const std::string& nodeId) {
         if (!baseState_.consumeStorage(cost.id, cost.quantity)) return false;
     }
     baseState_.unlockedNodeIds.insert(nodeId);
-    if (node->occupiesFacilitySlot) baseState_.builtNodeIds.insert(nodeId);
-    markPersistentStateChanged();
-    return true;
-}
-
-bool GameApp::dismantleFacilityNode(const std::string& nodeId) {
-    if (screen_ != Screen::Base) return false;
-    const FacilityNode* node = findFacilityNode(nodeId);
-    if (!node || !node->occupiesFacilitySlot || !baseState_.builtNodeIds.count(nodeId)) return false;
-
-    baseState_.builtNodeIds.erase(nodeId);
-    for (const LootStack& cost : node->materialCosts) {
-        baseState_.addStorage(cost.id, cost.quantity / 2);
-    }
-    markPersistentStateChanged();
-    return true;
-}
-
-bool GameApp::rebuildFacilityNode(const std::string& nodeId) {
-    if (screen_ != Screen::Base) return false;
-    const FacilityNode* node = findFacilityNode(nodeId);
-    if (!node || !node->occupiesFacilitySlot) return false;
-    if (!baseState_.unlockedNodeIds.count(nodeId) || baseState_.builtNodeIds.count(nodeId)) return false;
-    if (static_cast<int>(baseState_.builtNodeIds.size()) >= facilitySlotCapacity(baseState_.outpostStage))
-        return false;
-
-    baseState_.builtNodeIds.insert(nodeId);
+    if (node->occupiesFacilitySlot) baseState_.constructedFacilityIds.insert(nodeId);
     markPersistentStateChanged();
     return true;
 }
 
 bool GameApp::equipWeaponForUnit(const std::string& unitId, const std::string& weaponId) {
     if (screen_ != Screen::Base) return false;
-    if (!baseState_.builtNodeIds.count("simple_forge")) return false;
+    if (!baseState_.constructedFacilityIds.count("simple_forge")) return false;
     auto unit = std::find_if(roster_.begin(), roster_.end(), [&](const UnitTemplate& candidate) {
         return candidate.id == unitId;
     });
@@ -779,7 +837,7 @@ bool GameApp::equipWeaponForUnit(const std::string& unitId, const std::string& w
 
 bool GameApp::equipTuningTraitForUnit(const std::string& unitId, TuningTraitId traitId) {
     if (screen_ != Screen::Base) return false;
-    if (!baseState_.builtNodeIds.count("simple_forge")) return false;
+    if (!baseState_.constructedFacilityIds.count("simple_forge")) return false;
     auto unit = std::find_if(roster_.begin(), roster_.end(), [&](const UnitTemplate& candidate) {
         return candidate.id == unitId;
     });
@@ -818,13 +876,16 @@ bool GameApp::applySaveData(const SaveData& save) {
     if (screen_ != Screen::Base || save.schemaVersion < 1 || save.schemaVersion > kCurrentSaveSchemaVersion) return false;
 
     BaseState loadedBase = save.base;
-    for (auto it = loadedBase.builtNodeIds.begin(); it != loadedBase.builtNodeIds.end();) {
+    // Defensive self-consistency only (docs/base_development.md: built
+    // facilities never expire, so there's no capacity to violate) - a
+    // constructedFacilityIds entry that isn't actually an occupiesFacilitySlot node, or
+    // whose unlock record is missing, indicates corrupt/foreign save data.
+    for (auto it = loadedBase.constructedFacilityIds.begin(); it != loadedBase.constructedFacilityIds.end();) {
         const FacilityNode* node = findFacilityNode(*it);
         if (!node || !node->occupiesFacilitySlot || !loadedBase.unlockedNodeIds.count(*it))
-            it = loadedBase.builtNodeIds.erase(it);
+            it = loadedBase.constructedFacilityIds.erase(it);
         else ++it;
     }
-    if (static_cast<int>(loadedBase.builtNodeIds.size()) > facilitySlotCapacity(loadedBase.outpostStage)) return false;
 
     std::vector<std::string> loadedParty;
     for (const std::string& id : save.selectedPartyIds) {

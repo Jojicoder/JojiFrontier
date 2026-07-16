@@ -7,12 +7,12 @@
     },
     {
       "id": "VeteranGuard",
-      "baseStats": { "maxHp": 28, "strength": 8, "magic": 0, "speed": 3, "defense": 10, "resistance": 3, "move": 3 },
+      "baseStats": { "maxHp": 28, "strength": 8, "magic": 0, "speed": 3, "defense": 8, "resistance": 3, "move": 3 },
       "weaponId": "iron_lance"
     },
     {
       "id": "WatchArcher",
-      "baseStats": { "maxHp": 18, "strength": 6, "magic": 0, "speed": 7, "defense": 3, "resistance": 2, "move": 4 },
+      "baseStats": { "maxHp": 18, "strength": 6, "magic": 0, "speed": 7, "defense": 5, "resistance": 2, "move": 4 },
       "weaponId": "watch_bow"
     },
     {
@@ -27,7 +27,7 @@
     },
     {
       "id": "DawnChirurgeon",
-      "baseStats": { "maxHp": 17, "strength": 2, "magic": 6, "speed": 6, "defense": 2, "resistance": 8, "move": 4 },
+      "baseStats": { "maxHp": 17, "strength": 2, "magic": 6, "speed": 6, "defense": 4, "resistance": 8, "move": 4 },
       "weaponId": "dawn_staff"
     },
     {

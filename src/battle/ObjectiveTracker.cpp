@@ -10,8 +10,13 @@ bool objectiveSatisfied(const BattleState& battle, const ObjectiveDefinition& de
                          const ObjectiveProgress& progress) {
     switch (def.kind) {
         case ObjectiveKind::EliminateTeam:
+            // docs/enemy_ai_rules.md "撤退と降伏": a unit that retreated off
+            // the field is no longer a threat, so it satisfies "eliminate"
+            // the same as a defeated one - isPresent() covers both (unlike
+            // DefeatUnit below, which targets a specific unit and must not
+            // treat a mere retreat as satisfying it).
             for (const Unit& unit : battle.units()) {
-                if (unit.team == def.target.team && unit.isAlive()) return false;
+                if (unit.team == def.target.team && unit.isPresent()) return false;
             }
             return true;
         case ObjectiveKind::DefeatUnit: {
@@ -144,7 +149,8 @@ BattleOutcome evaluateBattleOutcome(const BattleState& battle) {
         if (!groupSatisfied) allGroupsSatisfied = false;
     }
 
-    if (anyPrimaryGroup && allGroupsSatisfied) outcome.kind = BattleOutcomeKind::Victory;
+    if (anyPrimaryGroup && allGroupsSatisfied && !battle.hasPendingRequiredEnemyReinforcements())
+        outcome.kind = BattleOutcomeKind::Victory;
     return outcome;
 }
 
@@ -219,11 +225,17 @@ void emitUnitDefeatedEvents(BattleState& battle, const AliveSnapshot& before) {
     // rather than `before` itself, which is an unordered_map and would give
     // a different, hash-dependent event order on every run for simultaneous
     // defeats (breaking "同じRoot ActionとSeedでEvent順が一致").
-    for (const Unit& unit : battle.units()) {
+    for (Unit& unit : battle.units()) {
         auto it = before.find(unit.id);
         if (it == before.end() || !it->second) continue; // wasn't alive before, nothing to report
         if (!unit.isAlive()) {
-            BattleEvent event{battle.issueEventId(), 0, UnitDefeatedEvent{unit.id, unit.team}};
+            // docs/boss_common_rules.md "Bossの退場理由": 灰角大猪はHP0後を
+            // ScriptedWithdrawalとして扱う(撃破相当) - every other unit's
+            // defeat is the plain Defeated case.
+            unit.exitReason =
+                unit.unitClass == UnitClass::AshenhornBoar ? UnitExitReason::ScriptedWithdrawal : UnitExitReason::Defeated;
+            BattleEvent event{battle.issueEventId(), 0,
+                              UnitDefeatedEvent{unit.id, unit.team, unit.exitReason}};
             handleObjectiveEvent(battle.missionState(), event);
         }
     }

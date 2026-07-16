@@ -20,6 +20,7 @@ struct ExplorationOutcome {
     // 誘導する"): one additional fallen-log Barrier beyond the stage's
     // baseline count.
     int extraBarrierCount = 0;
+    bool enableReinforcementWave = false;
 };
 
 // Generic route-outcome shape for any region's first-battle 3-choice

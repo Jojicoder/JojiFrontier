@@ -11,6 +11,7 @@
 #include "jf/battle/BattleController.hpp"
 #include "jf/core/GameApp.hpp"
 #include "jf/core/Grid.hpp"
+#include "jf/core/Locale.hpp"
 #include "jf/data/GameData.hpp"
 
 namespace {
@@ -144,183 +145,13 @@ void drawTilePanel(Rectangle rect, Color frameColor) {
 }
 
 // --- Bilingual UI strings (English / Japanese) ---------------------------
-const std::string kJaPlayerPhase = "プレイヤーフェイズ";
-const std::string kJaEnemyPhase = "敵フェイズ";
-const std::string kJaSelectUnit = "行動するユニットを選択してください。";
-const std::string kJaAttack = "こうげき";
-const std::string kJaBack = "戻る";
-const std::string kJaItems = "アイテム";
-const std::string kJaSkills = "スキル";
-const std::string kJaPotion = "ポーション";
-const std::string kJaHeal = "治療";
-const std::string kJaWait = "待機";
-const std::string kJaEndTurn = "ターン終了";
-const std::string kJaChooseMove = "移動先を選択";
-const std::string kJaChooseAction = "行動を選択";
-const std::string kJaChooseItem = "使用するアイテムを選択";
-const std::string kJaNoUsableItems = "使用可能なアイテムはありません";
-const std::string kJaChooseSkill = "使用するスキルを選択";
-const std::string kJaNoUsableSkills = "使用可能なスキルはありません";
-const std::string kJaChooseTarget = "攻撃対象を選択";
-const std::string kJaChooseItemTarget = "アイテムを使う味方を選択";
-const std::string kJaConfirm = "決定";
-const std::string kJaCancel = "キャンセル";
-const std::string kJaCombatPreview = "戦闘予測";
-const std::string kJaDamage = "ダメージ";
-const std::string kJaHit = "命中率";
-const std::string kJaEvasion = "回避";
-const std::string kJaVictory = "勝利";
-const std::string kJaProceedToCamp = "キャンプへ進む";
-const std::string kJaDefeatTitle = "遠征失敗";
-const std::string kJaLootLostLine = "遠征で得た戦利品はすべて失われます。";
-const std::string kJaReturnToBase = "拠点へ帰還";
-const std::string kJaCamp = "キャンプ";
-const std::string kJaLootSecured = "戦利品を確保した";
-const std::string kJaNoLootThisExpedition = "今回の遠征では戦利品なし";
-const std::string kJaContinue = "つづける";
-const std::string kJaPartyHp = "パーティHP";
-const std::string kJaPendingLoot = "保留中の戦利品";
-const std::string kJaNoneYet = "まだありません";
-const std::string kJaBattlesWon = "勝利数";
-const std::string kJaContinueExpedition = "遠征を続ける";
-const std::string kJaDown = "戦闘不能";
-const std::string kJaHp = "体力";
-const std::string kJaWeapon = "武器";
-const std::string kJaStr = "力";
-const std::string kJaMag = "魔";
-const std::string kJaDef = "防";
-const std::string kJaRes = "魔防";
-const std::string kJaDataLoadFailed = "データの読み込みに失敗しました";
-const std::string kJaSettings = "設定";
-const std::string kJaLanguage = "言語";
-const std::string kJaClose = "閉じる";
-const std::string kJaMaterialsLabel = "必要素材";
-const std::string kJaNoMaterialCost = "素材コストなし";
-const std::string kJaWindow = "ウィンドウ";
-const std::string kJaMaximizeWindow = "ウィンドウを最大化";
-const std::string kJaRestoreWindow = "ウィンドウを元に戻す";
-const std::string kJaMaximizeShortcut = "ショートカット: F11";
-const std::string kJaExpeditionSection = "遠征";
-const std::string kJaRetireExpedition = "遠征リタイア";
-const std::string kJaRetireExpeditionNote = "この遠征の未確定の戦利品は失われます。";
-const std::string kJaSaveDataSection = "セーブデータ";
-const std::string kJaExportSave = "エクスポート";
-const std::string kJaImportSave = "インポート";
-const std::string kJaImportConfirm = "この内容で置き換えますか？";
-const std::string kJaImportApply = "インポートを実行";
-const std::string kJaImportCancel = "キャンセル";
-const std::string kJaImportBaseOnly = "拠点画面でのみ実行できます";
-const std::string kJaImportNoFile = "importsフォルダにファイルがありません";
-const std::string kJaExportOk = "エクスポートしました: ";
-const std::string kJaExportFailed = "エクスポートに失敗しました: ";
-const std::string kJaImportFailed = "インポートに失敗しました: ";
-const std::string kJaImportApplied = "インポートを適用しました";
-const std::string kJaStatusPoison = "毒";
-const std::string kJaStatusBurn = "炎上";
-const std::string kJaStatusMoveDown = "移動低下";
-const std::string kJaStatusDefenseDown = "防御低下";
-const std::string kJaStatusStagger = "よろめき";
-const std::string kJaStatusRemainingProcs = "残り";
-const std::string kJaStatusUntilPhaseEnd = "このPhase終了まで";
-const std::string kJaStatusNextActionNoMove = "次の行動は移動不可";
-const std::string kJaAttackHits = "の攻撃が";
-const std::string kJaAttackHitsSuffix = "に命中！";
-const std::string kJaDamageSuffix = "ダメージ！";
-const std::string kJaAttackMisses = "の攻撃は";
-const std::string kJaAttackMissesSuffix = "に外れた！";
-const std::string kJaOnTheBrinkSuffix = "が瀕死状態に！";
-const std::string kJaFallenSuffix = "が戦闘不能に！";
+// Common buttons, phase headers, and generic error/validation text have
+// moved to data/locales/{ja,en}.json + jf::tr() (docs/localization.md M3-B).
+// kJaJapaneseNative is the one deliberate exception: a language picker's
+// native-script label for switching TO that language ("日本語") is not
+// itself translated (same reasoning as the "English" literal beside it),
+// so it stays a plain constant rather than a Locale Key.
 const std::string kJaJapaneseNative = "日本語";
-const std::string kJaExpeditionPrep = "遠征準備";
-const std::string kJaPartyChoose4 = "パーティ(4人選択)";
-const std::string kJaSupplies = "物資";
-const std::string kJaBagSlots = "荷物(6枠)";
-const std::string kJaEmptySlot = "空き枠";
-const std::string kJaBeginExpedition = "遠征開始";
-const std::string kJaSelectExactly4 = "ちょうど4人選んでください";
-const std::string kJaAdd = "追加";
-const std::string kJaCraft = "製作";
-const std::string kJaRemove = "削除";
-const std::string kJaPlaceBarrier = "障害物を設置";
-const std::string kJaBag = "荷物";
-const std::string kJaBattleLocation = "戦闘地点";
-const std::string kJaFirstAidShort = "救急";
-const std::string kJaFieldShort = "野戦";
-const std::string kJaBoardShort = "防御板";
-const std::string kJaFieldTreatmentFull = "野戦治療";
-const std::string kJaRescuePack = "救助パック";
-const std::string kJaCampRations = "野営食料";
-const std::string kJaReturnFlare = "帰還信号弾";
-const std::string kJaExploration = "探索";
-const std::string kJaCinderwatchSituation = "崩れた門の先に放棄された監視所が見える。正面の通路には新しい足跡が残っている。";
-const std::string kJaFrontalAdvance = "正面突破";
-const std::string kJaFrontalEffect = "消耗なし / 通常戦闘";
-const std::string kJaSidePath = "崩れた側道を進む";
-const std::string kJaSidePathEffect = "生存中の味方全員 HP -2 / 敵1体減少";
-const std::string kJaScoutRoute = "【斥候】高所から偵察";
-const std::string kJaScoutRouteEffect = "消耗なし / 左3列に自由配置";
-const std::string kJaScoutRouteLocked = "編成に国境斥候が必要";
-const std::string kJaPreBattleDeployment = "出撃配置";
-const std::string kJaDeploymentInstructions = "左3列の通行可能マスに味方4人を配置してください。";
-const std::string kJaEnemyForces = "敵勢力(予告)";
-const std::string kJaDeployAllToStart = "全員配置すると戦闘開始できます";
-const std::string kJaBeginBattle = "戦闘開始";
-const std::string kJaPlaced = "配置済み";
-const std::string kJaUnplaced = "未配置";
-const std::string kJaOutpost = "拠点";
-const std::string kJaDiscoveries = "発見物";
-const std::string kJaNoDiscoveriesYet = "まだ発見物はありません";
-const std::string kJaEncampment = "野営地";
-const std::string kJaPioneerOutpost = "開拓拠点";
-const std::string kJaFrontierSettlement = "辺境集落";
-const std::string kJaPioneerCity = "開拓都市";
-const std::string kJaAdvanceOutpost = "拠点を発展させる";
-const std::string kJaAdvanceOutpostLocked = "灰角の大牙を持ち帰る必要があります";
-const std::string kJaScoutNetworkDiscovery = "偵察網の発見記録";
-const std::string kJaFieldMedicineDiscovery = "野戦医療の記録";
-const std::string kJaReturnSignalDiscovery = "帰還信号技術の記録";
-const std::string kJaHerbThicketDiscovery = "薬草群生地の記録";
-const std::string kJaAshboughForestSurveyCompleteDiscovery = "灰枝の森踏査記録";
-const std::string kJaFacilities = "施設";
-const std::string kJaFacilitySlots = "施設枠";
-const std::string kJaUnlock = "解放";
-const std::string kJaBuild = "建設";
-const std::string kJaDismantle = "解体";
-const std::string kJaRebuild = "再建";
-const std::string kJaBuilt = "稼働中";
-const std::string kJaUnlocked = "解放済み";
-const std::string kJaDismantled = "解体済み(再建可)";
-const std::string kJaNeedsStage = "段階: ";
-const std::string kJaNeedsDiscovery = "必要な発見物が不足";
-const std::string kJaNeedsFacilityBuilt = "施設が未稼働";
-const std::string kJaNeedsMaterial = "素材不足: ";
-const std::string kJaNoOpenSlot = "空き施設枠なし";
-const std::string kJaCurrentWeapon = "現在の武器: ";
-const std::string kJaEquipTrait = "調整特性を装備";
-const std::string kJaUnequipTrait = "調整特性を解除";
-const std::string kJaTraitLocked = "調整特性(未解放)";
-
-// docs/implementation_roadmap.md "Phase 3.5": Base screen region select and
-// Ashbough Verge-specific exploration text, so Ashbough Forest and the
-// 周回・地域経路開拓 loop are reachable through normal play instead of only
-// through GameApp's test-only API surface.
-const std::string kJaExpeditionRegionSection = "遠征先";
-const std::string kJaRegionLockedAshboughForest = "灰枝の森を攻略すると解放されます";
-const std::string kJaAshboughVergeSituation = "灰枝の森の入口。絡み合う木々の奥で、狼の群れが縄張りを張っている。";
-const std::string kJaAshboughFrontal = "A. 痕跡を調べる";
-const std::string kJaAshboughFrontalEffect = "一部情報公開 / 通常戦闘";
-const std::string kJaAshboughSidePath = "B. 急いで奥へ進む";
-const std::string kJaAshboughSidePathEffect = "生存中の味方全員 HP-2 / 敵1体減少 / 通常勝利の木材なし";
-const std::string kJaAshboughScoutRoute = "C. 【辺境斥候】獣道を調査";
-const std::string kJaAshboughScoutRouteEffect = "全情報公開 / 左3列に自由配置 / 獣皮+1";
-const std::string kJaSiteStatus = "地点状態: ";
-const std::string kJaSiteUnknown = "未踏";
-const std::string kJaSiteSurveyed = "踏査済み";
-const std::string kJaSiteSecured = "経路確保済み";
-const std::string kJaSafePassage = "安全路を進む";
-const std::string kJaSafePassageEffect = "戦闘・探索3択・報酬すべて省略して先へ進みます";
-const std::string kJaReconnaissance = "危険区域を再調査";
-const std::string kJaReconnaissanceEffect = "新しい戦闘で通常素材のみ再取得できます（初回報酬は対象外）";
 
 // --- Language setting -------------------------------------------------
 // Purely a display concern (like the font/colors above), not part of
@@ -345,6 +176,47 @@ bool gBattleSkillMenuOpen = false;
 bool gCampItemMenuOpen = false;
 std::optional<jf::ItemType> gCampSelectedItem;
 
+// docs/inventory_overflow.md「倉庫整理画面」: independent of GameApp::Screen
+// (same convention as gSettingsOpen/gCampItemMenuOpen above) so it can
+// overlay either Camp (opened automatically when returnToBase() is blocked
+// by the 200-Stack pending ceiling) or Base (opened manually for routine
+// cleanup).
+bool gWarehouseCleanupOpen = false;
+enum class WarehouseDiscardKind { Material, Item, Overflow };
+struct WarehouseDiscardTarget {
+    WarehouseDiscardKind kind;
+    jf::LootId materialId;
+    jf::ItemType itemType = jf::ItemType::FirstAidKit;
+    std::size_t overflowIndex = 0;
+    int quantity = 0;
+    std::string displayName;
+};
+std::optional<WarehouseDiscardTarget> gWarehouseDiscardConfirm;
+
+// docs/save_system.md「破損復旧画面」: set at startup (see main()) when the
+// primary save could not be read AND no automatic ".bak" fallback inside
+// SaveStore::load() succeeded either - i.e. there is truly nothing to fall
+// back to silently. Drawn instead of (not on top of) the normal screen
+// dispatch, since there's no meaningful "underneath" game state to show yet.
+bool gSaveRecoveryOpen = false;
+bool gSaveRecoveryStartNewConfirm = false;
+std::string gSaveRecoveryMessage;
+
+// docs/save_system.md「保存状態HUD」: minimal Idle/Saving/Saved/Failed state
+// machine drawn in the screen's bottom-right corner. Desktop saves are
+// synchronous file I/O, so `Saving` is only ever visible for a single frame;
+// the state machine exists chiefly so `Failed`+manual retry actually works,
+// and to match the spec's transition shape for when a slower (Web/IDBFS)
+// backend is added.
+enum class SaveHudState { Idle, Saving, Saved, Failed };
+SaveHudState gSaveHudState = SaveHudState::Idle;
+double gSaveHudSavedUntil = 0.0;
+std::string gSaveHudFailReason;
+int gSaveHudRetryCount = 0;
+double gSaveHudNextRetryAt = 0.0;
+constexpr int kSaveHudMaxAutoRetries = 3;
+constexpr double kSaveHudRetryDelays[kSaveHudMaxAutoRetries] = {0.5, 1.0, 2.0};
+
 // Save Data (Export/Import, docs/save_system.md). Lives alongside the other
 // Settings-overlay UI state; gSaveStore itself is the same store main() uses
 // for autosave, just hoisted to a global so the overlay can reach it without
@@ -367,6 +239,14 @@ void setSaveStatus(const std::string& en, const std::string& ja, double duration
 // back to `en` if no Japanese variant was given (e.g. a proper noun).
 std::string pick(const std::string& en, const std::string& ja) {
     return (gLanguage == Language::Japanese && !ja.empty()) ? ja : en;
+}
+
+// Locale Key lookup (docs/localization.md M3-B): thin wrapper around
+// jf::tr() using this file's own `gLanguage` state, so Locale.cpp never
+// needs to know about main.cpp's language-switching global.
+std::string tr(const std::string& key) { return jf::tr(key, gLanguage == Language::Japanese); }
+std::string tr(const std::string& key, const std::unordered_map<std::string, std::string>& args) {
+    return jf::tr(key, gLanguage == Language::Japanese, args);
 }
 
 // --- Japanese-capable font handling ---------------------------------------
@@ -477,47 +357,12 @@ std::string weaponNameFor(const std::string& weaponId, const std::string& englis
 void loadAppFont() {
     std::string charsetSource;
     for (int c = 32; c <= 126; ++c) charsetSource += static_cast<char>(c);
-    charsetSource += kJaPlayerPhase + kJaEnemyPhase + kJaSelectUnit + kJaAttack + kJaBack + kJaItems + kJaSkills +
-                     kJaHeal + kJaWait + kJaEndTurn + kJaChooseMove + kJaChooseAction + kJaChooseItem + kJaNoUsableItems +
-                     kJaChooseSkill + kJaNoUsableSkills + kJaChooseTarget + kJaConfirm +
-                     kJaChooseItemTarget +
-                      kJaCancel + kJaCombatPreview + kJaDamage + kJaHit + kJaEvasion + kJaVictory + kJaProceedToCamp +
-                      kJaDefeatTitle + kJaLootLostLine + kJaReturnToBase + kJaCamp + kJaLootSecured +
-                      kJaNoLootThisExpedition + kJaContinue + kJaPartyHp + kJaPendingLoot + kJaNoneYet +
-                      kJaBattlesWon + kJaContinueExpedition + kJaDown + kJaHp + kJaWeapon + kJaStr + kJaMag +
-                      kJaDef + kJaRes + kJaDataLoadFailed + kJaSettings + kJaLanguage + kJaClose + kJaJapaneseNative +
-                      kJaWindow + kJaMaximizeWindow + kJaRestoreWindow + kJaMaximizeShortcut +
-                      kJaExpeditionSection + kJaRetireExpedition + kJaRetireExpeditionNote +
-                      kJaSaveDataSection + kJaExportSave + kJaImportSave + kJaImportConfirm + kJaImportApply +
-                      kJaImportCancel + kJaImportBaseOnly + kJaImportNoFile + kJaExportOk + kJaExportFailed +
-                      kJaImportFailed + kJaImportApplied +
-                      kJaStatusPoison + kJaStatusBurn + kJaStatusMoveDown + kJaStatusDefenseDown +
-                      kJaStatusStagger + kJaStatusRemainingProcs + kJaStatusUntilPhaseEnd +
-                      kJaStatusNextActionNoMove +
-                      kJaAttackHits + kJaAttackHitsSuffix + kJaDamageSuffix + kJaAttackMisses +
-                      kJaAttackMissesSuffix + kJaOnTheBrinkSuffix + kJaFallenSuffix +
-                      kJaMaterialsLabel + kJaNoMaterialCost +
-                      kJaPotion + kJaExpeditionPrep + kJaPartyChoose4 + kJaSupplies + kJaBagSlots + kJaEmptySlot +
-                      kJaBeginExpedition + kJaSelectExactly4 + kJaAdd + kJaCraft + kJaRemove + kJaPlaceBarrier + kJaBag +
-                      kJaBattleLocation + kJaFirstAidShort + kJaFieldShort + kJaBoardShort + kJaFieldTreatmentFull +
-                      kJaRescuePack + kJaCampRations + kJaReturnFlare + kJaExploration + kJaCinderwatchSituation +
-                      kJaFrontalAdvance + kJaFrontalEffect + kJaSidePath + kJaSidePathEffect + kJaScoutRoute +
-                      kJaScoutRouteEffect + kJaScoutRouteLocked + kJaPreBattleDeployment +
-                      kJaDeploymentInstructions + kJaEnemyForces + kJaDeployAllToStart + kJaBeginBattle +
-                      kJaPlaced + kJaUnplaced + kJaOutpost + kJaDiscoveries + kJaNoDiscoveriesYet +
-                      kJaEncampment + kJaPioneerOutpost + kJaFrontierSettlement + kJaPioneerCity +
-                      kJaAdvanceOutpost + kJaAdvanceOutpostLocked + kJaScoutNetworkDiscovery +
-                      kJaFieldMedicineDiscovery + kJaReturnSignalDiscovery + kJaHerbThicketDiscovery +
-                      kJaAshboughForestSurveyCompleteDiscovery + kJaFacilities +
-                      kJaFacilitySlots +
-                      kJaUnlock + kJaBuild + kJaDismantle + kJaRebuild + kJaBuilt + kJaUnlocked + kJaDismantled +
-                      kJaNeedsStage + kJaNeedsDiscovery + kJaNeedsFacilityBuilt + kJaNeedsMaterial + kJaNoOpenSlot +
-                      kJaCurrentWeapon + kJaEquipTrait + kJaUnequipTrait + kJaTraitLocked +
-                      kJaExpeditionRegionSection + kJaRegionLockedAshboughForest + kJaAshboughVergeSituation +
-                      kJaAshboughFrontal + kJaAshboughFrontalEffect + kJaAshboughSidePath +
-                      kJaAshboughSidePathEffect + kJaAshboughScoutRoute + kJaAshboughScoutRouteEffect +
-                      kJaSiteStatus + kJaSiteUnknown + kJaSiteSurveyed + kJaSiteSecured + kJaSafePassage +
-                      kJaSafePassageEffect + kJaReconnaissance + kJaReconnaissanceEffect +
+    // Locale Keys' Japanese Values (data/locales/ja.json) are covered here
+    // automatically instead of by name, so migrating more strings to Keys
+    // (docs/localization.md M3-B stages 3+) never requires a manual charset
+    // edit like the kJa* constants below still do.
+    charsetSource += jf::allJapaneseGlyphText();
+    charsetSource += kJaJapaneseNative +
                       "灰枝の森沈黙した監視所群灰枝の林縁" +
                       "不明なスキルクールダウン: あとこの戦闘では使用済み" +
                       "平地灰塵瓦礫障害物監視所インパッサブル移動コスト通行不可経路完了"
@@ -627,17 +472,17 @@ Color teamColor(jf::Team team) {
 // out just the half the player currently wants to read.
 std::string classNameFor(jf::UnitClass unitClass) {
     switch (unitClass) {
-        case jf::UnitClass::MarchCaptain: return pick("March Captain", "行軍隊長");
-        case jf::UnitClass::VeteranGuard: return pick("Veteran Guard", "古参守備兵");
-        case jf::UnitClass::WatchArcher: return pick("Watch Archer", "監視弓兵");
-        case jf::UnitClass::FrontierScout: return pick("Frontier Scout", "辺境斥候");
-        case jf::UnitClass::Spearman: return pick("Spearman", "槍兵");
-        case jf::UnitClass::DawnChirurgeon: return pick("Dawn Chirurgeon", "暁の衛生兵");
-        case jf::UnitClass::Bandit: return pick("Bandit", "盗賊");
-        case jf::UnitClass::Wolf: return pick("Wolf", "狼");
-        case jf::UnitClass::AshenhornBoar: return pick("Ashenhorn Boar", "灰角大猪");
+        case jf::UnitClass::MarchCaptain: return tr("class.march_captain");
+        case jf::UnitClass::VeteranGuard: return tr("class.veteran_guard");
+        case jf::UnitClass::WatchArcher: return tr("class.watch_archer");
+        case jf::UnitClass::FrontierScout: return tr("class.frontier_scout");
+        case jf::UnitClass::Spearman: return tr("class.spearman");
+        case jf::UnitClass::DawnChirurgeon: return tr("class.dawn_chirurgeon");
+        case jf::UnitClass::Bandit: return tr("class.bandit");
+        case jf::UnitClass::Wolf: return tr("class.wolf");
+        case jf::UnitClass::AshenhornBoar: return tr("class.ashenhorn_boar");
     }
-    return pick("Unknown", "不明");
+    return tr("class.unknown");
 }
 
 // Status-effect UI (docs/status_effects.md "UI"): one badge per currently
@@ -654,30 +499,30 @@ struct StatusBadge {
 std::vector<StatusBadge> activeStatusBadges(const jf::Unit& unit) {
     std::vector<StatusBadge> badges;
     if (unit.poisonRemainingProcs > 0) {
-        badges.push_back({pick("Po", "毒"), pick("Poison", kJaStatusPoison),
-                          pick("Poison", kJaStatusPoison) + " (" + pick("left", kJaStatusRemainingProcs) + " " +
+        badges.push_back({tr("status.poison.glyph"), tr("status.poison.label"),
+                          tr("status.poison.label") + " (" + tr("status.left") + " " +
                               std::to_string(unit.poisonRemainingProcs) + ")",
                           Color{150, 95, 205, 255}});
     }
     if (unit.burnRemainingProcs > 0) {
-        badges.push_back({pick("Bu", "炎"), pick("Burn", kJaStatusBurn),
-                          pick("Burn", kJaStatusBurn) + " (" + pick("left", kJaStatusRemainingProcs) + " " +
+        badges.push_back({tr("status.burn.glyph"), tr("status.burn.label"),
+                          tr("status.burn.label") + " (" + tr("status.left") + " " +
                               std::to_string(unit.burnRemainingProcs) + ")",
                           Color{235, 120, 60, 255}});
     }
     if (unit.moveDownActive) {
-        badges.push_back({pick("Mv", "遅"), pick("Move Down", kJaStatusMoveDown),
-                          pick("Move Down", kJaStatusMoveDown) + " (" + pick("until phase end", kJaStatusUntilPhaseEnd) + ")",
+        badges.push_back({tr("status.move_down.glyph"), tr("status.move_down.label"),
+                          tr("status.move_down.label") + " (" + tr("status.until_phase_end") + ")",
                           Color{90, 150, 210, 255}});
     }
     if (unit.defenseDownActive) {
-        badges.push_back({pick("Df", "弱"), pick("Def Down", kJaStatusDefenseDown),
-                          pick("Def Down", kJaStatusDefenseDown) + " (" + pick("until phase end", kJaStatusUntilPhaseEnd) + ")",
+        badges.push_back({tr("status.def_down.glyph"), tr("status.def_down.label"),
+                          tr("status.def_down.label") + " (" + tr("status.until_phase_end") + ")",
                           Color{210, 90, 90, 255}});
     }
     if (unit.staggerActive) {
-        badges.push_back({pick("St", "怯"), pick("Stagger", kJaStatusStagger),
-                          pick("Stagger", kJaStatusStagger) + " (" + pick("next action", kJaStatusNextActionNoMove) + ")",
+        badges.push_back({tr("status.stagger.glyph"), tr("status.stagger.label"),
+                          tr("status.stagger.label") + " (" + tr("status.next_action") + ")",
                           Color{205, 195, 90, 255}});
     }
     return badges;
@@ -685,16 +530,28 @@ std::vector<StatusBadge> activeStatusBadges(const jf::Unit& unit) {
 
 std::string terrainNameFor(jf::TerrainType terrain) {
     switch (terrain) {
-        case jf::TerrainType::Floor: return pick("Floor", "平地");
-        case jf::TerrainType::Ash: return pick("Ash", "灰塵");
-        case jf::TerrainType::Rubble: return pick("Rubble", "瓦礫");
-        case jf::TerrainType::Barrier: return pick("Barrier", "障害物");
-        case jf::TerrainType::WatchPost: return pick("Watch Post", "監視所");
-        case jf::TerrainType::Brush: return pick("Brush", "茂み");
-        case jf::TerrainType::HerbPatch: return pick("Herb Patch", "薬草地点");
-        case jf::TerrainType::Shallows: return pick("Shallows", "浅瀬");
+        case jf::TerrainType::Floor: return tr("terrain.floor");
+        case jf::TerrainType::Ash: return tr("terrain.ash");
+        case jf::TerrainType::Rubble: return tr("terrain.rubble");
+        case jf::TerrainType::Barrier: return tr("terrain.barrier");
+        case jf::TerrainType::WatchPost: return tr("terrain.watch_post");
+        case jf::TerrainType::Brush: return tr("terrain.brush");
+        case jf::TerrainType::HerbPatch: return tr("terrain.herb_patch");
+        case jf::TerrainType::Shallows: return tr("terrain.shallows");
     }
     return jf::toString(terrain);
+}
+
+std::string battleObjectNameFor(const jf::BattleObjectDefinition& definition) {
+    switch (definition.kind) {
+        case jf::BattleObjectKind::Barrier: return tr("battle_object.barrier");
+        case jf::BattleObjectKind::Marker: return tr("battle_object.marker");
+        case jf::BattleObjectKind::SpawnPoint: return tr("battle_object.spawn_point");
+        case jf::BattleObjectKind::ExitPoint: return tr("battle_object.exit_point");
+        case jf::BattleObjectKind::Device: return tr("battle_object.device");
+        case jf::BattleObjectKind::Container: return tr("battle_object.container");
+    }
+    return definition.definitionId;
 }
 
 // Unit/enemy names come from data/units.json (or a stage-specific rename
@@ -704,68 +561,53 @@ std::string terrainNameFor(jf::TerrainType terrain) {
 // we haven't localized yet) just falls back to the English original.
 std::string unitDisplayNameFor(const std::string& englishName) {
     static const std::unordered_map<std::string, std::string> table = {
-        {"Leon", "レオン"},
-        {"Gareth", "ガレス"},
-        {"Erin", "エリン"},
-        {"Mira", "ミラ"},
-        {"Nessa", "ネッサ"},
-        {"Rowan", "ローワン"},
-        {"Frontier Scout", "辺境斥候"},
-        {"March Spearman", "行軍槍兵"},
-        {"Raider", "野盗"},
-        {"Watch Archer", "監視弓兵"},
-        {"Deserter Spearman", "脱走槍兵"},
-        {"Former Captain", "元隊長"},
-        {"Wolf", "狼"},
-        {"Ashenhorn Boar", "灰角大猪"},
+        {"Leon", "character.leon"},
+        {"Gareth", "character.gareth"},
+        {"Erin", "character.erin"},
+        {"Mira", "character.mira"},
+        {"Nessa", "character.nessa"},
+        {"Rowan", "character.rowan"},
+        {"Frontier Scout", "class.frontier_scout"},
+        {"March Spearman", "character.march_spearman"},
+        {"Raider", "character.raider"},
+        {"Watch Archer", "class.watch_archer"},
+        {"Deserter Spearman", "character.deserter_spearman"},
+        {"Former Captain", "character.former_captain"},
+        {"Wolf", "class.wolf"},
+        {"Ashenhorn Boar", "class.ashenhorn_boar"},
     };
     auto it = table.find(englishName);
-    return (gLanguage == Language::Japanese && it != table.end()) ? it->second : englishName;
+    return it != table.end() ? tr(it->second) : englishName;
 }
 
 std::string materialNameFor(const std::string& id) {
-    static const std::unordered_map<std::string, std::string> japanese = {
-        {"wood", "木材"},
-        {"hide", "獣皮"},
-        {"herb", "薬草"},
-        {"gate_tools", "関門工具"},
-        {"ash_road_map", "灰街道の地図"},
-        {"field_medicine", "野戦医療資材"},
-        {"watch_ledger", "監視所の台帳"},
-        {"signal_lens", "信号レンズ"},
-        {"captains_seal", "隊長の印章"},
-        {jf::kAshveilFangMaterial, "灰霧の大牙"},
-        {jf::kAshenhornFangMaterial, "灰角の大牙"},
-        {"quality_herb", "上質な薬草"},
-        {"ashenhorn_fragment", "灰角の欠片"},
+    static const std::unordered_set<std::string> known = {
+        "wood", "hide", "herb", "gate_tools", "ash_road_map", "field_medicine", "watch_ledger", "signal_lens",
+        "captains_seal", jf::kAshveilFangMaterial, jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment",
     };
-    auto it = japanese.find(id);
-    return gLanguage == Language::Japanese && it != japanese.end() ? it->second : id;
+    return known.count(id) ? tr("material." + id) : id;
 }
 
 std::string itemFullNameFor(jf::ItemType type) {
     switch (type) {
-        case jf::ItemType::FirstAidKit: return pick("First Aid Kit", "救急セット");
-        case jf::ItemType::FieldTreatmentKit: return pick("Field Treatment Kit", "野戦治療キット");
-        case jf::ItemType::RescuePack: return pick("Rescue Pack", kJaRescuePack);
-        case jf::ItemType::CampRations: return pick("Camp Rations", kJaCampRations);
-        case jf::ItemType::ProtectiveBoard: return pick("Protective Board", "防御板");
-        case jf::ItemType::ReturnFlare: return pick("Return Flare", kJaReturnFlare);
+        case jf::ItemType::FirstAidKit: return tr("item.first_aid_kit.name");
+        case jf::ItemType::FieldTreatmentKit: return tr("item.field_treatment_kit.name");
+        case jf::ItemType::RescuePack: return tr("item.rescue_pack.name");
+        case jf::ItemType::CampRations: return tr("item.camp_rations.name");
+        case jf::ItemType::ProtectiveBoard: return tr("item.protective_board.name");
+        case jf::ItemType::ReturnFlare: return tr("item.return_flare.name");
     }
     return "";
 }
 
 // Weapon names come from data/weapons.json as plain English strings, same as
-// unit/enemy names - look up the Japanese half by the stable weapon id here.
+// unit/enemy names - look up the Locale Key by the stable weapon id here.
 std::string weaponNameFor(const std::string& weaponId, const std::string& englishName) {
-    static const std::unordered_map<std::string, std::string> table = {
-        {"iron_sword", "鉄の剣"},   {"iron_lance", "鉄のランス"}, {"iron_axe", "鉄の斧"},
-        {"watch_bow", "監視弓"},    {"scout_blade", "斥候の刃"},  {"dawn_staff", "暁の杖"},
-        {"iron_spear", "鉄の槍"},   {"long_spear", "長槍"},       {"heavy_spear", "重槍"},
-        {"guard_spear", "迎撃槍"},  {"wolf_bite", "牙"},          {"boar_tusks", "牙(大猪)"},
+    static const std::unordered_set<std::string> known = {
+        "iron_sword", "iron_lance", "iron_axe",  "watch_bow",   "scout_blade", "dawn_staff",
+        "iron_spear", "long_spear", "heavy_spear", "guard_spear", "wolf_bite",   "boar_tusks",
     };
-    auto it = table.find(weaponId);
-    return (gLanguage == Language::Japanese && it != table.end()) ? it->second : englishName;
+    return known.count(weaponId) ? tr("weapon." + weaponId) : englishName;
 }
 
 // One-line role summary for a unit class, matching its actual mechanical
@@ -773,58 +615,38 @@ std::string weaponNameFor(const std::string& weaponId, const std::string& englis
 // the roster hover tooltip.
 std::string classRoleFor(jf::UnitClass unitClass) {
     switch (unitClass) {
-        case jf::UnitClass::MarchCaptain:
-            return pick("Grants a defense bonus to adjacent allies.", "隣接する味方の防御を上昇させる。");
-        case jf::UnitClass::VeteranGuard:
-            return pick("Blocks enemy movement through adjacent tiles (Zone of Control).",
-                        "隣接するマスを敵が通過するのを妨害する。");
-        case jf::UnitClass::WatchArcher:
-            return pick("Ranged attacker; cannot strike adjacent enemies.",
-                        "遠距離攻撃。隣接する敵には攻撃できない。");
-        case jf::UnitClass::FrontierScout:
-            return pick("High mobility; ignores the Ash terrain movement penalty.",
-                        "機動力が高く、灰塵地形の移動ペナルティを無視する。");
-        case jf::UnitClass::Spearman:
-            return pick("Gains a bonus against attackers who moved 2+ tiles (Brace).",
-                        "2マス以上移動して攻撃してきた敵に対し、防御が上昇する。");
-        case jf::UnitClass::DawnChirurgeon:
-            return pick("Can heal adjacent wounded allies.", "隣接する負傷した味方を回復できる。");
-        case jf::UnitClass::Bandit:
-            return pick("Aggressive raider with no special ability.", "特殊能力を持たない、攻撃重視の盗賊。");
-        case jf::UnitClass::Wolf:
-            return pick("Hunts in a pack; hesitates to close in alone.", "群れで狩る。単独では迂闊に近づかない。");
-        case jf::UnitClass::AshenhornBoar:
-            return pick("Boss: telegraphed charges and sweeping attacks; enrages at half HP.",
-                        "ボス。予告突進と薙ぎ払いを使う。HPが半分以下で激昂する。");
+        case jf::UnitClass::MarchCaptain: return tr("class.march_captain.role");
+        case jf::UnitClass::VeteranGuard: return tr("class.veteran_guard.role");
+        case jf::UnitClass::WatchArcher: return tr("class.watch_archer.role");
+        case jf::UnitClass::FrontierScout: return tr("class.frontier_scout.role");
+        case jf::UnitClass::Spearman: return tr("class.spearman.role");
+        case jf::UnitClass::DawnChirurgeon: return tr("class.dawn_chirurgeon.role");
+        case jf::UnitClass::Bandit: return tr("class.bandit.role");
+        case jf::UnitClass::Wolf: return tr("class.wolf.role");
+        case jf::UnitClass::AshenhornBoar: return tr("class.ashenhorn_boar.role");
     }
     return "";
 }
 
-// Bilingual counterpart to jf::kItemCatalog's (English-only) descriptions.
+// Locale counterpart to jf::kItemCatalog's (English-only) descriptions.
 std::string itemDescriptionFor(jf::ItemType type) {
     switch (type) {
-        case jf::ItemType::FirstAidKit:
-            return pick("Restore 20 HP at camp.", "野営時のみ、味方1人のHPを20回復する。");
-        case jf::ItemType::FieldTreatmentKit:
-            return pick("Restore 10 HP in battle or camp.", "戦闘中または野営時にHPを10回復する。");
-        case jf::ItemType::RescuePack:
-            return pick("Revive one ally at camp with 25% HP.", "野営時に戦闘不能の味方1人をHP25%で復帰させる。");
-        case jf::ItemType::CampRations:
-            return pick("Restore 5 HP to every living ally at camp.", "野営時に生存中の味方全員のHPを5回復する。");
-        case jf::ItemType::ProtectiveBoard:
-            return pick("Place a barrier on an adjacent empty tile.", "隣接する空きマスに障害物を設置する。");
-        case jf::ItemType::ReturnFlare:
-            return pick("Secure loot and return from camp immediately.", "戦利品を確定し、野営から即座に帰還する。");
+        case jf::ItemType::FirstAidKit: return tr("item.first_aid_kit.description");
+        case jf::ItemType::FieldTreatmentKit: return tr("item.field_treatment_kit.description");
+        case jf::ItemType::RescuePack: return tr("item.rescue_pack.description");
+        case jf::ItemType::CampRations: return tr("item.camp_rations.description");
+        case jf::ItemType::ProtectiveBoard: return tr("item.protective_board.description");
+        case jf::ItemType::ReturnFlare: return tr("item.return_flare.description");
     }
     return "";
 }
 
 std::string outpostStageNameFor(jf::OutpostStage stage) {
     switch (stage) {
-        case jf::OutpostStage::Encampment: return pick("Encampment", kJaEncampment);
-        case jf::OutpostStage::PioneerOutpost: return pick("Pioneer Outpost", kJaPioneerOutpost);
-        case jf::OutpostStage::FrontierSettlement: return pick("Frontier Settlement", kJaFrontierSettlement);
-        case jf::OutpostStage::PioneerCity: return pick("Pioneer City", kJaPioneerCity);
+        case jf::OutpostStage::Encampment: return tr("outpost_stage.encampment");
+        case jf::OutpostStage::PioneerOutpost: return tr("outpost_stage.pioneer_outpost");
+        case jf::OutpostStage::FrontierSettlement: return tr("outpost_stage.frontier_settlement");
+        case jf::OutpostStage::PioneerCity: return tr("outpost_stage.pioneer_city");
     }
     return "";
 }
@@ -834,10 +656,10 @@ std::string outpostStageNameFor(jf::OutpostStage stage) {
 // tooltip, so nothing is actually lost by abbreviating here.
 std::string outpostStageShortNameFor(jf::OutpostStage stage) {
     switch (stage) {
-        case jf::OutpostStage::Encampment: return pick("Camp", "野営地");
-        case jf::OutpostStage::PioneerOutpost: return pick("Outpost", "拠点");
-        case jf::OutpostStage::FrontierSettlement: return pick("Settlement", "集落");
-        case jf::OutpostStage::PioneerCity: return pick("City", "都市");
+        case jf::OutpostStage::Encampment: return tr("outpost_stage.encampment.short");
+        case jf::OutpostStage::PioneerOutpost: return tr("outpost_stage.pioneer_outpost.short");
+        case jf::OutpostStage::FrontierSettlement: return tr("outpost_stage.frontier_settlement.short");
+        case jf::OutpostStage::PioneerCity: return tr("outpost_stage.pioneer_city.short");
     }
     return "";
 }
@@ -845,12 +667,11 @@ std::string outpostStageShortNameFor(jf::OutpostStage stage) {
 // Discovery IDs come straight from BaseState's data-layer constants; this is
 // purely the display-language lookup, same pattern as itemFullNameFor.
 std::string discoveryNameFor(const jf::DiscoveryId& id) {
-    if (id == jf::kCinderwatchReconDiscovery) return pick("Scout Network Records", kJaScoutNetworkDiscovery);
-    if (id == jf::kFieldMedicineDiscovery) return pick("Field Medicine Records", kJaFieldMedicineDiscovery);
-    if (id == jf::kReturnSignalDiscovery) return pick("Return Signal Records", kJaReturnSignalDiscovery);
-    if (id == jf::kHerbThicketDiscovery) return pick("Herb Thicket Records", kJaHerbThicketDiscovery);
-    if (id == jf::kAshboughForestSurveyCompleteDiscovery)
-        return pick("Ashbough Forest Survey Records", kJaAshboughForestSurveyCompleteDiscovery);
+    if (id == jf::kCinderwatchReconDiscovery) return tr("discovery.cinderwatch_recon");
+    if (id == jf::kFieldMedicineDiscovery) return tr("discovery.field_medicine");
+    if (id == jf::kReturnSignalDiscovery) return tr("discovery.return_signal");
+    if (id == jf::kHerbThicketDiscovery) return tr("discovery.herb_thicket");
+    if (id == jf::kAshboughForestSurveyCompleteDiscovery) return tr("discovery.ashbough_forest_survey_complete");
     return id;
 }
 
@@ -966,6 +787,12 @@ bool button(Rectangle rect, const std::string& labelEn, const std::string& label
     return hovered && mousePressed;
 }
 
+// Locale Key overload (docs/localization.md M3-B): for labels already
+// resolved via tr(), where there's no separate en/ja pair to pick between.
+bool button(Rectangle rect, const std::string& label, Vector2 mouse, bool mousePressed) {
+    return button(rect, label, label, mouse, mousePressed);
+}
+
 void disabledButton(Rectangle rect, const std::string& label) {
     DrawRectangleRounded(rect, 0.28f, 8, Color{30, 33, 41, 255});
     DrawRectangleRoundedLinesEx(rect, 0.28f, 8, 1.5f, kColorBorderSoft);
@@ -1033,22 +860,20 @@ std::unordered_set<std::string>& lowHpWarnedUnits() {
 constexpr float kLowHpRatioThreshold = 0.25f;
 
 std::string hitMessageText(const std::string& attackerName, const std::string& targetName, int damage) {
-    return pick(attackerName + "'s attack hits " + targetName + " for " + std::to_string(damage) + "!",
-               attackerName + kJaAttackHits + targetName + kJaAttackHitsSuffix + std::to_string(damage) +
-                   kJaDamageSuffix);
+    return tr("battle.hit_message",
+             {{"attacker", attackerName}, {"target", targetName}, {"damage", std::to_string(damage)}});
 }
 
 std::string missMessageText(const std::string& attackerName, const std::string& targetName) {
-    return pick(attackerName + "'s attack misses " + targetName + "!",
-               attackerName + kJaAttackMisses + targetName + kJaAttackMissesSuffix);
+    return tr("battle.miss_message", {{"attacker", attackerName}, {"target", targetName}});
 }
 
 std::string lowHpMessageText(const std::string& targetName) {
-    return pick(targetName + " is on the brink of collapse!", targetName + kJaOnTheBrinkSuffix);
+    return tr("battle.low_hp_message", {{"target", targetName}});
 }
 
 std::string fallenMessageText(const std::string& targetName) {
-    return pick(targetName + " has fallen!", targetName + kJaFallenSuffix);
+    return tr("battle.fallen_message", {{"target", targetName}});
 }
 
 void drawGrid(const jf::BattleController& controller, float dt) {
@@ -1113,6 +938,35 @@ void drawGrid(const jf::BattleController& controller, float dt) {
             } else if (terrain == jf::TerrainType::HerbPatch) {
                 DrawCircle(static_cast<int>(rect.x + rect.width * 0.5f), static_cast<int>(rect.y + 22.0f), 7.0f,
                            Color{105, 190, 105, 230});
+            }
+
+            // Battle Objects are separate from Terrain. In particular, a
+            // fallen log sits on a passable Floor tile but blocks movement;
+            // it must remain visibly distinct so the board never presents a
+            // flat-looking tile that rejects movement.
+            if (const jf::BattleObjectState* object = battle.objectAt(pos);
+                object && object->state != jf::BattleObjectStateKind::Destroyed) {
+                const jf::BattleObjectDefinition* definition = battle.objectDefinition(object->definitionId);
+                if (definition && definition->kind == jf::BattleObjectKind::Barrier) {
+                    const float y = rect.y + rect.height * 0.42f;
+                    DrawLineEx({rect.x + 16.0f, y + 4.0f}, {rect.x + rect.width - 16.0f, y - 4.0f},
+                               13.0f, Color{82, 55, 38, 255});
+                    DrawLineEx({rect.x + 19.0f, y + 1.0f}, {rect.x + rect.width - 19.0f, y - 7.0f},
+                               4.0f, Color{151, 105, 63, 255});
+                    DrawCircle(static_cast<int>(rect.x + 16.0f), static_cast<int>(y + 4.0f), 7.0f,
+                               Color{56, 37, 28, 255});
+                    DrawCircle(static_cast<int>(rect.x + rect.width - 16.0f), static_cast<int>(y - 4.0f), 7.0f,
+                               Color{56, 37, 28, 255});
+                } else if (definition && definition->kind == jf::BattleObjectKind::Marker) {
+                    DrawCircleLines(static_cast<int>(rect.x + rect.width * 0.5f),
+                                    static_cast<int>(rect.y + rect.height * 0.42f), 13.0f,
+                                    Color{244, 199, 92, 230});
+                } else if (definition && definition->kind == jf::BattleObjectKind::SpawnPoint) {
+                    DrawTriangle({rect.x + rect.width * 0.5f, rect.y + 8.0f},
+                                 {rect.x + rect.width * 0.35f, rect.y + rect.height - 14.0f},
+                                 {rect.x + rect.width * 0.65f, rect.y + rect.height - 14.0f},
+                                 Color{205, 82, 82, 190});
+                }
             }
 
             bool reachable = containsTile(controller.reachableTiles(), pos);
@@ -1219,8 +1073,7 @@ void drawGrid(const jf::BattleController& controller, float dt) {
 
 void drawPhaseBanner(const jf::BattleController& controller) {
     bool isPlayerPhase = controller.battle().phase() == jf::Phase::PlayerPhase;
-    std::string label = pick(isPlayerPhase ? "PLAYER PHASE" : "ENEMY PHASE",
-                             isPlayerPhase ? kJaPlayerPhase : kJaEnemyPhase);
+    std::string label = tr(isPlayerPhase ? "ui.phase.player" : "ui.phase.enemy");
     Color color = isPlayerPhase ? Color{60, 120, 220, 255} : Color{200, 60, 60, 255};
     DrawRectangleGradientV(0, 0, kScreenWidth, 40, scaleColor(color, 1.12f), scaleColor(color, 0.8f));
     DrawLine(0, 40, kScreenWidth, 40, withAlpha(BLACK, 130));
@@ -1262,8 +1115,7 @@ void drawTurnChangeAnnouncement(jf::Phase currentPhase, float dt) {
     }
 
     bool isPlayerPhase = announcedPhase == jf::Phase::PlayerPhase;
-    std::string label = pick(isPlayerPhase ? "PLAYER PHASE" : "ENEMY PHASE",
-                             isPlayerPhase ? kJaPlayerPhase : kJaEnemyPhase);
+    std::string label = tr(isPlayerPhase ? "ui.phase.player" : "ui.phase.enemy");
     Color bannerColor = isPlayerPhase ? Color{35, 88, 205, 240} : Color{200, 40, 45, 240};
 
     int fontSize = 42;
@@ -1296,22 +1148,6 @@ void drawTurnChangeAnnouncement(jf::Phase currentPhase, float dt) {
               static_cast<int>(y + (bannerH - static_cast<float>(fontSize)) / 2.0f), fontSize, kColorTextPrimary);
 }
 
-void drawUnitInfo(const jf::Unit& unit, int x, int y) {
-    drawText(unit.name, x, y, 22, RAYWHITE);
-    drawText(jf::toString(unit.unitClass), x, y + 26, 16, Color{190, 190, 205, 255});
-    std::string hp = "HP(" + kJaHp + ") " + std::to_string(unit.currentHp) + " / " + std::to_string(unit.stats.maxHp);
-    drawText(hp, x, y + 48, 16, RAYWHITE);
-    std::string stats = "STR(" + kJaStr + ") " + std::to_string(unit.stats.strength) + "  MAG(" + kJaMag + ") " +
-                         std::to_string(unit.stats.magic) + "  DEF(" + kJaDef + ") " +
-                         std::to_string(unit.stats.defense) + "  RES(" + kJaRes + ") " +
-                         std::to_string(unit.stats.resistance);
-    drawText(stats, x, y + 70, 14, Color{190, 190, 205, 255});
-    std::string weapon = kJaWeapon + "/Weapon: " + unit.weapon.name + " (Mt " + std::to_string(unit.weapon.might) +
-                          ", Rng " + std::to_string(unit.minimumAttackRange()) + "-" +
-                          std::to_string(unit.weapon.maxRange) + ")";
-    drawText(weapon, x, y + 92, 14, Color{190, 190, 205, 255});
-}
-
 // Standalone popup shown while confirming an attack. The HUD strip at the
 // bottom is too cramped/low-contrast for this much text to read clearly, so
 // it gets its own panel with a dark background and a bright border instead.
@@ -1335,16 +1171,16 @@ void drawCombatPreviewPopup(const jf::CombatPreview& preview) {
     std::string attackerName = unitDisplayNameFor(preview.attackerName);
     std::string targetName = unitDisplayNameFor(preview.targetName);
 
-    drawText(pick("COMBAT PREVIEW", kJaCombatPreview), tx, ty, 20, kColorAccentGold);
+    drawText(tr("ui.combat.preview_title"), tx, ty, 20, kColorAccentGold);
     ty += 34;
     drawText(attackerName + "  ->  " + targetName, tx, ty, 22, kColorTextPrimary);
     ty += 30;
     drawText(weaponNameFor(preview.weaponId, preview.weaponName), tx, ty, 15, kColorTextMuted);
     ty += 28;
-    drawText(pick("Damage", kJaDamage) + ": " + std::to_string(preview.damage), tx, ty, 19,
+    drawText(tr("ui.combat.damage") + ": " + std::to_string(preview.damage), tx, ty, 19,
              Color{255, 140, 120, 255});
     ty += 30;
-    drawText(pick("Hit", kJaHit) + ": " + std::to_string(preview.hitChance) + "%", tx + 235, ty - 30, 17,
+    drawText(tr("ui.combat.hit") + ": " + std::to_string(preview.hitChance) + "%", tx + 235, ty - 30, 17,
              preview.hitChance < 100 ? kColorAccentGold : kColorTextMuted);
     drawText(targetName + " HP: " + std::to_string(preview.targetHpBefore) + " -> " +
                  std::to_string(preview.targetHpAfter),
@@ -1411,7 +1247,7 @@ void drawHoverInfo(const jf::BattleController& controller, Vector2 mouse) {
     if (const jf::Unit* unit = battle.unitAt(pos)) {
         Color nameColor = teamColor(unit->team);
         lines.push_back({unitDisplayNameFor(unit->name) + "  " + classNameFor(unit->unitClass), nameColor, 17});
-        lines.push_back({pick("HP", kJaHp) + " " + std::to_string(unit->currentHp) + " / " +
+        lines.push_back({tr("ui.unit.hp_label") + " " + std::to_string(unit->currentHp) + " / " +
                               std::to_string(unit->stats.maxHp),
                           Color{190, 205, 215, 255}, 14});
         lines.push_back({"STR " + std::to_string(unit->stats.strength) + "  MAG " +
@@ -1432,26 +1268,35 @@ void drawHoverInfo(const jf::BattleController& controller, Vector2 mouse) {
             std::string effect = terrainNameFor(terrain);
             if (jf::defenseBonus(terrain) > 0) effect += "  DEF +" + std::to_string(jf::defenseBonus(terrain));
             if (jf::evasionBonus(terrain) > 0)
-                effect += "  " + pick("Evasion", kJaEvasion) + " +" + std::to_string(jf::evasionBonus(terrain)) + "%";
+                effect += "  " + tr("ui.combat.evasion") + " +" + std::to_string(jf::evasionBonus(terrain)) + "%";
             if (terrain == jf::TerrainType::HerbPatch) effect += "  HP +5";
             lines.push_back({effect, Color{175, 208, 184, 255}, 12});
         }
     } else {
         jf::TerrainType terrain = battle.terrainAt(pos);
         lines.push_back({terrainNameFor(terrain), RAYWHITE, 16});
+        if (const jf::BattleObjectState* object = battle.objectAt(pos);
+            object && object->state != jf::BattleObjectStateKind::Destroyed) {
+            if (const jf::BattleObjectDefinition* definition = battle.objectDefinition(object->definitionId)) {
+                lines.push_back({battleObjectNameFor(*definition), Color{244, 199, 92, 255}, 16});
+                if (definition->blocksMovement || definition->blocksStopping)
+                    lines.push_back({tr("ui.tile.blocks_movement"),
+                                     Color{225, 120, 120, 255}, 13});
+            }
+        }
         if (!jf::isPassable(terrain)) {
-            lines.push_back({pick("Impassable", "通行不可"), Color{225, 120, 120, 255}, 13});
+            lines.push_back({tr("ui.tile.impassable"), Color{225, 120, 120, 255}, 13});
         } else {
-            lines.push_back({pick("Move cost", "移動コスト") + " " + std::to_string(jf::movementCost(terrain)),
+            lines.push_back({tr("ui.tile.move_cost") + " " + std::to_string(jf::movementCost(terrain)),
                               Color{190, 190, 205, 255}, 13});
             int def = jf::defenseBonus(terrain);
             if (def > 0) lines.push_back({"DEF +" + std::to_string(def), Color{175, 208, 184, 255}, 13});
             int evasion = jf::evasionBonus(terrain);
             if (evasion > 0)
-                lines.push_back({pick("Evasion", kJaEvasion) + " +" + std::to_string(evasion) + "%",
+                lines.push_back({tr("ui.combat.evasion") + " +" + std::to_string(evasion) + "%",
                                  Color{175, 208, 184, 255}, 13});
             if (terrain == jf::TerrainType::HerbPatch)
-                lines.push_back({pick("Heal 5 HP after acting", "行動終了時にHP5回復"),
+                lines.push_back({tr("ui.tile.heal_5_hp"),
                                  Color{130, 210, 145, 255}, 13});
         }
     }
@@ -1482,7 +1327,7 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
     DrawRectangle(0, hudTop - 44, kScreenWidth, 44, Color{16, 20, 29, 245});
     DrawLine(0, hudTop - 44, kScreenWidth, hudTop - 44, withAlpha(kColorBorderSoft, 180));
     std::string missionName = pick(app.currentMissionName(), app.currentMissionNameJa());
-    drawText(pick("Battle Location: ", kJaBattleLocation + ": ") + missionName,
+    drawText(tr("ui.battle.location_prefix", {{"mission", missionName}}),
              18, hudTop - 36, 17, kColorAccentGold);
 
     if (jf::Unit* selected = controller.selectedUnit()) {
@@ -1497,33 +1342,33 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
                             std::to_string(selected->stats.resistance);
         drawText(stats, 18 + textWidth(hpText, 16) + 28, hudTop + 42, 14, kColorTextFaint);
     } else {
-        drawText(pick("Select a unit to act.", kJaSelectUnit), 18, hudTop + 33, 15, kColorTextMuted);
+        drawText(tr("ui.battle.select_unit_prompt"), 18, hudTop + 33, 15, kColorTextMuted);
     }
 
     std::string stepLabel;
     switch (controller.inputState()) {
         case jf::BattleInputState::SelectMove:
-            stepLabel = pick("Choose destination", kJaChooseMove);
+            stepLabel = tr("ui.battle.choose_move");
             break;
         case jf::BattleInputState::SelectAction:
-            if (gBattleItemMenuOpen) stepLabel = pick("Choose an item", kJaChooseItem);
-            else if (gBattleSkillMenuOpen) stepLabel = pick("Choose a skill", kJaChooseSkill);
-            else stepLabel = pick("Choose action", kJaChooseAction);
+            if (gBattleItemMenuOpen) stepLabel = tr("ui.battle.choose_item");
+            else if (gBattleSkillMenuOpen) stepLabel = tr("ui.battle.choose_skill");
+            else stepLabel = tr("ui.battle.choose_action");
             break;
         case jf::BattleInputState::SelectItemTarget:
-            stepLabel = pick("Choose an ally to use the item on", kJaChooseItemTarget);
+            stepLabel = tr("ui.battle.choose_item_target");
             break;
         case jf::BattleInputState::SelectTarget:
-            stepLabel = pick("Choose target", kJaChooseTarget);
+            stepLabel = tr("ui.battle.choose_target");
             break;
         case jf::BattleInputState::SelectHealTarget:
-            stepLabel = pick("Choose ally", kJaHeal);
+            stepLabel = tr("ui.button.heal");
             break;
         case jf::BattleInputState::SelectBoardTarget:
-            stepLabel = pick("Place barrier", kJaPlaceBarrier);
+            stepLabel = tr("ui.button.place_barrier");
             break;
         case jf::BattleInputState::SelectSkillTarget:
-            stepLabel = pick("Choose a skill target", kJaChooseTarget);
+            stepLabel = tr("ui.battle.choose_skill_target");
             break;
         default:
             break;
@@ -1534,11 +1379,11 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
         case jf::BattleInputState::SelectUnit:
             if (!gBattleItemMenuOpen) {
                 if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           "Items", kJaItems, mouse, clicked)) {
+                           tr("ui.button.items"), mouse, clicked)) {
                     gBattleItemMenuOpen = true;
                 }
                 if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           "End Turn", kJaEndTurn, mouse, clicked)) {
+                           tr("ui.button.end_turn"), mouse, clicked)) {
                     controller.endPlayerTurn();
                 }
                 break;
@@ -1563,13 +1408,14 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
                     itemX += buttonWidth + buttonGap;
                     ++usableItemCount;
                 };
-                drawNeutralHealingItem(jf::ItemType::FieldTreatmentKit, "Field Kit", kJaFieldShort);
+                drawNeutralHealingItem(jf::ItemType::FieldTreatmentKit, tr("item.field_treatment_kit.short_name"),
+                                        tr("item.field_treatment_kit.short_name"));
                 if (usableItemCount == 0) {
-                    drawText(pick("No usable items", kJaNoUsableItems), firstActionX, hudTop + 39, 14,
+                    drawText(tr("ui.battle.no_usable_items"), firstActionX, hudTop + 39, 14,
                              kColorTextMuted);
                 }
                 if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           "Back", kJaBack, mouse, clicked)) {
+                           tr("ui.button.back"), mouse, clicked)) {
                     gBattleItemMenuOpen = false;
                 }
             }
@@ -1577,23 +1423,23 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
         case jf::BattleInputState::SelectAction:
             if (!gBattleItemMenuOpen && !gBattleSkillMenuOpen) {
                 if (button(Rectangle{static_cast<float>(firstActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           "Attack", kJaAttack, mouse, clicked)) {
+                           tr("ui.button.attack"), mouse, clicked)) {
                     controller.chooseAttack();
                 }
                 if (button(Rectangle{static_cast<float>(secondActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           "Skills", kJaSkills, mouse, clicked)) {
+                           tr("ui.button.skills"), mouse, clicked)) {
                     gBattleSkillMenuOpen = true;
                 }
                 if (button(Rectangle{static_cast<float>(thirdActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           "Items", kJaItems, mouse, clicked)) {
+                           tr("ui.button.items"), mouse, clicked)) {
                     gBattleItemMenuOpen = true;
                 }
                 if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           "Wait", kJaWait, mouse, clicked)) {
+                           tr("ui.button.wait"), mouse, clicked)) {
                     controller.chooseWait();
                 }
                 if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           "Back", kJaBack, mouse, clicked)) {
+                           tr("ui.button.back"), mouse, clicked)) {
                     controller.returnToMoveSelection();
                 }
                 break;
@@ -1605,7 +1451,7 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
                 if (selected && jf::canHeal(selected->unitClass)) {
                     anySkillShown = true;
                     if (button(Rectangle{static_cast<float>(firstActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                               "Heal", kJaHeal, mouse, clicked)) {
+                               tr("ui.button.heal"), mouse, clicked)) {
                         controller.chooseHeal();
                         if (controller.inputState() != jf::BattleInputState::SelectAction) {
                             gBattleSkillMenuOpen = false;
@@ -1643,11 +1489,11 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
                     }
                 }
                 if (!anySkillShown) {
-                    drawText(pick("No usable skills", kJaNoUsableSkills), firstActionX, hudTop + 39, 14,
+                    drawText(tr("ui.battle.no_usable_skills"), firstActionX, hudTop + 39, 14,
                              kColorTextMuted);
                 }
                 if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           "Back", kJaBack, mouse, clicked)) {
+                           tr("ui.button.back"), mouse, clicked)) {
                     gBattleSkillMenuOpen = false;
                 }
                 break;
@@ -1669,24 +1515,26 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
                     itemX += buttonWidth + buttonGap;
                     ++usableItemCount;
                 };
-                drawHealingItem(jf::ItemType::FieldTreatmentKit, "Field Kit", kJaFieldShort);
+                drawHealingItem(jf::ItemType::FieldTreatmentKit, tr("item.field_treatment_kit.short_name"),
+                                tr("item.field_treatment_kit.short_name"));
 
                 const int boardCount = app.expedition().count(jf::ItemType::ProtectiveBoard);
                 if (boardCount > 0) {
                     if (button(Rectangle{static_cast<float>(itemX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                               "Board " + std::to_string(boardCount),
-                               kJaBoardShort + " " + std::to_string(boardCount), mouse, clicked) &&
+                               tr("item.protective_board.short_name") + " " + std::to_string(boardCount),
+                               tr("item.protective_board.short_name") + " " + std::to_string(boardCount), mouse,
+                               clicked) &&
                         app.chooseProtectiveBoard()) {
                         gBattleItemMenuOpen = false;
                     }
                     ++usableItemCount;
                 }
                 if (usableItemCount == 0) {
-                    drawText(pick("No usable items", kJaNoUsableItems), firstActionX, hudTop + 39, 14,
+                    drawText(tr("ui.battle.no_usable_items"), firstActionX, hudTop + 39, 14,
                              kColorTextMuted);
                 }
                 if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           "Back", kJaBack, mouse, clicked)) {
+                           tr("ui.button.back"), mouse, clicked)) {
                     gBattleItemMenuOpen = false;
                 }
             }
@@ -1695,15 +1543,25 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
             // The readable preview is drawn as its own popup (see
             // drawCombatPreviewPopup); the HUD here just keeps the buttons.
             if (button(Rectangle{static_cast<float>(thirdActionX), hudTop + 43.0f, buttonWidth, buttonHeight},
-                       "Confirm", kJaConfirm, mouse, clicked))
+                       tr("ui.button.confirm"), mouse, clicked))
                 controller.confirmAttack();
             if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 43.0f, buttonWidth, buttonHeight},
-                       "Cancel", kJaCancel, mouse, clicked))
+                       tr("ui.button.cancel"), mouse, clicked))
+                controller.cancelAttackSelection();
+            break;
+        case jf::BattleInputState::ConfirmSkillAttack:
+            // M4 item 3: same Confirm/Cancel pair as ConfirmAttack, for the
+            // 3 attack-shape skills' pre-resolution preview.
+            if (button(Rectangle{static_cast<float>(thirdActionX), hudTop + 43.0f, buttonWidth, buttonHeight},
+                       tr("ui.button.confirm"), mouse, clicked))
+                controller.confirmSkillAttack();
+            if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 43.0f, buttonWidth, buttonHeight},
+                       tr("ui.button.cancel"), mouse, clicked))
                 controller.cancelAttackSelection();
             break;
         case jf::BattleInputState::SelectMove:
             if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                       "Cancel", kJaCancel, mouse, clicked))
+                       tr("ui.button.cancel"), mouse, clicked))
                 controller.cancelToUnitSelect();
             break;
         case jf::BattleInputState::SelectTarget:
@@ -1712,7 +1570,7 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
         case jf::BattleInputState::SelectBoardTarget:
         case jf::BattleInputState::SelectSkillTarget:
             if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                       "Back", kJaBack, mouse, clicked))
+                       tr("ui.button.back"), mouse, clicked))
                 controller.cancelAttackSelection();
             break;
         default:
@@ -1724,10 +1582,10 @@ void drawVictoryOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
     DrawRectangle(0, 0, kScreenWidth, kScreenHeight, Color{0, 0, 0, 190});
     drawCard(Rectangle{static_cast<float>(kScreenWidth) / 2.0f - 230.0f, 220.0f, 460.0f, 200.0f}, kColorCard,
             withAlpha(kColorAccentGold, 220), 0.1f);
-    std::string title = pick("VICTORY", kJaVictory);
+    std::string title = tr("ui.result.victory");
     drawText(title, kScreenWidth / 2 - textWidth(title, 44) / 2, 260, 44, kColorAccentGold);
     Rectangle rect{static_cast<float>(kScreenWidth / 2 - 130), 345, 260, 50};
-    if (button(rect, "Proceed to Camp", kJaProceedToCamp, mouse, clicked)) {
+    if (button(rect, tr("ui.button.proceed_to_camp"), mouse, clicked)) {
         app.proceedToCamp();
     }
 }
@@ -1736,12 +1594,12 @@ void drawDefeatOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
     DrawRectangle(0, 0, kScreenWidth, kScreenHeight, Color{0, 0, 0, 190});
     drawCard(Rectangle{static_cast<float>(kScreenWidth) / 2.0f - 230.0f, 220.0f, 460.0f, 230.0f}, kColorCard,
             withAlpha(Color{200, 70, 70, 255}, 220), 0.1f);
-    std::string title = pick("EXPEDITION FAILED", kJaDefeatTitle);
+    std::string title = tr("ui.result.defeat_title");
     drawText(title, kScreenWidth / 2 - textWidth(title, 38) / 2, 260, 38, Color{225, 90, 90, 255});
-    std::string line = pick("All expedition loot would be lost.", kJaLootLostLine);
+    std::string line = tr("ui.defeat.loot_lost_line");
     drawText(line, kScreenWidth / 2 - textWidth(line, 16) / 2, 312, 16, kColorTextPrimary);
     Rectangle rect{static_cast<float>(kScreenWidth / 2 - 130), 380, 260, 50};
-    if (button(rect, "Return to Base", kJaReturnToBase, mouse, clicked)) {
+    if (button(rect, tr("ui.button.return_to_base"), mouse, clicked)) {
         app.acknowledgeDefeat();
     }
 }
@@ -1760,52 +1618,51 @@ void drawCampScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     ClearBackground(Color{18, 21, 30, 255});
     DrawRectangleGradientV(0, 0, kScreenWidth, 70, Color{40, 46, 62, 255}, Color{24, 27, 38, 255});
     DrawLine(0, 70, kScreenWidth, 70, withAlpha(kColorBorder, 160));
-    drawText(pick("CAMP", kJaCamp), 40, 30, 32, kColorTextPrimary);
+    drawText(tr("ui.camp.title"), 40, 30, 32, kColorTextPrimary);
 
     if (app.justSecuredLoot()) {
-        drawSectionHeading(pick("Loot Secured", kJaLootSecured), 54, 90, 24);
+        drawSectionHeading(tr("ui.camp.loot_secured"), 54, 90, 24);
         int y = 140;
         for (const std::string& item : app.lastSecuredLoot()) {
             drawText("- " + materialNameFor(item), 60, y, 18, kColorTextPrimary);
             y += 26;
         }
         if (app.lastSecuredLoot().empty()) {
-            drawText("(" + pick("no loot this expedition", kJaNoLootThisExpedition) + ")", 60, y, 16,
+            drawText("(" + tr("ui.camp.no_loot") + ")", 60, y, 16,
                      kColorTextMuted);
             y += 26;
         }
         Rectangle rect{40, static_cast<float>(y + 30), 260, 50};
-        if (button(rect, "Continue", kJaContinue, mouse, clicked)) {
+        if (button(rect, tr("ui.button.continue"), mouse, clicked)) {
             app.acknowledgeLootSecured();
         }
         return;
     }
 
     int y = 90;
-    drawSectionHeading(pick("Party HP", kJaPartyHp), 54, y, 20);
+    drawSectionHeading(tr("ui.camp.party_hp"), 54, y, 20);
     y += 30;
     for (const jf::Unit& unit : app.battle().battle().units()) {
         if (unit.team != jf::Team::Player) continue;
         std::string line = unitDisplayNameFor(unit.name) + " (" + classNameFor(unit.unitClass) + "): " +
                             std::to_string(unit.currentHp) + " / " + std::to_string(unit.stats.maxHp) +
-                            (unit.isAlive() ? "" : " - " + pick("Down", kJaDown));
+                            (unit.isAlive() ? "" : " - " + tr("ui.unit.down"));
         drawText(line, 60, y, 16, unit.isAlive() ? kColorTextPrimary : Color{225, 100, 100, 255});
         y += 24;
     }
 
     Rectangle nextFieldBox{650, 88, 580, 210};
     drawCard(nextFieldBox, Color{22, 27, 38, 255}, withAlpha(kColorAccentGold, 210), 0.05f);
-    drawText(pick("NEXT FIELD", "次のフィールド情報"), 674, 108, 20, kColorAccentGold);
+    drawText(tr("ui.camp.next_field_title"), 674, 108, 20, kColorAccentGold);
     if (app.expeditionComplete()) {
-        drawText(pick("Route complete", "経路攻略完了"), 674, 150, 20, kColorTextPrimary);
-        drawText(pick("Return to base to secure the expedition loot.", "拠点へ帰還すると戦利品を確定します。"),
+        drawText(tr("ui.camp.route_complete"), 674, 150, 20, kColorTextPrimary);
+        drawText(tr("ui.camp.return_to_secure_loot"),
                  674, 190, 15, kColorTextMuted);
     } else if (app.expedition().regionId == jf::RegionId::AshboughForest) {
         drawText(app.nextMissionNameJa().value_or("次地点"), 674, 146, 22, kColorTextPrimary);
-        drawText(pick("The next site begins with exploration.", "次の地点では探索から開始します。"),
+        drawText(tr("ui.camp.next_site_exploration"),
                  674, 184, 15, kColorTextMuted);
-        drawText(pick("Party HP, bag contents, and pending loot carry over.",
-                      "HP・荷物・未確定戦利品はそのまま引き継がれます。"),
+        drawText(tr("ui.camp.carry_over_note"),
                  674, 216, 14, kColorTextMuted);
         // Same "Scout Network" gate as the Exploration screen's enemy
         // preview (docs/campaign_balance.md "敵種...の事前公開" is meant to be
@@ -1813,7 +1670,7 @@ void drawCampScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         if (app.scoutNetworkUnlocked()) {
             const auto roster = app.nextSiteEnemyRosterNames();
             if (roster && !roster->empty()) {
-                drawText(pick("Enemy Forces (Scout Network)", kJaEnemyForces), 674, 244, 14, kColorAccentGold);
+                drawText(tr("ui.deployment.enemy_forces") + " (Scout Network)", 674, 244, 14, kColorAccentGold);
                 int enemyX = 674;
                 for (const std::string& name : *roster) {
                     std::string label = unitDisplayNameFor(name);
@@ -1823,25 +1680,23 @@ void drawCampScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
             }
         }
     } else if (app.expedition().stageIndex == 0) {
-        drawText(pick("Ironwatch Stores", "アイアンウォッチ物資庫"), 674, 146, 22, kColorTextPrimary);
-        drawText(pick("Field: Ash Road", "地形: 灰の街道"), 674, 184, 15, kColorTextMuted);
-        drawText(pick("Ash slows movement, and rubble is impassable.",
-                      "灰地では移動しにくく、瓦礫は通行できません。"), 674, 216, 14, kColorTextMuted);
-        drawText(pick("Enemy force: 4 units", "敵戦力: 4体"), 674, 246, 14, kColorTextFaint);
+        drawText(tr("cinderwatch.ironwatch_stores"), 674, 146, 22, kColorTextPrimary);
+        drawText(tr("cinderwatch.field_ash_road"), 674, 184, 15, kColorTextMuted);
+        drawText(tr("cinderwatch.ash_road_note"), 674, 216, 14, kColorTextMuted);
+        drawText(tr("cinderwatch.enemy_force_4"), 674, 246, 14, kColorTextFaint);
     } else {
-        drawText(pick("The Last Signal", "最後の信号塔"), 674, 146, 22, kColorTextPrimary);
-        drawText(pick("Field: Signal Tower", "地形: 信号塔"), 674, 184, 15, kColorTextMuted);
-        drawText(pick("Watch posts and barriers favor defensive positions.",
-                      "監視所と障害物が多く、防御側が有利な地形です。"), 674, 216, 14, kColorTextMuted);
-        drawText(pick("Enemy force: 4 units / Former Captain", "敵戦力: 4体 / 元隊長を確認"),
+        drawText(tr("cinderwatch.last_signal"), 674, 146, 22, kColorTextPrimary);
+        drawText(tr("cinderwatch.field_signal_tower"), 674, 184, 15, kColorTextMuted);
+        drawText(tr("cinderwatch.signal_tower_note"), 674, 216, 14, kColorTextMuted);
+        drawText(tr("cinderwatch.enemy_force_4_captain"),
                  674, 246, 14, kColorTextFaint);
     }
 
     y += 20;
-    drawSectionHeading(pick("Pending Expedition Loot", kJaPendingLoot), 54, y, 20);
+    drawSectionHeading(tr("ui.camp.pending_loot"), 54, y, 20);
     y += 30;
     if (app.expedition().pendingLoot.empty()) {
-        drawText("(" + pick("none yet", kJaNoneYet) + ")", 60, y, 16, kColorTextMuted);
+        drawText("(" + tr("ui.camp.none_yet") + ")", 60, y, 16, kColorTextMuted);
         y += 24;
     }
     for (const jf::LootStack& item : app.expedition().pendingLoot) {
@@ -1850,15 +1705,15 @@ void drawCampScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         y += 22;
     }
     for (const jf::DiscoveryId& discovery : app.expedition().pendingDiscoveries) {
-        drawText("- " + pick("Discovery: Reconnaissance Records", "発見: 偵察資料"), 360, y - 22, 16,
+        drawText("- " + tr("cinderwatch.discovery_recon_records"), 360, y - 22, 16,
                  kColorAccentGold);
         (void)discovery;
     }
 
     y += 10;
-    std::string won = pick("Battles Won", kJaBattlesWon) + ": " + std::to_string(app.expedition().battlesWon);
+    std::string won = tr("ui.camp.battles_won") + ": " + std::to_string(app.expedition().battlesWon);
     drawText(won, 40, y, 16, kColorTextPrimary);
-    drawText(pick("Bag", kJaBag) + ": " + std::to_string(app.expedition().bag.size()) + " / 6", 260, y,
+    drawText(tr("ui.label.bag") + ": " + std::to_string(app.expedition().bag.size()) + " / 6", 260, y,
              16, kColorTextMuted);
     // docs/campaign_balance.md "情報と安全路を持ち帰る正規の進行にする": the
     // continue-vs-return decision needs the remaining bag contents visible
@@ -1887,18 +1742,21 @@ void drawCampScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     Rectangle itemsRect{800, commandY, 360, 50};
     if (!gCampItemMenuOpen) {
         if (app.expeditionComplete()) {
-            disabledButton(continueRect, pick("ROUTE COMPLETE", "経路完了"));
+            disabledButton(continueRect, tr("ui.camp.route_complete_disabled"));
         } else {
-            if (button(continueRect, "Continue Expedition", kJaContinueExpedition, mouse, clicked)) {
+            if (button(continueRect, tr("ui.button.continue_expedition"), mouse, clicked)) {
                 app.continueExpedition();
             }
         }
-        if (button(returnRect, "Return to Base", kJaReturnToBase, mouse, clicked)) {
+        if (button(returnRect, tr("ui.button.return_to_base"), mouse, clicked)) {
             gCampItemMenuOpen = false;
             gCampSelectedItem.reset();
-            app.returnToBase();
+            // docs/inventory_overflow.md「帰還処理」: a false return means the
+            // 200-Stack pending ceiling would be exceeded - route to cleanup
+            // instead of silently doing nothing.
+            if (!app.returnToBase()) gWarehouseCleanupOpen = true;
         }
-        if (button(itemsRect, "Items", kJaItems, mouse, clicked)) {
+        if (button(itemsRect, tr("ui.button.items"), mouse, clicked)) {
             gCampItemMenuOpen = true;
             gCampSelectedItem.reset();
         }
@@ -1909,8 +1767,8 @@ void drawCampScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     Rectangle itemPanel{620, 300, 610, 390};
     DrawRectangle(0, 70, kScreenWidth, kScreenHeight - 70, Color{0, 0, 0, 105});
     drawCard(itemPanel, Color{20, 25, 36, 255}, withAlpha(kColorAccentGold, 230), 0.05f);
-    drawText(gCampSelectedItem ? pick("CHOOSE TARGET", "使用対象を選択")
-                               : pick("USABLE ITEMS", "使用可能なアイテム"),
+    drawText(gCampSelectedItem ? tr("ui.camp.choose_target")
+                               : tr("ui.camp.usable_items"),
              646, 324, 21, kColorAccentGold);
 
     const auto& units = app.battle().battle().units();
@@ -1946,7 +1804,7 @@ void drawCampScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         itemChoice(jf::ItemType::CampRations, hasWounded);
         itemChoice(jf::ItemType::ReturnFlare, true);
         if (usableCount == 0)
-            drawText(pick("No usable items", kJaNoUsableItems), 646, 390, 16, kColorTextMuted);
+            drawText(tr("ui.battle.no_usable_items"), 646, 390, 16, kColorTextMuted);
     } else {
         int targetY = 372;
         for (const jf::Unit& unit : units) {
@@ -1966,7 +1824,7 @@ void drawCampScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         }
     }
 
-    if (button(Rectangle{1090, 626, 116, 44}, "Back", kJaBack, mouse, clicked)) {
+    if (button(Rectangle{1090, 626, 116, 44}, tr("ui.button.back"), mouse, clicked)) {
         if (gCampSelectedItem) gCampSelectedItem.reset();
         else gCampItemMenuOpen = false;
     }
@@ -1974,16 +1832,18 @@ void drawCampScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
 
 void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     ClearBackground(Color{18, 21, 30, 255});
-    drawText(pick("EXPEDITION PREPARATION", kJaExpeditionPrep), 38, 30, 30, kColorTextPrimary);
+    drawText(tr("ui.prep.title"), 38, 30, 30, kColorTextPrimary);
     Rectangle facilitiesRect{static_cast<float>(kScreenWidth) - 218.0f, 4.0f, 110.0f, 32.0f};
-    if (button(facilitiesRect, "Facilities", kJaFacilities, mouse, clicked)) {
+    if (button(facilitiesRect, tr("ui.facilities.title"), mouse, clicked)) {
         gVisitedFacility.reset();
         gForgeCraftClass.reset();
         gShowFacilities = true;
     }
+    Rectangle warehouseRect{static_cast<float>(kScreenWidth) - 336.0f, 4.0f, 110.0f, 32.0f};
+    if (button(warehouseRect, tr("ui.warehouse.open_button"), mouse, clicked)) gWarehouseCleanupOpen = true;
     std::vector<TooltipLine> hoverLines;
 
-    drawSectionHeading(pick("Party - choose 4", kJaPartyChoose4), 52, 92, 20);
+    drawSectionHeading(tr("ui.prep.party_choose4"), 52, 92, 20);
     int y = 125;
     for (const auto& unit : app.roster()) {
         bool selected = std::find(app.selectedPartyIds().begin(), app.selectedPartyIds().end(), unit.id) != app.selectedPartyIds().end();
@@ -2006,7 +1866,7 @@ void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         }
         y += 45;
     }
-    drawSectionHeading(pick("Supplies", kJaSupplies), 492, 92, 20);
+    drawSectionHeading(tr("ui.prep.supplies"), 492, 92, 20);
     y = 125;
     for (const auto& item : jf::kItemCatalog) {
         const int owned = app.baseState().ownedItemCount(item.type);
@@ -2025,23 +1885,23 @@ void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
 
         Rectangle craftRect{628, static_cast<float>(y), 87, 40};
         if (affordable) {
-            if (button(craftRect, "Craft", kJaCraft, mouse, clicked)) app.craftItem(item.type);
+            if (button(craftRect, tr("ui.button.craft"), mouse, clicked)) app.craftItem(item.type);
         } else {
-            disabledButton(craftRect, pick("Craft", kJaCraft));
+            disabledButton(craftRect, tr("ui.button.craft"));
         }
 
         Rectangle addRect{719, static_cast<float>(y), 61, 40};
         if (owned > 0) {
-            if (button(addRect, "Add", kJaAdd, mouse, clicked)) app.addPreparedItem(item.type);
+            if (button(addRect, tr("ui.button.add"), mouse, clicked)) app.addPreparedItem(item.type);
         } else {
-            disabledButton(addRect, pick("Add", kJaAdd));
+            disabledButton(addRect, tr("ui.button.add"));
         }
 
         if (CheckCollisionPointRec(mouse, nameRect) || CheckCollisionPointRec(mouse, craftRect)) {
             hoverLines = {
                 {itemFullNameFor(item.type), kColorAccentGold, 16},
                 {itemDescriptionFor(item.type), kColorTextMuted, 13},
-                {pick("Required materials", kJaMaterialsLabel) + ": " + costLabel, kColorTextMuted, 13},
+                {tr("ui.materials_label") + ": " + costLabel, kColorTextMuted, 13},
             };
         } else if (CheckCollisionPointRec(mouse, addRect)) {
             hoverLines = {
@@ -2052,7 +1912,7 @@ void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         y += 45;
     }
 
-    drawSectionHeading(pick("Expedition Region", kJaExpeditionRegionSection), 480, 405, 18);
+    drawSectionHeading(tr("exploration.region_section"), 480, 405, 18);
     y = 433;
     for (const auto& summary : app.regionSummaries()) {
         Rectangle rowRect{480, static_cast<float>(y), 300, 40};
@@ -2065,19 +1925,19 @@ void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
             if (CheckCollisionPointRec(mouse, rowRect)) {
                 hoverLines = {
                     {pick(summary.displayNameEn, summary.displayNameJa), kColorAccentGold, 16},
-                    {pick("Unlocks after clearing Ashbough Forest", kJaRegionLockedAshboughForest), kColorTextMuted, 13},
+                    {tr("exploration.region_locked_ashbough_forest"), kColorTextMuted, 13},
                 };
             }
         }
         y += 45;
     }
 
-    drawSectionHeading(pick("Bag - 6 slots", kJaBagSlots), 842, 92, 20);
+    drawSectionHeading(tr("ui.prep.bag_slots"), 842, 92, 20);
     y = 125;
     for (std::size_t i = 0; i < jf::ExpeditionState::kBagCapacity; ++i) {
         Rectangle slot{830, static_cast<float>(y), 370, 40};
         if (i < app.preparedBag().size()) {
-            std::string label = itemFullNameFor(app.preparedBag()[i]) + "  (" + pick("Remove", kJaRemove) + ")";
+            std::string label = itemFullNameFor(app.preparedBag()[i]) + "  (" + tr("ui.button.remove") + ")";
             if (button(slot, label, "", mouse, clicked)) app.removePreparedItem(i);
             if (CheckCollisionPointRec(mouse, slot)) {
                 hoverLines = {
@@ -2085,31 +1945,31 @@ void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
                     {itemDescriptionFor(app.preparedBag()[i]), kColorTextMuted, 13},
                 };
             }
-        } else disabledButton(slot, pick("Empty slot", kJaEmptySlot));
+        } else disabledButton(slot, tr("ui.prep.empty_slot"));
         y += 45;
     }
     Rectangle start{830, 430, 370, 58};
     if (app.selectedPartyIds().size() == 4) {
-        if (button(start, "Begin Expedition", kJaBeginExpedition, mouse, clicked)) {
+        if (button(start, tr("ui.button.begin_expedition"), mouse, clicked)) {
             jf::RegionId toStart = app.isRegionUnlocked(gSelectedRegionId) ? gSelectedRegionId : jf::RegionId::AshboughForest;
             app.startExpedition(toStart);
         }
-    } else disabledButton(start, pick("SELECT EXACTLY 4 UNITS", kJaSelectExactly4));
+    } else disabledButton(start, tr("ui.validation.select_exactly_4"));
 
     const jf::BaseState& base = app.baseState();
-    drawSectionHeading(pick("Outpost", kJaOutpost), 40, 520, 20);
+    drawSectionHeading(tr("ui.outpost.title"), 40, 520, 20);
     drawText(outpostStageNameFor(base.outpostStage), 40, 552, 22, kColorTextPrimary);
     Rectangle advanceRect{40, 588, 390, 46};
     if (base.outpostStage == jf::OutpostStage::Encampment &&
         jf::eligibleForOutpostStage(base, jf::OutpostStage::PioneerOutpost)) {
-        if (button(advanceRect, "Advance the Outpost", kJaAdvanceOutpost, mouse, clicked)) app.advanceOutpostStage();
+        if (button(advanceRect, tr("ui.outpost.advance"), mouse, clicked)) app.advanceOutpostStage();
     } else if (base.outpostStage == jf::OutpostStage::Encampment) {
-        disabledButton(advanceRect, pick("Requires bringing home the Ashveil Fang", kJaAdvanceOutpostLocked));
+        disabledButton(advanceRect, tr("ui.outpost.advance_locked"));
     }
 
-    drawSectionHeading(pick("Discoveries", kJaDiscoveries), 492, 520, 20);
+    drawSectionHeading(tr("ui.outpost.discoveries"), 492, 520, 20);
     if (base.discoveryRegistry.empty()) {
-        drawText(pick("No discoveries yet", kJaNoDiscoveriesYet), 492, 552, 18, kColorTextMuted);
+        drawText(tr("ui.outpost.no_discoveries_yet"), 492, 552, 18, kColorTextMuted);
     } else {
         int discoveryY = 552;
         for (const jf::DiscoveryId& discovery : base.discoveryRegistry) {
@@ -2126,29 +1986,27 @@ void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
 // on the enum itself.
 std::string siteAccessLabel(jf::SiteAccessState state) {
     switch (state) {
-        case jf::SiteAccessState::Unknown: return pick("Unexplored", kJaSiteUnknown);
-        case jf::SiteAccessState::Surveyed: return pick("Surveyed", kJaSiteSurveyed);
-        case jf::SiteAccessState::Secured: return pick("Secured", kJaSiteSecured);
+        case jf::SiteAccessState::Unknown: return tr("ui.site.unknown");
+        case jf::SiteAccessState::Surveyed: return tr("ui.site.surveyed");
+        case jf::SiteAccessState::Secured: return tr("ui.site.secured");
     }
-    return pick("Unexplored", kJaSiteUnknown);
+    return tr("ui.site.unknown");
 }
 
 void drawExplorationScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     ClearBackground(Color{18, 21, 30, 255});
-    drawText(pick("EXPLORATION", kJaExploration), 42, 30, 28, kColorAccentGold);
+    drawText(tr("ui.exploration.title"), 42, 30, 28, kColorAccentGold);
     drawText(pick(app.currentMissionName(), app.currentMissionNameJa()), 42, 78, 34, kColorTextPrimary);
 
     const bool isAshbough = app.expedition().regionId == jf::RegionId::AshboughForest;
     drawText(isAshbough && app.currentMissionNameJa() == "灰枝の林縁"
-                 ? pick("The Ashbough Forest begins here. Wolves hold the tangled verge ahead.",
-                        kJaAshboughVergeSituation)
+                 ? tr("exploration.ashbough_verge_situation")
                  : isAshbough
-                       ? pick("The route opens into the next forest site.", "森の経路は次の探索地点へ続いています。")
-                        : pick("Beyond the collapsed gate stands an abandoned watch post. Fresh tracks mark the main path.",
-                                kJaCinderwatchSituation),
+                       ? tr("exploration.next_forest_site")
+                        : tr("exploration.cinderwatch_situation"),
              42, 135, 18, kColorTextMuted);
     {
-        std::string statusText = pick("Site status: ", kJaSiteStatus) + siteAccessLabel(app.currentSiteAccess());
+        std::string statusText = tr("ui.site.status_prefix") + siteAccessLabel(app.currentSiteAccess());
         int statusWidth = textWidth(statusText, 16);
         drawText(statusText, kScreenWidth - statusWidth - 42, 34, 16, kColorAccentGold);
     }
@@ -2156,12 +2014,10 @@ void drawExplorationScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     if (!app.currentSiteContentImplemented()) {
         Rectangle pendingBox{160, 260, 960, 180};
         drawCard(pendingBox, Color{22, 27, 38, 255}, withAlpha(kColorAccentGold, 180), 0.04f);
-        drawText(pick("SITE REACHED", "地点到達"), 194, 294, 20, kColorAccentGold);
-        drawText(pick("Exploration choices and battle content will be added in the next implementation phase.",
-                      "この地点の探索選択と戦闘内容は次の実装工程で追加します。"),
+        drawText(tr("ui.exploration.site_reached"), 194, 294, 20, kColorAccentGold);
+        drawText(tr("ui.exploration.pending_content"),
                  194, 344, 18, kColorTextPrimary);
-        drawText(pick("Current expedition state has been checkpointed.",
-                      "現在のHP・荷物・未確定戦利品は保存されています。"),
+        drawText(tr("ui.exploration.pending_checkpoint"),
                  194, 386, 16, kColorTextMuted);
         return;
     }
@@ -2171,14 +2027,14 @@ void drawExplorationScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         // exploration choice, no reward for the safe route; a fresh battle
         // for ordinary-material-only rewards for reconnaissance.
         Rectangle safeRect{160, 260, 960, 120};
-        if (button(safeRect, "Take the Safe Route", kJaSafePassage, mouse, clicked)) app.chooseSafePassage();
-        drawText(pick("No battle, no exploration choice, no reward", kJaSafePassageEffect), 182, 345, 16,
+        if (button(safeRect, tr("ui.button.safe_passage"), mouse, clicked)) app.chooseSafePassage();
+        drawText(tr("exploration.safe_passage_effect"), 182, 345, 16,
                  kColorTextMuted);
 
         Rectangle reconRect{160, 410, 960, 120};
-        if (button(reconRect, "Reconnoiter the Danger Zone", kJaReconnaissance, mouse, clicked))
+        if (button(reconRect, tr("exploration.reconnaissance"), mouse, clicked))
             app.chooseReconnaissance();
-        drawText(pick("A fresh battle for ordinary materials only (no first-time rewards)", kJaReconnaissanceEffect),
+        drawText(tr("exploration.reconnaissance_effect"),
                  182, 495, 16, kColorTextMuted);
         return;
     }
@@ -2186,7 +2042,7 @@ void drawExplorationScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     // Command Post "Scout Network" node effect: reveal what's waiting ahead
     // regardless of which route gets picked.
     if (app.scoutNetworkUnlocked()) {
-        drawText(pick("Enemy Forces (Scout Network)", kJaEnemyForces), 42, 168, 16, kColorAccentGold);
+        drawText(tr("ui.deployment.enemy_forces") + " (Scout Network)", 42, 168, 16, kColorAccentGold);
         int enemyX = 42;
         for (const jf::Unit& enemy : app.explorationEnemyPreview()) {
             drawText(unitDisplayNameFor(enemy.name), enemyX, 192, 15, kColorTextMuted);
@@ -2196,35 +2052,28 @@ void drawExplorationScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
 
     Rectangle frontal{70, 225, 520, 120};
     Rectangle sidePath{650, 225, 520, 120};
-    if (button(frontal, isAshbough ? "A. Investigate the Tracks" : "A. Frontal Advance",
-               isAshbough ? kJaAshboughFrontal : "A. " + kJaFrontalAdvance, mouse, clicked))
+    if (button(frontal, isAshbough ? tr("exploration.ashbough_frontal") : "A. " + tr("exploration.frontal_advance"),
+              mouse, clicked))
         app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance);
-    drawText(isAshbough ? pick("Partial intel / Standard battle", kJaAshboughFrontalEffect)
-                        : pick("No attrition / Standard battle", kJaFrontalEffect),
+    drawText(isAshbough ? tr("exploration.ashbough_frontal_effect") : tr("exploration.frontal_effect"),
              92, 310, 15, kColorTextMuted);
-    if (button(sidePath, isAshbough ? "B. Hurry Onward" : "B. Take the Collapsed Side Path",
-               isAshbough ? kJaAshboughSidePath : "B. " + kJaSidePath, mouse, clicked))
+    if (button(sidePath, isAshbough ? tr("exploration.ashbough_side_path") : "B. " + tr("exploration.side_path"),
+              mouse, clicked))
         app.chooseExplorationRoute(jf::ExplorationChoice::CollapsedSidePath);
-    drawText(isAshbough
-                 ? pick("All living allies: HP -2 / One fewer enemy / no wood from a normal win",
-                        kJaAshboughSidePathEffect)
-                 : pick("All living allies: HP -2 / One fewer enemy", kJaSidePathEffect),
+    drawText(isAshbough ? tr("exploration.ashbough_side_path_effect") : tr("exploration.side_path_effect"),
              672, 310, 15, kColorTextMuted);
 
     Rectangle scoutRect{360, 400, 560, 90};
-    std::string scoutLabelEn = isAshbough ? "C. [Frontier Scout] Survey the Beast Trail"
-                                          : "C. [Frontier Scout] Scout from High Ground";
-    std::string scoutLabelJa = "C. " + (isAshbough ? kJaAshboughScoutRoute : kJaScoutRoute);
+    std::string scoutLabel =
+        "C. " + (isAshbough ? tr("exploration.ashbough_scout_route") : tr("exploration.scout_route"));
     if (app.partyHasFrontierScout()) {
-        if (button(scoutRect, scoutLabelEn, scoutLabelJa, mouse, clicked))
+        if (button(scoutRect, scoutLabel, mouse, clicked))
             app.chooseExplorationRoute(jf::ExplorationChoice::ScoutRoute);
-        drawText(isAshbough ? pick("Full intel / Freely deploy in the left 3 columns / +1 hide",
-                                    kJaAshboughScoutRouteEffect)
-                            : pick("No attrition / Freely deploy in the left 3 columns", kJaScoutRouteEffect),
+        drawText(isAshbough ? tr("exploration.ashbough_scout_route_effect") : tr("exploration.scout_route_effect"),
                  382, 470, 15, kColorTextMuted);
     } else {
-        disabledButton(scoutRect, pick(scoutLabelEn, scoutLabelJa));
-        drawText(pick("Requires a Frontier Scout in the party", kJaScoutRouteLocked), 382, 470, 15,
+        disabledButton(scoutRect, scoutLabel);
+        drawText(tr("exploration.scout_route_locked"), 382, 470, 15,
                  Color{200, 110, 110, 255});
     }
 }
@@ -2237,10 +2086,10 @@ void drawPreBattleDeploymentScreen(jf::GameApp& app, Vector2 mouse, bool clicked
     ClearBackground(Color{16, 18, 26, 255});
     DrawRectangleGradientV(0, 0, kScreenWidth, 70, Color{40, 46, 62, 255}, Color{24, 27, 38, 255});
     DrawLine(0, 70, kScreenWidth, 70, withAlpha(kColorBorder, 160));
-    drawText(pick("PRE-BATTLE DEPLOYMENT", kJaPreBattleDeployment), 40, 20, 26, kColorTextPrimary);
-    drawText(pick("Place your 4 allies in the left 3 columns.", kJaDeploymentInstructions), 40,
+    drawText(tr("ui.deployment.title"), 40, 20, 26, kColorTextPrimary);
+    drawText(tr("ui.deployment.instructions"), 40,
              50, 15, kColorTextMuted);
-    drawText(pick("Enemy Forces (Preview)", kJaEnemyForces), kScreenWidth - 300, 50, 15, kColorTextFaint);
+    drawText(tr("ui.deployment.enemy_forces") + " (Preview)", kScreenWidth - 300, 50, 15, kColorTextFaint);
 
     const std::vector<jf::Unit>& players = app.deploymentPlayers();
     int maxCol = app.deploymentMaxColumn();
@@ -2329,7 +2178,7 @@ void drawPreBattleDeploymentScreen(jf::GameApp& app, Vector2 mouse, bool clicked
     constexpr float kSlotWidth = 300.0f;
     for (std::size_t i = 0; i < players.size(); ++i) {
         bool placed = app.isDeploymentUnitPlaced(i);
-        std::string status = pick(placed ? "Placed" : "Unplaced", placed ? kJaPlaced : kJaUnplaced);
+        std::string status = tr(placed ? "ui.deployment.placed" : "ui.deployment.unplaced");
         std::string label = unitDisplayNameFor(players[i].name) + " (" + classNameFor(players[i].unitClass) +
                             ")  [" + status + "]";
         Rectangle slotRect{18.0f + static_cast<float>(i) * (kSlotWidth + 8.0f), hudTop + 8.0f, kSlotWidth, 34.0f};
@@ -2339,57 +2188,45 @@ void drawPreBattleDeploymentScreen(jf::GameApp& app, Vector2 mouse, bool clicked
     }
 
     if (!app.allDeploymentUnitsPlaced()) {
-        drawText(pick("Place all 4 to begin", kJaDeployAllToStart), 18, hudTop + 54, 15, kColorTextMuted);
+        drawText(tr("ui.deployment.deploy_all_to_start"), 18, hudTop + 54, 15, kColorTextMuted);
     }
 
     Rectangle backRect{static_cast<float>(kScreenWidth) - 460.0f, hudTop + 48.0f, 220.0f, 40.0f};
     Rectangle beginRect{static_cast<float>(kScreenWidth) - 230.0f, hudTop + 48.0f, 212.0f, 40.0f};
-    if (button(backRect, "Back", kJaBack, mouse, clicked)) {
+    if (button(backRect, tr("ui.button.back"), mouse, clicked)) {
         app.cancelDeployment();
         gDeploymentSelectedSlot = 0;
     }
     if (app.allDeploymentUnitsPlaced()) {
-        if (button(beginRect, "Begin Battle", kJaBeginBattle, mouse, clicked)) {
+        if (button(beginRect, tr("ui.button.begin_battle"), mouse, clicked)) {
             app.confirmDeployment();
             gDeploymentSelectedSlot = 0;
         }
     } else {
-        disabledButton(beginRect, pick("Begin Battle", kJaBeginBattle));
+        disabledButton(beginRect, tr("ui.button.begin_battle"));
     }
 }
 
 std::string facilityIdNameFor(jf::FacilityId id) {
     switch (id) {
-        case jf::FacilityId::CommandPost: return pick("Command Post", "司令所");
-        case jf::FacilityId::TrainingGround: return pick("Training Ground", "訓練所");
-        case jf::FacilityId::Forge: return pick("Forge", "鍛冶場");
-        case jf::FacilityId::Infirmary: return pick("Infirmary", "診療所");
-        case jf::FacilityId::Workshop: return pick("Workshop", "工房");
-        case jf::FacilityId::Barracks: return pick("Barracks", "宿舎");
+        case jf::FacilityId::CommandPost: return tr("facility.command_post.name");
+        case jf::FacilityId::TrainingGround: return tr("facility.training_ground.name");
+        case jf::FacilityId::Forge: return tr("facility.forge.name");
+        case jf::FacilityId::Infirmary: return tr("facility.infirmary.name");
+        case jf::FacilityId::Workshop: return tr("facility.workshop.name");
+        case jf::FacilityId::Barracks: return tr("facility.barracks.name");
     }
     return "";
 }
 
 std::string facilityRoleFor(jf::FacilityId id) {
     switch (id) {
-        case jf::FacilityId::CommandPost:
-            return pick("Reveals routes, enemy forces, and\ndeeper-region intelligence.",
-                        "遠征先、敵情報、ルート情報を\n段階的に開示する施設。");
-        case jf::FacilityId::TrainingGround:
-            return pick("Unlocks class techniques and new\ntactical roles for the roster.",
-                        "兵種技術と新しい戦術役割を\n解放する訓練施設。");
-        case jf::FacilityId::Forge:
-            return pick("Changes weapons, tuning traits,\nand horizontal weapon branches.",
-                        "武器変更、調整特性、武器分岐を\n扱う鍛冶施設。");
-        case jf::FacilityId::Infirmary:
-            return pick("Improves medicine and survival\noptions used during expeditions.",
-                        "遠征中に使う治療具と救命手段を\n強化する施設。");
-        case jf::FacilityId::Workshop:
-            return pick("Produces exploration tools and\nbattlefield-control equipment.",
-                        "探索道具と盤面を操作する\n工作装備を作る施設。");
-        case jf::FacilityId::Barracks:
-            return pick("Expands recruitment, specialist\nhousing, and companion links.",
-                        "仲間の受け入れ、専門区画、\n連携機能を拡張する施設。");
+        case jf::FacilityId::CommandPost: return tr("facility.command_post.role");
+        case jf::FacilityId::TrainingGround: return tr("facility.training_ground.role");
+        case jf::FacilityId::Forge: return tr("facility.forge.role");
+        case jf::FacilityId::Infirmary: return tr("facility.infirmary.role");
+        case jf::FacilityId::Workshop: return tr("facility.workshop.role");
+        case jf::FacilityId::Barracks: return tr("facility.barracks.role");
     }
     return "";
 }
@@ -2402,14 +2239,17 @@ int facilityLevel(const jf::BaseState& base, jf::FacilityId facility) {
     return level;
 }
 
-bool facilityIsActive(const jf::BaseState& base, jf::FacilityId facility) {
-    bool hasSlottedRoot = false;
+// docs/base_development.md: facilities have no active/inactive toggle state -
+// a node is either constructed (permanently) or not. This reports the latter,
+// never an operational status.
+bool facilityIsConstructed(const jf::BaseState& base, jf::FacilityId facility) {
+    bool hasConstructibleRoot = false;
     for (const jf::FacilityNode& node : jf::facilityNodeRegistry()) {
         if (node.facility != facility || !node.occupiesFacilitySlot) continue;
-        hasSlottedRoot = true;
-        if (base.builtNodeIds.count(node.id)) return true;
+        hasConstructibleRoot = true;
+        if (base.constructedFacilityIds.count(node.id)) return true;
     }
-    if (hasSlottedRoot) return false;
+    if (hasConstructibleRoot) return false;
     return facilityLevel(base, facility) > 0;
 }
 
@@ -2422,12 +2262,13 @@ void drawFacilityTooltip(jf::FacilityId facility, const jf::BaseState& base, Vec
     float y = std::min(mouse.y + 16.0f, kScreenHeight - height - 12.0f);
     Rectangle rect{x, y, width, height};
     drawCard(rect, Color{19, 23, 33, 255}, kColorAccentGold, 0.06f);
-    const std::string title = facilityIdNameFor(facility) + "  Lv " + std::to_string(facilityLevel(base, facility));
+    const std::string title = facilityIdNameFor(facility) + "  " +
+                              tr("ui.facilities.branches_unlocked", {{"count", std::to_string(facilityLevel(base, facility))}});
     drawText(title, static_cast<int>(x + 22), static_cast<int>(y + 18), 18, kColorAccentGold);
-    const bool active = facilityIsActive(base, facility);
-    drawText(active ? pick("ACTIVE", "稼働中") : pick("INACTIVE", "未稼働"),
+    const bool constructed = facilityIsConstructed(base, facility);
+    drawText(constructed ? tr("ui.facility_node.constructed") : tr("ui.facility_node.not_constructed"),
              static_cast<int>(x + 22), static_cast<int>(y + 62), 12,
-             active ? Color{105, 205, 145, 255} : Color{180, 125, 125, 255});
+             constructed ? Color{105, 205, 145, 255} : Color{180, 125, 125, 255});
     DrawLineEx(Vector2{x + 22, y + 100}, Vector2{x + width - 22, y + 100}, 1.5f, kColorBorderSoft);
     drawText(role, static_cast<int>(x + 22), static_cast<int>(y + 116), 13, kColorTextPrimary);
 }
@@ -2466,11 +2307,11 @@ void drawFacilityNodeTooltip(const jf::FacilityNode& node, const jf::BaseState& 
 
     float rowY = y + 56 + effectHeight + 14.0f;
     DrawLineEx(Vector2{x + 22, rowY - 8}, Vector2{x + width - 22, rowY - 8}, 1.5f, kColorBorderSoft);
-    drawText(pick("Required materials", kJaMaterialsLabel), static_cast<int>(x + 22),
+    drawText(tr("ui.materials_label"), static_cast<int>(x + 22),
              static_cast<int>(rowY), 12, kColorTextFaint);
     rowY += 34;
     if (node.materialCosts.empty()) {
-        drawText(pick("None", kJaNoMaterialCost), static_cast<int>(x + 30), static_cast<int>(rowY), 13,
+        drawText(tr("ui.no_material_cost"), static_cast<int>(x + 30), static_cast<int>(rowY), 13,
                  kColorTextMuted);
         rowY += 32;
     } else {
@@ -2499,33 +2340,32 @@ void drawFacilityNodeTooltip(const jf::FacilityNode& node, const jf::BaseState& 
 // untruncated requirement is always available on hover.
 std::string facilityNodeBlockedReason(const jf::BaseState& base, const jf::FacilityNode& node, bool compact = true) {
     if (static_cast<int>(base.outpostStage) < static_cast<int>(node.requiredStage)) {
-        return pick("Stage: ", kJaNeedsStage) +
+        return tr("ui.facilities.needs_stage_prefix") +
                (compact ? outpostStageShortNameFor(node.requiredStage) : outpostStageNameFor(node.requiredStage));
     }
     for (const jf::DiscoveryId& discovery : node.requiredDiscoveries)
-        if (!base.discoveryRegistry.count(discovery)) return pick("Need discovery", kJaNeedsDiscovery);
+        if (!base.discoveryRegistry.count(discovery)) return tr("ui.facilities.needs_discovery");
     for (const std::string& prereqId : node.prerequisiteNodeIds) {
         const jf::FacilityNode* prereq = jf::findFacilityNode(prereqId);
-        bool satisfied = prereq && prereq->occupiesFacilitySlot ? base.builtNodeIds.count(prereqId) > 0
+        bool satisfied = prereq && prereq->occupiesFacilitySlot ? base.constructedFacilityIds.count(prereqId) > 0
                                                                  : base.unlockedNodeIds.count(prereqId) > 0;
-        if (!satisfied) return pick("Not built", kJaNeedsFacilityBuilt);
+        if (!satisfied) return tr("ui.facilities.needs_facility_built");
     }
     for (const jf::LootStack& cost : node.materialCosts) {
         if (base.storageCount(cost.id) < cost.quantity)
-            return pick("Need: " + cost.id, kJaNeedsMaterial + materialNameFor(cost.id));
-    }
-    if (node.occupiesFacilitySlot &&
-        static_cast<int>(base.builtNodeIds.size()) >= jf::facilitySlotCapacity(base.outpostStage)) {
-        return pick("No open slot", kJaNoOpenSlot);
+            return tr("ui.facilities.needs_material_prefix") + materialNameFor(cost.id);
     }
     return "";
 }
 
+// docs/base_development.md: no facility-slot cap, no dismantle, no rebuild -
+// a node is either unlocked (and, for the 4 optional facilities, therefore
+// permanently built) or it isn't. Only 3 row states exist: unlocked, eligible
+// (shows a Build/Unlock button), or blocked (shows why).
 void drawFacilityNodeRow(jf::GameApp& app, const jf::FacilityNode& node, float x, float y, float width,
                          Vector2 mouse, bool clicked) {
     const jf::BaseState& base = app.baseState();
     bool unlocked = base.unlockedNodeIds.count(node.id) > 0;
-    bool built = base.builtNodeIds.count(node.id) > 0;
 
     constexpr float kActionZoneWidth = 132;
     constexpr float kNameLeftPad = 14;
@@ -2535,24 +2375,16 @@ void drawFacilityNodeRow(jf::GameApp& app, const jf::FacilityNode& node, float x
     const int nameMaxWidth = static_cast<int>(actionRect.x - (x + kNameLeftPad) - 10);
 
     DrawCircle(static_cast<int>(x + 5), static_cast<int>(y + 12), 3.0f,
-               built ? Color{95, 205, 140, 255} : unlocked ? kColorAccentGold : kColorTextFaint);
+               unlocked ? Color{95, 205, 140, 255} : kColorTextFaint);
     drawText(clipTextToWidth(pick(node.nameEn, node.nameJa), 14, nameMaxWidth), static_cast<int>(x + kNameLeftPad),
              static_cast<int>(y) + 5, 14, unlocked ? kColorTextPrimary : kColorTextMuted);
 
-    if (unlocked && node.occupiesFacilitySlot) {
-        if (built) {
-            if (button(actionRect, "Dismantle", kJaDismantle, mouse, clicked)) app.dismantleFacilityNode(node.id);
-        } else if (static_cast<int>(base.builtNodeIds.size()) < jf::facilitySlotCapacity(base.outpostStage)) {
-            if (button(actionRect, "Rebuild", kJaRebuild, mouse, clicked)) app.rebuildFacilityNode(node.id);
-        } else {
-            disabledButton(actionRect, pick("Dismantled", kJaDismantled));
-        }
-    } else if (unlocked) {
-        drawText(pick("Unlocked", kJaUnlocked), static_cast<int>(actionRect.x + 4), static_cast<int>(y) + 6, 13,
+    if (unlocked) {
+        drawText(tr("ui.facilities.unlocked"), static_cast<int>(actionRect.x + 4), static_cast<int>(y) + 6, 13,
                  kColorTextFaint);
     } else if (jf::facilityNodeEligible(base, node)) {
-        std::string label = node.occupiesFacilitySlot ? pick("Build", kJaBuild) : pick("Unlock", kJaUnlock);
-        if (button(actionRect, label, label, mouse, clicked)) app.unlockFacilityNode(node.id);
+        std::string label = node.occupiesFacilitySlot ? tr("ui.facilities.build") : tr("ui.facilities.unlock");
+        if (button(actionRect, label, mouse, clicked)) app.unlockFacilityNode(node.id);
     } else {
         std::string reason = clipTextToWidth(facilityNodeBlockedReason(base, node), 13,
                                              static_cast<int>(actionRect.width - 4));
@@ -2575,12 +2407,12 @@ std::string weaponEnglishName(const std::string& weaponId) {
 // (docs/base_development.md's Iron Spear branches + Hide-Wrapped Grip).
 void drawForgeEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, float x, float y, float width,
                              Vector2 mouse, bool clicked) {
-    drawSectionHeading(pick("EQUIPMENT", "装備変更"), static_cast<int>(x),
+    drawSectionHeading(tr("ui.forge.equipment_heading"), static_cast<int>(x),
                        static_cast<int>(y), 18);
     const jf::BaseState& base = app.baseState();
     auto overrideIt = app.weaponOverrides().find(unit.id);
     std::string current = overrideIt != app.weaponOverrides().end() ? overrideIt->second : "iron_spear";
-    drawText(pick("Current: ", kJaCurrentWeapon) + weaponNameFor(current, weaponEnglishName(current)),
+    drawText(tr("ui.facilities.current_weapon_prefix") + weaponNameFor(current, weaponEnglishName(current)),
              static_cast<int>(x), static_cast<int>(y) + 30, 14, kColorTextMuted);
 
     struct Candidate { const char* id; const char* nodeId; };
@@ -2612,13 +2444,13 @@ void drawForgeEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, flo
     bool traitEquipped = app.equippedTraits().count(unit.id) > 0;
     Rectangle traitRect{x, by, 280, 34};
     if (traitUnlocked) {
-        if (button(traitRect, traitEquipped ? "Unequip Hide-Wrapped Grip" : "Equip Hide-Wrapped Grip",
-                  traitEquipped ? kJaUnequipTrait : kJaEquipTrait, mouse, clicked)) {
+        if (button(traitRect, tr(traitEquipped ? "ui.facilities.unequip_trait" : "ui.facilities.equip_trait"), mouse,
+                  clicked)) {
             app.equipTuningTraitForUnit(unit.id,
                                         traitEquipped ? jf::TuningTraitId::None : jf::TuningTraitId::HideWrappedGrip);
         }
     } else {
-        disabledButton(traitRect, pick("Hide-Wrapped Grip (locked)", kJaTraitLocked));
+        disabledButton(traitRect, tr("ui.facilities.trait_locked"));
     }
 }
 
@@ -2632,7 +2464,7 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     }
 
     ClearBackground(Color{18, 21, 30, 255});
-    drawText(pick("UNIT", "ユニット"), 38, 24, 28, kColorTextPrimary);
+    drawText(tr("ui.unit_screen.title"), 38, 24, 28, kColorTextPrimary);
     Rectangle backRect{static_cast<float>(kScreenWidth) - 258.0f, 4.0f, 150.0f, 32.0f};
     if (button(backRect, "Party List", "編成一覧へ", mouse, clicked)) {
         gViewedUnitId.reset();
@@ -2646,7 +2478,7 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     const std::string role = wrapTextToWidth(classRoleFor(unit->classId), 14, 400);
     drawText(role, 72, 230, 14, kColorTextMuted);
     const jf::Stats& stats = app.gameData().classDefinition(unit->classId).baseStats;
-    drawSectionHeading(pick("STATS", "能力"), 72, 330, 18);
+    drawSectionHeading(tr("ui.unit_screen.stats"), 72, 330, 18);
     drawText("HP " + std::to_string(stats.maxHp) + "    STR " + std::to_string(stats.strength) +
                  "    MAG " + std::to_string(stats.magic), 72, 374, 16, kColorTextPrimary);
     drawText("DEF " + std::to_string(stats.defense) + "    RES " + std::to_string(stats.resistance) +
@@ -2656,17 +2488,15 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     drawCard(equipment, kColorCard, kColorBorderSoft, 0.04f);
     if (unit->classId == jf::UnitClass::Spearman) {
         drawForgeEquipmentPanel(app, *unit, 580, 136, 626, mouse, clicked);
-        if (!app.baseState().builtNodeIds.count("simple_forge"))
-            drawText(pick("Build and activate the Simple Forge to change equipment.",
-                          "装備変更には簡易鍛冶台の建設と稼働が必要です。"),
+        if (!app.baseState().constructedFacilityIds.count("simple_forge"))
+            drawText(tr("ui.unit_screen.needs_forge"),
                      580, 390, 14, Color{205, 135, 135, 255});
     } else {
-        drawSectionHeading(pick("EQUIPMENT", "装備"), 580, 136, 18);
+        drawSectionHeading(tr("ui.unit_screen.equipment_heading"), 580, 136, 18);
         const std::string weaponId = app.gameData().classDefinition(unit->classId).weaponId;
-        drawText(pick("Current weapon: ", "現在の武器: ") + weaponNameFor(weaponId, weaponEnglishName(weaponId)),
+        drawText(tr("ui.unit_screen.current_weapon_prefix") + weaponNameFor(weaponId, weaponEnglishName(weaponId)),
                  580, 188, 16, kColorTextPrimary);
-        drawText(pick("No alternate equipment is available for this unit yet.",
-                      "このユニットには、まだ変更可能な装備がありません。"),
+        drawText(tr("ui.unit_screen.no_alt_equipment"),
                  580, 246, 14, kColorTextMuted);
     }
 }
@@ -2677,12 +2507,9 @@ void drawFacilitiesScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     Rectangle backRect{static_cast<float>(kScreenWidth) - 258.0f, 4.0f, 150.0f, 32.0f};
 
     if (!gVisitedFacility) {
-        drawText(pick("FACILITIES", kJaFacilities), 38, 24, 28, kColorTextPrimary);
-        std::string slots = pick("Facility Slots: ", kJaFacilitySlots + ": ") +
-                            std::to_string(base.builtNodeIds.size()) + " / " +
-                            std::to_string(jf::facilitySlotCapacity(base.outpostStage));
-        drawText(slots, 38, 60, 16, kColorTextMuted);
-        if (button(backRect, "Back", kJaBack, mouse, clicked)) {
+        drawText(tr("ui.facilities.title"), 38, 24, 28, kColorTextPrimary);
+        drawText(outpostStageNameFor(base.outpostStage), 38, 60, 16, kColorTextMuted);
+        if (button(backRect, tr("ui.button.back"), mouse, clicked)) {
             gVisitedFacility.reset();
             gForgeCraftClass.reset();
             gShowFacilities = false;
@@ -2702,12 +2529,12 @@ void drawFacilitiesScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
             drawCard(card, kColorCard, kColorBorderSoft, 0.04f);
             drawText(facilityIdNameFor(facility), static_cast<int>(card.x + 22), static_cast<int>(card.y + 18),
                      21, kColorTextPrimary);
-            const bool active = facilityIsActive(base, facility);
-            drawText("Lv " + std::to_string(facilityLevel(base, facility)), static_cast<int>(card.x + 22),
-                     static_cast<int>(card.y + 59), 14, kColorAccentGold);
-            drawText(active ? pick("ACTIVE", "稼働中") : pick("INACTIVE", "未稼働"),
+            const bool constructed = facilityIsConstructed(base, facility);
+            drawText(tr("ui.facilities.branches_unlocked", {{"count", std::to_string(facilityLevel(base, facility))}}),
+                     static_cast<int>(card.x + 22), static_cast<int>(card.y + 59), 14, kColorAccentGold);
+            drawText(constructed ? tr("ui.facility_node.constructed") : tr("ui.facility_node.not_constructed"),
                      static_cast<int>(card.x + 112), static_cast<int>(card.y + 59), 14,
-                     active ? Color{105, 205, 145, 255} : Color{180, 125, 125, 255});
+                     constructed ? Color{105, 205, 145, 255} : Color{180, 125, 125, 255});
             Rectangle visitRect{card.x + card.width - 174.0f, card.y + 82.0f, 150.0f, 40.0f};
             if (button(visitRect, "Visit", "訪れる", mouse, clicked)) {
                 gVisitedFacility = facility;
@@ -2725,18 +2552,19 @@ void drawFacilitiesScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     const jf::FacilityId facility = *gVisitedFacility;
     const bool forgeCraftPage = facility == jf::FacilityId::Forge && gForgeCraftClass.has_value();
     const std::string pageTitle = forgeCraftPage
-                                      ? pick("CRAFT: ", "制作: ") + classNameFor(*gForgeCraftClass)
+                                      ? tr("ui.forge.craft_prefix") + classNameFor(*gForgeCraftClass)
                                       : facilityIdNameFor(facility);
     drawText(pageTitle, 38, 24, 28, kColorTextPrimary);
-    drawText("Lv " + std::to_string(facilityLevel(base, facility)), 38, 64, 16, kColorAccentGold);
+    drawText(tr("ui.facilities.branches_unlocked", {{"count", std::to_string(facilityLevel(base, facility))}}),
+             38, 64, 16, kColorAccentGold);
     drawText(facilityRoleFor(facility), 138, 58, 14, kColorTextMuted);
     if (forgeCraftPage) {
-        if (button(backRect, "Forge", "鍛冶場へ", mouse, clicked)) gForgeCraftClass.reset();
-    } else if (button(backRect, "Facility List", "施設一覧へ", mouse, clicked)) {
+        if (button(backRect, tr("ui.forge.back_to_forge"), mouse, clicked)) gForgeCraftClass.reset();
+    } else if (button(backRect, tr("ui.facilities.back_to_list"), mouse, clicked)) {
         gVisitedFacility.reset();
     }
 
-    drawSectionHeading(forgeCraftPage ? pick("RECIPES", "制作レシピ") : pick("UPGRADES", "強化・解放"),
+    drawSectionHeading(forgeCraftPage ? tr("ui.forge.recipes") : tr("ui.forge.upgrades"),
                        42, 132, 18);
     const jf::FacilityNode* hoveredNode = nullptr;
     float nodeY = 174.0f;
@@ -2756,12 +2584,11 @@ void drawFacilitiesScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
 
     Rectangle infoPanel{770.0f, 128.0f, 470.0f, 510.0f};
     drawCard(infoPanel, kColorCard, kColorBorderSoft, 0.04f);
-    drawSectionHeading(forgeCraftPage ? pick("CLASS RECIPES", "兵種別レシピ")
-                                      : pick("FACILITY DETAILS", "施設情報"),
+    drawSectionHeading(forgeCraftPage ? tr("ui.forge.class_recipes")
+                                      : tr("ui.forge.facility_details"),
                        794, 150, 18);
     if (facility == jf::FacilityId::Forge && !forgeCraftPage) {
-        drawText(pick("Choose a class to open its weapon recipes.",
-                      "制作する兵種を選択してください。"),
+        drawText(tr("ui.forge.choose_class"),
                  794, 192, 14, kColorTextPrimary);
         const jf::UnitClass craftClasses[] = {
             jf::UnitClass::MarchCaptain, jf::UnitClass::VeteranGuard, jf::UnitClass::WatchArcher,
@@ -2769,26 +2596,165 @@ void drawFacilitiesScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         };
         for (int index = 0; index < 6; ++index) {
             Rectangle craftRect{794.0f, 232.0f + index * 58.0f, 410.0f, 46.0f};
-            const std::string en = "Craft: " + classNameFor(craftClasses[index]);
-            const std::string ja = "制作: " + classNameFor(craftClasses[index]);
+            const std::string label = tr("ui.forge.craft_prefix") + classNameFor(craftClasses[index]);
             if (craftClasses[index] == jf::UnitClass::Spearman) {
-                if (button(craftRect, en, ja, mouse, clicked)) gForgeCraftClass = craftClasses[index];
+                if (button(craftRect, label, mouse, clicked)) gForgeCraftClass = craftClasses[index];
             } else {
-                disabledButton(craftRect,
-                               pick("Craft: " + classNameFor(craftClasses[index]) + " (planned)",
-                                    "制作: " + classNameFor(craftClasses[index]) + " (未実装)"));
+                disabledButton(craftRect, label + tr("ui.forge.craft_planned_suffix"));
             }
         }
     } else {
-        drawText(forgeCraftPage ? pick("Crafted weapons become available on the unit page.",
-                                       "制作した武器はユニットページで装備できます。")
+        drawText(forgeCraftPage ? tr("ui.forge.crafted_weapons_note")
                                 : facilityRoleFor(facility),
                  794, 192, 14, kColorTextPrimary);
-        drawText(pick("Select or hover over an upgrade to view its\neffect and required materials.",
-                      "強化項目にカーソルを合わせると、\n効果と必要素材を確認できます。"),
+        drawText(tr("ui.forge.hover_hint"),
                  794, 292, 14, kColorTextMuted);
     }
     if (hoveredNode) drawFacilityNodeTooltip(*hoveredNode, base, mouse);
+}
+
+// docs/inventory_overflow.md「倉庫整理画面」: lists storage/consumables/
+// pending-overflow and lets the player discard consumables and ordinary
+// materials (never equipped gear, key materials, or Discoveries - key
+// materials are refused by GameApp::discardStorage() itself). A single
+// explicit Confirm button per docs (no long-press, no two-step beyond the
+// one confirmation panel); the target list only drops an entry once the
+// discard call actually reports success.
+void drawWarehouseCleanupOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
+    if (!gWarehouseCleanupOpen) return;
+
+    DrawRectangle(0, 0, kScreenWidth, kScreenHeight, Color{0, 0, 0, 170});
+    Rectangle panel{static_cast<float>(kScreenWidth) / 2.0f - 280.0f, 60.0f, 560.0f, 680.0f};
+    drawCard(panel, kColorCard, withAlpha(kColorAccentGold, 230), 0.08f);
+
+    drawText(tr("ui.warehouse.title"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 20), 24,
+             kColorTextPrimary);
+
+    const bool blockedByOverflow = app.rewardOverflow().stacks.size() >= jf::RewardOverflowState::kMaxStacks;
+    float y = panel.y + 60.0f;
+    if (blockedByOverflow) {
+        drawText(tr("ui.warehouse.overflow_blocked"), static_cast<int>(panel.x + 26), static_cast<int>(y), 13,
+                 Color{225, 120, 120, 255});
+        y += 28.0f;
+    }
+
+    if (gWarehouseDiscardConfirm) {
+        const WarehouseDiscardTarget& target = *gWarehouseDiscardConfirm;
+        Rectangle confirmPanel{panel.x + 26, y, panel.width - 52, 100};
+        drawCard(confirmPanel, kColorCardAlt, withAlpha(Color{225, 120, 120, 255}, 220), 0.1f);
+        std::string message = jf::tr("ui.warehouse.discard_confirm", gLanguage == Language::Japanese,
+                                     {{"name", target.displayName}, {"quantity", std::to_string(target.quantity)}});
+        drawText(message, static_cast<int>(confirmPanel.x + 14), static_cast<int>(confirmPanel.y + 14), 14,
+                 kColorTextPrimary);
+        Rectangle confirmBtn{confirmPanel.x + 14, confirmPanel.y + 50, 150, 40};
+        Rectangle cancelBtn{confirmPanel.x + 14 + 150 + 16, confirmPanel.y + 50, 150, 40};
+        if (button(confirmBtn, tr("ui.button.confirm"), mouse, clicked)) {
+            bool discarded = false;
+            switch (target.kind) {
+                case WarehouseDiscardKind::Material:
+                    discarded = app.discardStorage(target.materialId, target.quantity);
+                    break;
+                case WarehouseDiscardKind::Item:
+                    discarded = app.discardItemStorage(target.itemType, target.quantity);
+                    break;
+                case WarehouseDiscardKind::Overflow:
+                    discarded = app.discardOverflowStack(target.overflowIndex, target.quantity);
+                    break;
+            }
+            (void)discarded;  // Success or failure, the confirm panel closes either way;
+                              // the list itself only reflects an entry's removal when
+                              // the underlying discard actually reduced its quantity.
+            gWarehouseDiscardConfirm.reset();
+        }
+        if (button(cancelBtn, tr("ui.button.cancel"), mouse, clicked)) gWarehouseDiscardConfirm.reset();
+        y = confirmPanel.y + confirmPanel.height + 16.0f;
+    }
+
+    auto drawRow = [&](const std::string& name, int quantity, WarehouseDiscardTarget target) {
+        drawText(name + "  x" + std::to_string(quantity), static_cast<int>(panel.x + 26), static_cast<int>(y) + 6, 14,
+                 kColorTextPrimary);
+        Rectangle discardBtn{panel.x + panel.width - 26 - 110, y, 110, 32};
+        target.displayName = name;
+        if (button(discardBtn, tr("ui.button.discard"), mouse, clicked)) gWarehouseDiscardConfirm = target;
+        y += 38.0f;
+    };
+
+    drawText(tr("ui.warehouse.storage_section"), static_cast<int>(panel.x + 26), static_cast<int>(y), 16,
+             kColorAccentGold);
+    y += 26.0f;
+    bool anyStorage = false;
+    for (const jf::LootStack& stack : app.baseState().storage) {
+        if (app.baseState().materialStorageCap(stack.id) == 1) continue;  // key materials: never discardable
+        anyStorage = true;
+        WarehouseDiscardTarget target;
+        target.kind = WarehouseDiscardKind::Material;
+        target.materialId = stack.id;
+        target.quantity = stack.quantity;
+        drawRow(materialNameFor(stack.id), stack.quantity, target);
+    }
+    if (!anyStorage) {
+        drawText(tr("ui.warehouse.empty"), static_cast<int>(panel.x + 26), static_cast<int>(y), 13, kColorTextMuted);
+        y += 26.0f;
+    }
+
+    y += 12.0f;
+    drawText(tr("ui.warehouse.consumables_section"), static_cast<int>(panel.x + 26), static_cast<int>(y), 16,
+             kColorAccentGold);
+    y += 26.0f;
+    bool anyItems = false;
+    for (const jf::ItemDefinition& item : jf::kItemCatalog) {
+        const int owned = app.baseState().ownedItemCount(item.type);
+        if (owned <= 0) continue;
+        anyItems = true;
+        WarehouseDiscardTarget target;
+        target.kind = WarehouseDiscardKind::Item;
+        target.itemType = item.type;
+        target.quantity = owned;
+        drawRow(itemFullNameFor(item.type), owned, target);
+    }
+    if (!anyItems) {
+        drawText(tr("ui.warehouse.empty"), static_cast<int>(panel.x + 26), static_cast<int>(y), 13, kColorTextMuted);
+        y += 26.0f;
+    }
+
+    y += 12.0f;
+    drawText(tr("ui.warehouse.pending_section"), static_cast<int>(panel.x + 26), static_cast<int>(y), 16,
+             kColorAccentGold);
+    y += 26.0f;
+    const auto& overflowStacks = app.rewardOverflow().stacks;
+    if (overflowStacks.empty()) {
+        drawText(tr("ui.warehouse.empty"), static_cast<int>(panel.x + 26), static_cast<int>(y), 13, kColorTextMuted);
+        y += 26.0f;
+    }
+    for (std::size_t i = 0; i < overflowStacks.size(); ++i) {
+        const jf::OverflowStack& stack = overflowStacks[i];
+        // "item:<int>" prefix (see OverflowStack::itemId's doc comment in
+        // BaseState.hpp) distinguishes a consumable overflow entry from a
+        // material one sharing the same display path.
+        std::string name;
+        if (stack.itemId.rfind("item:", 0) == 0) {
+            const int rawType = std::stoi(stack.itemId.substr(5));
+            name = itemFullNameFor(static_cast<jf::ItemType>(rawType));
+        } else {
+            name = materialNameFor(stack.itemId);
+        }
+        WarehouseDiscardTarget target;
+        target.kind = WarehouseDiscardKind::Overflow;
+        target.overflowIndex = i;
+        target.quantity = stack.quantity;
+        drawRow(name, stack.quantity, target);
+    }
+
+    Rectangle closeBtn{panel.x + panel.width - 26 - 120, panel.y + panel.height - 50, 120, 38};
+    if (button(closeBtn, tr("ui.button.close"), mouse, clicked)) {
+        gWarehouseCleanupOpen = false;
+        gWarehouseDiscardConfirm.reset();
+    }
+
+    Rectangle retryBtn{panel.x + 26, panel.y + panel.height - 50, 240, 38};
+    if (button(retryBtn, tr("ui.warehouse.try_return_again"), mouse, clicked)) {
+        if (app.returnToBase()) gWarehouseCleanupOpen = false;
+    }
 }
 
 // Small always-on-top corner button + modal for switching the display
@@ -2797,7 +2763,7 @@ void drawFacilitiesScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
 // Draw this last on every screen so it sits above any other overlay.
 void drawSettingsOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
     Rectangle cornerBtn{static_cast<float>(kScreenWidth) - 100.0f, 4.0f, 92.0f, 32.0f};
-    if (button(cornerBtn, "Settings", kJaSettings, mouse, gSettingsOpen ? false : clicked)) {
+    if (button(cornerBtn, tr("ui.settings.title"), mouse, gSettingsOpen ? false : clicked)) {
         gSettingsOpen = !gSettingsOpen;
     }
 
@@ -2809,9 +2775,9 @@ void drawSettingsOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
                     380.0f, 640.0f};
     drawCard(panel, kColorCard, withAlpha(kColorAccentGold, 230), 0.1f);
 
-    drawText(pick("Settings", kJaSettings), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 22), 24,
+    drawText(tr("ui.settings.title"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 22), 24,
              kColorTextPrimary);
-    drawText(pick("Language", kJaLanguage), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 66), 15,
+    drawText(tr("ui.settings.language"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 66), 15,
              kColorTextMuted);
 
     Rectangle enBtn{panel.x + 26, panel.y + 96, 150, 48};
@@ -2823,87 +2789,93 @@ void drawSettingsOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
     Rectangle activeHighlight = gLanguage == Language::English ? enBtn : jaBtn;
     DrawRectangleRoundedLinesEx(activeHighlight, 0.28f, 8, 3.0f, withAlpha(kColorAccentGold, 255));
 
-    drawText(pick("Window", kJaWindow), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 158), 15,
+    drawText(tr("ui.settings.window"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 158), 15,
              kColorTextMuted);
     bool maximized = IsWindowState(FLAG_WINDOW_MAXIMIZED);
     Rectangle windowBtn{panel.x + 26, panel.y + 188, 328, 46};
-    if (button(windowBtn, maximized ? "Restore Window" : "Maximize Window",
-              maximized ? kJaRestoreWindow : kJaMaximizeWindow, mouse, clicked)) {
+    if (button(windowBtn, tr(maximized ? "ui.settings.restore_window" : "ui.settings.maximize_window"), mouse,
+              clicked)) {
         if (maximized) RestoreWindow();
         else MaximizeWindow();
     }
-    drawText(pick("Shortcut: F11", kJaMaximizeShortcut), static_cast<int>(panel.x + 26),
+    drawText(tr("ui.settings.maximize_shortcut"), static_cast<int>(panel.x + 26),
              static_cast<int>(panel.y + 238), 12, kColorTextFaint);
 
-    drawText(pick("Expedition", kJaExpeditionSection), static_cast<int>(panel.x + 26),
+    drawText(tr("ui.settings.expedition_section"), static_cast<int>(panel.x + 26),
              static_cast<int>(panel.y + 266), 15, kColorTextMuted);
     Rectangle retireBtn{panel.x + 26, panel.y + 296, 328, 46};
     bool canRetire = app.screen() != jf::Screen::Base;
     if (canRetire) {
-        if (button(retireBtn, "Retire Expedition", kJaRetireExpedition, mouse, clicked)) {
+        if (button(retireBtn, tr("ui.settings.retire_expedition"), mouse, clicked)) {
             if (app.retireExpedition()) gSettingsOpen = false;
         }
     } else {
-        disabledButton(retireBtn, pick("Retire Expedition", kJaRetireExpedition));
+        disabledButton(retireBtn, tr("ui.settings.retire_expedition"));
     }
-    drawText(pick("Forfeits this run's unsecured loot.", kJaRetireExpeditionNote),
+    drawText(tr("ui.settings.retire_expedition_note"),
              static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 346), 12, kColorTextFaint);
 
-    drawText(pick("Save Data", kJaSaveDataSection), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 380),
+    drawText(tr("ui.settings.save_data_section"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 380),
               15, kColorTextMuted);
 
     Rectangle exportBtn{panel.x + 26, panel.y + 408, 150, 46};
     Rectangle importBtn{panel.x + 26 + 150 + 16, panel.y + 408, 150, 46};
 
-    if (button(exportBtn, "Export", kJaExportSave, mouse, clicked)) {
+    if (button(exportBtn, tr("ui.settings.export"), mouse, clicked)) {
         const std::string language = gLanguage == Language::Japanese ? "ja" : "en";
         std::string exportError;
         std::string exportedPath = jf::exportSaveData(app.createSaveData(language), &exportError);
-        if (!exportedPath.empty()) setSaveStatus("Exported to " + exportedPath, kJaExportOk + exportedPath);
-        else setSaveStatus("Export failed: " + exportError, kJaExportFailed + exportError);
+        if (!exportedPath.empty())
+            setSaveStatus(jf::tr("ui.settings.export_ok_prefix", false) + exportedPath,
+                          jf::tr("ui.settings.export_ok_prefix", true) + exportedPath);
+        else
+            setSaveStatus(jf::tr("ui.settings.export_failed_prefix", false) + exportError,
+                          jf::tr("ui.settings.export_failed_prefix", true) + exportError);
     }
 
     const bool canImport = app.screen() == jf::Screen::Base;
     if (gPendingImport) {
-        drawText(clipTextToWidth(gPendingImportFilename + " - " + pick("Replace current save?", kJaImportConfirm), 13,
+        drawText(clipTextToWidth(gPendingImportFilename + " - " + tr("ui.settings.import_confirm"), 13,
                                   328),
                  static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 462), 13, kColorTextPrimary);
         Rectangle applyBtn{panel.x + 26, panel.y + 488, 150, 44};
         Rectangle cancelBtn{panel.x + 26 + 150 + 16, panel.y + 488, 150, 44};
-        if (button(applyBtn, "Apply Import", kJaImportApply, mouse, clicked)) {
+        if (button(applyBtn, tr("ui.settings.import_apply"), mouse, clicked)) {
             std::string importError;
             if (gSaveStore && gSaveStore->importFrom(*gPendingImport, &importError) && app.applySaveData(*gPendingImport)) {
                 gLanguage = gPendingImport->language == "ja" ? Language::Japanese : Language::English;
                 gAutoSaveEnabled = true;
-                setSaveStatus("Import applied", kJaImportApplied);
+                setSaveStatus(jf::tr("ui.settings.import_applied", false), jf::tr("ui.settings.import_applied", true));
             } else {
-                setSaveStatus("Import failed: " + importError, kJaImportFailed + importError);
+                setSaveStatus(jf::tr("ui.settings.import_failed_prefix", false) + importError,
+                              jf::tr("ui.settings.import_failed_prefix", true) + importError);
             }
             gPendingImport.reset();
             gPendingImportFilename.clear();
         }
-        if (button(cancelBtn, "Cancel", kJaImportCancel, mouse, clicked)) {
+        if (button(cancelBtn, tr("ui.button.cancel"), mouse, clicked)) {
             gPendingImport.reset();
             gPendingImportFilename.clear();
         }
     } else if (canImport) {
-        if (button(importBtn, "Import", kJaImportSave, mouse, clicked)) {
+        if (button(importBtn, tr("ui.settings.import"), mouse, clicked)) {
             auto candidates = jf::listImportCandidates();
             if (candidates.empty()) {
-                setSaveStatus("No import file in imports/", kJaImportNoFile);
+                setSaveStatus(jf::tr("ui.settings.import_no_file", false), jf::tr("ui.settings.import_no_file", true));
             } else {
                 std::string loadError;
                 if (auto data = jf::loadImportCandidate(candidates.front().path, &loadError)) {
                     gPendingImport = data;
                     gPendingImportFilename = candidates.front().filename;
                 } else {
-                    setSaveStatus("Import failed: " + loadError, kJaImportFailed + loadError);
+                    setSaveStatus(jf::tr("ui.settings.import_failed_prefix", false) + loadError,
+                                  jf::tr("ui.settings.import_failed_prefix", true) + loadError);
                 }
             }
         }
     } else {
-        disabledButton(importBtn, pick("Import", kJaImportSave));
-        drawText(pick("Return to Base first.", kJaImportBaseOnly), static_cast<int>(panel.x + 26),
+        disabledButton(importBtn, tr("ui.settings.import"));
+        drawText(tr("ui.settings.import_base_only"), static_cast<int>(panel.x + 26),
                  static_cast<int>(panel.y + 462), 12, kColorTextFaint);
     }
 
@@ -2913,7 +2885,114 @@ void drawSettingsOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
     }
 
     Rectangle closeBtn{panel.x + 26, panel.y + 580, 328, 40};
-    if (button(closeBtn, "Close", kJaClose, mouse, clicked)) gSettingsOpen = false;
+    if (button(closeBtn, tr("ui.button.close"), mouse, clicked)) gSettingsOpen = false;
+}
+
+// docs/save_system.md「保存状態HUD」: performs one save attempt and advances
+// the Idle/Saving/Saved/Failed state machine. Desktop I/O is synchronous, so
+// callers see the outcome (Saved or Failed) immediately - `Saving` never
+// actually gets drawn on its own frame here, but the state still exists so
+// the transition shape matches the spec (and so a future async Web backend
+// slots in without changing this function's contract).
+void attemptAutoSave(jf::GameApp& app, std::uint64_t& savedRevision, Language& savedLanguage,
+                     std::uint64_t& savedExpeditionRevision) {
+    const std::string language = gLanguage == Language::Japanese ? "ja" : "en";
+    std::string saveError;
+    if (gSaveStore->save(app.createSaveData(language), &saveError)) {
+        savedRevision = app.persistentRevision();
+        savedLanguage = gLanguage;
+        savedExpeditionRevision = app.expeditionRevision();
+        gSaveHudState = SaveHudState::Saved;
+        gSaveHudSavedUntil = GetTime() + 1.5;
+        gSaveHudRetryCount = 0;
+    } else {
+        gSaveHudFailReason = saveError;
+        gSaveHudState = SaveHudState::Failed;
+        if (gSaveHudRetryCount < kSaveHudMaxAutoRetries) {
+            gSaveHudNextRetryAt = GetTime() + kSaveHudRetryDelays[gSaveHudRetryCount];
+            ++gSaveHudRetryCount;
+        }
+    }
+}
+
+// Small fixed-corner status readout (docs/save_system.md「保存状態HUD」),
+// placed clear of the battle command HUD / Facilities / Settings buttons.
+// Manual "Retry" stays available even after the 3 automatic retries are
+// exhausted (spec: "手動の「再試行」は回数制限後も利用可能にする").
+void drawSaveStatusHud(jf::GameApp& app, Vector2 mouse, bool clicked, std::uint64_t& savedRevision,
+                      Language& savedLanguage, std::uint64_t& savedExpeditionRevision) {
+    if (gSaveHudState == SaveHudState::Idle) return;
+    if (gSaveHudState == SaveHudState::Saved && GetTime() >= gSaveHudSavedUntil) {
+        gSaveHudState = SaveHudState::Idle;
+        return;
+    }
+    constexpr float kHudW = 220.0f;
+    constexpr float kHudH = 40.0f;
+    Rectangle hud{static_cast<float>(kScreenWidth) - kHudW - 12.0f, static_cast<float>(kScreenHeight) - kHudH - 12.0f,
+                 kHudW, kHudH};
+    Color border = gSaveHudState == SaveHudState::Failed ? Color{225, 120, 120, 255} : kColorAccentGold;
+    drawCard(hud, kColorCard, withAlpha(border, 220), 0.2f);
+    std::string label = gSaveHudState == SaveHudState::Saving   ? tr("ui.save_hud.saving")
+                        : gSaveHudState == SaveHudState::Saved  ? tr("ui.save_hud.saved")
+                                                                 : tr("ui.save_hud.failed");
+    drawText(label, static_cast<int>(hud.x + 12), static_cast<int>(hud.y + 10), 14,
+             gSaveHudState == SaveHudState::Failed ? Color{225, 120, 120, 255} : kColorTextPrimary);
+    if (gSaveHudState == SaveHudState::Failed) {
+        Rectangle retryBtn{hud.x + kHudW - 84.0f, hud.y + 4.0f, 76.0f, kHudH - 8.0f};
+        if (button(retryBtn, tr("ui.save_hud.retry"), mouse, clicked))
+            attemptAutoSave(app, savedRevision, savedLanguage, savedExpeditionRevision);
+    }
+}
+
+// docs/save_system.md「破損復旧画面」: shown instead of the normal screen
+// dispatch when startup couldn't read any usable save (see main()). All 3
+// choices end by clearing gSaveRecoveryOpen and re-enabling autosave, since
+// each one leaves the app in a definite, savable state (recovered data,
+// imported data, or a deliberate fresh start).
+void drawSaveRecoveryScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
+    ClearBackground(Color{18, 21, 30, 255});
+    drawText(tr("ui.recovery.title"), 40, 40, 28, kColorAccentGold);
+    drawText(gSaveRecoveryMessage.empty() ? tr("ui.recovery.message") : gSaveRecoveryMessage, 40, 90, 16,
+             kColorTextPrimary);
+
+    if (gSaveRecoveryStartNewConfirm) {
+        drawText(tr("ui.recovery.start_new_confirm"), 40, 140, 15, Color{225, 120, 120, 255});
+        Rectangle confirmBtn{40, 180, 200, 44};
+        Rectangle cancelBtn{256, 180, 200, 44};
+        if (button(confirmBtn, tr("ui.button.confirm"), mouse, clicked)) {
+            gSaveStore->quarantineCorruptSave();
+            gSaveRecoveryOpen = false;
+            gSaveRecoveryStartNewConfirm = false;
+            gAutoSaveEnabled = true;
+        }
+        if (button(cancelBtn, tr("ui.button.cancel"), mouse, clicked)) gSaveRecoveryStartNewConfirm = false;
+        return;
+    }
+
+    Rectangle restoreBtn{40, 140, 260, 48};
+    Rectangle importBtn{40, 200, 260, 48};
+    Rectangle startNewBtn{40, 260, 260, 48};
+    if (button(restoreBtn, tr("ui.recovery.restore_backup"), mouse, clicked)) {
+        std::string restoreError;
+        if (gSaveStore->restoreFromBackup(&restoreError)) {
+            if (auto restored = gSaveStore->load()) {
+                if (app.applySaveData(*restored))
+                    gLanguage = restored->language == "ja" ? Language::Japanese : Language::English;
+            }
+            gSaveRecoveryOpen = false;
+            gAutoSaveEnabled = true;
+        } else {
+            gSaveRecoveryMessage = tr("ui.recovery.restore_failed");
+        }
+    }
+    if (button(importBtn, tr("ui.recovery.import_save"), mouse, clicked)) {
+        gSaveRecoveryOpen = false;
+        gAutoSaveEnabled = true;
+        gSettingsOpen = true;  // Base screen's Import flow (already unrestricted
+                               // at startup, since the app always begins at
+                               // Screen::Base) takes it from here.
+    }
+    if (button(startNewBtn, tr("ui.recovery.start_new"), mouse, clicked)) gSaveRecoveryStartNewConfirm = true;
 }
 
 void handleGridClick(jf::GameApp& app, jf::GridPos pos) {
@@ -2955,6 +3034,24 @@ int main() {
     InitWindow(kScreenWidth, kScreenHeight, "JOJIFrontier");
     SetWindowMinSize(960, 600);
     SetTargetFPS(60);
+
+    // Locales must load before loadAppFont() (it reads jf::allJapaneseGlyphText()
+    // for the Glyph Atlas) and before any tr() call. If even this fails, there's
+    // no Locale table to draw a translated message from, so this one error
+    // screen stays plain English rather than routing through tr().
+    bool localesLoaded = jf::loadLocales("data");
+    if (!localesLoaded) localesLoaded = jf::loadLocales("../data");
+    if (!localesLoaded) {
+        while (!WindowShouldClose()) {
+            BeginDrawing();
+            ClearBackground(BLACK);
+            DrawText("Failed to load locale files from data/locales/.", 20, 20, 18, RED);
+            EndDrawing();
+        }
+        CloseWindow();
+        return 1;
+    }
+
     loadAppFont();
 
     auto gameData = jf::loadGameData("data");
@@ -2967,8 +3064,7 @@ int main() {
         while (!WindowShouldClose()) {
             BeginDrawing();
             ClearBackground(BLACK);
-            drawText(pick("Failed to load game definitions from data/.", kJaDataLoadFailed), 20,
-                     20, 18, RED);
+            drawText(tr("ui.error.data_load_failed"), 20, 20, 18, RED);
             EndDrawing();
         }
         CloseWindow();
@@ -2978,13 +3074,19 @@ int main() {
     jf::GameApp app(*gameData);
     gSaveStore.emplace(jf::defaultSavePath());
     std::string saveLoadError;
-    if (auto save = gSaveStore->load(&saveLoadError)) {
-        if (app.applySaveData(*save)) gLanguage = save->language == "ja" ? Language::Japanese : Language::English;
+    auto loadedSave = gSaveStore->load(&saveLoadError);
+    if (loadedSave) {
+        if (app.applySaveData(*loadedSave))
+            gLanguage = loadedSave->language == "ja" ? Language::Japanese : Language::English;
     }
-    // A corrupt or unsupported save is never overwritten automatically. Its
-    // file and backup remain available for a later recovery/import flow -
-    // Settings > Save Data > Import can still replace it explicitly.
-    gAutoSaveEnabled = saveLoadError.empty();
+    // A corrupt or unsupported save is never overwritten automatically.
+    // `saveLoadError` is non-empty here only when SaveStore::load() truly
+    // found nothing usable (its own primary-then-".bak" fallback already
+    // failed both) - see load()'s doc comment. That's the docs/save_system.md
+    // 「破損復旧画面」trigger; a fresh install with no save file at all
+    // leaves saveLoadError empty and proceeds normally.
+    gSaveRecoveryOpen = !loadedSave && !saveLoadError.empty();
+    gAutoSaveEnabled = !gSaveRecoveryOpen;
     std::uint64_t savedRevision = app.persistentRevision();
     std::uint64_t savedExpeditionRevision = app.expeditionRevision();
     Language savedLanguage = gLanguage;
@@ -3011,7 +3113,11 @@ int main() {
 
         app.update(dt);
 
-        if (app.screen() == jf::Screen::Battle) {
+        if (gSaveRecoveryOpen) {
+            beginLogicalFrame();
+            drawSaveRecoveryScreen(app, mouse, clicked);
+            endLogicalFrame();
+        } else if (app.screen() == jf::Screen::Battle) {
             jf::BattleController& controller = app.battle();
 
             if (sceneClicked) {
@@ -3029,6 +3135,7 @@ int main() {
             drawTurnChangeAnnouncement(controller.battle().phase(), dt);
 
             if (controller.inputState() != jf::BattleInputState::ConfirmAttack &&
+                controller.inputState() != jf::BattleInputState::ConfirmSkillAttack &&
                 controller.inputState() != jf::BattleInputState::Victory &&
                 controller.inputState() != jf::BattleInputState::Defeat) {
                 drawHoverInfo(controller, mouse);
@@ -3036,6 +3143,12 @@ int main() {
 
             if (controller.inputState() == jf::BattleInputState::ConfirmAttack) {
                 if (auto preview = controller.pendingPreview()) {
+                    drawCombatPreviewPopup(*preview);
+                }
+            } else if (controller.inputState() == jf::BattleInputState::ConfirmSkillAttack) {
+                // M4 item 3: same popup, fed by the attack-shape skill's own
+                // preview (already folds in any flat bonus damage).
+                if (auto preview = controller.pendingSkillPreview()) {
                     drawCombatPreviewPopup(*preview);
                 }
             }
@@ -3046,39 +3159,50 @@ int main() {
                 drawDefeatOverlay(app, mouse, sceneClicked);
             }
             drawSettingsOverlay(app, mouse, clicked);
+            drawSaveStatusHud(app, mouse, clicked, savedRevision, savedLanguage, savedExpeditionRevision);
             endLogicalFrame();
         } else if (app.screen() == jf::Screen::Camp) {
             beginLogicalFrame();
             drawCampScreen(app, mouse, sceneClicked);
+            drawWarehouseCleanupOverlay(app, mouse, sceneClicked);
             drawSettingsOverlay(app, mouse, clicked);
+            drawSaveStatusHud(app, mouse, clicked, savedRevision, savedLanguage, savedExpeditionRevision);
             endLogicalFrame();
         } else if (app.screen() == jf::Screen::Exploration) {
             beginLogicalFrame();
             drawExplorationScreen(app, mouse, sceneClicked);
             drawSettingsOverlay(app, mouse, clicked);
+            drawSaveStatusHud(app, mouse, clicked, savedRevision, savedLanguage, savedExpeditionRevision);
             endLogicalFrame();
         } else if (app.screen() == jf::Screen::PreBattleDeployment) {
             beginLogicalFrame();
             drawPreBattleDeploymentScreen(app, mouse, sceneClicked);
             drawSettingsOverlay(app, mouse, clicked);
+            drawSaveStatusHud(app, mouse, clicked, savedRevision, savedLanguage, savedExpeditionRevision);
             endLogicalFrame();
         } else {
             beginLogicalFrame();
             if (gShowFacilities) drawFacilitiesScreen(app, mouse, sceneClicked);
             else if (gViewedUnitId) drawUnitScreen(app, mouse, sceneClicked);
             else drawBaseScreen(app, mouse, sceneClicked);
+            drawWarehouseCleanupOverlay(app, mouse, sceneClicked);
             drawSettingsOverlay(app, mouse, clicked);
+            drawSaveStatusHud(app, mouse, clicked, savedRevision, savedLanguage, savedExpeditionRevision);
             endLogicalFrame();
         }
 
-        if (gAutoSaveEnabled &&
-            (savedRevision != app.persistentRevision() || savedLanguage != gLanguage ||
-             savedExpeditionRevision != app.expeditionRevision())) {
-            const std::string language = gLanguage == Language::Japanese ? "ja" : "en";
-            if (gSaveStore->save(app.createSaveData(language))) {
-                savedRevision = app.persistentRevision();
-                savedLanguage = gLanguage;
-                savedExpeditionRevision = app.expeditionRevision();
+        if (gAutoSaveEnabled) {
+            const bool isDirty = savedRevision != app.persistentRevision() || savedLanguage != gLanguage ||
+                                savedExpeditionRevision != app.expeditionRevision();
+            if (isDirty) {
+                attemptAutoSave(app, savedRevision, savedLanguage, savedExpeditionRevision);
+            } else if (gSaveHudState == SaveHudState::Failed && gSaveHudRetryCount < kSaveHudMaxAutoRetries &&
+                      GetTime() >= gSaveHudNextRetryAt) {
+                // docs/save_system.md「保存状態HUD」: up to 3 automatic
+                // retries at 0.5/1/2s: attemptAutoSave() re-serializes
+                // current state each time, so this always saves the latest
+                // data, not a stale snapshot from the original failed attempt.
+                attemptAutoSave(app, savedRevision, savedLanguage, savedExpeditionRevision);
             }
         }
     }

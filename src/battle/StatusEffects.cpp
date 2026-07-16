@@ -12,7 +12,7 @@ namespace {
 // its action-end damage is applied. No shipped TerrainType does this yet
 // (Terrain.hpp has no Shallows-equivalent), so this always returns false
 // today - it is the hook point for when that terrain ships.
-bool terrainClearsBurn(TerrainType /*terrain*/) { return false; }
+bool terrainClearsBurn(TerrainType terrain) { return terrain == TerrainType::Shallows; }
 } // namespace
 
 void applyPoison(Unit& target) {
@@ -43,6 +43,14 @@ void applyZocRangeExtension(Unit& target) {
     target.zocRangeExtended = true;
 }
 
+void applyBraceBonus(Unit& target) {
+    target.braceSkillActive = true;
+}
+
+void applyProvoke(Unit& target, const std::string& casterId) {
+    target.provokedByUnitId = casterId;
+}
+
 void applyMoveUp(Unit& target) {
     target.moveUpActive = true;
 }
@@ -50,6 +58,21 @@ void applyMoveUp(Unit& target) {
 void applyStagger(Unit& target) {
     if (target.staggerImmune) return;
     target.staggerActive = true;
+}
+
+void applyStatusEffect(Unit& target, StatusEffectType effect) {
+    switch (effect) {
+    case StatusEffectType::Poison: applyPoison(target); break;
+    case StatusEffectType::Burn: applyBurn(target); break;
+    case StatusEffectType::MoveDown: applyMoveDown(target); break;
+    case StatusEffectType::DefenseDown: applyDefenseDown(target); break;
+    case StatusEffectType::Stagger: applyStagger(target); break;
+    }
+}
+
+void applyWeaponOnHitStatuses(const Unit& attacker, Unit& target) {
+    if (!target.isAlive()) return;
+    for (StatusEffectType effect : attacker.weapon.onHitStatuses) applyStatusEffect(target, effect);
 }
 
 void clearAllStatusEffects(Unit& target) {
@@ -68,7 +91,13 @@ void clearAllStatusEffects(BattleState& battle) {
         unit.defenseUpActive = false;
         unit.zocRangeExtended = false;
         unit.moveUpActive = false;
+        unit.immovableStanceActive = false;
+        unit.immovableStanceJustGranted = false;
+        unit.braceSkillActive = false;
+        unit.provokedByUnitId.clear();
+        unit.overwatchActive = false;
     }
+    battle.clearTrailblazedTiles(); // 辺境斥候`trailblaze`: battle-scoped, never saved
 }
 
 void processActionEndStatusEffects(BattleState& battle, Unit& unit) {
@@ -108,6 +137,8 @@ void clearSkillBuffsAtEnemyPhaseEnd(BattleState& battle) {
         unit.resistanceUpActive = false;
         unit.defenseUpActive = false;
         unit.zocRangeExtended = false;
+        unit.braceSkillActive = false;
+        unit.provokedByUnitId.clear();
     }
 }
 

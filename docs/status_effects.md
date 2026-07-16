@@ -25,11 +25,31 @@
 - `Unit::effectiveMove()`/`effectiveDefense()`: 実際の移動力・防御力算出に反映
   (`Movement.cpp`の到達マス計算、`CombatResolver.cpp`のダメージ計算)
 
+実際に付与する経路(2026-07、M4項目4で追加):
+
+- 移動低下: 監視弓兵`suppressing_shot`(制圧射撃)・槍兵`halting_thrust`(足止め突き)が命中時に
+  `applyMoveDown()`を呼ぶ(`BattleController.cpp`の`attackSkillShapes`テーブル、
+  `appliesMoveDown`パラメータ)
+- よろめき: `BattleState::applyKnockback()`が、ノックバック先が範囲外・他Unit占有・不可通行
+  地形・Battle Object(倒木などのBarrier)のいずれかで塞がれている場合に`applyStagger()`を
+  呼ぶ(元々このBattle Objectチェック自体が存在せず、ノックバックがBarrierを無視して
+  素通りできてしまうバグも同時に修正した)
+- 武器共通: `Weapon::onHitStatuses`を追加し、通常攻撃・反応攻撃・警戒射撃を含む
+  `resolveAttack()`経路で、命中時に5種類の任意の組合せを確定付与する。`weapons.json`では
+  安定文字列IDで指定する。現行装備の数値・追加効果は変更せず、地域別装備追加時に利用する
+- 防御低下: 辺境斥候`ambush`(奇襲)が命中時に付与する
+- 浅瀬: 行動終了時、炎上ダメージより先に炎上を解除する
+
 未実装（今後の課題）:
 
-- 上記5効果を実際に付与する攻撃・スキル・地形（現状はどの攻撃も状態異常を付与しない）
-- 浅瀬など、炎上を解除する地形（`terrainClearsBurn()`は将来のフック点として存在するのみ）
-- 万能薬・状態治療スキル自体（`clearAllStatusEffects(Unit&)`は関数として存在するのみ）
+- 毒を付与する正式な現行装備・敵。共通の武器付与経路は実装済み
+- 炎上: 「投擲火炎壺、火系魔法、炎上床」が主な発生源だが、対応するアイテム・スキル・地形が
+  未実装。武器共通の炎上付与経路自体は実装済み
+- 工兵固有の防御低下Skillは未実装。「倒木衝突」経由の防御低下はBoss専用の別ID
+  (`bossWeakenedFromStun`)で既に実装済み
+  (本書「ボス補正」の通り、通常のdefenseDownActiveとは意図的に別管理)
+- 万能薬・状態治療スキル自体（`clearAllStatusEffects(Unit&)`は関数として存在するのみ。
+  暁の衛生兵の装備Skill`cleanse`は既にこれを呼んでいる）
 - 煙幕・炎上床のマス効果、ボスユニット自体（`Unit::isBoss`はフラグとして存在するのみ）
 
 ## 共通ルール

@@ -124,6 +124,15 @@ void winCurrentBattle(jf::GameApp& app) {
     for (jf::Unit& unit : app.battle().battle().units()) {
         if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
     }
+    if (app.battle().battle().hasPendingRequiredEnemyReinforcements()) {
+        // Test helper only: advance the BattleState clock directly until a
+        // scheduled mandatory wave resolves, then defeat the spawned units.
+        app.battle().battle().beginEnemyPhase();
+        app.battle().battle().beginPlayerPhase();
+        app.battle().battle().beginEnemyPhase();
+        for (jf::Unit& unit : app.battle().battle().units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+    }
     jf::Unit* actor = nullptr;
     for (jf::Unit& unit : app.battle().battle().units()) {
         if (unit.team == jf::Team::Player && unit.isAlive() && !unit.hasActed) {
@@ -725,9 +734,13 @@ int main() {
 
     {
         // Full GameApp flow: earn materials via 3 real victories, advance the
-        // outpost, then unlock/dismantle/rebuild facility nodes and confirm
-        // branch nodes require their facility to be actively BUILT (not just
-        // historically unlocked), and that material scarcity gates them too.
+        // outpost, then unlock all 4 optional stage-1 facilities in parallel
+        // using only materials/discoveries actually earned from real victories
+        // (docs/base_development.md: "素材が足りれば4施設すべてを順次建設できる" -
+        // no facility-slot cap, no dismantle/rebuild dance required to fit
+        // them). Confirms branch nodes require their facility to be actually
+        // built (not just historically unlocked), and that material scarcity
+        // still gates individual nodes.
         jf::GameData data = makeFactoryData();
         jf::GameApp app(data);
         assert(startCinderwatchExpedition(app));
@@ -738,77 +751,35 @@ int main() {
             if (stage < 2) app.continueExpedition();
         }
         app.returnToBase();
-        assert(app.advanceOutpostStage()); // -> PioneerOutpost, 2 facility slots open
-        // 3 real victories bank wood:10, hide:5 (docs/base_development.md:
-        // exactly covers all 4 optional facilities + one tuning trait).
+        assert(app.advanceOutpostStage()); // -> PioneerOutpost
+        // 3 real victories bank exactly enough for all 4 optional facilities
+        // (docs/base_development.md "初期4施設の確定表"): wood:10, hide:5, herb:2.
         assert(app.baseState().storageCount("wood") == 10);
         assert(app.baseState().storageCount("hide") == 5);
+        assert(app.baseState().discoveryRegistry.count(jf::kHerbThicketDiscovery) == 1);
 
-        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
-        testBase.addStorage("wood", 5);
-        testBase.addStorage("hide", 4);
         assert(!app.baseState().unlockedNodeIds.count("training_field"));
-        assert(app.unlockFacilityNode("training_field")); // costs wood:3 + hide:2
+        assert(app.unlockFacilityNode("training_field")); // wood:3 + hide:2
         assert(app.baseState().unlockedNodeIds.count("training_field") == 1);
-        assert(app.baseState().builtNodeIds.count("training_field") == 1);
-        assert(app.baseState().storageCount("wood") == 12); // 10 + 5 - 3
-        assert(app.baseState().storageCount("hide") == 7);  // 5 + 4 - 2
+        assert(app.baseState().constructedFacilityIds.count("training_field") == 1);
+        assert(app.baseState().storageCount("wood") == 7);
+        assert(app.baseState().storageCount("hide") == 3);
 
         assert(app.unlockFacilityNode("vanguard_training")); // branch: no cost, just needs the facility built
         assert(app.baseState().unlockedNodeIds.count("vanguard_training") == 1);
 
-        assert(app.dismantleFacilityNode("training_field"));
-        assert(app.baseState().unlockedNodeIds.count("training_field") == 1); // unlock record survives
-        assert(!app.baseState().builtNodeIds.count("training_field"));        // but it's not active
-        assert(app.baseState().storageCount("wood") == 13); // +floor(3 * 50%) == +1
-        assert(app.baseState().storageCount("hide") == 8);  // +floor(2 * 50%) == +1
-        // A branch of a dismantled facility is no longer buildable until rebuilt.
-        assert(!jf::facilityNodeEligible(app.baseState(), *jf::findFacilityNode("mobility_training")));
-
-        assert(app.rebuildFacilityNode("training_field")); // free, just needs an open slot
-        assert(app.baseState().builtNodeIds.count("training_field") == 1);
-        assert(!app.rebuildFacilityNode("training_field")); // already built
-
-        assert(app.unlockFacilityNode("simple_forge")); // costs wood:2 + hide:1
-        assert(app.baseState().builtNodeIds.size() == 2);
-        assert(!app.unlockFacilityNode("field_infirmary")); // no open slot left
+        // The other 3 optional facilities build in parallel - no slot cap to
+        // work around, so no need to dismantle training_field first.
+        assert(app.unlockFacilityNode("simple_forge"));    // wood:2 + hide:1
+        assert(app.unlockFacilityNode("workshop_bench"));  // wood:3 + hide:1
+        assert(app.unlockFacilityNode("field_infirmary")); // wood:2 + herb:2, needs herb-thicket discovery
+        assert(app.baseState().constructedFacilityIds.size() == 4);
 
         assert(app.unlockFacilityNode("weapon_forging")); // branch, no cost
         assert(jf::facilityNodeEligible(app.baseState(), *jf::findFacilityNode("craft_heavy_spear")));
         assert(app.unlockFacilityNode("craft_heavy_spear"));
 
-        assert(app.unlockFacilityNode("trait_hide_wrapped_grip"));
-    }
-
-    {
-        // Regression: the 4 optional stage-1 facilities must be buildable
-        // using only materials/discoveries actually earned from 3 real
-        // victories - not just by hand-injecting BaseState in a test. Every
-        // material id and the herb-thicket discovery a facility needs has to
-        // actually appear in production loot.
-        jf::GameData data = makeFactoryData();
-        jf::GameApp app(data);
-        assert(startCinderwatchExpedition(app));
-        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
-        for (int stage = 0; stage < 3; ++stage) {
-            winCurrentBattle(app);
-            app.proceedToCamp();
-            if (stage < 2) app.continueExpedition();
-        }
-        app.returnToBase();
-        assert(app.advanceOutpostStage());
-        assert(app.baseState().discoveryRegistry.count(jf::kHerbThicketDiscovery) == 1);
-
-        assert(app.unlockFacilityNode("training_field"));
-        assert(app.unlockFacilityNode("simple_forge"));
-        assert(app.baseState().builtNodeIds.size() == 2);
-        assert(app.dismantleFacilityNode("training_field"));
-        assert(app.dismantleFacilityNode("simple_forge"));
-
-        assert(app.unlockFacilityNode("workshop_bench"));
-        assert(app.unlockFacilityNode("field_infirmary")); // needs the herb-thicket discovery too
-        assert(app.baseState().builtNodeIds.count("workshop_bench") == 1);
-        assert(app.baseState().builtNodeIds.count("field_infirmary") == 1);
+        assert(app.unlockFacilityNode("trait_hide_wrapped_grip")); // hide:1, exactly what's left
     }
 
     {
@@ -838,7 +809,7 @@ int main() {
         jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
         testBase.outpostStage = jf::OutpostStage::PioneerOutpost;
         testBase.unlockedNodeIds.insert("simple_forge");
-        testBase.builtNodeIds.insert("simple_forge");
+        testBase.constructedFacilityIds.insert("simple_forge");
         assert(!app.equipWeaponForUnit("player0", "heavy_spear"));
         testBase.unlockedNodeIds.insert("craft_heavy_spear");
         assert(app.equipWeaponForUnit("player0", "heavy_spear"));
@@ -846,7 +817,7 @@ int main() {
         assert(app.equipWeaponForUnit("player0", "")); // revert to default
         assert(!app.weaponOverrides().count("player0"));
 
-        testBase.builtNodeIds.erase("simple_forge");
+        testBase.constructedFacilityIds.erase("simple_forge");
         assert(!app.equipWeaponForUnit("player0", "iron_spear"));
         assert(!app.equipTuningTraitForUnit("player0", jf::TuningTraitId::HideWrappedGrip));
 
@@ -883,13 +854,37 @@ int main() {
     }
 
     {
-        // Knockback silently no-ops when the destination is occupied.
+        // docs/status_effects.md 状態異常「よろめき」主な発生源「障害物への
+        // ノックバック衝突」: a knockback that can't reach its destination
+        // (here, another unit occupying it) staggers the defender in place
+        // instead of just silently doing nothing.
         jf::Unit attacker = makeUnit("attacker", jf::Team::Player, {1, 2});
         jf::Unit defender = makeUnit("defender", jf::Team::Enemy, {1, 3});
         jf::Unit blocker = makeUnit("blocker", jf::Team::Enemy, {1, 4});
         jf::BattleState battle({attacker, defender, blocker});
         battle.applyKnockback(battle.units()[0], battle.units()[1]);
-        assert((battle.units()[1].position == jf::GridPos{1, 3}));
+        assert((battle.units()[1].position == jf::GridPos{1, 3})); // unmoved
+        assert(battle.units()[1].staggerActive);
+    }
+
+    {
+        // Same collision-staggers rule, but colliding with a Battle Object
+        // Barrier (e.g. a fallen log) rather than a Unit or impassable
+        // terrain - previously applyKnockback() didn't check Battle Objects
+        // at all, so a knockback could silently push a unit onto/through
+        // one.
+        jf::Unit attacker = makeUnit("attacker", jf::Team::Player, {1, 2});
+        jf::Unit defender = makeUnit("defender", jf::Team::Enemy, {1, 3});
+        jf::BattleState battle({attacker, defender});
+        jf::BattleObjectDefinition logDef;
+        logDef.definitionId = "fallen_log";
+        logDef.kind = jf::BattleObjectKind::Barrier;
+        logDef.blocksMovement = true;
+        battle.registerObjectDefinition(logDef);
+        assert(battle.placeObject({"log1", "fallen_log", {1, 4}}));
+        battle.applyKnockback(battle.units()[0], battle.units()[1]);
+        assert((battle.units()[1].position == jf::GridPos{1, 3})); // unmoved
+        assert(battle.units()[1].staggerActive);
     }
 
     {
@@ -931,7 +926,7 @@ int main() {
         source.base.outpostStage = jf::OutpostStage::PioneerOutpost;
         source.base.unlockedNodeIds.insert("simple_forge");
         source.base.unlockedNodeIds.insert("craft_heavy_spear");
-        source.base.builtNodeIds.insert("simple_forge");
+        source.base.constructedFacilityIds.insert("simple_forge");
         source.base.completedRegionIds.insert(jf::RegionId::AshboughForest);
         source.selectedPartyIds = {"a", "b", "c", "d"};
         source.unitWeaponOverrides["rowan"] = "heavy_spear";
@@ -941,7 +936,7 @@ int main() {
         assert(restored.has_value());
         assert(error.empty());
         assert(restored->base.storageCount("wood") == 7);
-        assert(restored->base.builtNodeIds.count("simple_forge") == 1);
+        assert(restored->base.constructedFacilityIds.count("simple_forge") == 1);
         assert(restored->unitWeaponOverrides.at("rowan") == "heavy_spear");
         assert(restored->language == "ja");
         assert(restored->base.completedRegionIds.count(jf::RegionId::AshboughForest) == 1);
@@ -1135,7 +1130,7 @@ int main() {
         jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
         testBase.outpostStage = jf::OutpostStage::PioneerOutpost;
         testBase.unlockedNodeIds.insert("simple_forge");
-        testBase.builtNodeIds.insert("simple_forge");
+        testBase.constructedFacilityIds.insert("simple_forge");
         testBase.unlockedNodeIds.insert("trait_hide_wrapped_grip");
         assert(app.equipTuningTraitForUnit("player0", jf::TuningTraitId::HideWrappedGrip));
         assert(app.equippedTraits().at("player0") == jf::TuningTraitId::HideWrappedGrip);
@@ -1169,7 +1164,7 @@ int main() {
         legacy.base.unlockedNodeIds.insert("simple_forge");
         legacy.base.unlockedNodeIds.insert("craft_heavy_spear");
         legacy.base.unlockedNodeIds.insert("trait_hide_wrapped_grip");
-        legacy.base.builtNodeIds.insert("simple_forge");
+        legacy.base.constructedFacilityIds.insert("simple_forge");
         legacy.selectedPartyIds = {"player0", "player1", "player2", "player3"};
         legacy.weaponOverrides[jf::UnitClass::Spearman] = "heavy_spear";
         legacy.equippedTraits[jf::UnitClass::Spearman] = "hide_wrapped_grip";
@@ -1548,6 +1543,20 @@ int main() {
     }
 
     {
+        // docs/initial_skill_effects.md 古参守備兵`immovable_stance`(不動の
+        // 構え)'s raw field composition: DEF+3 and MOV forced to 0 while
+        // active, regardless of any other buff/debuff also present.
+        jf::Unit unit = makeUnit("guard", jf::Team::Player, {1, 0}, 4);
+        unit.stats.defense = 5;
+        assert(unit.effectiveMove() == 4 && unit.effectiveDefense() == 5);
+        unit.immovableStanceActive = true;
+        assert(unit.effectiveMove() == 0); // no movement on the next action
+        assert(unit.effectiveDefense() == 8); // 5 + 3
+        jf::applyDefenseDown(unit); // stacks normally with the debuff
+        assert(unit.effectiveDefense() == 5); // 5 + 3 - 3 (statusDefenseDownAmount)
+    }
+
+    {
         // Integration: poison on a player unit only ticks at Player Phase
         // end (not immediately on apply, not from that unit's own action-end
         // while other party members still haven't acted), driven through the
@@ -1745,8 +1754,15 @@ int main() {
 
         const int maxHpBefore = controller.battle().findUnit("inRangeEnemy")->stats.maxHp;
         assert(controller.selectSkillTarget(jf::GridPos{1, 3}));
+        // M4 item 3 (Preview/Resolverの一致): attack-shape Skillはconfirmを
+        // 挟むようになった - ConfirmAttack同様、Confirm前にPreviewを見せる。
+        assert(controller.inputState() == jf::BattleInputState::ConfirmSkillAttack);
+        auto preview = controller.pendingSkillPreview();
+        assert(preview.has_value());
+        controller.confirmSkillAttack();
         const jf::Unit* hit = controller.battle().findUnit("inRangeEnemy");
         assert(hit->currentHp < maxHpBefore); // a normal attack landed
+        assert(maxHpBefore - hit->currentHp == preview->damage); // Preview matched the real result
         assert(hit->moveDownActive);
         assert(!jf::skillSlotAvailable(*controller.battle().findUnit("archer"), 0)); // CD2, just used
     }
@@ -1829,10 +1845,40 @@ int main() {
 
         const int maxHpBefore = controller.battle().findUnit("inRangeEnemy")->stats.maxHp;
         assert(controller.selectSkillTarget(jf::GridPos{1, 3}));
+        assert(controller.inputState() == jf::BattleInputState::ConfirmSkillAttack);
+        auto preview = controller.pendingSkillPreview();
+        assert(preview.has_value());
+        controller.confirmSkillAttack();
         const jf::Unit* hit = controller.battle().findUnit("inRangeEnemy");
         assert(hit->currentHp < maxHpBefore);
+        assert(maxHpBefore - hit->currentHp == preview->damage); // Preview matched the real result
         assert(hit->moveDownActive);
         assert(!jf::skillSlotAvailable(*controller.battle().findUnit("spearman"), 0)); // CD2, just used
+    }
+
+    {
+        // confirmSkillAttack() must apply weapon-level effects the same way
+        // confirmAttack()/EnemyAI.cpp's attack paths do - here, Heavy Spear's
+        // causesKnockback (docs/base_development.md "Heavy Spear: 火力型...
+        // 命中時に相手を1マスノックバック"). A Spearman using halting_thrust
+        // with Heavy Spear equipped must knock the target back exactly like
+        // a normal attack with the same weapon would.
+        jf::Unit spearman = makeUnit("spearman", jf::Team::Player, {1, 2}, 4, jf::UnitClass::Spearman);
+        spearman.weapon = {.id = "heavy_spear", .name = "Heavy Spear", .might = 8, .minRange = 1, .maxRange = 2,
+                          .damageType = jf::DamageType::Physical, .causesKnockback = true};
+        spearman.skillSlots[0].skillId = "halting_thrust";
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 3});
+        jf::BattleState battle({spearman, enemy});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.selectSkillTarget(jf::GridPos{1, 3}));
+        assert(controller.inputState() == jf::BattleInputState::ConfirmSkillAttack);
+        controller.confirmSkillAttack();
+        assert((controller.battle().findUnit("enemy")->position == jf::GridPos{1, 4})); // pushed back 1 tile
     }
 
     {
@@ -1864,6 +1910,11 @@ int main() {
         const int normalDamage = jf::computeDamage(*controller.battle().findUnit("scout"),
                                                     *controller.battle().findUnit("unactedEnemy"), 0);
         assert(controller.selectSkillTarget(jf::GridPos{1, 3}));
+        assert(controller.inputState() == jf::BattleInputState::ConfirmSkillAttack);
+        auto preview = controller.pendingSkillPreview();
+        assert(preview.has_value());
+        assert(preview->damage == normalDamage + 3); // Preview already folds in the flat bonus
+        controller.confirmSkillAttack();
         const jf::Unit* hit = controller.battle().findUnit("unactedEnemy");
         assert(hit->stats.maxHp - hit->currentHp == normalDamage + 3); // base damage + flat bonus
         assert(!hit->moveDownActive); // ambush doesn't apply moveDown, unlike suppressing_shot
@@ -1982,6 +2033,404 @@ int main() {
         assert(controller.selectSkillTarget(jf::GridPos{1, 2}));
         assert(controller.battle().findUnit("unactedAlly")->effectiveMove() == 5); // 4 + 1
         assert(!jf::skillSlotAvailable(*controller.battle().findUnit("captain"), 0)); // OncePerBattle, just used
+    }
+
+    {
+        // docs/initial_skill_effects.md 古参守備兵`immovable_stance`(不動の
+        // 構え): the 12th skill, and the first Passive - no chooseSkill()
+        // step at all, it auto-triggers on chooseWait(). Confirms the "until
+        // this unit's own next action ends" timing survives an intervening
+        // Enemy Phase and only clears once that next action resolves.
+        jf::Unit guard = makeUnit("guard", jf::Team::Player, {1, 3}, 3, jf::UnitClass::VeteranGuard);
+        guard.stats.defense = 5;
+        guard.skillSlots[0].skillId = "immovable_stance";
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {2, 7});
+        jf::BattleState battle({guard, enemy});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseWait();
+        assert(controller.battle().findUnit("guard")->immovableStanceActive);
+        assert(controller.battle().findUnit("guard")->effectiveDefense() == 8); // 5 + 3
+
+        for (int i = 0; i < 10 && controller.inputState() == jf::BattleInputState::EnemyTurn; ++i)
+            controller.update(1.0f);
+        assert(controller.inputState() == jf::BattleInputState::SelectUnit);
+        assert(controller.battle().findUnit("guard")->immovableStanceActive); // survives the Enemy Phase
+        assert(controller.battle().findUnit("guard")->effectiveMove() == 0); // forced no movement this action
+
+        // The next action must be something other than Wait: Wait itself
+        // re-triggers this Always/Passive skill (it fires on every Wait
+        // confirmation, not a one-shot resource), so a second Wait would
+        // just re-grant it rather than let it expire. A different action
+        // kind (here: placing a board) is what actually clears it.
+        controller.selectUnit(*controller.battle().findUnit("guard"));
+        controller.selectMoveTile(controller.battle().findUnit("guard")->position);
+        controller.chooseProtectiveBoard();
+        assert(controller.inputState() == jf::BattleInputState::SelectBoardTarget);
+        assert(controller.selectBoardTarget(controller.boardTargetTiles().front()));
+        assert(!controller.battle().findUnit("guard")->immovableStanceActive);
+    }
+
+    {
+        // docs/initial_skill_effects.md 辺境斥候`emergency_withdrawal`(緊急
+        // 離脱): the 13th skill, and the first "self movement" shape - the
+        // destination is an empty tile, not a Unit. Fixed budget of 3
+        // regardless of MOV, ignores Zone of Control entirely ("敵隣接から
+        // 開始可能"), but still respects normal occupancy rules for path
+        // expansion (enemies block passage entirely, allies can be crossed
+        // but not landed on) - same as Movement.cpp's computeReachableTiles.
+        // MOV set to 3 (matching the skill's own fixed budget) so a detour
+        // around the guard's ZoC costs more than either can afford - the
+        // only manhattan-distance-3 path from {1,0} to {1,3} is the straight
+        // row, cleanly isolating "does this ignore ZoC" from occupancy
+        // effects and from the two budgets simply differing.
+        jf::Unit scout = makeUnit("scout", jf::Team::Player, {1, 0}, 3, jf::UnitClass::FrontierScout);
+        scout.skillSlots[0].skillId = "emergency_withdrawal";
+        jf::Unit unactedAlly = makeUnit("unactedAlly", jf::Team::Player, {2, 7});
+        jf::Unit guard = makeUnit("guard", jf::Team::Enemy, {0, 2}, 3, jf::UnitClass::VeteranGuard);
+        jf::BattleState battle({scout, unactedAlly, guard});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        // Normal movement is stopped by the guard's ZoC at {1,2} - it can
+        // enter that tile but not continue past it to {1,3}.
+        const auto normalReach = jf::computeReachableTiles(controller.battle(), controller.battle().units()[0]);
+        assert(contains(normalReach, jf::GridPos{1, 2}));
+        assert(!contains(normalReach, jf::GridPos{1, 3}));
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectSkillTarget);
+        // Budget of 3, ZoC ignored: {1,3} (distance 3, straight through the
+        // guard's ZoC) is reachable even though normal movement can't get
+        // there. {1,4} (distance 4) is out of budget.
+        assert(contains(controller.skillTargetTiles(), jf::GridPos{1, 3}));
+        assert(!contains(controller.skillTargetTiles(), jf::GridPos{1, 4}));
+
+        assert(controller.selectSkillTarget(jf::GridPos{1, 3}));
+        assert((controller.battle().findUnit("scout")->position == jf::GridPos{1, 3}));
+        assert(!jf::skillSlotAvailable(*controller.battle().findUnit("scout"), 0)); // Cooldown2, just used
+    }
+
+    {
+        // Occupancy-during-expansion for emergency_withdrawal: an enemy
+        // sitting on the only path tile blocks passage entirely (not just
+        // landing), while an ally on that same tile can be crossed. This is
+        // the bug this skill's BFS initially had (it only filtered occupancy
+        // in the final result, not during frontier expansion).
+        jf::Unit scout = makeUnit("scout", jf::Team::Player, {1, 0}, 5, jf::UnitClass::FrontierScout);
+        scout.skillSlots[0].skillId = "emergency_withdrawal";
+        jf::Unit blocker = makeUnit("blocker", jf::Team::Enemy, {1, 2});
+        jf::BattleState enemyBlockedBattle({scout, blocker});
+        jf::BattleController enemyBlockedController(std::move(enemyBlockedBattle));
+        jf::initializeSkillCharges(enemyBlockedController.battle().units()[0]);
+        enemyBlockedController.selectUnit(enemyBlockedController.battle().units()[0]);
+        enemyBlockedController.selectMoveTile(enemyBlockedController.battle().units()[0].position);
+        enemyBlockedController.chooseSkill(0);
+        assert(!contains(enemyBlockedController.skillTargetTiles(), jf::GridPos{1, 2})); // occupied, can't land
+        assert(!contains(enemyBlockedController.skillTargetTiles(), jf::GridPos{1, 3})); // blocked passage
+
+        jf::Unit scout2 = makeUnit("scout2", jf::Team::Player, {1, 0}, 5, jf::UnitClass::FrontierScout);
+        scout2.skillSlots[0].skillId = "emergency_withdrawal";
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {1, 2});
+        jf::BattleState allyCrossedBattle({scout2, ally});
+        jf::BattleController allyCrossedController(std::move(allyCrossedBattle));
+        jf::initializeSkillCharges(allyCrossedController.battle().units()[0]);
+        allyCrossedController.selectUnit(allyCrossedController.battle().units()[0]);
+        allyCrossedController.selectMoveTile(allyCrossedController.battle().units()[0].position);
+        allyCrossedController.chooseSkill(0);
+        assert(!contains(allyCrossedController.skillTargetTiles(), jf::GridPos{1, 2})); // occupied, can't land
+        assert(contains(allyCrossedController.skillTargetTiles(), jf::GridPos{1, 3})); // crossable
+    }
+
+    {
+        // docs/initial_skill_effects.md 槍兵`spear_wall`(槍壁): the 14th
+        // skill - reuses the buff shape table via a new `alsoSelf` flag
+        // (self AND one chosen adjacent ally both receive the buff, unlike
+        // every prior single-target buff which grants it to whichever ONE
+        // unit is picked). Grants the same conditional DEF+2 as the
+        // Spearman class's baseline Brace trait (only against an attacker
+        // who moved 2+ tiles this action) to a unit that doesn't already
+        // have it - here, a non-Spearman ally.
+        jf::Unit spearman = makeUnit("spearman", jf::Team::Player, {1, 1}, 4, jf::UnitClass::Spearman);
+        spearman.skillSlots[0].skillId = "spear_wall";
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {1, 2}); // MarchCaptain: no baseline Brace
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {2, 7}); // keeps the battle from instantly ending
+        jf::BattleState battle({spearman, ally, enemy});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectSkillTarget);
+        assert(!contains(controller.skillTargetTiles(), jf::GridPos{1, 1})); // self not selectable
+        assert(contains(controller.skillTargetTiles(), jf::GridPos{1, 2})); // adjacent ally selectable
+
+        assert(controller.selectSkillTarget(jf::GridPos{1, 2}));
+        jf::Unit* buffedSpearman = controller.battle().findUnit("spearman");
+        jf::Unit* buffedAlly = controller.battle().findUnit("ally");
+        assert(buffedSpearman->braceSkillActive); // self also received it
+        assert(buffedAlly->braceSkillActive);
+        assert(!jf::skillSlotAvailable(*buffedSpearman, 0)); // Cooldown2, just used
+
+        jf::Unit chargingAttacker = makeUnit("chargingAttacker", jf::Team::Enemy, {1, 3});
+        chargingAttacker.tilesMovedThisAction = 2;
+        assert(controller.battle().combatDefenseBonus(*buffedAlly, chargingAttacker) == 2);
+        jf::Unit stillAttacker = makeUnit("stillAttacker", jf::Team::Enemy, {1, 3});
+        assert(controller.battle().combatDefenseBonus(*buffedAlly, stillAttacker) == 0); // attacker didn't move 2+
+    }
+
+    {
+        // docs/initial_skill_effects.md 古参守備兵`provoke`(挑発): the 15th
+        // skill -敵1体・射程2、Damageなし、Mark形状に似るが書き込む値が
+        // Damageの符号付き整数ではなく「使用者のid」なので専用分岐にした。
+        // Effect is consumed by EnemyAI.cpp's takeEnemyTurn(), not by
+        // anything in BattleController itself.
+        jf::Unit guard = makeUnit("guard", jf::Team::Player, {1, 1}, 4, jf::UnitClass::VeteranGuard);
+        guard.skillSlots[0].skillId = "provoke";
+        // Closer to the enemy than guard is (distance 1 vs. 2), so without
+        // provoke findNearestPlayer() would pick nearPlayer instead.
+        jf::Unit nearPlayer = makeUnit("nearPlayer", jf::Team::Player, {1, 4});
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 3});
+        jf::BattleState battle({guard, nearPlayer, enemy});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectSkillTarget);
+        assert(contains(controller.skillTargetTiles(), jf::GridPos{1, 3})); // enemy, within range 2
+        assert(!contains(controller.skillTargetTiles(), jf::GridPos{1, 4})); // ally, never a valid target
+
+        assert(controller.selectSkillTarget(jf::GridPos{1, 3}));
+        assert(controller.battle().findUnit("enemy")->provokedByUnitId == "guard");
+        assert(!jf::skillSlotAvailable(*controller.battle().findUnit("guard"), 0)); // Cooldown2, just used
+
+        // Without provoke the enemy (nearer to nearPlayer, and already in
+        // range of it) would attack nearPlayer without even needing to
+        // move; provoked, it instead moves to and attacks guard, who is
+        // farther away.
+        jf::Unit* attacked = jf::takeEnemyTurn(controller.battle(), *controller.battle().findUnit("enemy"));
+        assert(attacked == controller.battle().findUnit("guard"));
+        assert(controller.battle().findUnit("nearPlayer")->currentHp ==
+               controller.battle().findUnit("nearPlayer")->stats.maxHp);
+    }
+
+    {
+        // docs/initial_skill_effects.md 槍兵`counterthrust`(反撃準備): the
+        // 16th skill, and the first Reactive one (SkillCategory::Reactive) -
+        // unlike every skill so far it has no chooseSkill()/
+        // selectSkillTarget() step at all; it auto-triggers from
+        // EnemyAI.cpp's attackIfPossible() whenever the equipped unit is
+        // attacked and survives, provided the attacker ends up within the
+        // DEFENDER's own weapon range (not the attacker's - see the range
+        // check test below).
+        jf::Unit spearman = makeUnit("spearman", jf::Team::Player, {1, 1}, 4, jf::UnitClass::Spearman);
+        spearman.skillSlots[0].skillId = "counterthrust";
+        jf::Unit meleeEnemy = makeUnit("meleeEnemy", jf::Team::Enemy, {1, 2}); // adjacent, within both weapons' range
+        jf::BattleState battle({spearman, meleeEnemy});
+        jf::initializeSkillCharges(battle.units()[0]);
+
+        jf::Unit* attacked = jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(attacked == &battle.units()[0]);
+        assert(battle.units()[0].isAlive());
+        assert(battle.units()[1].currentHp < battle.units()[1].stats.maxHp); // retaliation landed
+        assert(!jf::skillSlotAvailable(battle.units()[0], 0)); // OncePerBattle, consumed by the retaliation
+    }
+
+    {
+        // Range check: the attacker must end up within the DEFENDER's own
+        // weapon range, not just the attacker's - an archer hitting from
+        // distance 2 is beyond the Spearman's melee-only range, so no
+        // retaliation happens even though the archer's own attack landed.
+        jf::Unit spearman = makeUnit("spearman", jf::Team::Player, {1, 0}, 4, jf::UnitClass::Spearman);
+        spearman.skillSlots[0].skillId = "counterthrust";
+        jf::Unit archer = makeUnit("archer", jf::Team::Enemy, {1, 2});
+        archer.weapon = {.id = "bow", .name = "Bow", .might = 5,
+                        .minRange = 1, .maxRange = 2, .damageType = jf::DamageType::Physical};
+        jf::BattleState battle({spearman, archer});
+        jf::initializeSkillCharges(battle.units()[0]);
+
+        jf::Unit* attacked = jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(attacked == &battle.units()[0]);
+        assert(battle.units()[1].currentHp == battle.units()[1].stats.maxHp); // no retaliation: out of range
+        assert(jf::skillSlotAvailable(battle.units()[0], 0)); // charge untouched
+    }
+
+    {
+        // Once per battle: after the charge is consumed by one retaliation,
+        // a second attack (even fully in range) doesn't trigger another one.
+        jf::Unit spearman = makeUnit("spearman", jf::Team::Player, {1, 1}, 4, jf::UnitClass::Spearman);
+        spearman.skillSlots[0].skillId = "counterthrust";
+        jf::Unit firstEnemy = makeUnit("firstEnemy", jf::Team::Enemy, {1, 2});
+        jf::Unit secondEnemy = makeUnit("secondEnemy", jf::Team::Enemy, {1, 0});
+        jf::BattleState battle({spearman, firstEnemy, secondEnemy});
+        jf::initializeSkillCharges(battle.units()[0]);
+
+        jf::takeEnemyTurn(battle, battle.units()[1]); // firstEnemy attacks, consumes the charge
+        assert(battle.units()[1].currentHp < battle.units()[1].stats.maxHp);
+        assert(!jf::skillSlotAvailable(battle.units()[0], 0));
+
+        jf::takeEnemyTurn(battle, battle.units()[2]); // secondEnemy attacks too, but charge is gone
+        assert(battle.units()[2].currentHp == battle.units()[2].stats.maxHp);
+    }
+
+    {
+        // docs/initial_skill_effects.md 監視弓兵`overwatch`(警戒射撃): the
+        // 17th skill - self-only, no target selection (resolves immediately
+        // like hold_formation/extended_lockdown), but arms
+        // Unit::overwatchActive rather than a BuffKind. Consumed reactively
+        // by EnemyAI.cpp's triggerOverwatch(), not by anything here.
+        jf::Unit watcher = makeUnit("watcher", jf::Team::Player, {1, 0}, 4, jf::UnitClass::WatchArcher);
+        watcher.skillSlots[0].skillId = "overwatch";
+        jf::Unit unactedAlly = makeUnit("unactedAlly", jf::Team::Player, {2, 7});
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 5});
+        jf::BattleState battle({watcher, unactedAlly, enemy});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        // Resolves immediately: no SelectSkillTarget detour for this skill.
+        assert(controller.inputState() == jf::BattleInputState::SelectUnit);
+        assert(controller.battle().findUnit("watcher")->overwatchActive);
+        assert(!jf::skillSlotAvailable(*controller.battle().findUnit("watcher"), 0)); // OncePerBattle, just used
+    }
+
+    {
+        // Overwatch ambushes an enemy already within the watcher's own
+        // weapon range going into that enemy's turn - before it gets to act
+        // at all. A high-Might weapon and 1 HP enemy make the ambush lethal
+        // so the test can cleanly show the enemy never got to attack back.
+        jf::Unit watcher = makeUnit("watcher", jf::Team::Player, {1, 0}, 4, jf::UnitClass::WatchArcher);
+        watcher.weapon = {.id = "bow", .name = "Bow", .might = 20,
+                         .minRange = 1, .maxRange = 2, .damageType = jf::DamageType::Physical};
+        watcher.overwatchActive = true;
+        jf::Unit doomedEnemy = makeUnit("doomedEnemy", jf::Team::Enemy, {1, 2}); // distance 2, already in range
+        doomedEnemy.currentHp = 1;
+        jf::Unit secondEnemy = makeUnit("secondEnemy", jf::Team::Enemy, {1, 2});
+        jf::BattleState battle({watcher, doomedEnemy, secondEnemy});
+
+        jf::Unit* attacked = jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(attacked == nullptr); // ambushed before it could act
+        assert(!battle.units()[1].isAlive());
+        assert(battle.units()[0].currentHp == battle.units()[0].stats.maxHp); // watcher was never attacked
+        assert(!battle.units()[0].overwatchActive); // consumed by firing
+
+        // Once per battle: a second enemy entering the same range afterward
+        // is not ambushed - the charge is already spent.
+        jf::takeEnemyTurn(battle, battle.units()[2]);
+        assert(battle.units()[2].isAlive());
+    }
+
+    {
+        // Overwatch also catches an enemy that starts out of range and
+        // moves into it mid-turn - the ambush fires after movement, before
+        // the enemy's own attack. The enemy's MOV is capped so it lands
+        // exactly at distance 2 (the far edge of the watcher's range)
+        // rather than closing all the way to melee range.
+        jf::Unit watcher = makeUnit("watcher", jf::Team::Player, {1, 0}, 4, jf::UnitClass::WatchArcher);
+        watcher.weapon = {.id = "bow", .name = "Bow", .might = 20,
+                         .minRange = 1, .maxRange = 2, .damageType = jf::DamageType::Physical};
+        watcher.overwatchActive = true;
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 5}, 3); // MOV 3: {1,5}->{1,2}, distance 2
+        // Above the 25% retreat threshold (docs/enemy_ai_rules.md) so this
+        // enemy still approaches normally instead of fleeing toward the
+        // exit edge - retreat behavior has its own dedicated tests below.
+        enemy.currentHp = 15;
+        jf::BattleState battle({watcher, enemy});
+
+        jf::Unit* attacked = jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(attacked == nullptr); // ambushed mid-move, before its own attack
+        assert(!battle.units()[1].isAlive());
+        assert((battle.units()[1].position == jf::GridPos{1, 2}));
+    }
+
+    {
+        // Movement.cpp's computeMovementPath() (docs/initial_skill_effects.md
+        // 辺境斥候`trailblaze`'s "仮移動で通過した"Tile tracking): reconstructs
+        // the exact tile-by-tile shortest path, excluding the origin but
+        // including the destination.
+        jf::Unit mover = makeUnit("mover", jf::Team::Player, {1, 0}, 3);
+        jf::BattleState battle({mover});
+        auto path = jf::computeMovementPath(battle, battle.units()[0], {1, 3});
+        std::vector<jf::GridPos> expected{{1, 1}, {1, 2}, {1, 3}};
+        assert(path == expected);
+        assert(jf::computeMovementPath(battle, battle.units()[0], {1, 0}).empty()); // no movement
+    }
+
+    {
+        // docs/initial_skill_effects.md 辺境斥候`trailblaze`(道拓き): the
+        // 18th and final skill - self-only, no target selection (like
+        // overwatch), but marks the Ash/Shallows tiles from the move that
+        // used it (BattleState::trailblazedTiles_, captured via
+        // computeMovementPath() before the move happens) rather than arming
+        // a Unit flag. Only Ash/Shallows tiles get marked - the Floor tile
+        // in the middle of this path does not.
+        jf::Unit scout = makeUnit("scout", jf::Team::Player, {1, 0}, 4, jf::UnitClass::FrontierScout);
+        scout.skillSlots[0].skillId = "trailblaze";
+        jf::Unit unactedAlly = makeUnit("unactedAlly", jf::Team::Player, {2, 7});
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {0, 7});
+        jf::BattleState battle({scout, unactedAlly, enemy});
+        battle.setTerrain({1, 1}, jf::TerrainType::Ash);       // scout ignores this cost personally
+        battle.setTerrain({1, 2}, jf::TerrainType::Floor);
+        battle.setTerrain({1, 3}, jf::TerrainType::Shallows);  // cost 2, not ignored by FrontierScout
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile({1, 3}); // cost 1 (Ash, ignored) + 1 (Floor) + 2 (Shallows) = 4
+        controller.chooseSkill(0);
+        // Resolves immediately: no SelectSkillTarget detour for this skill.
+        assert(controller.inputState() == jf::BattleInputState::SelectUnit);
+        assert(controller.battle().isTrailblazed(jf::GridPos{1, 1})); // Ash: marked
+        assert(controller.battle().isTrailblazed(jf::GridPos{1, 3})); // Shallows: marked
+        assert(!controller.battle().isTrailblazed(jf::GridPos{1, 2})); // Floor: not marked
+        assert(!jf::skillSlotAvailable(*controller.battle().findUnit("scout"), 0)); // CD2, just used
+    }
+
+    {
+        // The trailblazed-cost override actually changes ally pathfinding:
+        // an Ash tile normally costs 2, but once trailblazed it costs 1,
+        // making a tile 1 further away newly reachable within the same MOV.
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {1, 0}, 2);
+        jf::BattleState battle({ally});
+        battle.setTerrain({1, 1}, jf::TerrainType::Ash);
+        assert(contains(jf::computeReachableTiles(battle, battle.units()[0]), jf::GridPos{1, 1}));
+        assert(!contains(jf::computeReachableTiles(battle, battle.units()[0]), jf::GridPos{1, 2}));
+
+        battle.markTrailblazed({1, 1});
+        assert(contains(jf::computeReachableTiles(battle, battle.units()[0]), jf::GridPos{1, 2}));
+    }
+
+    {
+        // Trailblazed tiles only last "このPlayer Phase中だけ" - cleared once
+        // every living Player unit has acted and the Player Phase ends.
+        jf::Unit scout = makeUnit("scout", jf::Team::Player, {1, 0}, 4, jf::UnitClass::FrontierScout);
+        scout.skillSlots[0].skillId = "trailblaze";
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {2, 0});
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {0, 7});
+        jf::BattleState battle({scout, ally, enemy});
+        battle.setTerrain({1, 1}, jf::TerrainType::Ash);
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile({1, 1});
+        controller.chooseSkill(0);
+        assert(controller.battle().isTrailblazed(jf::GridPos{1, 1}));
+
+        controller.selectUnit(*controller.battle().findUnit("ally"));
+        controller.selectMoveTile(controller.battle().findUnit("ally")->position);
+        controller.chooseWait(); // last living Player unit to act -> Player Phase ends
+        assert(!controller.battle().isTrailblazed(jf::GridPos{1, 1}));
     }
 
     {
@@ -2600,11 +3049,36 @@ int main() {
         boar.currentHp = 28; // exactly 50%
         jf::Unit farAlly = makeUnit("far", jf::Team::Player, {0, 0});
         jf::BattleState battle({farAlly, boar});
+        const std::size_t eventsBefore = battle.missionState().consumedEventIds.size();
         jf::takeEnemyTurn(battle, battle.units()[1]);
         assert(battle.units()[1].bossEnraged);
         assert(battle.units()[1].stats.strength > 9);
         assert(battle.units()[1].chargeTelegraphed);
         assert(battle.units()[1].position.row == 0);
+        // docs/boss_common_rules.md "Phase移行": enrage fires exactly one
+        // BossStageChangedEvent (in addition to whatever ActionResolvedEvent
+        // this same turn's telegraph/move already consumes).
+        assert(battle.missionState().consumedEventIds.size() > eventsBefore);
+    }
+
+    {
+        // docs/boss_common_rules.md "Bossの退場理由": a defeated
+        // AshenhornBoar gets UnitExitReason::ScriptedWithdrawal ("撃破相当"),
+        // every other unit gets the plain Defeated case - both set exactly
+        // once, the moment HP first reaches 0, by emitUnitDefeatedEvents().
+        jf::Unit attacker = makeUnit("attacker", jf::Team::Player, {1, 0});
+        jf::Unit boar = makeUnit("boar", jf::Team::Enemy, {1, 1}, 2, jf::UnitClass::AshenhornBoar);
+        boar.currentHp = 1;
+        jf::Unit plainEnemy = makeUnit("plainEnemy", jf::Team::Enemy, {2, 0});
+        plainEnemy.currentHp = 1;
+        jf::BattleState battle({attacker, boar, plainEnemy});
+        assert(battle.units()[1].exitReason == jf::UnitExitReason::Defeated); // default, still alive
+        const jf::AliveSnapshot before = jf::captureAliveSnapshot(battle);
+        battle.units()[1].currentHp = 0;
+        battle.units()[2].currentHp = 0;
+        jf::emitUnitDefeatedEvents(battle, before);
+        assert(battle.units()[1].exitReason == jf::UnitExitReason::ScriptedWithdrawal);
+        assert(battle.units()[2].exitReason == jf::UnitExitReason::Defeated);
     }
 
     {
@@ -3859,6 +4333,484 @@ int main() {
         device.state = jf::BattleObjectStateKind::Active;
         assert(!jf::resolveObjectInteraction(engineer, device, interaction, jf::BattleObjectStateKind::Opened));
         assert(device.interactionCount == 1);
+    }
+
+    {
+        // M4 item 4: every generic on-hit status uses the same weapon
+        // resolver path. Shallows clears burn before its action-end tick.
+        jf::Unit attacker = makeUnit("status_attacker", jf::Team::Player, {1, 0});
+        jf::Unit target = makeUnit("status_target", jf::Team::Enemy, {1, 1});
+        attacker.weapon.onHitStatuses = {jf::StatusEffectType::Poison, jf::StatusEffectType::Burn,
+                                         jf::StatusEffectType::MoveDown, jf::StatusEffectType::DefenseDown,
+                                         jf::StatusEffectType::Stagger};
+        jf::resolveAttack(attacker, target, 0, true);
+        assert(target.poisonRemainingProcs > 0 && target.burnRemainingProcs > 0);
+        assert(target.moveDownActive && target.defenseDownActive && target.staggerActive);
+        jf::BattleState battle({target});
+        battle.setTerrain({1, 1}, jf::TerrainType::Shallows);
+        battle.units()[0].position = {1, 1};
+        jf::processActionEndStatusEffects(battle, battle.units()[0]);
+        assert(battle.units()[0].burnRemainingProcs == 0);
+    }
+
+    {
+        // M4 items 6/7: same state gives the same candidate, and squad
+        // reservations steer the next attacker away from overkill.
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 4});
+        jf::Unit a = makeUnit("a", jf::Team::Player, {0, 1});
+        jf::Unit b = makeUnit("b", jf::Team::Player, {2, 1});
+        a.currentHp = b.currentHp = 1;
+        jf::BattleState battle({a, b, enemy});
+        jf::AiSquadReservations none;
+        auto first = jf::chooseBestAiCandidate(
+            jf::generateAiCandidates(battle, battle.units()[2], jf::profileFor(battle.units()[2]), none));
+        auto repeated = jf::chooseBestAiCandidate(
+            jf::generateAiCandidates(battle, battle.units()[2], jf::profileFor(battle.units()[2]), none));
+        assert(first.targetUnitId == repeated.targetUnitId && first.destination == repeated.destination);
+        jf::AiSquadReservations reserved;
+        reserved.reservedDamage[first.targetUnitId] = 999;
+        auto next = jf::chooseBestAiCandidate(
+            jf::generateAiCandidates(battle, battle.units()[2], jf::profileFor(battle.units()[2]), reserved));
+        assert(next.targetUnitId != first.targetUnitId);
+        assert(jf::profileFor(makeUnit("wolf", jf::Team::Enemy, {0, 0}, 4,
+                                      jf::UnitClass::Wolf)).id == jf::AiProfileId::Wolf);
+        assert(jf::profileFor(makeUnit("guard", jf::Team::Enemy, {0, 0}, 4,
+                                      jf::UnitClass::VeteranGuard)).id == jf::AiProfileId::Defender);
+        assert(jf::profileFor(makeUnit("archer", jf::Team::Enemy, {0, 0}, 4,
+                                      jf::UnitClass::WatchArcher)).id == jf::AiProfileId::Ranged);
+        assert(jf::profileFor(makeUnit("medic", jf::Team::Enemy, {0, 0}, 4,
+                                      jf::UnitClass::DawnChirurgeon)).id == jf::AiProfileId::Support);
+        // docs/enemy_ai_rules.md "Faction差分" 野盗: 低HP優先を他Profileより
+        // 強め、深追いしない(pursuitLimitを短く)。Loot Container/離脱経路の
+        // 評価はObject/Exit認識が無いため保留。
+        const jf::AiProfile banditProfile =
+            jf::profileFor(makeUnit("bandit", jf::Team::Enemy, {0, 0}, 4, jf::UnitClass::Bandit));
+        assert(banditProfile.id == jf::AiProfileId::Bandit);
+        assert(banditProfile.lowHpWeight > jf::profileFor(makeUnit("human", jf::Team::Enemy, {0, 0})).lowHpWeight);
+        assert(banditProfile.pursuitLimit < jf::profileFor(makeUnit("human", jf::Team::Enemy, {0, 0})).pursuitLimit);
+    }
+
+    {
+        // docs/enemy_ai_rules.md "撤退と降伏": a Human-profile enemy at or
+        // below 25% HP, with no attack available at all (player far out of
+        // weapon range) and the exit edge (col kGridCols-1) reachable,
+        // retreats instead of merely closing distance. isAlive() stays true
+        // (HP untouched) but isPresent() becomes false and exitReason is set.
+        jf::Unit farPlayer = makeUnit("farPlayer", jf::Team::Player, {0, 0});
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 5}, 3); // reaches col 7 (distance 2)
+        enemy.currentHp = 4; // 20% of 20 maxHp, below the 25% threshold
+        jf::BattleState battle({farPlayer, enemy});
+
+        jf::Unit* attacked = jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(attacked == nullptr);
+        jf::Unit* retreated = battle.findUnit("enemy");
+        assert(retreated->hasExited);
+        assert(retreated->exitReason == jf::UnitExitReason::Retreated);
+        assert(retreated->isAlive());     // HP untouched
+        assert(!retreated->isPresent());  // but no longer a threat/target
+        assert(retreated->position.col == jf::kGridCols - 1);
+        assert(!battle.unitAt(retreated->position));                    // no longer occupies its tile
+        assert(jf::computeTargetableTiles(battle.units(), farPlayer, farPlayer.position).empty());
+    }
+
+    {
+        // Same low-HP scenario, but the exit edge is unreachable this turn
+        // (MOV too low) - no Retreat candidate exists at all, so the enemy
+        // falls back to ordinary move-toward-target behavior instead.
+        jf::Unit farPlayer = makeUnit("farPlayer", jf::Team::Player, {1, 0});
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 5}, 1); // MOV 1: col 7 unreachable
+        enemy.currentHp = 4;
+        jf::BattleState battle({farPlayer, enemy});
+
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(!battle.findUnit("enemy")->hasExited);
+    }
+
+    {
+        // Retreat never overrides a guaranteed kill this action - a lethal
+        // Attack candidate's defeatBonus always outscores a Retreat
+        // candidate, even for a critically wounded enemy with an open exit.
+        jf::Unit victim = makeUnit("victim", jf::Team::Player, {1, 4});
+        victim.currentHp = 1;
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 5}, 3);
+        enemy.currentHp = 4;
+        jf::BattleState battle({victim, enemy});
+
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(!battle.findUnit("enemy")->hasExited);
+        assert(!battle.findUnit("victim")->isAlive()); // finished off instead of retreating
+    }
+
+    {
+        // docs/enemy_ai_rules.md: a retreated enemy still counts as
+        // "eliminated" for EliminateTeam (it's no longer a threat), and
+        // isTeamDone()/the Enemy Phase loop must not get stuck on it once a
+        // later beginEnemyPhase() resets hasActed - regression for a bug
+        // found while implementing this: nextUnactedEnemy()/isTeamDone()
+        // originally checked isAlive() instead of isPresent(), so a
+        // retreated (still-alive) unit would be treated as "hasn't acted
+        // yet" forever from the next Enemy Phase onward, since nothing ever
+        // marks it acted again.
+        jf::Unit player = makeUnit("player", jf::Team::Player, {0, 0});
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 5}, 3);
+        enemy.currentHp = 4;
+        jf::BattleState battle({player, enemy});
+
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(battle.findUnit("enemy")->hasExited);
+        assert(battle.isTeamDone(jf::Team::Enemy));
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+
+        battle.beginEnemyPhase(); // resets hasActed for the whole Enemy team
+        assert(!battle.findUnit("enemy")->hasActed);       // reset, as normal
+        assert(battle.isTeamDone(jf::Team::Enemy));         // still done: isPresent() skips it
+    }
+
+    {
+        // M4 item 5: mandatory scheduled waves stop early victory, announce
+        // once, spawn acted, and become normal enemies on the next phase.
+        jf::Unit player = makeUnit("player", jf::Team::Player, {1, 0});
+        jf::BattleState battle({player});
+        jf::ReinforcementWave wave;
+        wave.id = "wave_1";
+        wave.spawnRound = 2;
+        wave.spawnPhase = jf::Phase::EnemyPhase;
+        wave.units = {{makeUnit("reinforcement", jf::Team::Enemy, {0, 0})}};
+        wave.orderedSpawnCandidates = {{1, 7}, {0, 7}};
+        assert(battle.addReinforcementWave(wave));
+        assert(battle.hasPendingRequiredEnemyReinforcements());
+        assert(!battle.allEnemiesDefeated());
+        assert(battle.reinforcementWaves()[0].state == jf::ReinforcementState::Announced);
+        battle.beginEnemyPhase();
+        assert(battle.reinforcementWaves()[0].state == jf::ReinforcementState::Announced);
+        battle.beginPlayerPhase();
+        battle.beginEnemyPhase();
+        assert(battle.reinforcementWaves()[0].state == jf::ReinforcementState::Spawned);
+        const jf::Unit* spawned = battle.findUnit("reinforcement");
+        assert(spawned && spawned->position == (jf::GridPos{1, 7}) && spawned->hasActed);
+        assert(!battle.hasPendingRequiredEnemyReinforcements());
+    }
+
+    {
+        // Every candidate blocked means Prevented, never delayed or moved to
+        // an undeclared entrance; the mandatory-wave victory lock releases.
+        jf::Unit player = makeUnit("player", jf::Team::Player, {1, 0});
+        jf::Unit blocker = makeUnit("blocker", jf::Team::Player, {1, 7});
+        jf::BattleState battle({player, blocker});
+        jf::ReinforcementWave wave;
+        wave.id = "blocked_wave";
+        wave.spawnRound = 2;
+        wave.spawnPhase = jf::Phase::EnemyPhase;
+        wave.units = {{makeUnit("never_spawned", jf::Team::Enemy, {0, 0})}};
+        wave.orderedSpawnCandidates = {{1, 7}};
+        assert(battle.addReinforcementWave(wave));
+        battle.beginEnemyPhase();
+        battle.beginPlayerPhase();
+        battle.beginEnemyPhase();
+        assert(battle.reinforcementWaves()[0].state == jf::ReinforcementState::Prevented);
+        assert(!battle.findUnit("never_spawned"));
+        assert(!battle.hasPendingRequiredEnemyReinforcements());
+    }
+
+    {
+        // The first live content connection: Herbwater Hollow's harvest
+        // choice deterministically installs the round-2 wolf wave, while
+        // the safe pass route does not.
+        jf::GameData data = makeFactoryData();
+        jf::RegionDescriptor region = jf::regionDescriptor(jf::RegionId::AshboughForest, data);
+        auto stage = std::find_if(region.stages.begin(), region.stages.end(), [](const jf::StageDescriptor& value) {
+            return value.id == "herbwater_hollow";
+        });
+        assert(stage != region.stages.end());
+        jf::ExplorationOutcome harvest = jf::stageRouteOutcome(*stage, jf::ExplorationChoice::CollapsedSidePath);
+        jf::BattleState withWave = jf::createScenarioBattle(data, *stage, 42, harvest);
+        assert(withWave.reinforcementWaves().size() == 1);
+        assert(withWave.reinforcementWaves()[0].id == "herbwater_harvest_wolf");
+        jf::BattleState withoutWave = jf::createScenarioBattle(
+            data, *stage, 42, jf::stageRouteOutcome(*stage, jf::ExplorationChoice::FrontalAdvance));
+        assert(withoutWave.reinforcementWaves().empty());
+    }
+
+    {
+        // docs/inventory_overflow.md「上限」/「帰還処理」: a material's
+        // overflow past the 999 cap goes to RewardOverflowState rather than
+        // being silently dropped, and the in-cap portion still lands in
+        // storage normally.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(startCinderwatchExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(app.screen() == jf::Screen::Camp);
+
+        jf::BaseState& base = const_cast<jf::BaseState&>(app.baseState());
+        base.storage.push_back({"wood", 998});
+        app.expedition().pendingLoot = {{"wood", 5}};
+        assert(app.returnToBase());
+        assert(app.baseState().storageCount("wood") == 999);
+        assert(app.rewardOverflow().stacks.size() == 1);
+        assert(app.rewardOverflow().stacks[0].itemId == "wood");
+        assert(app.rewardOverflow().stacks[0].quantity == 4);
+    }
+
+    {
+        // Unused bag items must not disappear when an imported/older save has
+        // already filled that item's storage to the current 99-item cap.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(startCinderwatchExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+
+        jf::BaseState& base = const_cast<jf::BaseState&>(app.baseState());
+        base.itemStorage[jf::ItemType::FirstAidKit] = jf::BaseState::kItemStorageCap;
+        app.expedition().bag.push_back(jf::ItemType::FirstAidKit);
+        assert(app.returnToBase());
+        assert(app.baseState().ownedItemCount(jf::ItemType::FirstAidKit) == jf::BaseState::kItemStorageCap);
+        assert(app.rewardOverflow().stacks.size() == 1);
+        assert(app.rewardOverflow().stacks[0].itemId ==
+               "item:" + std::to_string(static_cast<int>(jf::ItemType::FirstAidKit)));
+        assert(app.rewardOverflow().stacks[0].quantity == 1);
+    }
+
+    {
+        // Crafting at the 99-item cap is rejected before any ingredients are
+        // consumed, preserving the all-or-nothing crafting contract.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        jf::BaseState& base = const_cast<jf::BaseState&>(app.baseState());
+        base.itemStorage[jf::ItemType::FieldTreatmentKit] = jf::BaseState::kItemStorageCap;
+        for (const jf::ItemCraftCost& line : jf::itemCraftCost(jf::ItemType::FieldTreatmentKit))
+            base.addStorage(line.materialId, line.quantity);
+        const auto cost = jf::itemCraftCost(jf::ItemType::FieldTreatmentKit);
+        assert(!app.craftItem(jf::ItemType::FieldTreatmentKit));
+        assert(app.baseState().ownedItemCount(jf::ItemType::FieldTreatmentKit) == jf::BaseState::kItemStorageCap);
+        for (const jf::ItemCraftCost& line : cost)
+            assert(app.baseState().storageCount(line.materialId) == line.quantity);
+    }
+
+    {
+        // Region key materials never enter the overflow pool - excess beyond
+        // the 1-cap is silently deduplicated (docs/inventory_overflow.md
+        // 「保留中のキー素材...は存在させない。これらは重複除去して直接恒久化する」).
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(startCinderwatchExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.expedition().pendingLoot = {{jf::kAshveilFangMaterial, 3}};
+        assert(app.returnToBase());
+        assert(app.baseState().storageCount(jf::kAshveilFangMaterial) == 1);
+        assert(app.rewardOverflow().stacks.empty());
+    }
+
+    {
+        // 200-Stack ceiling: a return that would push the overflow pool past
+        // the cap must not commit anything (storage, overflow, pending all
+        // unchanged), and returnToBase() reports failure so the caller can
+        // route to the warehouse cleanup screen.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(startCinderwatchExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+
+        jf::BaseState& base = const_cast<jf::BaseState&>(app.baseState());
+        for (int i = 0; i < 200; ++i) {
+            base.rewardOverflow.stacks.push_back({"prior-grant", "material_" + std::to_string(i), 1});
+        }
+        base.storage.push_back({"wood", 998});
+        app.expedition().pendingLoot = {{"wood", 5}};
+        const std::size_t stacksBefore = app.rewardOverflow().stacks.size();
+        const int woodBefore = app.baseState().storageCount("wood");
+        assert(!app.returnToBase());
+        assert(app.screen() == jf::Screen::Camp); // unchanged - no resetToBase() happened
+        assert(app.rewardOverflow().stacks.size() == stacksBefore);
+        assert(app.baseState().storageCount("wood") == woodBefore);
+        assert(!app.expedition().pendingLoot.empty()); // Pending preserved, not discarded
+    }
+
+    {
+        // Discard: Cancel (never invoked) leaves quantities untouched; a
+        // successful discard removes exactly the requested amount, and
+        // discarding a key material is refused outright.
+        jf::BaseState base;
+        base.addStorage("hide", 5);
+        assert(!base.consumeStorage("nonexistent", 1));
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        jf::BaseState& liveBase = const_cast<jf::BaseState&>(app.baseState());
+        liveBase.addStorage("hide", 5);
+        liveBase.addStorage(jf::kAshveilFangMaterial, 1);
+        assert(!app.discardStorage(jf::kAshveilFangMaterial, 1)); // key material: refused
+        assert(app.baseState().storageCount(jf::kAshveilFangMaterial) == 1);
+        assert(!app.discardStorage("hide", 99)); // more than owned: refused, nothing changes
+        assert(app.baseState().storageCount("hide") == 5);
+        assert(app.discardStorage("hide", 2));
+        assert(app.baseState().storageCount("hide") == 3);
+
+        liveBase.rewardOverflow.stacks.push_back({"g1", "wood", 4});
+        assert(!app.discardOverflowStack(0, 10)); // more than the stack holds
+        assert(app.rewardOverflow().stacks.size() == 1);
+        assert(app.discardOverflowStack(0, 4));
+        assert(app.rewardOverflow().stacks.empty());
+    }
+
+    {
+        // Same-screen re-invocation of returnToBase() (e.g. a double click on
+        // "Return to Base" before the screen changes) must not double-grant -
+        // the existing `screen_ != Screen::Camp` guard (same pattern that
+        // fixed a prior proceedToCamp() double-grant bug) makes the second
+        // call a no-op.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(startCinderwatchExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.expedition().pendingLoot = {{"wood", 3}};
+        assert(app.returnToBase());
+        assert(app.screen() == jf::Screen::Base);
+        assert(app.baseState().storageCount("wood") == 3);
+        assert(!app.returnToBase()); // screen_ is now Base, not Camp - guarded no-op
+        assert(app.baseState().storageCount("wood") == 3); // unchanged, not doubled
+    }
+
+    {
+        // docs/save_system.md「Schema移行」: a v1-shaped save (missing every
+        // v2-only field: itemStorage, rewardOverflow, unit-level equipment
+        // maps) must migrate to schemaVersion 2 with safe defaults, not fail
+        // to parse or silently stay at version 1.
+        const std::string v1Json = R"({
+            "schemaVersion": 1,
+            "gameVersion": "0.0.1",
+            "base": {
+                "storage": [{"id": "wood", "quantity": 3}],
+                "discoveries": [],
+                "outpostStage": 0,
+                "unlockedNodes": [],
+                "builtNodes": [],
+                "siteAccess": {},
+                "completedRegions": []
+            },
+            "selectedPartyIds": [],
+            "settings": {"language": "en"},
+            "expedition": null
+        })";
+        std::string parseError;
+        auto parsed = jf::deserializeSave(v1Json, &parseError);
+        assert(parsed);
+        assert(parsed->schemaVersion == 1);
+        assert(parsed->base.itemStorage.empty());          // v2-only field: safe default
+        assert(parsed->base.rewardOverflow.stacks.empty()); // v2-only field: safe default
+        assert(parsed->base.storageCount("wood") == 3);     // pre-existing v1 data preserved
+
+        jf::SaveData migrated = jf::migrateSave(*parsed);
+        assert(migrated.schemaVersion == jf::kCurrentSaveSchemaVersion);
+        assert(migrated.base.storageCount("wood") == 3);
+        assert(migrated.base.itemStorage.empty());
+    }
+
+    {
+        // SaveStore::load() applies the migration+backup automatically: an
+        // on-disk v1 file gets backed up to ".schema-v1.bak" and the loaded
+        // SaveData comes back already at the current schema version.
+        const std::filesystem::path tempPath =
+            std::filesystem::temp_directory_path() / "jf_migration_test_save.json";
+        std::filesystem::remove(tempPath);
+        std::filesystem::remove(std::filesystem::path(tempPath.string() + ".schema-v1.bak"));
+        {
+            std::ofstream file(tempPath, std::ios::trunc);
+            file << R"({
+                "schemaVersion": 1,
+                "gameVersion": "0.0.1",
+                "base": {"storage": [], "discoveries": [], "outpostStage": 0, "unlockedNodes": [],
+                         "builtNodes": [], "siteAccess": {}, "completedRegions": []},
+                "selectedPartyIds": [],
+                "settings": {"language": "en"},
+                "expedition": null
+            })";
+        }
+        jf::SaveStore store(tempPath.string());
+        auto loaded = store.load();
+        assert(loaded);
+        assert(loaded->schemaVersion == jf::kCurrentSaveSchemaVersion);
+        assert(std::filesystem::exists(tempPath.string() + ".schema-v1.bak"));
+        std::filesystem::remove(tempPath);
+        std::filesystem::remove(std::filesystem::path(tempPath.string() + ".schema-v1.bak"));
+    }
+
+    {
+        // docs/save_system.md「破損復旧画面」"Restore Backup": when the
+        // primary is corrupt but a ".schema-vN.bak" written by an earlier
+        // migration is still valid, restoreFromBackup() recovers it and
+        // writes it back as the new primary.
+        const std::filesystem::path tempPath =
+            std::filesystem::temp_directory_path() / "jf_restore_test_save.json";
+        const std::filesystem::path schemaBak(tempPath.string() + ".schema-v1.bak");
+        std::filesystem::remove(tempPath);
+        std::filesystem::remove(schemaBak);
+        std::filesystem::remove(std::filesystem::path(tempPath.string() + ".bak"));
+
+        {
+            std::ofstream corrupt(tempPath, std::ios::trunc);
+            corrupt << "{ not valid json";
+        }
+        {
+            std::ofstream backup(schemaBak, std::ios::trunc);
+            backup << R"({
+                "schemaVersion": 1,
+                "gameVersion": "0.0.1",
+                "base": {"storage": [{"id": "hide", "quantity": 7}], "discoveries": [], "outpostStage": 0,
+                         "unlockedNodes": [], "builtNodes": [], "siteAccess": {}, "completedRegions": []},
+                "selectedPartyIds": [],
+                "settings": {"language": "en"},
+                "expedition": null
+            })";
+        }
+        jf::SaveStore store(tempPath.string());
+        assert(!store.load()); // primary corrupt, no ".bak" - nothing load() itself can use
+        assert(store.restoreFromBackup());
+        auto recovered = store.load();
+        assert(recovered);
+        assert(recovered->schemaVersion == jf::kCurrentSaveSchemaVersion);
+        assert(recovered->base.storageCount("hide") == 7);
+
+        std::filesystem::remove(tempPath);
+        std::filesystem::remove(schemaBak);
+        std::filesystem::remove(std::filesystem::path(tempPath.string() + ".bak"));
+    }
+
+    {
+        // docs/save_system.md「破損復旧画面」"Start New": quarantining moves
+        // the corrupt primary aside (never deletes it) so a fresh save can
+        // be written without colliding, and is a no-op when nothing exists.
+        const std::filesystem::path tempPath =
+            std::filesystem::temp_directory_path() / "jf_quarantine_test_save.json";
+        std::filesystem::remove(tempPath);
+        jf::SaveStore store(tempPath.string());
+        assert(store.quarantineCorruptSave()); // no file yet: no-op success
+
+        {
+            std::ofstream corrupt(tempPath, std::ios::trunc);
+            corrupt << "{ not valid json";
+        }
+        assert(store.quarantineCorruptSave());
+        assert(!std::filesystem::exists(tempPath)); // moved aside, not left in place
+        bool foundQuarantined = false;
+        for (const auto& entry : std::filesystem::directory_iterator(tempPath.parent_path())) {
+            const std::string name = entry.path().filename().string();
+            if (name.rfind(tempPath.filename().string() + ".corrupt-", 0) == 0) {
+                foundQuarantined = true;
+                std::filesystem::remove(entry.path());
+            }
+        }
+        assert(foundQuarantined);
     }
 
     std::cout << "Battle tests PASSED\n";

@@ -140,6 +140,15 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
         if (w.contains("moveModifier")) weapon.moveModifier = w.at("moveModifier").get<int>();
         if (w.contains("braceBoost")) weapon.braceBoost = w.at("braceBoost").get<bool>();
         if (w.contains("causesKnockback")) weapon.causesKnockback = w.at("causesKnockback").get<bool>();
+        if (w.contains("onHitStatuses")) {
+            for (const std::string& status : w.at("onHitStatuses").get<std::vector<std::string>>()) {
+                if (status == "poison") weapon.onHitStatuses.push_back(StatusEffectType::Poison);
+                else if (status == "burn") weapon.onHitStatuses.push_back(StatusEffectType::Burn);
+                else if (status == "move_down") weapon.onHitStatuses.push_back(StatusEffectType::MoveDown);
+                else if (status == "defense_down") weapon.onHitStatuses.push_back(StatusEffectType::DefenseDown);
+                else if (status == "stagger") weapon.onHitStatuses.push_back(StatusEffectType::Stagger);
+            }
+        }
         data.weaponsById[weapon.id] = weapon;
     }
 

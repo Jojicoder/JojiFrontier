@@ -1,5 +1,6 @@
 #include "jf/battle/Movement.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <queue>
@@ -16,14 +17,17 @@ int tileKey(GridPos pos) { return pos.row * kGridCols + pos.col; }
 const Unit* unitAtTile(const std::vector<Unit>& units, GridPos pos, const Unit* ignore) {
     for (const auto& u : units) {
         if (&u == ignore) continue;
-        if (u.isAlive() && u.position == pos) return &u;
+        // isPresent() (not isAlive()): a retreated unit (docs/
+        // enemy_ai_rules.md) no longer occupies its tile - it left the
+        // field, even though isAlive() stays true (HP unaffected).
+        if (u.isPresent() && u.position == pos) return &u;
     }
     return nullptr;
 }
 
 bool isStoppedByZoneOfControl(const std::vector<Unit>& units, const Unit& mover, GridPos pos) {
     for (const Unit& unit : units) {
-        if (!unit.isAlive() || unit.team == mover.team || !hasZoneOfControl(unit.unitClass)) continue;
+        if (!unit.isPresent() || unit.team == mover.team || !hasZoneOfControl(unit.unitClass)) continue;
         // 古参守備兵`extended_lockdown` (docs/initial_skill_effects.md):
         // extends this unit's own ZoC from range 1 to range 2.
         const int range = unit.zocRangeExtended ? 2 : 1;
@@ -39,8 +43,11 @@ namespace {
 std::vector<GridPos> computeReachableTilesImpl(const std::vector<Unit>& units, const Unit& mover,
                                                 const std::function<TerrainType(GridPos)>& terrainAt,
                                                 const std::function<bool(GridPos)>& blocksMovementAt = {},
-                                                const std::function<bool(GridPos)>& blocksStoppingAt = {}) {
+                                                const std::function<bool(GridPos)>& blocksStoppingAt = {},
+                                                const std::function<bool(GridPos)>& costOverrideAt = {},
+                                                std::unordered_map<int, int>* parentOut = nullptr) {
     std::unordered_map<int, int> bestCost;
+    std::unordered_map<int, int> parent;
     using Node = std::pair<int, GridPos>;
     auto greaterCost = [](const Node& a, const Node& b) { return a.first > b.first; };
     std::priority_queue<Node, std::vector<Node>, decltype(greaterCost)> frontier(greaterCost);
@@ -76,7 +83,11 @@ std::vector<GridPos> computeReachableTilesImpl(const std::vector<Unit>& units, c
             // here as an additional expansion rule, not an occupancy rule.
             if (occupant && occupant->team != mover.team) continue;
 
-            int stepCost = ignoresAshPenalty(mover.unitClass) && terrain == TerrainType::Ash
+            // 辺境斥候`trailblaze`(道拓き): Ash/Shallows tiles the caster
+            // passed through this Player Phase cost every ally 1 to cross,
+            // regardless of the tile's normal cost or the mover's own class.
+            int stepCost = (costOverrideAt && costOverrideAt(next)) ||
+                                   (ignoresAshPenalty(mover.unitClass) && terrain == TerrainType::Ash)
                                ? 1
                                : movementCost(terrain);
             int nextCost = currentCost + stepCost;
@@ -85,9 +96,12 @@ std::vector<GridPos> computeReachableTilesImpl(const std::vector<Unit>& units, c
             if (it != bestCost.end() && it->second <= nextCost) continue;
 
             bestCost[tileKey(next)] = nextCost;
+            parent[tileKey(next)] = tileKey(current);
             frontier.push({nextCost, next});
         }
     }
+
+    if (parentOut) *parentOut = std::move(parent);
 
     std::vector<GridPos> reachable;
     reachable.reserve(bestCost.size());
@@ -113,7 +127,42 @@ std::vector<GridPos> computeReachableTiles(const BattleState& battle, const Unit
     return computeReachableTilesImpl(
         battle.units(), mover, [&](GridPos pos) { return battle.terrainAt(pos); },
         [&](GridPos pos) { return battle.objectBlocksMovementAt(pos); },
-        [&](GridPos pos) { return battle.objectBlocksStoppingAt(pos); });
+        [&](GridPos pos) { return battle.objectBlocksStoppingAt(pos); },
+        [&](GridPos pos) { return battle.isTrailblazed(pos); });
+}
+
+// 辺境斥候`trailblaze`(道拓き) (docs/initial_skill_effects.md "仮移動で通過し
+// た灰地・浅瀬"): reconstructs the exact tile-by-tile shortest path `mover`
+// takes to `destination`, using the same parent-tracking Dijkstra as
+// computeReachableTilesImpl() above (identical terrain/occupancy/Battle
+// Object/ZoC rules - the two must always agree on what's reachable).
+// Returns tiles strictly between the origin and destination, inclusive of
+// destination but excluding the origin itself (you don't "pass through"
+// your own starting tile) - empty if destination equals the origin, or if
+// it isn't actually reachable (shouldn't happen for a tile the caller
+// already validated via computeReachableTiles()).
+std::vector<GridPos> computeMovementPath(const BattleState& battle, const Unit& mover, GridPos destination) {
+    std::vector<GridPos> path;
+    const int originKey = tileKey(mover.position);
+    const int destKey = tileKey(destination);
+    if (destKey == originKey) return path;
+
+    std::unordered_map<int, int> parent;
+    computeReachableTilesImpl(
+        battle.units(), mover, [&](GridPos pos) { return battle.terrainAt(pos); },
+        [&](GridPos pos) { return battle.objectBlocksMovementAt(pos); },
+        [&](GridPos pos) { return battle.objectBlocksStoppingAt(pos); },
+        [&](GridPos pos) { return battle.isTrailblazed(pos); }, &parent);
+
+    int key = destKey;
+    while (key != originKey) {
+        path.push_back(GridPos{key / kGridCols, key % kGridCols});
+        auto it = parent.find(key);
+        if (it == parent.end()) return {}; // not actually reachable
+        key = it->second;
+    }
+    std::reverse(path.begin(), path.end());
+    return path;
 }
 
 std::vector<GridPos> computeTargetableTiles(const std::vector<Unit>& units,
@@ -121,7 +170,9 @@ std::vector<GridPos> computeTargetableTiles(const std::vector<Unit>& units,
                                              GridPos origin) {
     std::vector<GridPos> targets;
     for (const auto& u : units) {
-        if (!u.isAlive() || u.team == attacker.team) continue;
+        // isPresent(): a retreated enemy (docs/enemy_ai_rules.md) is no
+        // longer a valid attack target even though isAlive() stays true.
+        if (!u.isPresent() || u.team == attacker.team) continue;
         int dist = manhattanDistance(origin, u.position);
         if (dist >= attacker.minimumAttackRange() && dist <= attacker.weapon.maxRange) {
             targets.push_back(u.position);

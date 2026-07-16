@@ -29,8 +29,9 @@ struct FacilityNode {
     std::vector<LootStack> materialCosts;
     std::vector<std::string> prerequisiteNodeIds;
     // True only for the 4 optional stage-1 facilities (docs: "救護テント、訓練場、
-    // 工作台、簡易鍛冶台から選んで建設する") that occupy a limited facility slot
-    // and can be built/dismantled. Branch research nodes never occupy a slot.
+    // 工作台、簡易鍛冶台から選んで建設する") - once built, permanently usable
+    // (docs/base_development.md: "解体、素材返却、再建費は採用しない"). Branch
+    // research nodes are never a facility themselves.
     bool occupiesFacilitySlot = false;
     // One-line, player-facing summary of what unlocking this node actually
     // does - shown in the Facilities screen's hover tooltip alongside the
@@ -186,8 +187,11 @@ inline const FacilityNode* findFacilityNode(const std::string& id) {
 
 // Data-driven eligibility evaluation (docs/base_development.md: "解放条件はUIに
 // ハードコードせずデータから評価する"). Covers stage, discoveries, material
-// stock, prerequisites (a branch's prerequisite facility must be actively
-// built, not merely historically unlocked), and remaining facility slots.
+// stock, and prerequisites (a branch's prerequisite facility must be actively
+// built, not merely historically unlocked). No facility-slot cap - any number
+// of the 4 optional facilities can be built in parallel once each affords its
+// own materials (docs/base_development.md: "素材が足りれば4施設すべてを順次
+// 建設できる").
 inline bool facilityNodeEligible(const BaseState& base, const FacilityNode& node) {
     if (base.unlockedNodeIds.count(node.id)) return false;
     if (static_cast<int>(base.outpostStage) < static_cast<int>(node.requiredStage)) return false;
@@ -196,16 +200,12 @@ inline bool facilityNodeEligible(const BaseState& base, const FacilityNode& node
     }
     for (const std::string& prereqId : node.prerequisiteNodeIds) {
         const FacilityNode* prereq = findFacilityNode(prereqId);
-        bool satisfied = prereq && prereq->occupiesFacilitySlot ? base.builtNodeIds.count(prereqId) > 0
+        bool satisfied = prereq && prereq->occupiesFacilitySlot ? base.constructedFacilityIds.count(prereqId) > 0
                                                                  : base.unlockedNodeIds.count(prereqId) > 0;
         if (!satisfied) return false;
     }
     for (const LootStack& cost : node.materialCosts) {
         if (base.storageCount(cost.id) < cost.quantity) return false;
-    }
-    if (node.occupiesFacilitySlot &&
-        static_cast<int>(base.builtNodeIds.size()) >= facilitySlotCapacity(base.outpostStage)) {
-        return false;
     }
     return true;
 }

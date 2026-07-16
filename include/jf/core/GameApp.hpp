@@ -108,16 +108,11 @@ public:
     bool advanceOutpostStage();
 
     // Facility nodes (docs/base_development.md). Only usable from the Base
-    // screen; all three validate via facilityNodeEligible()/current build
-    // state and consume/refund materials from baseState_.storage.
+    // screen; validates via facilityNodeEligible() and consumes materials
+    // from baseState_.storage. Once unlocked (and, for the 4 optional
+    // facilities, built), a node is never dismantled or re-buildable -
+    // docs/base_development.md: "解体、素材返却、再建費は採用しない".
     bool unlockFacilityNode(const std::string& nodeId);
-    // Only for occupiesFacilitySlot nodes currently built: frees the slot
-    // and refunds 50% of its material cost (floored), but keeps the node's
-    // unlock record and everything derived from it.
-    bool dismantleFacilityNode(const std::string& nodeId);
-    // Re-activates a previously unlocked-but-dismantled slot node at no
-    // extra cost, if a slot is free.
-    bool rebuildFacilityNode(const std::string& nodeId);
 
     // Forge: overrides which weapon a class's units are equipped with
     // (docs/base_development.md "武器の装備変更"). `weaponId` must be a
@@ -216,7 +211,21 @@ public:
     bool retireExpedition();
 
     // Camp -> shows "Loot Secured" (call acknowledgeLootSecured() to continue).
-    void returnToBase();
+    // docs/inventory_overflow.md「帰還処理」: returns false (and changes
+    // nothing) if committing would push RewardOverflowState past its 200-Stack
+    // ceiling - the caller should route the player to the warehouse cleanup
+    // screen instead of retrying blindly.
+    bool returnToBase();
+
+    // docs/inventory_overflow.md「保留品の放棄」/「倉庫整理画面」: discards
+    // owned storage/consumables and pending overflow Stacks. Both return false
+    // (no state change) if the requested quantity isn't available, or if the
+    // id is a region key material (never discardable, matches
+    // eligibleForOutpostStage()'s reliance on it).
+    bool discardStorage(const LootId& id, int quantity);
+    bool discardItemStorage(ItemType type, int quantity);
+    bool discardOverflowStack(std::size_t index, int quantity);
+    const RewardOverflowState& rewardOverflow() const { return baseState_.rewardOverflow; }
 
     // Loot Secured screen -> brand new expedition.
     void acknowledgeLootSecured();
@@ -316,6 +325,9 @@ private:
     bool isReconnaissanceRun_ = false;
     bool justSecuredLoot_ = false;
     std::vector<std::string> lastSecuredLoot_;
+    // docs/inventory_overflow.md「受取保留」: source for OverflowStack::grantId,
+    // one new value per returnToBase() call that actually produces overflow.
+    std::uint64_t returnGrantSequence_ = 0;
 
     // PreBattleDeployment state. deploymentPlayers_[i]'s position is only
     // meaningful once deploymentPlaced_[i] is true.

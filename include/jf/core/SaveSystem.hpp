@@ -82,6 +82,16 @@ struct SaveData {
 std::string serializeSave(const SaveData& save);
 std::optional<SaveData> deserializeSave(const std::string& jsonText, std::string* error = nullptr);
 
+// docs/save_system.md「Schema移行」: applies one `vN -> vN+1` step at a time
+// up to kCurrentSaveSchemaVersion. deserializeSave() above already fills
+// every new field with a safe default when reading an older file's JSON, so
+// today's only real step (v1 -> v2) has no field-shape work left to do -
+// this exists so the *version number* itself gets bumped, and so the
+// one-step-at-a-time loop structure is already in place for when Schema 3
+// (docs/save_system.md's planned facility rework) needs actual per-field
+// transformation.
+SaveData migrateSave(SaveData save);
+
 class SaveStore {
 public:
     explicit SaveStore(std::string path);
@@ -92,6 +102,19 @@ public:
     // ".bak" safety copy) before replacing it with `data`.
     bool importFrom(const SaveData& data, std::string* error = nullptr) const;
     const std::string& path() const { return path_; }
+
+    // docs/save_system.md「破損復旧画面」: tries backup sources load() itself
+    // doesn't automatically fall back to - "<path>.preimport.bak" and any
+    // "<path>.schema-vN.bak" files (newest N first) - since by the time this
+    // is worth calling, load()'s own silent ".bak" fallback has already been
+    // tried and failed too. On success, writes the recovered (migrated) data
+    // back as the new primary save and returns true.
+    bool restoreFromBackup(std::string* error = nullptr) const;
+
+    // docs/save_system.md「破損復旧画面」"Start New": moves the current
+    // (corrupt) primary save file aside to "<path>.corrupt-YYYYMMDD-HHMMSS.json"
+    // rather than deleting it. No-op (returns true) if no primary file exists.
+    bool quarantineCorruptSave(std::string* error = nullptr) const;
 
 private:
     std::string path_;

@@ -55,7 +55,11 @@ BattleState createScenarioContinuationBattle(const GameData& data,
 // free deployment, before the battle actually starts. `seed` must match the
 // seed createScenarioBattle() will use so the preview's random starting
 // positions are the same ones the real battle spawns them at.
+// `livingPlayerCount` should be the actual incoming party's living member
+// count so StageDescriptor::understaffedReinforcement previews correctly;
+// left at its default (never triggers understaffed reinforcement) by any
+// caller that doesn't pass it explicitly.
 std::vector<Unit> previewEnemies(const GameData& data, const StageDescriptor& stage, std::uint32_t seed,
-                                 ExplorationOutcome outcome = {});
+                                 ExplorationOutcome outcome = {}, int livingPlayerCount = 1000000);
 
 } // namespace jf

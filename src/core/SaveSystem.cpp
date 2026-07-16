@@ -62,7 +62,10 @@ std::filesystem::path siblingDir(const std::string& savePath, const char* name) 
     return base / name;
 }
 
-std::string timestampedExportName() {
+// Shared "YYYYMMDD-HHMMSS" stamp for both Export filenames and quarantined
+// corrupt-save filenames (docs/save_system.md's Export section and its
+// 破損復旧画面 "Start New" section use the same format independently).
+std::string timestampSuffix() {
     const auto now = std::chrono::system_clock::now();
     const std::time_t time = std::chrono::system_clock::to_time_t(now);
     std::tm local{};
@@ -71,10 +74,12 @@ std::string timestampedExportName() {
 #else
     localtime_r(&time, &local);
 #endif
-    std::ostringstream name;
-    name << "JOJIFrontier-save-" << std::put_time(&local, "%Y%m%d-%H%M%S") << ".json";
-    return name.str();
+    std::ostringstream stamp;
+    stamp << std::put_time(&local, "%Y%m%d-%H%M%S");
+    return stamp.str();
 }
+
+std::string timestampedExportName() { return "JOJIFrontier-save-" + timestampSuffix() + ".json"; }
 
 json siteAccessMapToJson(const std::unordered_map<std::string, SiteAccessState>& siteAccess) {
     json result = json::object();
@@ -138,6 +143,31 @@ std::vector<std::pair<std::string, SiteAccessState>> pendingSiteAccessFromJson(c
         if (raw < static_cast<int>(SiteAccessState::Unknown) || raw > static_cast<int>(SiteAccessState::Secured))
             continue;
         result.push_back({entry.at("key").get<std::string>(), static_cast<SiteAccessState>(raw)});
+    }
+    return result;
+}
+
+// docs/inventory_overflow.md「受取保留」: permanent (Base-level, not
+// expedition-level) state, so it lives alongside `storage`/`itemStorage`
+// rather than inside expeditionToJson()'s disposable checkpoint below.
+json rewardOverflowToJson(const RewardOverflowState& overflow) {
+    json result = json::array();
+    for (const OverflowStack& stack : overflow.stacks)
+        result.push_back({{"grantId", stack.grantId}, {"itemId", stack.itemId}, {"quantity", stack.quantity}});
+    return result;
+}
+
+RewardOverflowState rewardOverflowFromJson(const json& value) {
+    RewardOverflowState result;
+    if (!value.is_array()) return result;
+    for (const json& entry : value) {
+        if (!entry.is_object() || !entry.contains("grantId") || !entry.contains("itemId") ||
+            !entry.contains("quantity"))
+            continue;
+        int quantity = entry.at("quantity").get<int>();
+        if (quantity <= 0) continue;
+        result.stacks.push_back(
+            {entry.at("grantId").get<std::string>(), entry.at("itemId").get<std::string>(), quantity});
     }
     return result;
 }
@@ -289,10 +319,11 @@ std::string serializeSave(const SaveData& save) {
             {"discoveries", save.base.discoveryRegistry},
             {"outpostStage", static_cast<int>(save.base.outpostStage)},
             {"unlockedNodes", save.base.unlockedNodeIds},
-            {"builtNodes", save.base.builtNodeIds},
+            {"builtNodes", save.base.constructedFacilityIds},
             {"siteAccess", siteAccessMapToJson(save.base.siteAccess)},
             {"completedRegions", completedRegions},
             {"itemStorage", itemStorageToJson(save.base.itemStorage)},
+            {"rewardOverflow", rewardOverflowToJson(save.base.rewardOverflow)},
         }},
         {"selectedPartyIds", save.selectedPartyIds},
         {"weaponOverrides", classMapToJson(save.weaponOverrides)},
@@ -345,9 +376,10 @@ std::optional<SaveData> deserializeSave(const std::string& jsonText, std::string
         }
         if (base.contains("discoveries")) save.base.discoveryRegistry = base["discoveries"].get<std::unordered_set<std::string>>();
         if (base.contains("unlockedNodes")) save.base.unlockedNodeIds = base["unlockedNodes"].get<std::unordered_set<std::string>>();
-        if (base.contains("builtNodes")) save.base.builtNodeIds = base["builtNodes"].get<std::unordered_set<std::string>>();
+        if (base.contains("builtNodes")) save.base.constructedFacilityIds = base["builtNodes"].get<std::unordered_set<std::string>>();
         if (base.contains("siteAccess")) save.base.siteAccess = siteAccessMapFromJson(base["siteAccess"]);
         if (base.contains("itemStorage")) save.base.itemStorage = itemStorageFromJson(base["itemStorage"]);
+        if (base.contains("rewardOverflow")) save.base.rewardOverflow = rewardOverflowFromJson(base["rewardOverflow"]);
         if (base.contains("completedRegions")) {
             if (!base["completedRegions"].is_array()) throw std::runtime_error("Invalid completedRegions");
             for (const json& entry : base["completedRegions"]) {
@@ -387,6 +419,24 @@ std::optional<SaveData> deserializeSave(const std::string& jsonText, std::string
     }
 }
 
+SaveData migrateSave(SaveData save) {
+    while (save.schemaVersion < kCurrentSaveSchemaVersion) {
+        if (save.schemaVersion == 1) {
+            // v1 -> v2: no field-shape change needed here - deserializeSave()
+            // already defaulted every v2-only field (itemStorage,
+            // rewardOverflow, unit-level equipment maps, etc.) while parsing,
+            // since it reads with `.value()`/`.contains()` guards rather than
+            // assuming the field exists. This step exists to advance the
+            // version number itself and to give the migration loop a real
+            // first iteration to run through.
+            save.schemaVersion = 2;
+            continue;
+        }
+        break;  // Unknown version below current: leave as-is rather than loop forever.
+    }
+    return save;
+}
+
 SaveStore::SaveStore(std::string path) : path_(std::move(path)) {}
 
 std::optional<SaveData> SaveStore::load(std::string* error) const {
@@ -397,18 +447,30 @@ std::optional<SaveData> SaveStore::load(std::string* error) const {
         contents << input.rdbuf();
         return contents.str();
     };
+    // docs/save_system.md「Schema移行」: back up the pre-migration file
+    // before applying migrateSave(), and only for an actual old-version read
+    // (never touches an already-current-schema file).
+    auto migrateAndBackup = [this](const std::string& rawContents, SaveData save) {
+        if (save.schemaVersion < kCurrentSaveSchemaVersion) {
+            std::ofstream backupFile(path_ + ".schema-v" + std::to_string(save.schemaVersion) + ".bak",
+                                     std::ios::trunc);
+            backupFile << rawContents;
+            save = migrateSave(std::move(save));
+        }
+        return save;
+    };
     if (auto contents = read(path_)) {
         std::string primaryError;
         if (auto save = deserializeSave(*contents, &primaryError)) {
             setError(error, "");
-            return save;
+            return migrateAndBackup(*contents, std::move(*save));
         }
         setError(error, primaryError);
     }
     if (auto backup = read(path_ + ".bak")) {
         if (auto save = deserializeSave(*backup, error)) {
             setError(error, "");
-            return save;
+            return migrateAndBackup(*backup, std::move(*save));
         }
     }
     return std::nullopt;
@@ -451,6 +513,56 @@ bool SaveStore::importFrom(const SaveData& data, std::string* error) const {
         return false;
     }
     return save(data, error);
+}
+
+bool SaveStore::restoreFromBackup(std::string* error) const {
+    namespace fs = std::filesystem;
+    std::vector<fs::path> candidates;
+    const fs::path preimport(path_ + ".preimport.bak");
+    if (fs::exists(preimport)) candidates.push_back(preimport);
+
+    // "<path>.schema-vN.bak" candidates written by SaveStore::load()'s
+    // migration path - collected newest-version-first since a higher N is a
+    // more recently-superseded (and thus more complete) snapshot.
+    const fs::path target(path_);
+    const fs::path parent = target.has_parent_path() ? target.parent_path() : fs::path(".");
+    const std::string prefix = target.filename().string() + ".schema-v";
+    std::vector<fs::path> schemaBackups;
+    if (fs::exists(parent)) {
+        for (const auto& entry : fs::directory_iterator(parent)) {
+            const std::string name = entry.path().filename().string();
+            if (name.rfind(prefix, 0) == 0 && name.size() > 4 && name.compare(name.size() - 4, 4, ".bak") == 0)
+                schemaBackups.push_back(entry.path());
+        }
+    }
+    std::sort(schemaBackups.begin(), schemaBackups.end());
+    for (auto it = schemaBackups.rbegin(); it != schemaBackups.rend(); ++it) candidates.push_back(*it);
+
+    for (const fs::path& candidate : candidates) {
+        std::ifstream input(candidate);
+        if (!input) continue;
+        std::ostringstream contents;
+        contents << input.rdbuf();
+        std::string parseError;
+        if (auto restored = deserializeSave(contents.str(), &parseError)) {
+            if (save(migrateSave(std::move(*restored)), error)) return true;
+        }
+    }
+    setError(error, "No valid backup found");
+    return false;
+}
+
+bool SaveStore::quarantineCorruptSave(std::string* error) const {
+    namespace fs = std::filesystem;
+    try {
+        fs::path target(path_);
+        if (!fs::exists(target)) return true;  // Nothing to quarantine.
+        fs::rename(target, target.string() + ".corrupt-" + timestampSuffix() + ".json");
+        return true;
+    } catch (const std::exception& exception) {
+        setError(error, exception.what());
+        return false;
+    }
 }
 
 std::string defaultSavePath() {

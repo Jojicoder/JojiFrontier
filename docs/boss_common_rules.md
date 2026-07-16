@@ -4,6 +4,14 @@
 共通仕様確定。各地域Boss書は能力値、固有行動、探索差分、専用ギミックだけを定義し、状態異常、
 強制移動、予告、Phase移行、退場理由は本書に従う。
 
+実装済み(2026-07): `jf::UnitExitReason`(`jf/core/UnitExitReason.hpp`、本書の5値そのまま)と
+`Unit::exitReason`、退場理由を含む`UnitDefeatedEvent`、`jf::BossStageChangedEvent`。
+`BossRuntimeState`と`BossTelegraph`は段階Index、行動ID、形状、予告・実行Round、固定対象・固定範囲、
+方向、状態を共通保持する。灰角大猪は
+HP0時に`ScriptedWithdrawal`(撃破相当)を設定し、激昂時に`BossStageChangedEvent`を1回発行する
+(`EnemyAI.cpp`)。大猪の突進予告は共通`BossTelegraph`へ固定し、予告・消費時に
+`BossTelegraphChangedEvent`を発行する。Objective Definition側の許可退場理由Filterは未実装。
+
 ## 基本原則
 
 - BossはHPだけが高い通常敵にしない

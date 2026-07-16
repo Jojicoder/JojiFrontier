@@ -8,6 +8,8 @@
 #include "jf/core/BaseState.hpp"
 #include "jf/core/Exploration.hpp"
 #include "jf/core/UnitClass.hpp"
+#include "jf/battle/Phase.hpp"
+#include "jf/core/Grid.hpp"
 #include "jf/data/GameData.hpp"
 
 namespace jf {
@@ -34,6 +36,26 @@ struct StageDescriptor {
         int defenseBonus = 0;
     };
     std::optional<BoostedEnemy> boostedFirstEnemy;
+    // docs/regions/ashbough_forest.md "折れ木の縄張り": if the party arrives
+    // with fewer living members than understaffedThreshold (casualties
+    // earlier in the same expedition), one extra copy of this template
+    // spawns as Team::Enemy - reinforcement that reacts to how depleted the
+    // incoming party already is, rather than a flat per-region stat/
+    // headcount bump (docs' "原則として上げないもの" keeps uniform stat
+    // multipliers off the table; this only ever adds the one unit).
+    std::optional<UnitTemplate> understaffedReinforcement;
+    int understaffedThreshold = 4;
+
+    struct TimedReinforcement {
+        std::string id;
+        int spawnRound = 2;
+        Phase spawnPhase = Phase::EnemyPhase;
+        int announceRoundsBefore = 1;
+        bool requiredForElimination = true;
+        std::vector<UnitTemplate> units;
+        std::vector<GridPos> orderedSpawnCandidates;
+    };
+    std::optional<TimedReinforcement> timedReinforcement;
 
     std::vector<LootStack> baseVictoryLoot;
     // Additive (possibly negative) deltas on top of baseVictoryLoot for a

@@ -7,7 +7,9 @@
 #include "jf/battle/CombatResolver.hpp"
 #include "jf/battle/Movement.hpp"
 #include "jf/battle/ObjectiveTracker.hpp"
+#include "jf/battle/SkillCharges.hpp"
 #include "jf/battle/StatusEffects.hpp"
+#include "jf/battle/AiSystem.hpp"
 
 namespace jf {
 
@@ -47,9 +49,64 @@ Unit* findNearestPlayer(BattleState& battle, const Unit& enemy) {
     return nearest;
 }
 
-// Attacks the preferred target if in range, otherwise any in-range target.
+// 槍兵`counterthrust`(反撃準備、SkillCategory::Reactive): unlike every
+// other skill implemented so far, this has no chooseSkill()/
+// selectSkillTarget() step at all - docs/initial_skill_effects.md "単体武器
+// 攻撃を受け生存時、攻撃者へ通常攻撃1回" auto-triggers whenever `defender`
+// is attacked (hit or missed - it's about being engaged, not about being
+// hit) and survives, provided the attacker ends up within `defender`'s own
+// weapon range ("その敵が武器射程内なら", Skill.cpp's effect text). Hooked
+// only here (both call sites in attackIfPossible() below, shared by every
+// non-Boss enemy's turn via takeEnemyTurn()) rather than in the Boar boss's
+// sweep/charge, which apply damage directly and never call resolveAttack()
+// - matching "単体武器攻撃" (a normal single-target weapon attack).
+void tryCounterthrust(BattleState& battle, Unit& defender, Unit& attacker) {
+    if (!defender.isAlive() || !attacker.isAlive()) return;
+    for (std::size_t i = 0; i < defender.skillSlots.size(); ++i) {
+        if (defender.skillSlots[i].skillId != "counterthrust") continue;
+        if (!skillSlotAvailable(defender, static_cast<int>(i))) continue;
+        int dist = manhattanDistance(defender.position, attacker.position);
+        if (dist < defender.minimumAttackRange() || dist > defender.weapon.maxRange) return;
+        const bool hit = battle.rollAttackHit(attacker);
+        resolveAttack(defender, attacker, battle.combatDefenseBonus(attacker, defender), hit);
+        if (hit && defender.weapon.causesKnockback && attacker.isAlive())
+            battle.applyKnockback(defender, attacker);
+        consumeSkillCharge(defender, static_cast<int>(i));
+        return;
+    }
+}
+
+// 監視弓兵`overwatch`(警戒射撃): each overwatching player unit (Unit::
+// overwatchActive, armed by BattleController::chooseSkill()'s self-resolve
+// branch) ambushes the first enemy that is or comes within ITS OWN weapon
+// range - checked from takeEnemyTurn() both before `enemy` acts (catches an
+// enemy already in range going into its turn) and again after it moves
+// (catches movement carrying it into range). Different watchers are
+// independent (each has its own readiness/charge, already consumed at cast
+// time), so more than one may fire in the same call if `enemy` enters
+// multiple ranges at once. Wired for every non-Boss enemy (Wolves included,
+// now that they share the generic takeEnemyTurn() path too) - Boar boss AI
+// is the only one still exempt, not something docs/initial_skill_effects.md
+// requires explicitly the way `provoke`'s "Boss予告は変更しない" does.
+void triggerOverwatch(BattleState& battle, Unit& enemy) {
+    for (Unit& watcher : battle.units()) {
+        if (!enemy.isAlive()) return;
+        if (watcher.team != Team::Player || !watcher.isAlive() || !watcher.overwatchActive) continue;
+        int dist = manhattanDistance(watcher.position, enemy.position);
+        if (dist < watcher.minimumAttackRange() || dist > watcher.weapon.maxRange) continue;
+        const bool hit = battle.rollAttackHit(enemy);
+        resolveAttack(watcher, enemy, battle.combatDefenseBonus(enemy, watcher), hit);
+        if (hit && watcher.weapon.causesKnockback && enemy.isAlive()) battle.applyKnockback(watcher, enemy);
+        watcher.overwatchActive = false;
+    }
+}
+
+// Attacks the preferred target if in range, otherwise any in-range target
+// (unless `onlyPreferred` is set - 古参守備兵`provoke`'s "使用者を攻撃可能
+// なら対象評価で最優先" means a provoked enemy passes up an opportunistic
+// attack on anyone else rather than falling back, see takeEnemyTurn()).
 // Returns the unit actually attacked, or nullptr if nothing was in range.
-Unit* attackIfPossible(BattleState& battle, Unit& enemy, Unit* preferredTarget) {
+Unit* attackIfPossible(BattleState& battle, Unit& enemy, Unit* preferredTarget, bool onlyPreferred = false) {
     auto inRange = [&](const Unit& target) {
         int dist = manhattanDistance(enemy.position, target.position);
         return dist >= enemy.minimumAttackRange() && dist <= enemy.weapon.maxRange;
@@ -61,82 +118,20 @@ Unit* attackIfPossible(BattleState& battle, Unit& enemy, Unit* preferredTarget) 
                       battle.combatDefenseBonus(*preferredTarget, enemy), hit);
         if (hit && enemy.weapon.causesKnockback && preferredTarget->isAlive())
             battle.applyKnockback(enemy, *preferredTarget);
+        tryCounterthrust(battle, *preferredTarget, enemy);
         return preferredTarget;
     }
+    if (onlyPreferred) return nullptr;
     for (auto& u : battle.units()) {
         if (u.team == Team::Player && u.isAlive() && inRange(u)) {
             const bool hit = battle.rollAttackHit(u);
             resolveAttack(enemy, u, battle.combatDefenseBonus(u, enemy), hit);
             if (hit && enemy.weapon.causesKnockback && u.isAlive()) battle.applyKnockback(enemy, u);
+            tryCounterthrust(battle, u, enemy);
             return &u;
         }
     }
     return nullptr;
-}
-
-// docs/regions/ashbough_forest.md "狼AI". Wolves use ordinary move-then-
-// attack behavior and focus the living player with the lowest current HP.
-// Distance and UnitId provide deterministic tie breaks.
-Unit* chooseWolfTarget(BattleState& battle, const Unit& wolf) {
-    std::vector<Unit*> players;
-    for (Unit& u : battle.units()) {
-        if (u.team == Team::Player && u.isAlive()) players.push_back(&u);
-    }
-    if (players.empty()) return nullptr;
-    std::stable_sort(players.begin(), players.end(), [&](Unit* a, Unit* b) {
-        if (a->currentHp != b->currentHp) return a->currentHp < b->currentHp;
-        int distA = manhattanDistance(wolf.position, a->position);
-        int distB = manhattanDistance(wolf.position, b->position);
-        if (distA != distB) return distA < distB;
-        return a->id < b->id;
-    });
-    return players.front();
-}
-
-Unit* takeWolfPackTurn(BattleState& battle, Unit& wolf) {
-    Unit* target = chooseWolfTarget(battle, wolf);
-    if (!target) {
-        // No living player remains. Outcome evaluation will end the battle;
-        // wolves never use a gameplay wait decision.
-        finishEnemyAction(battle, wolf, ActionKind::Move);
-        return nullptr;
-    }
-
-    const AliveSnapshot aliveBeforeAttack = captureAliveSnapshot(battle);
-    if (Unit* attacked = attackIfPossible(battle, wolf, target)) {
-        emitUnitDefeatedEvents(battle, aliveBeforeAttack);
-        finishEnemyAction(battle, wolf, ActionKind::Attack);
-        return attacked;
-    }
-
-    // Every wolf closes on the pack's preferred target. Reaching attack
-    // range this turn outranks merely reducing distance, so terrain or an
-    // awkward formation cannot leave the pack waiting indefinitely.
-    std::vector<GridPos> reachable = computeReachableTiles(battle, wolf);
-    GridPos bestTile = wolf.position;
-    int bestDist = std::numeric_limits<int>::max();
-    bool foundMove = false;
-    bool bestCanAttack = false;
-    for (GridPos tile : reachable) {
-        if (tile == wolf.position) continue;
-        int dist = manhattanDistance(tile, target->position);
-        const bool attacksFromTile = dist >= wolf.minimumAttackRange() && dist <= wolf.weapon.maxRange;
-        const bool stableTieBreak = tile.row < bestTile.row ||
-                                    (tile.row == bestTile.row && tile.col < bestTile.col);
-        if (!foundMove || (attacksFromTile && !bestCanAttack) ||
-            (attacksFromTile == bestCanAttack &&
-             (dist < bestDist || (dist == bestDist && stableTieBreak)))) {
-            foundMove = true;
-            bestCanAttack = attacksFromTile;
-            bestDist = dist;
-            bestTile = tile;
-        }
-    }
-    if (foundMove) battle.moveUnit(wolf, bestTile);
-    Unit* attacked = attackIfPossible(battle, wolf, target);
-    if (attacked) emitUnitDefeatedEvents(battle, aliveBeforeAttack);
-    finishEnemyAction(battle, wolf, attacked ? ActionKind::Attack : ActionKind::Move);
-    return attacked;
 }
 
 // docs/regions/ashbough_forest.md "灰角大猪"/"行動優先順位". Values from the
@@ -213,7 +208,7 @@ void executeBoarCharge(BattleState& battle, Unit& boar) {
     const int range = boar.bossEnraged ? kBoarChargeRangeEnraged : kBoarChargeRangeNormal;
     const int power = boar.stats.strength + kBoarChargePowerBonus;
     const int row = boar.position.row;
-    const int direction = boar.chargeDirection < 0 ? -1 : 1;
+    const int direction = boar.bossRuntime.telegraph.direction < 0 ? -1 : 1;
     int endCol = boar.position.col;
     bool collided = false;
 
@@ -243,6 +238,11 @@ void executeBoarCharge(BattleState& battle, Unit& boar) {
     boar.position = GridPos{row, endCol};
     boar.chargeTelegraphed = false;
     boar.chargeDirection = -1;
+    boar.bossRuntime.telegraph.state = TelegraphState::Executed;
+    handleObjectiveEvent(battle.missionState(),
+                         {battle.issueEventId(), 0,
+                          BossTelegraphChangedEvent{boar.id, boar.bossRuntime.telegraph.actionId, false}});
+    boar.bossRuntime.telegraph.clear();
     boar.chargeCooldownActions = 1;
     ++boar.chargesExecuted;
     if (collided) {
@@ -280,11 +280,20 @@ Unit* takeBoarBossTurn(BattleState& battle, Unit& boar) {
     if (!boar.bossEnraged && boar.currentHp * 2 <= boar.stats.maxHp) {
         boar.bossEnraged = true;
         boar.stats.strength = kBoarEnragedStrength;
+        // docs/boss_common_rules.md "Phase移行": fired exactly once for this
+        // transition, even though the doc's own numbered steps (resolve
+        // Root Action Batch, evaluate defeat, THEN check thresholds) are a
+        // full turn-boundary sequence this single-threshold boar doesn't
+        // need in full - there's only one stage to move to.
+        boar.bossRuntime.stageIndex = 1;
+        handleObjectiveEvent(battle.missionState(),
+                             BattleEvent{battle.issueEventId(), 0,
+                                         BossStageChangedEvent{boar.id, boar.bossRuntime.stageIndex}});
     }
     const int range = boar.bossEnraged ? kBoarChargeRangeEnraged : kBoarChargeRangeNormal;
 
     // 3. A telegraphed charge always executes now, before anything else.
-    if (boar.chargeTelegraphed) {
+    if (boar.bossRuntime.telegraph.pending()) {
         executeBoarCharge(battle, boar);
         finishEnemyAction(battle, boar, ActionKind::Attack);
         return nullptr;
@@ -305,6 +314,12 @@ Unit* takeBoarBossTurn(BattleState& battle, Unit& boar) {
         if (direction != 0) {
         boar.chargeTelegraphed = true;
         boar.chargeDirection = direction;
+        boar.bossRuntime.telegraph = {"ashenhorn_charge", TelegraphShape::Line,
+                                      TelegraphState::Announced, battle.round(), battle.round() + 1,
+                                      {}, {}, direction};
+        handleObjectiveEvent(battle.missionState(),
+                             {battle.issueEventId(), 0,
+                              BossTelegraphChangedEvent{boar.id, "ashenhorn_charge", true}});
         finishEnemyAction(battle, boar, ActionKind::Skill);
         return nullptr;
         }
@@ -333,6 +348,12 @@ Unit* takeBoarBossTurn(BattleState& battle, Unit& boar) {
         boar.chargeTelegraphed = true;
         boar.chargeDirection = boarChargeDirectionForTarget(battle, boar, range);
         if (boar.chargeDirection == 0) boar.chargeDirection = -1;
+        boar.bossRuntime.telegraph = {"ashenhorn_charge", TelegraphShape::Line,
+                                      TelegraphState::Announced, battle.round(), battle.round() + 1,
+                                      {}, {}, boar.chargeDirection};
+        handleObjectiveEvent(battle.missionState(),
+                             {battle.issueEventId(), 0,
+                              BossTelegraphChangedEvent{boar.id, "ashenhorn_charge", true}});
         finishEnemyAction(battle, boar, ActionKind::Skill);
         return nullptr;
     }
@@ -372,6 +393,12 @@ Unit* takeBoarBossTurn(BattleState& battle, Unit& boar) {
         if (direction != 0) {
         boar.chargeTelegraphed = true;
         boar.chargeDirection = direction;
+        boar.bossRuntime.telegraph = {"ashenhorn_charge", TelegraphShape::Line,
+                                      TelegraphState::Announced, battle.round(), battle.round() + 1,
+                                      {}, {}, direction};
+        handleObjectiveEvent(battle.missionState(),
+                             {battle.issueEventId(), 0,
+                              BossTelegraphChangedEvent{boar.id, "ashenhorn_charge", true}});
         finishEnemyAction(battle, boar, ActionKind::Skill);
         return nullptr;
         }
@@ -388,22 +415,92 @@ Unit* takeBoarBossTurn(BattleState& battle, Unit& boar) {
 
 } // namespace
 
-Unit* takeEnemyTurn(BattleState& battle, Unit& enemy) {
-    if (!enemy.isAlive() || enemy.hasActed) return nullptr;
-    if (enemy.unitClass == UnitClass::Wolf) return takeWolfPackTurn(battle, enemy);
+Unit* takeEnemyTurn(BattleState& battle, Unit& enemy, AiSquadReservations* reservations) {
+    if (!enemy.isPresent() || enemy.hasActed) return nullptr;
     if (enemy.unitClass == UnitClass::AshenhornBoar) return takeBoarBossTurn(battle, enemy);
 
-    Unit* target = findNearestPlayer(battle, enemy);
+    // Captured once, before anything below (including 監視弓兵`overwatch`'s
+    // ambush), so a defeat from any of it fires UnitDefeatedEvent exactly
+    // once.
+    const AliveSnapshot aliveBeforeAttack = captureAliveSnapshot(battle);
+
+    // 監視弓兵`overwatch`(警戒射撃): ambushes `enemy` here, before it gets to
+    // act at all, if it's already within an armed watcher's weapon range
+    // going into this turn (see triggerOverwatch()).
+    triggerOverwatch(battle, enemy);
+    if (!enemy.isAlive()) {
+        emitUnitDefeatedEvents(battle, aliveBeforeAttack);
+        finishEnemyAction(battle, enemy, ActionKind::Wait);
+        return nullptr;
+    }
+
+    // 古参守備兵`provoke`(挑発): if provoked, prioritize the provoking unit
+    // over the normal nearest-player targeting for this Enemy Phase only
+    // (docs/initial_skill_effects.md "次Enemy Phase...対象評価で最優先"). A
+    // provoked enemy also passes up an opportunistic attack on anyone else
+    // (attackIfPossible's `onlyPreferred`) - "最優先" means the provoker
+    // wins even over a free in-range hit on a different unit. Wolf/Boar
+    // boss AI never reach here (handled above), matching "Boss予告は
+    // 変更しない".
+    Unit* target = nullptr;
+    bool provoked = false;
+    if (!enemy.provokedByUnitId.empty()) {
+        Unit* provoker = battle.findUnit(enemy.provokedByUnitId);
+        if (provoker && provoker->isAlive()) {
+            target = provoker;
+            provoked = true;
+        }
+    }
+    if (!target) {
+        const AiSquadReservations emptyReservations;
+        const AiProfile profile = profileFor(enemy);
+        AiCandidate candidate = chooseBestAiCandidate(
+            generateAiCandidates(battle, enemy, profile, reservations ? *reservations : emptyReservations));
+        target = candidate.targetUnitId.empty() ? nullptr : battle.findUnit(candidate.targetUnitId);
+        if (candidate.destination != enemy.position) battle.moveUnit(enemy, candidate.destination);
+        if (reservations) {
+            reservations->reserve(candidate);
+        }
+        if (candidate.type == AiActionType::Support && target && target->team == enemy.team) {
+            target->currentHp = std::min(target->currentHp + 8, target->stats.maxHp);
+            finishEnemyAction(battle, enemy, ActionKind::Skill);
+            return nullptr;
+        }
+        if (candidate.type == AiActionType::Attack && target) {
+            triggerOverwatch(battle, enemy);
+            if (!enemy.isAlive()) {
+                emitUnitDefeatedEvents(battle, aliveBeforeAttack);
+                finishEnemyAction(battle, enemy, ActionKind::Move);
+                return nullptr;
+            }
+            Unit* attacked = attackIfPossible(battle, enemy, target, true);
+            if (attacked) emitUnitDefeatedEvents(battle, aliveBeforeAttack);
+            finishEnemyAction(battle, enemy, attacked ? ActionKind::Attack : ActionKind::Move);
+            return attacked;
+        }
+        if (candidate.type == AiActionType::Move) {
+            triggerOverwatch(battle, enemy);
+            if (!enemy.isAlive()) emitUnitDefeatedEvents(battle, aliveBeforeAttack);
+            finishEnemyAction(battle, enemy, ActionKind::Move);
+            return nullptr;
+        }
+        if (candidate.type == AiActionType::Retreat) {
+            // docs/enemy_ai_rules.md "撤退と降伏": left the field alive -
+            // Unit::isAlive() stays true (HP unaffected), so isPresent()
+            // (not isAlive()) is what the rest of the codebase must check
+            // to treat this unit as no longer a threat/target.
+            enemy.hasExited = true;
+            enemy.exitReason = UnitExitReason::Retreated;
+            finishEnemyAction(battle, enemy, ActionKind::Move);
+            return nullptr;
+        }
+    }
     if (!target) {
         finishEnemyAction(battle, enemy, ActionKind::Wait);
         return nullptr;
     }
 
-    // Captured once, before either attack attempt below, so a defeat from
-    // either one fires UnitDefeatedEvent exactly once.
-    const AliveSnapshot aliveBeforeAttack = captureAliveSnapshot(battle);
-
-    if (Unit* attacked = attackIfPossible(battle, enemy, target)) {
+    if (Unit* attacked = attackIfPossible(battle, enemy, target, provoked)) {
         emitUnitDefeatedEvents(battle, aliveBeforeAttack);
         finishEnemyAction(battle, enemy, ActionKind::Attack);
         return attacked;
@@ -421,7 +518,16 @@ Unit* takeEnemyTurn(BattleState& battle, Unit& enemy) {
     }
     battle.moveUnit(enemy, bestTile);
 
-    Unit* attacked = attackIfPossible(battle, enemy, target);
+    // 監視弓兵`overwatch`: also check after movement, since moving is what
+    // most often carries `enemy` newly into an armed watcher's range.
+    triggerOverwatch(battle, enemy);
+    if (!enemy.isAlive()) {
+        emitUnitDefeatedEvents(battle, aliveBeforeAttack);
+        finishEnemyAction(battle, enemy, ActionKind::Move);
+        return nullptr;
+    }
+
+    Unit* attacked = attackIfPossible(battle, enemy, target, provoked);
     if (attacked) emitUnitDefeatedEvents(battle, aliveBeforeAttack);
     finishEnemyAction(battle, enemy, attacked ? ActionKind::Attack : ActionKind::Move);
     return attacked;

@@ -78,7 +78,7 @@ bool hasRouteAcross(const std::array<TerrainType, kGridRows * kGridCols>& terrai
 // now comes entirely from the StageDescriptor rather than a raw stage int,
 // so a region never needs a parallel copy of this function.
 std::vector<Unit> buildEnemies(const GameData& data, const StageDescriptor& stage, ExplorationOutcome outcome,
-                               std::uint32_t seed) {
+                               std::uint32_t seed, int livingPlayerCount) {
     const std::vector<UnitTemplate>& roster = stage.enemyRoster.empty() ? data.enemyRoster : stage.enemyRoster;
     std::vector<Unit> enemies;
     std::size_t enemyCount = std::min(stage.enemyCountOverride.value_or(roster.size()), roster.size());
@@ -99,6 +99,13 @@ std::vector<Unit> buildEnemies(const GameData& data, const StageDescriptor& stag
             enemy.stats.defense += stage.boostedFirstEnemy->defenseBonus;
         }
         enemies.push_back(enemy);
+    }
+    // docs/regions/ashbough_forest.md "折れ木の縄張り": one extra
+    // reinforcement if the incoming party is understaffed - see
+    // StageDescriptor::understaffedReinforcement's comment.
+    if (stage.understaffedReinforcement && livingPlayerCount < stage.understaffedThreshold) {
+        GridPos pos = enemyCount < spawns.size() ? spawns[enemyCount] : enemySpawnFallback();
+        enemies.push_back(instantiateUnit(data, *stage.understaffedReinforcement, Team::Enemy, pos));
     }
     return enemies;
 }
@@ -156,7 +163,11 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
         }
     }
 
-    for (Unit& enemy : buildEnemies(data, stage, outcome, seed)) units.push_back(std::move(enemy));
+    int livingPlayerCount = 0;
+    for (const Unit& unit : units) {
+        if (unit.team == Team::Player && unit.isAlive()) ++livingPlayerCount;
+    }
+    for (Unit& enemy : buildEnemies(data, stage, outcome, seed, livingPlayerCount)) units.push_back(std::move(enemy));
     for (Unit& unit : units) {
         if (unit.team == Team::Player && unit.isAlive())
             unit.currentHp = std::max(1, unit.currentHp - std::max(0, outcome.partyDamage));
@@ -260,6 +271,22 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
             battle.missionState().definitions.push_back(survey);
             battle.missionState().progress[survey.id] = ObjectiveProgress{survey.id};
         }
+    }
+
+    if (outcome.enableReinforcementWave && stage.timedReinforcement) {
+        const auto& definition = *stage.timedReinforcement;
+        ReinforcementWave wave;
+        wave.id = definition.id;
+        wave.spawnRound = definition.spawnRound;
+        wave.spawnPhase = definition.spawnPhase;
+        wave.announceRoundsBefore = definition.announceRoundsBefore;
+        wave.requiredForElimination = definition.requiredForElimination;
+        wave.orderedSpawnCandidates = definition.orderedSpawnCandidates;
+        for (const UnitTemplate& unitTemplate : definition.units) {
+            wave.units.push_back({instantiateUnit(data, unitTemplate, Team::Enemy, {0, 0})});
+        }
+        if (!battle.addReinforcementWave(std::move(wave)))
+            std::fprintf(stderr, "Invalid reinforcement wave for stage: %s\n", stage.id.c_str());
     }
 
     // docs/mission_objectives.md "戦闘開始時の検証": always checked (cheap -
@@ -425,8 +452,8 @@ BattleState createScenarioContinuationBattle(const GameData& data,
 }
 
 std::vector<Unit> previewEnemies(const GameData& data, const StageDescriptor& stage, std::uint32_t seed,
-                                 ExplorationOutcome outcome) {
-    return buildEnemies(data, stage, outcome, seed);
+                                 ExplorationOutcome outcome, int livingPlayerCount) {
+    return buildEnemies(data, stage, outcome, seed, livingPlayerCount);
 }
 
 } // namespace jf

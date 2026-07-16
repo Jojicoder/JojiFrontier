@@ -16,6 +16,12 @@ std::vector<GridPos> computeReachableTiles(const std::vector<Unit>& units,
 std::vector<GridPos> computeReachableTiles(const BattleState& battle,
                                             const Unit& mover);
 
+// 辺境斥候`trailblaze`(道拓き): the exact tile-by-tile path `mover` takes to
+// `destination` (same rules as computeReachableTiles() above), excluding
+// the origin but including `destination`. Empty if `destination` equals the
+// origin or isn't actually reachable.
+std::vector<GridPos> computeMovementPath(const BattleState& battle, const Unit& mover, GridPos destination);
+
 // Tiles within [minRange, maxRange] (Manhattan distance) of `origin` that
 // currently contain a living unit belonging to the opposing team.
 std::vector<GridPos> computeTargetableTiles(const std::vector<Unit>& units,

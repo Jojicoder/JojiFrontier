@@ -1,5 +1,8 @@
 #include "jf/battle/BattleState.hpp"
 
+#include "jf/battle/StatusEffects.hpp"
+#include "jf/battle/ObjectiveTracker.hpp"
+
 #include <algorithm>
 
 namespace jf {
@@ -28,7 +31,8 @@ int BattleState::combatDefenseBonus(const Unit& defender, const Unit& attacker) 
             break;
         }
     }
-    if ((hasBrace(defender.unitClass) || defender.weapon.braceBoost) && attacker.tilesMovedThisAction >= 2) {
+    if ((hasBrace(defender.unitClass) || defender.weapon.braceBoost || defender.braceSkillActive) &&
+        attacker.tilesMovedThisAction >= 2) {
         bonus += defender.weapon.braceBoost ? 3 : 2;
     }
     return bonus;
@@ -74,20 +78,30 @@ void BattleState::applyKnockback(const Unit& attacker, Unit& defender) {
     // wins ties so diagonal range attacks cannot skip across a blocked corner.
     if (std::abs(colDelta) >= std::abs(rowDelta)) dest.col += (colDelta > 0) - (colDelta < 0);
     else dest.row += (rowDelta > 0) - (rowDelta < 0);
-    if (!isInBounds(dest) || unitAt(dest) || !isPassable(terrainAt(dest))) return;
+    // 状態異常「よろめき」(docs/status_effects.md "主な発生源": 障害物への
+    // ノックバック衝突): a knockback that can't reach its destination -
+    // whether blocked by bounds, terrain, another unit, or a Battle Object
+    // (this previously wasn't checked at all here, letting a knockback
+    // silently ignore a Barrier like a fallen log) - staggers the defender
+    // in place instead of just doing nothing.
+    if (!isInBounds(dest) || unitAt(dest) || !isPassable(terrainAt(dest)) || objectBlocksMovementAt(dest) ||
+        objectBlocksStoppingAt(dest)) {
+        applyStagger(defender);
+        return;
+    }
     defender.position = dest;
 }
 
 Unit* BattleState::unitAt(GridPos pos) {
     for (auto& u : units_) {
-        if (u.isAlive() && u.position == pos) return &u;
+        if (u.isPresent() && u.position == pos) return &u;
     }
     return nullptr;
 }
 
 const Unit* BattleState::unitAt(GridPos pos) const {
     for (const auto& u : units_) {
-        if (u.isAlive() && u.position == pos) return &u;
+        if (u.isPresent() && u.position == pos) return &u;
     }
     return nullptr;
 }
@@ -115,9 +129,22 @@ bool BattleState::moveUnit(Unit& unit, GridPos destination) {
     return true;
 }
 
+void BattleState::markTrailblazed(GridPos pos) {
+    if (!isTrailblazed(pos)) trailblazedTiles_.push_back(pos);
+}
+
+bool BattleState::isTrailblazed(GridPos pos) const {
+    return std::find(trailblazedTiles_.begin(), trailblazedTiles_.end(), pos) != trailblazedTiles_.end();
+}
+
 bool BattleState::isTeamDone(Team team) const {
     for (const auto& u : units_) {
-        if (u.team == team && u.isAlive() && !u.hasActed) return false;
+        // isPresent() (not isAlive()): a unit that retreated (docs/
+        // enemy_ai_rules.md) has isAlive()==true (HP unaffected) but never
+        // gets marked hasActed again after a later beginEnemyPhase() reset
+        // - without this, it would permanently block this phase from ever
+        // completing.
+        if (u.team == team && u.isPresent() && !u.hasActed) return false;
     }
     return true;
 }
@@ -131,6 +158,8 @@ void BattleState::beginPlayerPhase() {
             u.tilesMovedThisAction = 0;
         }
     }
+    announceReinforcements();
+    resolveReinforcementsForPhase();
 }
 
 void BattleState::beginEnemyPhase() {
@@ -141,11 +170,75 @@ void BattleState::beginEnemyPhase() {
             u.tilesMovedThisAction = 0;
         }
     }
+    announceReinforcements();
+    resolveReinforcementsForPhase();
+}
+
+bool BattleState::addReinforcementWave(ReinforcementWave wave) {
+    std::vector<ReinforcementWave> proposed = reinforcementWaves_;
+    proposed.push_back(wave);
+    if (!validateReinforcementWaves(proposed, false)) return false;
+    reinforcementWaves_.push_back(std::move(wave));
+    announceReinforcements();
+    return true;
+}
+
+void BattleState::announceReinforcements() {
+    for (ReinforcementWave& wave : reinforcementWaves_) {
+        if (wave.state != ReinforcementState::Scheduled) continue;
+        if (round_ < wave.spawnRound - wave.announceRoundsBefore) continue;
+        wave.state = ReinforcementState::Announced;
+        wave.announcementConsumed = true;
+        handleObjectiveEvent(mission_, {issueEventId(), 0, ReinforcementAnnouncedEvent{wave.id, wave.spawnRound}});
+    }
+}
+
+void BattleState::resolveReinforcementsForPhase() {
+    for (ReinforcementWave& wave : reinforcementWaves_) {
+        if ((wave.state != ReinforcementState::Scheduled && wave.state != ReinforcementState::Announced) ||
+            wave.spawnRound != round_ || wave.spawnPhase != phase_) continue;
+
+        std::vector<GridPos> placements;
+        for (GridPos pos : wave.orderedSpawnCandidates) {
+            const BattleObjectState* object = objectAt(pos);
+            bool objectAllowsSpawn = true;
+            if (object && object->state != BattleObjectStateKind::Destroyed) {
+                const BattleObjectDefinition* def = objectDefinition(object->definitionId);
+                objectAllowsSpawn = def && def->kind == BattleObjectKind::SpawnPoint;
+            }
+            if (!isInBounds(pos) || !isPassable(terrainAt(pos)) || unitAt(pos) || !objectAllowsSpawn) continue;
+            placements.push_back(pos);
+            if (placements.size() == wave.units.size()) break;
+        }
+        if (placements.size() == wave.units.size()) {
+            for (std::size_t i = 0; i < wave.units.size(); ++i) {
+                Unit unit = wave.units[i].unit;
+                unit.team = wave.team;
+                unit.position = placements[i];
+                unit.hasActed = true;
+                units_.push_back(std::move(unit));
+            }
+            wave.state = ReinforcementState::Spawned;
+        } else {
+            wave.state = ReinforcementState::Prevented;
+        }
+        const ReinforcementResult result = wave.state == ReinforcementState::Spawned
+                                               ? ReinforcementResult::Spawned : ReinforcementResult::Prevented;
+        handleObjectiveEvent(mission_, {issueEventId(), 0, ReinforcementResolvedEvent{wave.id, result}});
+    }
+}
+
+bool BattleState::hasPendingRequiredEnemyReinforcements() const {
+    return std::any_of(reinforcementWaves_.begin(), reinforcementWaves_.end(), [](const ReinforcementWave& wave) {
+        return wave.team == Team::Enemy && wave.requiredForElimination &&
+               (wave.state == ReinforcementState::Scheduled || wave.state == ReinforcementState::Announced);
+    });
 }
 
 bool BattleState::allEnemiesDefeated() const {
+    if (hasPendingRequiredEnemyReinforcements()) return false;
     return std::none_of(units_.begin(), units_.end(),
-                         [](const Unit& u) { return u.team == Team::Enemy && u.isAlive(); });
+                         [](const Unit& u) { return u.team == Team::Enemy && u.isPresent(); });
 }
 
 bool BattleState::allPlayersDefeated() const {

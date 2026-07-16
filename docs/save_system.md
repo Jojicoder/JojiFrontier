@@ -1,7 +1,9 @@
 # JOJIFrontier セーブシステム
 
 状態: Phase 1実装済み。恒久拠点状態と言語設定を保存する。遠征中断セーブも簡略版として実装済み。
-現在のSchemaは2。Export / Import、復旧UIは未実装。
+現在のSchemaは2。Export / Import、Schema移行骨格、保存状態HUD、復旧UIは実装済み
+(2026-07)。Web同期完了待ち・GitHub Pages更新継続試験は未実装(実ブラウザ/Pages公開
+環境が無い環境で作業したため対象外のまま)。
 
 施設の正式仕様変更によりSchema 3を予定する。現行Schema 2の`builtNodeIds`は破棄せず、
 `constructedFacilityIds`へ移行し、旧稼働状態は読み捨てる。具体的規則は
@@ -26,13 +28,19 @@ Schema 3には同時に`route_graph_data.md`のRoute Progressと`region_unlocks.
 - Web版の`/joji-save`へのIDBFSマウントとIndexedDB同期
 - 帰還、拠点発展、施設操作、装備変更、編成変更、言語変更後のオートセーブ
 - 遠征中断セーブ（`ExpeditionCheckpoint`、下記「遠征中断セーブの実装範囲」参照）
+- Export / Import画面（`exports/`/`imports/`フォルダ経由、`.preimport.bak`退避。
+  以前ここに「未実装」と記載していたが実装済みだった、2026-07訂正）
+- `v1 -> v2`移行処理（`jf::migrateSave()`、現行は`deserializeSave()`の既定値埋めで
+  実質No-opだが、移行前に`.schema-vN.bak`へ退避する骨格まで実装。Schema 3で
+  実差分が生じた時にこの関数へ変換ロジックを足すだけで済む）
+- 保存中、成功、失敗のHUD表示（`SaveHudState{Idle,Saving,Saved,Failed}`、自動再試行
+  最大3回・0.5/1/2秒、手動再試行は回数制限後も利用可能）
+- 破損時の復旧選択画面（`Restore Backup`/`Import Save`/`Start New`。Restore Backupは
+  `load()`自身が試さない`.preimport.bak`/`.schema-vN.bak`を追加で試す。Start Newは
+  破損ファイルを`.corrupt-YYYYMMDD-HHMMSS.json`へ退避してから新規開始）
 
 未実装:
 
-- Export / Import画面
-- 保存中、成功、失敗のHUD表示
-- 破損時の復旧選択画面
-- `v1 -> v2`以降の実移行処理
 - C++側が`FS.syncfs`完了を待つ非同期状態管理
 - Emscripten実機とGitHub Pages更新前後の継続試験
 - Schema 2施設データからSchema 3建設済み・稼働中施設への移行

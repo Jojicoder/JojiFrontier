@@ -1,4 +1,5 @@
 #include "jf/battle/CombatResolver.hpp"
+#include "jf/battle/StatusEffects.hpp"
 
 #include <algorithm>
 
@@ -34,6 +35,7 @@ void resolveAttack(const Unit& attacker, Unit& target, int terrainDefense, bool 
     int damage = computeDamage(attacker, target, terrainDefense);
     target.currentHp = std::max(target.currentHp - damage, 0);
     target.markedBonusDamage = 0; // consumed by this real hit, if it was set
+    applyWeaponOnHitStatuses(attacker, target);
 }
 
 } // namespace jf

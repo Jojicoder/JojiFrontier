@@ -8,6 +8,7 @@
 #include "jf/battle/BattleObject.hpp"
 #include "jf/battle/Objective.hpp"
 #include "jf/battle/Phase.hpp"
+#include "jf/battle/Reinforcement.hpp"
 #include "jf/core/Grid.hpp"
 #include "jf/core/Unit.hpp"
 #include "jf/core/Terrain.hpp"
@@ -60,6 +61,12 @@ public:
     void beginPlayerPhase();
     void beginEnemyPhase();
 
+    bool addReinforcementWave(ReinforcementWave wave);
+    void announceReinforcements();
+    void resolveReinforcementsForPhase();
+    bool hasPendingRequiredEnemyReinforcements() const;
+    const std::vector<ReinforcementWave>& reinforcementWaves() const { return reinforcementWaves_; }
+
     bool allEnemiesDefeated() const;
     bool allPlayersDefeated() const;
 
@@ -108,6 +115,16 @@ public:
     bool bossHasCollidedWithBarrier() const { return bossCollidedWithBarrier_; }
     void markBossCollidedWithBarrier() { bossCollidedWithBarrier_ = true; }
 
+    // 辺境斥候`trailblaze`(道拓き) (docs/initial_skill_effects.md): Ash/
+    // Shallows tiles the caster passed through this Player Phase, which
+    // cost every ally only 1 to cross for the rest of it (see Movement.cpp's
+    // computeReachableTilesImpl()'s costOverrideAt). Cleared alongside
+    // moveUpActive at Player Phase end (both are "until THIS Player Phase
+    // ends" effects) - see BattleController::evaluateOutcome().
+    void markTrailblazed(GridPos pos);
+    bool isTrailblazed(GridPos pos) const;
+    void clearTrailblazedTiles() { trailblazedTiles_.clear(); }
+
 private:
     std::vector<Unit> units_;
     std::array<TerrainType, kGridRows * kGridCols> terrain_{};
@@ -120,6 +137,8 @@ private:
     std::unordered_map<BattleObjectDefinitionId, BattleObjectDefinition> objectDefinitions_;
     std::vector<BattleObjectState> objects_;
     bool bossCollidedWithBarrier_ = false;
+    std::vector<GridPos> trailblazedTiles_;
+    std::vector<ReinforcementWave> reinforcementWaves_;
 };
 
 } // namespace jf

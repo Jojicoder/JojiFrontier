@@ -89,9 +89,9 @@ RegionDescriptor ashboughForestRegion() {
     // wolf arriving turn 2 on the harvest route), the Dawn Chirurgeon-only
     // dedicated survey tile (`herbwater_hollow_surveyed` RegionProgress
     // record), and the post-harvest one-time +2 HP on continue are not yet
-    // implemented (no reinforcement-wave infrastructure exists; the
-    // Chirurgeon-only tile needs a per-battle-instance required-unit-id
-    // that this data-only StageDescriptor can't express). The main
+    // implemented. The harvest-route round-2 wolf reinforcement is wired
+    // through StageDescriptor::timedReinforcement. The Chirurgeon-only tile
+    // still needs a per-battle-instance required-unit-id. The main
     // objective, 3 exploration choices, terrain (Shallows + 2 HerbPatch),
     // and the common "薬草地点確保" Any-of-2-tiles bonus are implemented.
     StageDescriptor herbwater;
@@ -105,8 +105,7 @@ RegionDescriptor ashboughForestRegion() {
     };
     // 通常勝利: 木材1
     herbwater.baseVictoryLoot = {{"wood", 1}};
-    // 採取ルート: 薬草2 / 衛生兵ルート: 高品質薬草1 (reinforcement on the
-    // harvest route is deferred - see note above)
+    // 採取ルート: 薬草2 + Round 2 wolf / 衛生兵ルート: 高品質薬草1
     herbwater.routeVictoryLootDelta = {
         {ExplorationChoice::CollapsedSidePath, {{"herb", 2}}},
         {ExplorationChoice::ScoutRoute, {{"quality_herb", 1}}},
@@ -118,10 +117,19 @@ RegionDescriptor ashboughForestRegion() {
     // 「自由配置」ではなく「乱数配置を2列に絞る」効果である点に注意。
     herbwater.routeOutcomes = {
         {ExplorationChoice::FrontalAdvance, {}},
-        {ExplorationChoice::CollapsedSidePath, {}},
+        {ExplorationChoice::CollapsedSidePath, {.enableReinforcementWave = true}},
         {ExplorationChoice::ScoutRoute, {.restrictedAutoSpawnMaxColumn = 1}},
     };
     herbwater.scoutRouteRequiredClass = UnitClass::DawnChirurgeon;
+    herbwater.timedReinforcement = StageDescriptor::TimedReinforcement{
+        .id = "herbwater_harvest_wolf",
+        .spawnRound = 2,
+        .spawnPhase = Phase::EnemyPhase,
+        .announceRoundsBefore = 1,
+        .requiredForElimination = true,
+        .units = {{"herbwater_reinforcement_wolf", "Wolf", UnitClass::Wolf}},
+        .orderedSpawnCandidates = {{0, 7}, {1, 7}, {2, 7}},
+    };
     herbwater.missionNameEn = "Herbwater Hollow";
     herbwater.missionNameJa = "薬草の沢";
     region.stages.push_back(herbwater);
@@ -154,6 +162,13 @@ RegionDescriptor ashboughForestRegion() {
         {ExplorationChoice::CollapsedSidePath, {.restrictedAutoSpawnMaxColumn = 1, .extraBarrierCount = 1}},
     };
     brokenwood.scoutRouteDisabled = true;
+    // 実測(jf_forest_balance)の結果、Verge/Hollowで頭数が減った状態のまま
+    // Territoryへ入っても、生き残った仲間はHPが十分残っていることが多く、
+    // 減った頭数なりの調整が敵側に無かった。campaign_balance.mdの優先度3番
+    // 「予告された増援・地形変化」に沿って、4人未満で突入した場合だけ護衛狼を
+    // もう1体追加する(灰角大猪自身のHP/ダメージは変更しない)。
+    brokenwood.understaffedReinforcement =
+        UnitTemplate{"brokenwood_guard_wolf2", "Wolf", UnitClass::Wolf};
     // 副目標「倒木衝突」: 灰角の欠片1 / 副目標「無傷」: 獣皮1 (both routes)
     brokenwood.logCollisionBonusLoot = {{"ashenhorn_fragment", 1}};
     brokenwood.noCasualtiesBonusLoot = {{"hide", 1}};

@@ -207,6 +207,17 @@ Phase中は次を予約する。
 
 撤退・降伏を撃破として扱わない。Objectiveが許可する退場理由だけを達成へ加算する。
 
+**実装済み(2026-07)**: 上記のうち撤退部分(人間系HP25%以下・野生動物HP20%以下)を
+`AiActionType::Retreat`として実装。`AiProfile::retreatHpPercent`(既定25、Wolfは20)を
+下回ると、盤面右端列(Exit扱い)へ到達可能な限り撤退候補を`generateAiCandidates()`が生成し、
+`chooseBestAiCandidate()`の通常Scoreで他候補と比較される(即時任務達成や必殺可能な対象が
+あれば撤退より優先されうる)。退場時は`Unit::hasExited=true`・
+`exitReason=UnitExitReason::Retreated`を設定し、HPは変更しない(`isAlive()`は真のまま)。
+「まだ盤面上の脅威/対象か」は新設の`Unit::isPresent()`(`isAlive() && !hasExited`)で判定し、
+`EliminateTeam`はこれで達成されるが`DefeatUnit`(特定Boss撃破)は`isAlive()`のまま満たされない
+仕様。降伏、群れの主喪失時の縄張り外逃走、`cohesion`低下、maySurrenderは未実装
+(`implementation_roadmap.md`のM4継続課題)。
+
 ## 難易度との関係
 
 初期版では難易度選択を実装しない。将来追加する場合も、AIは次だけを変える。

@@ -87,6 +87,60 @@
   (灰角の欠片1)と「無傷」(獣皮1)をAd-hoc方式(Objectiveシステムを介さず
   `BattleState::bossHasCollidedWithBarrier()`と`battle.units()`の生存確認で直接判定)で
   実装。Boss予告Message・攻撃範囲表示等のUIは未配線(このセッション全体の一貫した方針どおり)
+- 頭数連動の護衛狼増援(2026-07、`campaign_balance.md`「Skill実装後の実測と護衛狼の頭数連動」
+  参照): `StageDescriptor::understaffedReinforcement`/`understaffedThreshold`を新設し、
+  Verge/Hollowでの戦闘不能により4人未満でTerritoryへ突入した場合、護衛狼をもう1体追加する
+  (`buildEnemies()`に`livingPlayerCount`引数を追加)。大猪自身の能力値は変更なし。
+  `jf_forest_balance`実測(500 seed)で3地点連続の全滅率が32%前後→39.8%(目標35-45%の中央)
+  に是正されたことを確認済み。Camp次地点プレビュー(`nextSiteEnemyRosterNames()`)と
+  PreBattleDeployment(`previewEnemies()`)もこの追加reinforcementを反映するよう更新
+- Boss共通型の抽出(2026-07、M4項目8): `boss_common_rules.md`の「Bossの退場理由」を
+  `jf::UnitExitReason`(`jf/core/Unit.hpp`)+`Unit::exitReason`として新設し、灰角大猪の
+  HP0を`ScriptedWithdrawal`(撃破相当)として設定(`ObjectiveTracker.cpp`の
+  `emitUnitDefeatedEvents()`)。「Phase移行」を`jf::BossStageChangedEvent`
+  (`jf/battle/BattleEvents.hpp`)として新設し、灰角大猪の激昂時に1回発行。続けて
+  `jf::BossRuntimeState`/`jf::BossTelegraph`(`jf/battle/BossRuntime.hpp`)へ予告行動
+  (行動ID・形状・予告/実行Round・対象・固定Tile・方向)を汎用化し、灰角大猪の突進予告を
+  `Unit::bossRuntime.telegraph`経由に移行、`jf::BossTelegraphChangedEvent`を発行。
+  Objective側の退場理由Filter(許可した退場理由でのみBoss素材を付与)は、`Retreated`等を
+  実際に使うBoss・敵がまだいないため未着手
+- 増援Wave(2026-07、M4項目5): `jf::ReinforcementWave`(`jf/battle/Reinforcement.hpp`、
+  `ReinforcementState{Scheduled,Announced,Spawned,Prevented,Cancelled}`)、
+  `validateReinforcementWaves()`、`BattleState::addReinforcementWave()`/
+  `announceReinforcements()`/`resolveReinforcementsForPhase()`(Player/Enemy Phase開始時に
+  呼ばれ、予告→出現→全候補封鎖ならPrevented、を処理)、`hasPendingRequiredEnemyReinforcements()`
+  (必須Wave未解決の間`EliminateTeam`を早期成立させない)を実装。地域接続は薬草の沢の採取
+  ルート(`StageDescriptor::timedReinforcement`、2ラウンド目に狼1体)のみ - 以前「増援の
+  仕組み自体が未実装」として保留していたHollowの既知ギャップが解消された
+- AI候補/Score/小隊予約/兵種別Profile(2026-07、M4項目6・7、簡略版): `enemy_ai_rules.md`の
+  完全仕様(8 Role、6 Faction、撤退/降伏、Object操作候補)より小さい、`jf::AiCandidate`/
+  `jf::AiProfile`(Wolf/Human/Defender/Ranged/Support/Banditの6種)/`generateAiCandidates()`/
+  `chooseBestAiCandidate()`+`candidateLess()`(7段の決定論的同点処理)を実装し、Boss
+  (`AshenhornBoar`)以外の全Enemy(Wolf含む - 専用群れAI関数は完全にデッドコード化していた
+  ため削除)をこの経路へ接続。`jf::AiSquadReservations`(`BattleController::
+  enemyReservations_`)でEnemy Phase中の停止マス・予約Damage・支援対象の小隊予約も実装。
+  Bandit Profileは低HP優先を強め・追跡制限を短くして「野盗」のFaction差分を一部反映
+  (Loot Container/離脱経路評価はObject/Exit認識が無いため保留)。**`jf_forest_balance`実測で
+  この変更により3地点連続全滅率が39.8%→59.2%(目標35-45%を超過)まで悪化したことを確認**
+- 兵種DEF調整(2026-07): 上記の実測を掘り下げた結果、古参守備兵1人を欠くと灰枝の林縁単体でも
+  勝率100%→56.6%まで崩壊する(他クラス1人欠けでは崩壊しない)極端な依存が判明。狼の攻撃力11に
+  対し古参守備兵DEF10は被ダメージ1(下限)、監視弓兵DEF3/暁の衛生兵DEF2は8-9という差が原因
+  だった。`data/classes.json`のDEFを古参守備兵10→8、監視弓兵3→5、暁の衛生兵2→4へ調整
+  (`class_reference.md`の正本テーブルも同期)。古参守備兵抜きの灰枝の林縁単体勝率は
+  56.6%→81.4%まで改善。3地点連続(無補給)の全滅率はやや悪化(59.2%→60.0%)したが、これは
+  撤退前提の最悪ケース指標のため許容(詳細は`campaign_balance.md`「古参守備兵への過度な依存と
+  DEF調整」参照)
+- 撤退実装(2026-07、M4項目6・7継続課題の一部): `enemy_ai_rules.md`「撤退と降伏」の撤退部分を
+  実装。`Unit::hasExited`+`Unit::isPresent()`(`isAlive() && !hasExited`)を追加し、「まだ盤面上の
+  脅威/対象か」を問う箇所(`unitAt()`、`Movement.cpp`の各判定、`allEnemiesDefeated()`、
+  `EliminateTeam`)を`isAlive()`から置き換え。`isAlive()`自体はHPのみの判定のまま不変
+  (`DefeatUnit`は意図的にこのまま)。`AiActionType::Retreat`+`AiProfile::retreatHpPercent`
+  (既定25、Wolf20)で撤退候補を生成し、盤面右端列(Exit)へ退場させる。実装中に
+  `BattleState::isTeamDone()`/`BattleController::nextUnactedEnemy()`の`isAlive()`残存という
+  致命的な潜在バグ(撤退後Enemy Phaseが永久停止する)を発見・修正、revert検証済み。新規テスト
+  5ブロック追加、全て通過。`jf_forest_balance`でAshbough Forestへの数値影響は皆無(Tactical
+  3地点連続 40.0%/60.0%で不変) - 狼のHP16・DEF2に対し現行の与ダメージが大きく撤退閾値到達前に
+  ほぼ即死するため。降伏候補・Object操作候補は未着手
 - M2-C 地域完了を実装: 新しい`RegionProgress`構造体は作らず、既存の`BaseState::siteAccess`を
   正本として`GameApp::wouldRegionBeCleared()`で3地点(灰枝の林縁・薬草の沢・折れ木の縄張り)の
   Surveyed以上を合成判定する。`ExpeditionState::pendingRegionCompletions`
@@ -121,8 +175,8 @@
   (`routeOutcomes`、`scoutRouteDisabled`、Ad-hoc副目標フィールド等)で対応できており、
   まだ本格的な移行コストに見合っていない。次地域(灰鉄採石場、5地点)を追加するM9系まで
   持ち越す想定に変更
-- 戦闘中増援Wave(`battle_resolution_contract.md`「増援」)。薬草の沢の「薬草を採取」ルートで
-  2ターン目に狼1体が増援する仕様が未実装のまま
+- 薬草の沢の「薬草を採取」ルートはRound 2の狼1体Waveまで実装済み。未実装なのは増援HUDと、
+  他地域のEncounter Definitionから同じ共通Waveを生成するデータ移行
 - 特定Unit限定の踏査Objective(暁の衛生兵専用踏査など)。`ObjectiveTarget`にUnit単位の制約が
   なく、`herbwater_hollow_surveyed`のようなRegionProgress記録の仕組みも未実装
 - 遠征継続時だけの1回限りボーナス回復(薬草の沢の「薬草地点確保後、継続時+2」)。
@@ -139,12 +193,14 @@
   種別だけ定義済みで、専用ロジックは未着手
 - Root Action単位の完全な行動解決順、同時発生規則のうち増援・Boss段階移行・反応Skill部分
 - 通常反撃なし。槍兵の反撃準備だけが行う反応攻撃
-- 予告、封鎖、出現直後行動不可、全滅条件、Saveを含む増援Wave
-- 状態異常補正、予告固定、段階移行、退場理由を含むBoss共通処理
+- Encounter/地域Definitionから増援Waveを生成する接続と増援HUD。Wave Runtimeの予告、封鎖、
+  出現直後行動不可、必須全滅条件、Checkpointからの決定論的再生成は実装済み
+- Boss Objectiveの許可退場理由Filter。状態異常補正、予告固定、段階移行、退場理由Eventは実装済み
 - 本編後の深層遠征向け複数マスBoss Footprint
 - 倒木、装置、Container、増援口、Exitを統合するBattle Object
 - 実Resolverと同じ計算を使う攻撃予測・危険予告Overlay
-- 任務、役割、小隊予約、撤退、情報制限を含む敵AI共通評価
+- Objective/Object操作、撤退・降伏、情報公開範囲を含むAI候補。Damage/位置/役割Profile、
+  小隊予約、決定論的同点処理は実装済み
 - 初期6兵種18スキルの対象、射程、Cost、実効果、AI評価、予測表示
 
 正本は[`battle_resolution_contract.md`](battle_resolution_contract.md)、
@@ -163,6 +219,8 @@
 - 新しい地形構成を`TerrainProfile`追加だけで生成できる回帰テスト
 - 薬草の沢で旧コードと正本が食い違っていた地形率を、通常床40%・浅瀬35%・茂み15%・
   灰地10%へ修正
+- 倉庫上限超過時の受取保留・倉庫整理・放棄確認・原子的な帰還Transaction(M3-C、
+  詳細は`implementation_roadmap.md`「M3-C 倉庫超過」)
 
 設定済み・未実装:
 
@@ -171,7 +229,6 @@
 - 既存兵種パッシブを能力ID参照へ移し、新兵種追加時の`switch`変更を不要にする処理
 - Boss専用一時状態を`Unit`からRuntime Stateへ分離する処理
 - Facility、Research、RecipeをJSONへ分離する定義型、所有状態、旧ID Alias、起動時検証
-- 倉庫上限超過時の受取保留、倉庫整理、放棄確認、原子的な帰還Transaction
 - 全地域共通Checkpoint、Node変更時の退避、不正Routeの隔離復旧
 - 62地点のSite、Choice、Battle、Mission、Reward、Camp、Messageの横断参照
 - 必須ObjectiveとBoss退場理由からPending Region Completionを作り、安全帰還で恒久化する処理
@@ -238,7 +295,7 @@
   `buffSkillShapes`/`markSkillShapes`、いずれも`BattleController.cpp`の匿名namespace)を
   検索する形へリファクタ済み**。同じ形状のSkillはテーブルへ1行足すだけで実装できる(実例:
   `ambush`と`extended_lockdown`はどちらもテーブル1行のみで新規コード無し/最小追加で
-  実装)。実効果があるのは11 Skill:
+  実装)。**初期6兵種18 Skill全てに実効果あり**:
   暁の衛生兵`emergency_treatment`(Heal形状。HP50%以下の味方を射程2から12回復、戦闘1回)、
   `cleanse`(状態解除形状。自身または隣接味方1人の毒・炎上・移動低下・防御低下・よろめきを
   全解除、CD2)、`protective_treatment`(バフ形状・単体。RES+3、次のEnemy Phase終了まで、
@@ -264,12 +321,98 @@
   素朴な専用分岐にした - 既存3バフが全て「次のEnemy Phase終了」固定で切れるのに対し、
   これだけ「今の」Player Phase終了で切れるため。`Unit::moveUpActive`/`effectiveMove()`
   拡張、`applyMoveUp()`/`clearMoveUpAtPlayerPhaseEnd()`(Player Phase終了処理へ追加)が
-  必要だった。戦闘HUD「スキル」メニューでの装備スキル表示(使用不能理由付き)も追加
-- 設定済み・未実装: 残り7 Skillの実効果(`initial_skill_effects.md`に全て定義済み。
-  反応・地形操作・自己移動・条件付き効果など、現状の5形状テーブルに当てはまらないものは
-  実装時に専用コードか新しい形状テーブルが必要)、Skill Previewと実Resolverの共有、
-  状態異常・地形・Boss補正のSkillへの反映、反応Skill
-  (`counterthrust`)の自動発動、AIによるSkill使用判断
+  必要だった。古参守備兵`immovable_stance`(不動の構え)は他11 SkillがすべてActiveなのに対し
+  唯一のPassive(`SkillCategory::Passive`、`SkillUsageType::Always`)で、`chooseSkill()`を
+  経由せず`chooseWait()`確定時に自動発動する(装備中は毎回、Chargeなし)。「次の自分の行動
+  終了までDEF+3・移動不可」を`Unit::immovableStanceActive`/`immovableStanceJustGranted`の
+  2段階フラグで表現し、発動元のWait自体を「次の行動」に数えないようにした。Waitを繰り返すと
+  その都度再発動する(1回だけの資源ではない)。`effectiveMove()`/`effectiveDefense()`を
+  拡張。戦闘HUD「スキル」メニューでの装備スキル表示(使用不能理由付き)も追加。辺境斥候
+  `emergency_withdrawal`(緊急離脱。自身、最大3 Tile、CD2、攻撃せず移動、敵隣接から開始
+  可能、通常占有規則を守る)は対象が「空きTile」という初めてのパターンで、既存5形状のどれも
+  前提が合わず新設の専用関数`computeEmergencyWithdrawalTiles()`(MOV/地形コストを無視した
+  固定3マス予算、Zone of Controlは完全無視)で実装した。ただし「通常占有規則を守る」は
+  `Movement.cpp`の`computeReachableTilesImpl()`と同じ規則(経路上の敵Unitは通行不可、
+  味方Unitは通過可だが着地不可)に従う必要があり、実装当初はBFS展開中に占有を見ておらず
+  最終候補リストでしか占有判定していないバグを作り込んだ(回帰テストでこのチェックを
+  意図的に外して失敗することを確認した上で修正)。`selectSkillTarget()`にも対象Unit取得を
+  前提とする既存の共有ガードより前に、空きTileへ直接`battle_.moveUnit()`する専用の早期
+  分岐が必要だった。槍兵`spear_wall`(槍壁。自身と隣接味方1人、次のEnemy Phase終了まで、
+  Spearman兵種の基礎特性Brace(`hasBrace()`/`BattleState::combatDefenseBonus()`、攻撃者が
+  2 Tile以上移動していた場合のみDEF+2)と同じ条件付きDEF+2を、まだ持っていないユニットへも
+  一時的に付与、CD2)はバフ形状テーブルを再利用しつつ、既存の1体選択バフ(選んだ1人だけが
+  受け取る)と違い「自身と選んだ隣接味方1人の両方」が受け取る初めてのケースのため、
+  `BuffSkillShape`へ`alsoSelf`フラグを追加した(true時は自身を対象選択リストから除外し、
+  選んだ対象へ適用した後もう一度自身にも適用する)。効果自体は常時+固定値ではなく攻撃者の
+  行動に依存する条件付きのため、`effectiveDefense()`ではなく`BattleState::
+  combatDefenseBonus()`に新設の`Unit::braceSkillActive`を直接参照するチェックを追加した。
+  古参守備兵`provoke`(挑発。敵1体・射程2、Damageなし、CD2、次Enemy Phase、使用者を攻撃
+  可能なら対象評価で最優先。Boss予告は変更しない)はMark形状に構造が似ているが、書き込む
+  値が符号付き整数ではなく発動者のUnit id(`Unit::provokedByUnitId`)で、この効果を消費
+  するのが`BattleController`ではなく`EnemyAI.cpp`の`takeEnemyTurn()`という別コードパスの
+  ため専用分岐にした。`takeEnemyTurn()`は通常`findNearestPlayer()`で最寄りのプレイヤーを
+  対象にするが、`provokedByUnitId`が設定されていれば発動者を最優先の対象に差し替える
+  (Wolf/Boar Boss専用AIより手前の通常AI経路のみ)。実装時、`attackIfPossible()`の既存
+  フォールバック(優先対象が射程外なら別の射程内Unitを代わりに攻撃する)が挑発を素通り
+  させてしまう問題を回帰テストで実際に再現した上で、`onlyPreferred`引数を追加して
+  (挑発中はフォールバックせず何もしない)修正した。槍兵`counterthrust`(反撃準備。
+  攻撃者・武器射程、戦闘1回、単体武器攻撃を受け生存時、攻撃者へ通常攻撃1回)は
+  `SkillCategory::Reactive`が実際に使われた初めてのSkillで、`chooseSkill()`/
+  `selectSkillTarget()`を一切経由しない - 装備しているだけで、`EnemyAI.cpp`の
+  `attackIfPossible()`(`takeEnemyTurn()`と`takeWolfPackTurn()`が共有する、実際に
+  `resolveAttack()`を呼ぶ2箇所)から新設の`tryCounterthrust()`を呼び、装備者が攻撃を
+  受けて生存していれば、攻撃者が"装備者自身の"武器射程内にいる場合のみ即座に1回反撃して
+  Chargeを消費する(攻撃者の射程ではなく防御側の射程を見る - 弓兵に射程2から攻撃されても
+  近接射程1のみの装備者は反撃できない)。灰角大猪Bossのsweep/chargeは`resolveAttack()`を
+  経由せずHPを直接減らす専用実装のため、この2箇所へのフックだけで自然に対象外になる。
+  監視弓兵`overwatch`(警戒射撃。装備武器の射程、戦闘1回、次Enemy Phase、最初に射程へ
+  入った敵へ通常攻撃1回)は`chooseSkill()`側は`hold_formation`/`extended_lockdown`と同じ
+  「自身のみ、対象選択なしで即座に解決」パターンだが、書き込む先がBuffKindではなく専用の
+  `Unit::overwatchActive`。効果自体は`provoke`同様`EnemyAI.cpp`側で消費する - 新設の
+  `triggerOverwatch()`を`takeEnemyTurn()`の2箇所(その敵が行動する直前、および移動直後)
+  から呼び、`overwatchActive`な自軍Unitのうち、その敵が"監視兵自身の"武器射程内に入って
+  いれば即座に1回攻撃してから`overwatchActive`を解除する(Chargeはキャスト時点で既に
+  消費済み)。`provokedByUnitId`と違い「次Enemy Phase」限定の文言がないため、
+  `clearSkillBuffsAtEnemyPhaseEnd()`では解除せず、実際に発動するまで複数Enemy Phaseを
+  またいで持続する。現状は通常AI経路(Wolf/Boarを除く)のみに配線済み - Wolf pack/Boar
+  bossの専用AI関数への複製はスコープ外として据え置いた。辺境斥候`trailblaze`(道拓き。
+  仮移動で通過した灰地・浅瀬、CD2、このPlayer Phase中だけ味方の移動Costを1にして行動
+  終了)は18 Skill中で唯一、既存のどの機構にも「実際に通過した経路そのもの」が残っていない
+  効果だったため、`Movement.cpp`の`computeReachableTilesImpl()`へ親ポインタ追跡
+  (`parentOut`)を追加し、新設の`computeMovementPath(battle, mover, destination)`がそれを
+  辿って経路を逆算する(起点は除き終点は含む)。`BattleController::selectMoveTile()`が
+  実際の移動より前に(`mover.position`がまだ起点のうちに)経路を`lastMovementPath_`へ
+  キャプチャしておく必要があった。`chooseSkill()`は`overwatch`と同じ「自身のみ、対象選択
+  なしで即座に解決」パターンで、経路上の灰地・浅瀬Tileだけを`BattleState::
+  markTrailblazed()`で記録する(平地は無視)。新設した`costOverrideAt`引数
+  (`BattleState::isTrailblazed()`)が、そのTileのコストを地形本来のコストや移動する側の
+  兵種に関係なく常に1へ上書きする。`Unit::moveUpActive`と同じ「このPlayer Phase終了まで」
+  なので`clearMoveUpAtPlayerPhaseEnd()`の隣で`BattleState::clearTrailblazedTiles()`を
+  呼ぶ形にした
+- **完了**: 初期6兵種18 Skill全てに実効果あり。項目1の残作業は今後追加される兵種/Skillが
+  出た時の形状テーブル拡張のみ
+- M4項目3(Preview/Resolverの一致)は**攻撃形状3 Skill(制圧射撃・足止め突き・奇襲)のみ
+  完了**: 通常攻撃と対称な`ConfirmAttack`→`ConfirmSkillAttack`の2段階フローを追加
+  (新設`BattleController::pendingSkillPreview()`/`confirmSkillAttack()`)。Previewと
+  実際の解決が同じ`computeDamage()`を通るため、両者が食い違うことはコードの構造上
+  あり得ない。Heal/バフ/Mark等Damageを予測しないSkillは対象外(即座解決のまま) -
+  これらにPreviewする数値自体が無いための意図的なスコープ限定。UI側(`main.cpp`)の
+  変更はビルド成功と回帰テストのみで検証、実機での目視確認は未実施(ヘッドレス環境)。
+  実装直後の評価で`confirmSkillAttack()`が`weapon.causesKnockback`を見ておらず
+  `applyKnockback()`も呼んでいないことが判明(他の全攻撃経路は呼んでいる)。重槍装備の
+  槍兵が`halting_thrust`を使うとノックバックだけ発生しない実在のバグで、修正して
+  回帰テストを追加済み
+- 状態異常の実付与(2026-07、M4項目4): 移動低下は既にM4-Aで配線済み(制圧射撃・
+  足止め突き)。よろめきの主な発生源「障害物へのノックバック衝突」を新規実装
+  (`BattleState::applyKnockback()`がノックバック先を塞ぐもの一式(範囲外・他Unit・不可通行
+  地形・Battle Object)を検出すると`applyStagger()`を呼ぶ)。実装中に既存バグを発見:
+  `applyKnockback()`はBattle Objectを一切見ておらず、倒木などのBarrierを無視してノックバック
+  が素通りしていた。同じ修正で解消。毒・炎上・自Skill経由の防御低下は対応する敵・アイテム・
+  武器・クラスが未実装のため保留(倒木衝突経由の防御低下はBoss専用の別IDで実装済み)
+- M4共通基盤(2026-07): 増援Wave・予告・封鎖・必須全滅条件、AI候補/Score/小隊予約、
+  Wolf/Human/Defender/Ranged/Support Profile、Boss共通Telegraphを実装。未接続なのは地域Definition、
+  増援HUD、Objective/Object操作・撤退候補、Boss退場理由Filter
+  固定・段階移行・撤退区別の汎用化
 
 ## 遠征と探索
 
@@ -394,28 +537,44 @@
 
 - 野営地から開拓都市までの`OutpostStage`
 - 作戦テントと共同テントを常設基礎設備として扱う
-- 開拓拠点の有効施設枠2
 - 訓練場、簡易鍛冶台、救護テント、工作台
 - 施設ノードの段階、Discovery、前提ノード、素材条件
-- 建設、解体、無料再建
-- 解体時に各建設素材の50%を端数切り捨てで返却
-- 解放済み技術は解体後も保持
 - 施設費用の複数素材対応と一括検証後の消費
-- 鍛冶台稼働中のみ装備・調整変更可能
 - 分岐武器に対応レシピの解放を要求
+- **M5(2026-07)**: 解体・稼働枠・再建モデルを完全に廃止(`docs/base_development.md`
+  「解体、素材返却、再建費は採用しない」に対応)。`BaseState::facilitySlotCapacity()`
+  (段階ごとの同時稼働枠2/4/6)、`GameApp::dismantleFacilityNode()`(素材50%返却)、
+  `GameApp::rebuildFacilityNode()`(空き枠があれば無料再建)を削除し、
+  `facilityNodeEligible()`/`applySaveData()`の稼働枠チェックも削除。
+  `unlockFacilityNode()`が元々unlockedNodeIds/builtNodeIds両方へ一括挿入していた
+  ため、削除だけで「一度建設した施設は恒久的に利用可能」というモデルへ一致した。
+  UIもDismantle/Rebuildボタンを削除し、施設Lv表示・施設枠表示を「解放済み分岐N」・
+  開拓段階名の表示へ置き換えた(`base_development.md`完了条件#12に対応)
+- **M5レビュー対応(2026-07)**: コードレビューで指摘された3点を修正。
+  (1) `BaseState::builtNodeIds`を`facility_data_contract.md`が定める正式フィールド名
+  `constructedFacilityIds`へ改名(`BaseState.hpp`/`Facilities.hpp`/`GameApp.cpp`/
+  `SaveSystem.cpp`/`main.cpp`/`test_battle.cpp`全箇所。JSON側のキー名`"builtNodes"`は
+  変更していないため、既存セーブへの互換影響はゼロ)。
+  (2) `main.cpp`の`facilityIsActive()`が稼働中/未稼働(ACTIVE/INACTIVE)というトグル
+  状態を表示しており「施設は稼働・停止状態を持たない」という正式仕様と矛盾していた
+  ため、`facilityIsConstructed()`に改名し表示文言も建設済み/未建設
+  (`ui.facility_node.constructed`/`ui.facility_node.not_constructed`)へ変更した。
+  内部ロジック自体(恒久建設済みかどうかの判定)は変更していない
+  (3) `implementation_roadmap.md`の段階4残り+段階5の記述にあった「解体/再建」という
+  古いUI言及に「※解体・再建UIは後にM5で廃止」の注記を追加
 
-上記の建設・解体・再建と「鍛冶台稼働中のみ装備変更」は現行実装であり、正式仕様では廃止予定。
-正式仕様は[`base_development.md`](base_development.md)の「建設済み施設は常時利用可能」で、未実装差分は次。
+正式仕様は[`base_development.md`](base_development.md)。今回のSliceでは意図的に対象外とした
+未実装差分:
 
-- `constructedFacilityIds`への一本化
-- 解体、50%返却、再建費の廃止
-- 稼働・停止・施設枠UIの廃止
-- 所有済み装備・スキル・特性・持込品を常に準備可能
-- Schema 2の`builtNodeIds`からSchema 3への移行
-- 建設・研究・所有の3状態を別データとして保持
-- 研究済み分岐は恒久利用可能とし、追加の分岐有効化枠を設けない
-- 所有済み装備・スキル・特性・道具の装備と持込を常に許可
-- 施設Lv表示を廃止し、開拓段階・建設状態・研究済み分岐数を表示
+- `FacilityDefinition`/`ResearchNodeDefinition`/`RecipeDefinition`のJSON化と汎用Loader
+  (`data/facilities.json`等)。現状は`include/jf/core/Facilities.hpp`のハードコード
+  C++配列のまま
+- 旧ID Alias(`facility_research.md`の18件のID移行表)とSchema 3への移行
+- 鍛冶台建設済みのみ装備・調整変更可能というチェック自体は残っている(`constructedFacilityIds`が
+  永続化されたので実質的に「一度建設すれば恒久的に許可」になっているが、
+  `equipWeaponForUnit()`等のガード文自体は変更していない)
+- 全12兵種の武器分岐(現状Spearmanの3分岐のみ)、10地域にまたがる施設研究ツリー
+  拡張、共同施設研究、拠点段階Encampment→PioneerOutpost以降の進行・外観変化
 
 確定済み初期費用:
 
@@ -439,8 +598,9 @@
 | 防護板 | 木材3 |
 | 帰還信号弾 | 木材2、獣皮2 |
 施設一覧、施設詳細、建設確認、研究詳細・確認、製作画面は
-[`facility_ui.md`](facility_ui.md)で設定完了。現行UIの施設Lv、施設枠、解体・再建操作は正式仕様では
-廃止予定であり、新UIへの置換はPhase 8で行う。
+[`facility_ui.md`](facility_ui.md)で設定完了。現行UIの施設Lv・施設枠・解体・再建操作は
+M5(2026-07)で廃止済み(上記「拠点と施設」参照)。JSON Definition駆動の画面への
+本格的な置換は未着手のまま。
 
 | 施設 | 費用 | 追加条件 |
 |---|---|---|
@@ -462,17 +622,23 @@
 - Web IDBFS / IndexedDB接続
 - 恒久状態変更時のオートセーブ
 - 探索開始時とキャンプ時の簡略版遠征中断セーブ（`regionId`含む）
-- Export / Import（`exports/`/`imports/`フォルダ経由、`.preimport.bak`退避）
+- Export / Import（`exports/`/`imports/`フォルダ経由、`.preimport.bak`退避） -
+  以前ここに「未実装」と記載していたが実際には実装済みだった(2026-07訂正)
 - M3-A(最小スライス): `applySaveData()`がCheckpointの`routeProgress`不正Node ID
   や`expeditionStage`範囲外を検出した際、旧実装は当該遠征を警告なく完全破棄して
   いたバグを修正。region/partyが有効な場合はPending Loot/Discoveries/Bag/
   Site Access更新/地域完了フラグとパーティHPを保持したまま地域入口へ退避する
   ようにした（`docs/expedition_recovery.md`「更新後の復旧」優先順位4に対応）
+- M3-D(2026-07): `jf::migrateSave()`(`vN -> vN+1`を一段ずつ適用、現行`v1->v2`は
+  デシリアライザの既定値埋めにより実質No-opだが移行前に`.schema-vN.bak`退避まで
+  実施)、保存状態HUD(`Idle/Saving/Saved/Failed`、自動再試行最大3回+手動再試行、
+  `main.cpp`の`drawSaveStatusHud()`)、破損復旧画面(`Restore Backup`/
+  `Import Save`/`Start New`、`SaveStore::restoreFromBackup()`/
+  `quarantineCorruptSave()`、`drawSaveRecoveryScreen()`)を実装。Web同期完了待ち・
+  GitHub Pages更新継続試験は実ブラウザ/Pages公開環境が無いため対象外のまま
 
 未実装:
 
-- 保存状態HUDと破損復旧の専用選択画面（破損時のバックアップ自動読込は実装済み）
-- Schema 2以降のスキーマ移行処理
 - Web同期完了を待つ処理
 - Emscripten実ビルドとブラウザ更新試験
 - M3-Aの残り: Attempt ID/Checkpoint Kindの正式な型、Route/Node/Region Alias
@@ -489,13 +655,40 @@
 - 英語と日本語を切り替え可能
 - 選択言語をセーブ対象に含める
 - 施設名と主要HUD文言を両言語で表示
+- M3-B Slice 1(2026-07): `data/locales/ja.json`/`en.json`(17 Key)+
+  `jf::loadLocales()`/`jf::tr(key, japanese[, args])`(`include/jf/core/Locale.hpp`、
+  `src/core/Locale.cpp`)を新設。`GameData.cpp`の`readJsonFile()`と同じ規約(開く→
+  Parse→失敗時cerr+nullopt)、`en`/`ja`のKey集合不一致は起動失敗として検出、未解決
+  Keyは`[[MISSING:key]]`マーカーで可視化(黙ったフォールバックをしない)。main.cpp
+  既存の`gLanguage`グローバルはそのまま再利用し、`tr(key)`という1行ラッパー経由で
+  接続。共通ボタン(決定/キャンセル/戻る/待機/ターン終了/閉じる/つづける/追加/削除)、
+  フェイズ見出し、設定/言語ラベル、勝利/遠征失敗見出し、データ読込失敗・4人選択
+  検証文言の計17個の`kJa*`定数を削除し`tr()`呼び出しへ移行。`loadAppFont()`の
+  Glyph Atlas登録も`jf::allJapaneseGlyphText()`(Locale全体の日本語Valueを自動連結)
+  経由へ一部移行し、今後Key化する文字列は手動charset編集なしで網羅されるように
+  した。新規`jf_locale_tests`(`tests/test_locale.cpp`)でKey集合検証・両言語の
+  `tr()`戻り値・未解決Keyマーカー・Formatter・破損Locale検出を回帰テスト化
+  (実データではなく一時スクラッチコピーを壊す方式 - assert失敗時のリストア漏れで
+  実ファイルが壊れたまま残る事故を避けるため)
+- 段階3全体(2026-07): 兵種名・役割、アイテム名・説明、素材名、武器名、
+  キャラクター名、地形名、Battle Object名、拠点段階名、Discovery名、施設名・役割、
+  状態異常バッジ(計約128 Key)を移行
+- 段階4〜5(2026-07、完了): 戦闘ログメッセージ(Formatter初実戦投入)、戦闘HUD操作
+  文言、戦闘予測ポップアップ、遠征準備・キャンプ・設定/Export/Import・探索3択・
+  PreBattleDeployment・拠点/Facilities/Forge/Unit各画面を移行。`main.cpp`の
+  `kJa*`定数は421個→**0個**(意図的に残す`kJaJapaneseNative`1個のみ)。呼び出し元
+  0件だった`drawUnitInfo()`(デッドコード)を発見・削除。残る`pick()`呼び出しは
+  `SkillDefinition`/`FacilityNode`等、データ層が最初からEn/Ja両方を持つフィールド
+  を選ぶ既存パターンのみで、直書き債務ではない。詳細は`implementation_roadmap.md`
+  「M3-B Locale移行」参照
+- 段階6の実行可能な範囲(2026-07): `tools/check_localization.sh`(CTest名
+  `check_localization`)で`kJa*`定数の残数を検査。Key集合一致・Formatter・破損
+  Locale検出は`jf_locale_tests`が担当
 
 未実装:
 
-- `data/locales/ja.json`と`en.json`を使うLocale正本
-- C++内の`kJa...`、`pick(en, ja)`、表示文直書きの撤去
-- Key集合、引数、欠字、`??`、U+FFFD、文字化けを検出する`check_localization`
-- 全兵種、素材、施設、状態異常、地域名のLocale Key統一
+- 共通UI表の「主目的/副目標/敗北条件/地域成果/加入候補」(段階2、該当UIが無いため対象外)
+- `check_localization`のCI化、Glyph網羅の自動検査、画像ベースの目視検査(spec項目7・8)
 
 ## 未実装の主要画面仕様
 

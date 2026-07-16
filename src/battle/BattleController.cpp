@@ -46,16 +46,44 @@ bool isCleanseShape(const std::string& skillId) { return skillId == "cleanse"; }
 // 専用分岐にした方が読みやすいと判断した。
 bool isAdvanceOrderShape(const std::string& skillId) { return skillId == "advance_order"; }
 
+// 辺境斥候`emergency_withdrawal`(緊急離脱): self-only, no target unit at all -
+// same "not worth a table for one instance" reasoning as isCleanseShape/
+// isAdvanceOrderShape above.
+bool isEmergencyWithdrawalShape(const std::string& skillId) { return skillId == "emergency_withdrawal"; }
+
+// 古参守備兵`provoke`(挑発): 敵1体・射程2、Damageなし、対象へUnit::
+// provokedByUnitIdを設定するだけ - Mark形状に似るが、書き込む値がDamageの
+// 符号付き整数ではなく「このスキルを使ったUnitのid」で、しかも設定先は
+// (Mark形状のように味方/敵を選べる仕組みではなく)常に敵1体固定なので、
+// 別の専用分岐にした。
+bool isProvokeShape(const std::string& skillId) { return skillId == "provoke"; }
+constexpr int kProvokeRange = 2;
+
+// 監視弓兵`overwatch`(警戒射撃): self-only, no target to choose - resolves
+// immediately like hold_formation/extended_lockdown's selfOnly buffs below,
+// but arms Unit::overwatchActive rather than a BuffKind (this isn't a stat
+// buff, it's ambush readiness consumed reactively by EnemyAI.cpp's
+// triggerOverwatch(), not by anything in BattleController).
+bool isOverwatchShape(const std::string& skillId) { return skillId == "overwatch"; }
+
+// 辺境斥候`trailblaze`(道拓き): self-only, no target to choose - resolves
+// immediately like overwatch above, but marks Ash/Shallows tiles from
+// lastMovementPath_ as trailblazed (BattleState::markTrailblazed()) rather
+// than arming a flag on the unit itself.
+bool isTrailblazeShape(const std::string& skillId) { return skillId == "trailblaze"; }
+
 struct AttackSkillShape {
     int bonusDamage = 0;
     bool appliesMoveDown = false;
     bool requiresUnacted = false; // 未行動の敵限定 (辺境斥候「奇襲」)
+    std::vector<StatusEffectType> statuses;
 };
 const std::unordered_map<std::string, AttackSkillShape>& attackSkillShapes() {
     static const std::unordered_map<std::string, AttackSkillShape> table = {
         {"suppressing_shot", {.appliesMoveDown = true}},
         {"halting_thrust", {.appliesMoveDown = true}},
-        {"ambush", {.bonusDamage = 3, .requiresUnacted = true}},
+        {"ambush", {.bonusDamage = 3, .requiresUnacted = true,
+                     .statuses = {StatusEffectType::DefenseDown}}},
     };
     return table;
 }
@@ -78,17 +106,24 @@ const std::unordered_map<std::string, MarkSkillShape>& markSkillShapes() {
     return table;
 }
 
-enum class BuffKind { Resistance, Defense, ZocRange };
+enum class BuffKind { Resistance, Defense, ZocRange, Brace };
 struct BuffSkillShape {
     BuffKind kind = BuffKind::Resistance;
     bool selfAndAllAdjacent = false; // true = self+every adjacent ally, resolves with no target selection
     bool selfOnly = false;           // true = self alone, also resolves with no target selection
+    // 槍兵`spear_wall`(槍壁)「自身と隣接味方1人」: unlike the plain
+    // single-target case (self OR one ally, whichever the player picks),
+    // both self and the chosen ally receive the buff, and self isn't itself
+    // a selectable target (it's automatic) - see chooseSkill()/
+    // selectSkillTarget()'s buff branches below.
+    bool alsoSelf = false;
 };
 const std::unordered_map<std::string, BuffSkillShape>& buffSkillShapes() {
     static const std::unordered_map<std::string, BuffSkillShape> table = {
         {"protective_treatment", {.kind = BuffKind::Resistance}},
         {"hold_formation", {.kind = BuffKind::Defense, .selfAndAllAdjacent = true}},
         {"extended_lockdown", {.kind = BuffKind::ZocRange, .selfOnly = true}},
+        {"spear_wall", {.kind = BuffKind::Brace, .alsoSelf = true}},
     };
     return table;
 }
@@ -98,7 +133,56 @@ void applyBuff(BuffKind kind, Unit& target) {
         case BuffKind::Resistance: applyResistanceUp(target); return;
         case BuffKind::Defense: applyDefenseUp(target); return;
         case BuffKind::ZocRange: applyZocRangeExtension(target); return;
+        case BuffKind::Brace: applyBraceBonus(target); return;
     }
+}
+
+// 辺境斥候`emergency_withdrawal`(緊急離脱): self-only movement, no attack, up
+// to 3 tiles - a genuinely new "self movement" shape (none of the 5 tables
+// above fit a skill with no target unit at all). Deliberately simpler than
+// the normal move computeReachableTiles(): fixed budget of 3 regardless of
+// MOV/terrain cost, and ignores Zone of Control entirely (the whole point
+// is bypassing it - "敵隣接から開始可能"), while still respecting normal
+// occupancy/passability/Battle Object blocking ("通常占有規則を守る").
+std::vector<GridPos> computeEmergencyWithdrawalTiles(const BattleState& battle, const Unit& mover) {
+    constexpr int kWithdrawalRange = 3;
+    std::vector<GridPos> result;
+    std::unordered_map<int, int> bestCost;
+    const auto key = [](GridPos pos) { return pos.row * kGridCols + pos.col; };
+    std::vector<GridPos> frontier{mover.position};
+    bestCost[key(mover.position)] = 0;
+    while (!frontier.empty()) {
+        std::vector<GridPos> next;
+        for (GridPos current : frontier) {
+            int cost = bestCost[key(current)];
+            if (cost >= kWithdrawalRange) continue;
+            static const GridPos kDirections[] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+            for (GridPos dir : kDirections) {
+                GridPos candidate{current.row + dir.row, current.col + dir.col};
+                if (!isInBounds(candidate) || !isPassable(battle.terrainAt(candidate))) continue;
+                if (battle.objectBlocksMovementAt(candidate)) continue;
+                // Same occupancy-during-expansion rule as Movement.cpp's
+                // computeReachableTilesImpl(): allies can be crossed but never
+                // used as a destination, enemies block expansion entirely.
+                const Unit* occupant = battle.unitAt(candidate);
+                if (occupant && occupant->team != mover.team) continue;
+                auto it = bestCost.find(key(candidate));
+                if (it != bestCost.end() && it->second <= cost + 1) continue;
+                bestCost[key(candidate)] = cost + 1;
+                next.push_back(candidate);
+            }
+        }
+        frontier = std::move(next);
+    }
+    for (const auto& [tileKey, cost] : bestCost) {
+        GridPos pos{tileKey / kGridCols, tileKey % kGridCols};
+        if (pos == mover.position) continue;
+        const Unit* occupant = battle.unitAt(pos);
+        if (occupant && occupant != &mover) continue;
+        if (battle.objectBlocksStoppingAt(pos)) continue;
+        result.push_back(pos);
+    }
+    return result;
 }
 
 } // namespace
@@ -129,6 +213,14 @@ void BattleController::finishPlayerAction(Unit& unit, ActionKind actionKind) {
     // unit's own status-effect action-end damage.
     battle_.consumeHerbPatch(unit);
     processActionEndStatusEffects(battle_, unit);
+    // 古参守備兵`immovable_stance`: DEF+3/no-movement lasts through the very
+    // next action this unit takes after the Wait that granted it - so the
+    // Wait action itself (immovableStanceJustGranted) must not clear it,
+    // only consume the "just granted" flag; the action after that does.
+    if (unit.immovableStanceActive) {
+        if (unit.immovableStanceJustGranted) unit.immovableStanceJustGranted = false;
+        else unit.immovableStanceActive = false;
+    }
     battle_.markActed(unit);
     emitUnitDefeatedEvents(battle_, aliveBefore);
 
@@ -178,6 +270,9 @@ void BattleController::selectMoveTile(GridPos pos) {
         return;
     }
 
+    // 辺境斥候`trailblaze`: must be captured before moveUnit() below changes
+    // selectedUnit_->position out from under computeMovementPath()'s origin.
+    lastMovementPath_ = computeMovementPath(battle_, *selectedUnit_, pos);
     battle_.moveUnit(*selectedUnit_, pos);
     reachableTiles_.clear();
     attackRangeTiles_ = computeAttackRangeTiles(*selectedUnit_, {selectedUnit_->position});
@@ -290,11 +385,23 @@ void BattleController::chooseSkill(int slotIndex) {
     const std::string& skillId = selectedUnit_->skillSlots[static_cast<std::size_t>(slotIndex)].skillId;
 
     // Self-cast buffs with no target to choose (e.g. 行軍隊長`hold_formation`'s
-    // self+every adjacent ally, or 古参守備兵`extended_lockdown`'s self-only)
-    // resolve immediately.
+    // self+every adjacent ally, or 古参守備兵`extended_lockdown`'s self-only),
+    // plus 監視弓兵`overwatch`/辺境斥候`trailblaze` (also self-only, but each
+    // arms its own dedicated state rather than a BuffKind), resolve
+    // immediately.
+    const bool overwatch = isOverwatchShape(skillId);
+    const bool trailblaze = isTrailblazeShape(skillId);
     if (auto buff = buffSkillShapes().find(skillId);
-        buff != buffSkillShapes().end() && (buff->second.selfAndAllAdjacent || buff->second.selfOnly)) {
-        if (buff->second.selfOnly) {
+        overwatch || trailblaze ||
+        (buff != buffSkillShapes().end() && (buff->second.selfAndAllAdjacent || buff->second.selfOnly))) {
+        if (overwatch) {
+            selectedUnit_->overwatchActive = true;
+        } else if (trailblaze) {
+            for (GridPos pos : lastMovementPath_) {
+                TerrainType terrain = battle_.terrainAt(pos);
+                if (terrain == TerrainType::Ash || terrain == TerrainType::Shallows) battle_.markTrailblazed(pos);
+            }
+        } else if (buff->second.selfOnly) {
             applyBuff(buff->second.kind, *selectedUnit_);
         } else {
             for (Unit& unit : battle_.units()) {
@@ -346,9 +453,13 @@ void BattleController::chooseSkill(int slotIndex) {
         }
     } else if (auto buff = buffSkillShapes().find(skillId); buff != buffSkillShapes().end()) {
         // Single-target buffs (selfAndAllAdjacent == false; the AoE case
-        // already returned above) - self or one adjacent ally.
+        // already returned above) - self or one adjacent ally, except
+        // alsoSelf shapes (spear_wall) where self isn't itself selectable
+        // (it always receives the buff automatically) and only an adjacent
+        // ally can be chosen.
         for (Unit& unit : battle_.units()) {
             if (unit.team != selectedUnit_->team || !unit.isAlive()) continue;
+            if (buff->second.alsoSelf && &unit == selectedUnit_) continue;
             if (manhattanDistance(selectedUnit_->position, unit.position) <= 1)
                 skillTargetTiles_.push_back(unit.position);
         }
@@ -373,6 +484,14 @@ void BattleController::chooseSkill(int slotIndex) {
             if (manhattanDistance(selectedUnit_->position, unit.position) <= 1)
                 skillTargetTiles_.push_back(unit.position);
         }
+    } else if (isEmergencyWithdrawalShape(skillId)) {
+        skillTargetTiles_ = computeEmergencyWithdrawalTiles(battle_, *selectedUnit_);
+    } else if (isProvokeShape(skillId)) {
+        for (Unit& unit : battle_.units()) {
+            if (unit.team == selectedUnit_->team || !unit.isAlive()) continue;
+            if (manhattanDistance(selectedUnit_->position, unit.position) <= kProvokeRange)
+                skillTargetTiles_.push_back(unit.position);
+        }
     }
     if (skillTargetTiles_.empty()) return;
     pendingSkillSlot_ = slotIndex;
@@ -382,38 +501,55 @@ void BattleController::chooseSkill(int slotIndex) {
 bool BattleController::selectSkillTarget(GridPos pos) {
     if (inputState_ != BattleInputState::SelectSkillTarget || !selectedUnit_ || pendingSkillSlot_ < 0) return false;
     if (std::find(skillTargetTiles_.begin(), skillTargetTiles_.end(), pos) == skillTargetTiles_.end()) return false;
+
+    // 辺境斥候`emergency_withdrawal`: the destination is an empty tile, not a
+    // Unit, so it's handled here rather than falling into the target-lookup
+    // path every other skill (all of which act on a Unit) shares below.
+    if (isEmergencyWithdrawalShape(
+            selectedUnit_->skillSlots[static_cast<std::size_t>(pendingSkillSlot_)].skillId)) {
+        if (!battle_.moveUnit(*selectedUnit_, pos)) return false;
+        consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
+        finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+        selectedUnit_ = nullptr;
+        pendingSkillSlot_ = -1;
+        skillTargetTiles_.clear();
+        reachableTiles_.clear();
+        attackRangeTiles_.clear();
+        inputState_ = BattleInputState::SelectUnit;
+        evaluateOutcome();
+        return true;
+    }
+
     Unit* target = battle_.unitAt(pos);
     if (!target) return false;
 
     const std::string& skillId = selectedUnit_->skillSlots[static_cast<std::size_t>(pendingSkillSlot_)].skillId;
+
+    // M4 item 3 (Preview/Resolverの一致): 攻撃形状Skill(suppressing_shot/
+    // halting_thrust/ambush)だけは通常攻撃と同じくConfirm前にPreviewを見せる
+    // - 他の形状(Heal/バフ/Mark等)はDamageを予測する必要がなく、これまで通り
+    // 即座に解決する。実際のCharge消費・resolveAttack()はconfirmSkillAttack()
+    // 側で行う(pendingSkillPreview()と同じcomputeDamage()を使うため、
+    // Previewと実結果は自動的に一致する)。
+    if (attackSkillShapes().find(skillId) != attackSkillShapes().end()) {
+        pendingTarget_ = target;
+        inputState_ = BattleInputState::ConfirmSkillAttack;
+        return true;
+    }
+
     if (auto heal = healSkillShapes().find(skillId); heal != healSkillShapes().end()) {
         target->currentHp = std::min(target->currentHp + heal->second.amount, target->stats.maxHp);
     } else if (isCleanseShape(skillId)) {
-        target->poisonRemainingProcs = 0;
-        target->burnRemainingProcs = 0;
-        target->moveDownActive = false;
-        target->defenseDownActive = false;
-        target->staggerActive = false;
-    } else if (auto attack = attackSkillShapes().find(skillId); attack != attackSkillShapes().end()) {
-        lastAttacker_ = selectedUnit_;
-        lastAttackTarget_ = target;
-        ++attackEventId_;
-        const AliveSnapshot aliveBeforeAttack = captureAliveSnapshot(battle_);
-        const int hpBeforeAttack = target->currentHp;
-        const bool hit = battle_.rollAttackHit(*target);
-        resolveAttack(*selectedUnit_, *target, battle_.combatDefenseBonus(*target, *selectedUnit_), hit);
-        if (hit && attack->second.bonusDamage > 0 && target->isAlive())
-            target->currentHp = std::max(0, target->currentHp - attack->second.bonusDamage);
-        lastDamage_ = std::max(0, hpBeforeAttack - target->currentHp);
-        lastAttackHit_ = lastDamage_ > 0;
-        if (hit && attack->second.appliesMoveDown && target->isAlive()) applyMoveDown(*target);
-        emitUnitDefeatedEvents(battle_, aliveBeforeAttack);
+        clearAllStatusEffects(*target);
     } else if (auto buff = buffSkillShapes().find(skillId); buff != buffSkillShapes().end()) {
         applyBuff(buff->second.kind, *target);
+        if (buff->second.alsoSelf) applyBuff(buff->second.kind, *selectedUnit_);
     } else if (auto mark = markSkillShapes().find(skillId); mark != markSkillShapes().end()) {
         target->markedBonusDamage = mark->second.bonusDamage;
     } else if (isAdvanceOrderShape(skillId)) {
         applyMoveUp(*target);
+    } else if (isProvokeShape(skillId)) {
+        applyProvoke(*target, selectedUnit_->id);
     }
     consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
     finishPlayerAction(*selectedUnit_, ActionKind::Skill);
@@ -425,6 +561,67 @@ bool BattleController::selectSkillTarget(GridPos pos) {
     inputState_ = BattleInputState::SelectUnit;
     evaluateOutcome();
     return true;
+}
+
+std::optional<CombatPreview> BattleController::pendingSkillPreview() const {
+    if (inputState_ != BattleInputState::ConfirmSkillAttack || !selectedUnit_ || !pendingTarget_ ||
+        pendingSkillSlot_ < 0) {
+        return std::nullopt;
+    }
+    const std::string& skillId = selectedUnit_->skillSlots[static_cast<std::size_t>(pendingSkillSlot_)].skillId;
+    auto attack = attackSkillShapes().find(skillId);
+    if (attack == attackSkillShapes().end()) return std::nullopt;
+    // Same computeDamage() confirmSkillAttack() resolves with below, plus
+    // the flat bonusDamage folded in so the Preview's number is the exact
+    // total HP loss a hit will actually cause (M4 item 3's Gate: "18 Skill
+    // すべてでPreviewと実結果が一致").
+    CombatPreview preview = jf::previewAttack(*selectedUnit_, *pendingTarget_,
+                                              battle_.combatDefenseBonus(*pendingTarget_, *selectedUnit_),
+                                              battle_.combatHitChance(*pendingTarget_));
+    if (attack->second.bonusDamage > 0) {
+        preview.damage += attack->second.bonusDamage;
+        preview.targetHpAfter = std::max(pendingTarget_->currentHp - preview.damage, 0);
+    }
+    return preview;
+}
+
+void BattleController::confirmSkillAttack() {
+    if (inputState_ != BattleInputState::ConfirmSkillAttack || !selectedUnit_ || !pendingTarget_ ||
+        pendingSkillSlot_ < 0) {
+        return;
+    }
+    const std::string& skillId = selectedUnit_->skillSlots[static_cast<std::size_t>(pendingSkillSlot_)].skillId;
+    auto attack = attackSkillShapes().find(skillId);
+    if (attack == attackSkillShapes().end()) return;
+
+    lastAttacker_ = selectedUnit_;
+    lastAttackTarget_ = pendingTarget_;
+    ++attackEventId_;
+    const AliveSnapshot aliveBeforeAttack = captureAliveSnapshot(battle_);
+    const int hpBeforeAttack = pendingTarget_->currentHp;
+    const bool hit = battle_.rollAttackHit(*pendingTarget_);
+    resolveAttack(*selectedUnit_, *pendingTarget_, battle_.combatDefenseBonus(*pendingTarget_, *selectedUnit_), hit);
+    if (hit && selectedUnit_->weapon.causesKnockback && pendingTarget_->isAlive())
+        battle_.applyKnockback(*selectedUnit_, *pendingTarget_);
+    if (hit && attack->second.bonusDamage > 0 && pendingTarget_->isAlive())
+        pendingTarget_->currentHp = std::max(0, pendingTarget_->currentHp - attack->second.bonusDamage);
+    lastDamage_ = std::max(0, hpBeforeAttack - pendingTarget_->currentHp);
+    lastAttackHit_ = lastDamage_ > 0;
+    if (hit && attack->second.appliesMoveDown && pendingTarget_->isAlive()) applyMoveDown(*pendingTarget_);
+    if (hit && pendingTarget_->isAlive())
+        for (StatusEffectType effect : attack->second.statuses) applyStatusEffect(*pendingTarget_, effect);
+    emitUnitDefeatedEvents(battle_, aliveBeforeAttack);
+
+    consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
+    finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+    selectedUnit_ = nullptr;
+    pendingTarget_ = nullptr;
+    pendingSkillSlot_ = -1;
+    skillTargetTiles_.clear();
+    reachableTiles_.clear();
+    attackRangeTiles_.clear();
+    inputState_ = BattleInputState::SelectUnit;
+    evaluateOutcome();
 }
 
 void BattleController::chooseProtectiveBoard() {
@@ -455,6 +652,16 @@ bool BattleController::selectBoardTarget(GridPos pos) {
 void BattleController::chooseWait() {
     if (inputState_ != BattleInputState::SelectAction || !selectedUnit_) return;
 
+    // 古参守備兵`immovable_stance`(不動の構え): a Passive skill with no
+    // charge/target step - it just auto-triggers the instant Wait is
+    // confirmed, if equipped in either slot.
+    for (const SkillSlotState& slot : selectedUnit_->skillSlots) {
+        if (slot.skillId == "immovable_stance") {
+            selectedUnit_->immovableStanceActive = true;
+            selectedUnit_->immovableStanceJustGranted = true;
+            break;
+        }
+    }
     finishPlayerAction(*selectedUnit_, ActionKind::Wait);
     selectedUnit_ = nullptr;
     reachableTiles_.clear();
@@ -500,7 +707,8 @@ void BattleController::cancelAttackSelection() {
          inputState_ != BattleInputState::SelectItemTarget &&
          inputState_ != BattleInputState::SelectBoardTarget &&
          inputState_ != BattleInputState::SelectSkillTarget &&
-         inputState_ != BattleInputState::ConfirmAttack) ||
+         inputState_ != BattleInputState::ConfirmAttack &&
+         inputState_ != BattleInputState::ConfirmSkillAttack) ||
         !selectedUnit_) {
         return;
     }
@@ -564,7 +772,12 @@ void BattleController::cancelToUnitSelect() {
 
 Unit* BattleController::nextUnactedEnemy() {
     for (auto& u : battle_.units()) {
-        if (u.team == Team::Enemy && u.isAlive() && !u.hasActed) return &u;
+        // isPresent() (not isAlive()): a retreated enemy (docs/
+        // enemy_ai_rules.md) has isAlive()==true but must never be picked
+        // again - takeEnemyTurn() would no-op on it (see its own isPresent()
+        // guard) without ever marking it acted, stalling this loop forever
+        // once a later beginEnemyPhase() resets its hasActed flag.
+        if (u.team == Team::Enemy && u.isPresent() && !u.hasActed) return &u;
     }
     return nullptr;
 }
@@ -595,10 +808,12 @@ void BattleController::evaluateOutcome() {
         const AliveSnapshot aliveBeforePhaseEnd = captureAliveSnapshot(battle_);
         processPhaseEndStatusEffects(battle_, Team::Player);
         clearMoveUpAtPlayerPhaseEnd(battle_);
+        battle_.clearTrailblazedTiles(); // 辺境斥候`trailblaze`: "このPlayer Phase中だけ"
         emitUnitDefeatedEvents(battle_, aliveBeforePhaseEnd);
         handleObjectiveEvent(battle_.missionState(),
                              {battle_.issueEventId(), 0, PhaseEndedEvent{Phase::PlayerPhase, battle_.round()}});
         battle_.beginEnemyPhase();
+        enemyReservations_.clear();
         // Enemy Phase is starting: refill/tick down enemy-side skill charges
         // (docs/skill_system.md "使用制限").
         refreshSkillChargesOnPhaseStart(battle_, Team::Enemy);
@@ -625,7 +840,7 @@ void BattleController::update(float dt) {
         for (Unit& unit : battle_.units()) {
             if (unit.team == Team::Player) hpBefore.push_back({&unit, unit.currentHp});
         }
-        if (Unit* attacked = takeEnemyTurn(battle_, *next)) {
+        if (Unit* attacked = takeEnemyTurn(battle_, *next, &enemyReservations_)) {
             lastAttacker_ = next;
             lastAttackTarget_ = attacked;
             ++attackEventId_;
