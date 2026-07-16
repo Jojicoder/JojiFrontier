@@ -59,7 +59,14 @@
   (`Completed`には自分からは決して遷移しない - 勝利時に「Activeのまま残っていれば護衛成功」
   という規約は、これを消費する側(まだ未接続)に委ねる設計)。ProtectUnitがprimary=trueに
   誤指定された場合は`validateBattleMission()`が拒否する(誤ってPrimary Group側の
-  立ち上がりEdge評価に混入するのを防ぐため)。4種ともまだ出荷済みコンテンツからは
+  立ち上がりEdge評価に混入するのを防ぐため)。`OperateObject`(2026-07続き)は
+  `DestroyObject`と同じLive評価で、対象Objectの`interactionCount > 0`を見るだけ
+  (Event経由の配線は不要)。`docs/mission_objectives.md`の「指定ユニット・兵種が」という
+  兵種制限は`resolveObjectInteraction()`の`ObjectInteractionDefinition::allowedClasses`が
+  Interact成功可否そのものを既に制限しているため、`interactionCount`が進んでいる時点で
+  兵種制限は自動的に満たされている - Objective側で二重チェックする必要がない。
+  対象Objectに`interaction`が設定されていない(例: 通常のBarrier)場合は
+  `validateBattleMission()`が拒否する。5種ともまだ出荷済みコンテンツからは
   未接続(地域書側の`surveyObjectiveId`相当の配線は次のSlice)
 - M1-A Event Batch完成(`battle_resolution_contract.md`の直近スコープ4項目): `emitUnitDefeatedEvents()`
   が`AliveSnapshot`(unordered_map)自体ではなく`battle.units()`(固定順のvector)を辿るよう修正し、
@@ -625,8 +632,8 @@
 - 正式仕様へ追加した、地域入口から連続する経路確保済み地点の一括通過、既知Campでの停止選択、
   地点別`reconLoot`（初回通常素材の50〜70%）は未実装。現行UIは地点ごとに安全通過を選ぶ
 - Pending加入候補、候補重複防止、安全帰還後の候補登録、集会所加入
-- 残り3種のObjectiveKind（`DestroyObject`/`SurviveRounds`/`EscapeUnits`/`ProtectUnit`は
-  2026-07に実装済み。複数地点確保・装置操作・条件付き撃破が残る）
+- 残り2種のObjectiveKind（`DestroyObject`/`SurviveRounds`/`EscapeUnits`/`ProtectUnit`/
+  `OperateObject`は2026-07に実装済み。複数地点確保・条件付き撃破が残る）
 - 戦闘開始画面・HUD・結果画面のUI、`MissionFlow`の報酬台帳
 
 設定済み・未実装の接続仕様:

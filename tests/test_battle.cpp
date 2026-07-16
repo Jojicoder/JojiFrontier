@@ -2793,6 +2793,76 @@ int main() {
     }
 
     {
+        // OperateObject (docs/mission_objectives.md "装置操作"): Live-
+        // evaluated off interactionCount, same "unknown target never
+        // trivially wins" rule as DestroyObject. The unit/class restriction
+        // is enforced upstream by resolveObjectInteraction() itself, so this
+        // Objective doesn't re-check who performed it.
+        jf::Unit engineer = makeUnit("engineer", jf::Team::Player, {1, 1}, 4, jf::UnitClass::Spearman);
+        jf::Unit farAway = makeUnit("far", jf::Team::Player, {1, 6}, 4, jf::UnitClass::Spearman);
+        jf::BattleObjectDefinition leverDef;
+        leverDef.definitionId = "lever";
+        leverDef.kind = jf::BattleObjectKind::Device;
+        leverDef.interaction = jf::ObjectInteractionDefinition{};
+        leverDef.interaction->interactionId = "pull_lever";
+        leverDef.interaction->range = 1;
+        leverDef.interaction->allowedClasses = {jf::UnitClass::Spearman};
+        leverDef.interaction->requiredState = jf::BattleObjectStateKind::Active;
+        leverDef.interaction->maxUses = 1;
+        leverDef.interactionResultState = jf::BattleObjectStateKind::Opened;
+
+        jf::ObjectiveDefinition operate;
+        operate.id = "operate_lever";
+        operate.kind = jf::ObjectiveKind::OperateObject;
+        operate.primary = true;
+        operate.groupId = "primary";
+        operate.target.objectId = "lever1";
+        jf::BattleMissionState mission;
+        mission.groups.push_back({"primary", jf::ObjectiveGroupRule::All});
+        mission.definitions.push_back(operate);
+        mission.progress[operate.id] = jf::ObjectiveProgress{operate.id};
+
+        jf::BattleState battle({engineer, farAway}, {}, 0, mission);
+        assert(battle.registerObjectDefinition(leverDef));
+        assert(battle.placeObject({"lever1", "lever", {1, 0}}));
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Ongoing);
+
+        jf::BattleObjectState* lever = battle.findObject("lever1");
+        assert(lever != nullptr);
+        assert(jf::resolveObjectInteraction(engineer, *lever, *leverDef.interaction, leverDef.interactionResultState));
+        jf::syncObjectiveProgress(battle);
+        assert(battle.missionState().progress.at("operate_lever").status == jf::ObjectiveStatus::Completed);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+
+        // Validation: unknown object id, and a real object with no
+        // Interact defined (e.g. a plain Barrier), are both rejected.
+        jf::ObjectiveDefinition ghostOperate = operate;
+        ghostOperate.id = "operate_ghost";
+        ghostOperate.target.objectId = "no_such_object";
+        jf::BattleMissionState ghostMission = mission;
+        ghostMission.definitions = {ghostOperate};
+        ghostMission.progress = {{ghostOperate.id, jf::ObjectiveProgress{ghostOperate.id}}};
+        auto ghostErrors = jf::validateBattleMission(ghostMission, battle);
+        assert(!ghostErrors.empty());
+
+        jf::BattleObjectDefinition barrierDef;
+        barrierDef.definitionId = "plain_barrier";
+        barrierDef.kind = jf::BattleObjectKind::Barrier;
+        barrierDef.blocksMovement = true;
+        assert(battle.registerObjectDefinition(barrierDef));
+        assert(battle.placeObject({"barrier1", "plain_barrier", {2, 4}}));
+        jf::ObjectiveDefinition barrierOperate = operate;
+        barrierOperate.id = "operate_barrier";
+        barrierOperate.target.objectId = "barrier1";
+        jf::BattleMissionState barrierMission = mission;
+        barrierMission.definitions = {barrierOperate};
+        barrierMission.progress = {{barrierOperate.id, jf::ObjectiveProgress{barrierOperate.id}}};
+        auto barrierErrors = jf::validateBattleMission(barrierMission, battle);
+        assert(!barrierErrors.empty());
+    }
+
+    {
         // DefeatUnit with a target id that doesn't exist in the battle is a
         // mission-authoring error, not an automatic win.
         jf::Unit player = makeUnit("player", jf::Team::Player, {1, 0});

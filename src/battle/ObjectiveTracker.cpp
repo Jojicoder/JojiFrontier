@@ -51,6 +51,11 @@ bool objectiveSatisfied(const BattleState& battle, const ObjectiveDefinition& de
             const Unit* unit = battle.findUnit(def.target.unitId);
             return unit != nullptr && unit->isPresent();
         }
+        case ObjectiveKind::OperateObject: {
+            // Same "unknown target is unsatisfiable" rule as DestroyObject.
+            const BattleObjectState* object = battle.findObject(def.target.objectId);
+            return object != nullptr && object->interactionCount > 0;
+        }
     }
     return false;
 }
@@ -285,6 +290,18 @@ std::vector<std::string> validateBattleMission(const BattleMissionState& mission
             }
             if (def.primary) {
                 errors.push_back("ProtectUnit objective '" + def.id + "' must not be primary (secondary-only)");
+            }
+        } else if (def.kind == ObjectiveKind::OperateObject) {
+            const BattleObjectState* object = battle.findObject(def.target.objectId);
+            if (!object) {
+                errors.push_back("OperateObject objective '" + def.id + "' targets unknown object '" +
+                                 def.target.objectId + "'");
+            } else {
+                const BattleObjectDefinition* objectDef = battle.objectDefinition(object->definitionId);
+                if (!objectDef || !objectDef->interaction) {
+                    errors.push_back("OperateObject objective '" + def.id +
+                                     "' targets an object with no Interact defined");
+                }
             }
         }
     }

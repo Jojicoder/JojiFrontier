@@ -15,10 +15,9 @@ using ObjectiveId = std::string;
 using ObjectiveGroupId = std::string;
 
 // docs/mission_objectives.md "目標の種類". Deliberate subset for this pass
-// (matches docs/implementation_roadmap.md Phase 1 item 3): the remaining 3
-// kinds (SecureTiles/OperateObject/DefeatWithCondition) still need further
-// Mechanic work (multi-tile grouping, SpawnPoint/Device real behavior,
-// etc.) of their own.
+// (matches docs/implementation_roadmap.md Phase 1 item 3): the remaining 2
+// kinds (SecureTiles/DefeatWithCondition) still need further Mechanic work
+// (multi-tile grouping, condition-tracking) of their own.
 enum class ObjectiveKind {
     EliminateTeam,
     DefeatUnit,
@@ -63,7 +62,18 @@ enum class ObjectiveKind {
     // treat "still Active when the battle ends in Victory" as success, not
     // wait for a Completed transition that this Kind deliberately never
     // makes on its own.
-    ProtectUnit
+    ProtectUnit,
+    // docs/mission_objectives.md "装置操作": "指定ユニット・兵種が装置で専用
+    //行動を完了" - Live-evaluated like DestroyObject (reads
+    // target.objectId's BattleObjectState.interactionCount directly,
+    // reusing the same field DestroyObject uses for its own object
+    // reference). The unit/class restriction from the doc's wording is
+    // already enforced by resolveObjectInteraction()'s
+    // ObjectInteractionDefinition::allowedClasses at Interact-resolution
+    // time (BattleController::selectInteractTarget()) - interactionCount
+    // can only have advanced if an allowed class actually did it, so this
+    // Objective doesn't need to separately re-check who performed it.
+    OperateObject
 };
 
 enum class ObjectiveStatus {
