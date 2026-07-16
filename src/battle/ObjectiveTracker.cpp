@@ -42,6 +42,15 @@ bool objectiveSatisfied(const BattleState& battle, const ObjectiveDefinition& de
         }
         case ObjectiveKind::SurviveRounds:
             return battle.round() > def.target.surviveUntilRound;
+        case ObjectiveKind::ProtectUnit: {
+            // Not actually reached through the generic primary-group loop
+            // (ProtectUnit is always primary=false - see Objective.hpp's
+            // comment on why it has its own dedicated pass in
+            // syncObjectiveProgress() instead); kept here anyway so this
+            // switch stays exhaustive and the definition lives in one place.
+            const Unit* unit = battle.findUnit(def.target.unitId);
+            return unit != nullptr && unit->isPresent();
+        }
     }
     return false;
 }
@@ -139,6 +148,20 @@ void syncObjectiveProgress(BattleState& battle) {
                 if (progress.status == ObjectiveStatus::Active) progress.status = ObjectiveStatus::Superseded;
             }
         }
+    }
+
+    // docs/mission_objectives.md "対象保護": dedicated pass, deliberately
+    // separate from the primary-group loop above (ProtectUnit is always
+    // primary=false, so it never appears in `byGroup`, and its "satisfied"
+    // check is a falling edge to punish rather than a rising edge to
+    // celebrate - see Objective.hpp's comment on ObjectiveKind::ProtectUnit
+    // for why routing it through the generic Completed-on-satisfied loop
+    // would be wrong). Once Failed, stays Failed - never reverts.
+    for (const ObjectiveDefinition& def : mission.definitions) {
+        if (def.kind != ObjectiveKind::ProtectUnit) continue;
+        ObjectiveProgress& progress = mission.progress.at(def.id);
+        if (progress.status != ObjectiveStatus::Active) continue;
+        if (!objectiveSatisfied(battle, def, progress)) progress.status = ObjectiveStatus::Failed;
     }
 }
 
@@ -253,6 +276,15 @@ std::vector<std::string> validateBattleMission(const BattleMissionState& mission
                     errors.push_back("EscapeUnits objective '" + def.id +
                                      "' targets a tile occupied at battle start");
                 }
+            }
+        } else if (def.kind == ObjectiveKind::ProtectUnit) {
+            const Unit* unit = battle.findUnit(def.target.unitId);
+            if (!unit) {
+                errors.push_back("ProtectUnit objective '" + def.id + "' targets unknown unit '" +
+                                 def.target.unitId + "'");
+            }
+            if (def.primary) {
+                errors.push_back("ProtectUnit objective '" + def.id + "' must not be primary (secondary-only)");
             }
         }
     }

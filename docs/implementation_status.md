@@ -50,7 +50,16 @@
   `requiredEscapeCount`件の異なるUnit IDに達するまでCompletedにしない点だけ拡張した
   (同一Unitが複数回行動終了しても1件としてしかカウントしない)。`docs/mission_objectives.md`
   が定める`UnitRetreated`Event経由の脱出(ExitPointへ実際に離脱するAI/撤退駆動の経路)は
-  対象外 - ExitPointの実挙動が前提のため別Slice。3種ともまだ出荷済みコンテンツからは
+  対象外 - ExitPointの実挙動が前提のため別Slice。`ProtectUnit`(2026-07続き)は常に
+  副目標専用(`docs/mission_objectives.md`の表通りprimary=No固定)で、他Kindと構造が逆:
+  「満たされている」がデフォルト状態(戦闘開始時から真)で、崩れた瞬間だけ捕まえる
+  「立ち下がりEdge」の検出になる。既存の`syncObjectiveProgress()`のPrimary Group走査
+  (満たされた瞬間にCompletedへ遷移する「立ち上がりEdge」前提)へ混ぜるとSync 1回目で
+  即Completedになってしまうため、専用の別Passを新設し`Active→Failed`のみを行う
+  (`Completed`には自分からは決して遷移しない - 勝利時に「Activeのまま残っていれば護衛成功」
+  という規約は、これを消費する側(まだ未接続)に委ねる設計)。ProtectUnitがprimary=trueに
+  誤指定された場合は`validateBattleMission()`が拒否する(誤ってPrimary Group側の
+  立ち上がりEdge評価に混入するのを防ぐため)。4種ともまだ出荷済みコンテンツからは
   未接続(地域書側の`surveyObjectiveId`相当の配線は次のSlice)
 - M1-A Event Batch完成(`battle_resolution_contract.md`の直近スコープ4項目): `emitUnitDefeatedEvents()`
   が`AliveSnapshot`(unordered_map)自体ではなく`battle.units()`(固定順のvector)を辿るよう修正し、
@@ -616,8 +625,8 @@
 - 正式仕様へ追加した、地域入口から連続する経路確保済み地点の一括通過、既知Campでの停止選択、
   地点別`reconLoot`（初回通常素材の50〜70%）は未実装。現行UIは地点ごとに安全通過を選ぶ
 - Pending加入候補、候補重複防止、安全帰還後の候補登録、集会所加入
-- 残り4種のObjectiveKind（`DestroyObject`/`SurviveRounds`/`EscapeUnits`は2026-07に実装済み。
-  複数地点確保・装置操作・対象保護・条件付き撃破が残る）
+- 残り3種のObjectiveKind（`DestroyObject`/`SurviveRounds`/`EscapeUnits`/`ProtectUnit`は
+  2026-07に実装済み。複数地点確保・装置操作・条件付き撃破が残る）
 - 戦闘開始画面・HUD・結果画面のUI、`MissionFlow`の報酬台帳
 
 設定済み・未実装の接続仕様:

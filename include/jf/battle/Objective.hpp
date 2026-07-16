@@ -15,10 +15,10 @@ using ObjectiveId = std::string;
 using ObjectiveGroupId = std::string;
 
 // docs/mission_objectives.md "目標の種類". Deliberate subset for this pass
-// (matches docs/implementation_roadmap.md Phase 1 item 3): the remaining 4
-// kinds (SecureTiles/OperateObject/ProtectUnit/DefeatWithCondition) still
-// need further Mechanic work (multi-tile grouping, SpawnPoint/Device real
-// behavior, etc.) of their own.
+// (matches docs/implementation_roadmap.md Phase 1 item 3): the remaining 3
+// kinds (SecureTiles/OperateObject/DefeatWithCondition) still need further
+// Mechanic work (multi-tile grouping, SpawnPoint/Device real behavior,
+// etc.) of their own.
 enum class ObjectiveKind {
     EliminateTeam,
     DefeatUnit,
@@ -45,7 +45,25 @@ enum class ObjectiveKind {
     // check of its own: evaluateBattleOutcome() already checks
     // allPlayersDefeated() before any primary group, so a defeat never lets
     // this objective's satisfaction matter.
-    SurviveRounds
+    SurviveRounds,
+    // docs/mission_objectives.md "対象保護": "戦闘終了時に指定対象が撤退して
+    //いない" - always primary=false (the doc's own table: primary No,
+    // secondary Yes), unlike every other kind here. Structurally different
+    // from the rest: "satisfied" isn't a rising edge to celebrate the
+    // instant it's true (the target being present is the default state,
+    // true from turn 1), it's a falling edge to punish - so it's NOT
+    // evaluated through the generic primary-group Live-evaluation loop in
+    // syncObjectiveProgress() (which would incorrectly mark it Completed on
+    // the very first sync). Instead syncObjectiveProgress() has a dedicated
+    // pass that only ever moves it Active -> Failed the moment
+    // target.unitId stops being present (defeated or retreated - both make
+    // Unit::isPresent() false), and otherwise leaves it Active indefinitely.
+    // Whatever eventually reads this for reward-granting (not connected to
+    // any shipped content yet - see docs/implementation_status.md) should
+    // treat "still Active when the battle ends in Victory" as success, not
+    // wait for a Completed transition that this Kind deliberately never
+    // makes on its own.
+    ProtectUnit
 };
 
 enum class ObjectiveStatus {

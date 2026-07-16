@@ -2715,6 +2715,84 @@ int main() {
     }
 
     {
+        // ProtectUnit (docs/mission_objectives.md "対象保護"): always
+        // secondary, and structurally a falling edge (starts "satisfied",
+        // only ever moves Active -> Failed, never Completed on its own -
+        // see Objective.hpp's comment on ObjectiveKind::ProtectUnit).
+        jf::Unit escort = makeUnit("escort", jf::Team::Player, {1, 0});
+        jf::Unit guard = makeUnit("guard", jf::Team::Player, {2, 0});
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 7}); // far away: no combat happens
+        jf::ObjectiveDefinition eliminate;
+        eliminate.id = "eliminate_enemies";
+        eliminate.kind = jf::ObjectiveKind::EliminateTeam;
+        eliminate.primary = true;
+        eliminate.groupId = "primary";
+        eliminate.target.team = jf::Team::Enemy;
+        jf::ObjectiveDefinition protect;
+        protect.id = "protect_escort";
+        protect.kind = jf::ObjectiveKind::ProtectUnit;
+        protect.primary = false;
+        protect.groupId = "secondary";
+        protect.target.unitId = "escort";
+        jf::BattleMissionState mission;
+        mission.groups.push_back({"primary", jf::ObjectiveGroupRule::All});
+        mission.groups.push_back({"secondary", jf::ObjectiveGroupRule::All});
+        mission.definitions = {eliminate, protect};
+        mission.progress[eliminate.id] = jf::ObjectiveProgress{eliminate.id};
+        mission.progress[protect.id] = jf::ObjectiveProgress{protect.id};
+
+        jf::BattleState battle({escort, guard, enemy}, {}, 0, mission);
+        auto errors = jf::validateBattleMission(mission, battle);
+        assert(errors.empty());
+
+        // Escort alive: stays Active through repeated syncs, never
+        // Completed (unlike every other Kind, "satisfied so far" isn't a
+        // final state here).
+        jf::syncObjectiveProgress(battle);
+        jf::syncObjectiveProgress(battle);
+        assert(battle.missionState().progress.at("protect_escort").status == jf::ObjectiveStatus::Active);
+
+        // Escort defeated: Failed, and it locks in even if something were to
+        // resurrect currentHp later (never reverts to Active).
+        battle.units()[0].currentHp = 0;
+        jf::syncObjectiveProgress(battle);
+        assert(battle.missionState().progress.at("protect_escort").status == jf::ObjectiveStatus::Failed);
+        battle.units()[0].currentHp = 20;
+        jf::syncObjectiveProgress(battle);
+        assert(battle.missionState().progress.at("protect_escort").status == jf::ObjectiveStatus::Failed);
+
+        // A secondary ProtectUnit failing must not affect the primary
+        // group's own win condition (docs: "副目標失敗だけでは戦闘を敗北にしない").
+        for (jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+
+        // Validation: unknown target unit, and a ProtectUnit mistakenly
+        // marked primary (which would silently participate in the wrong
+        // - rising-edge - evaluation loop), are both rejected.
+        jf::ObjectiveDefinition ghostProtect = protect;
+        ghostProtect.id = "protect_ghost";
+        ghostProtect.target.unitId = "no_such_unit";
+        jf::BattleMissionState ghostMission = mission;
+        ghostMission.definitions = {eliminate, ghostProtect};
+        ghostMission.progress = {{eliminate.id, jf::ObjectiveProgress{eliminate.id}},
+                                 {ghostProtect.id, jf::ObjectiveProgress{ghostProtect.id}}};
+        auto ghostErrors = jf::validateBattleMission(ghostMission, battle);
+        assert(!ghostErrors.empty());
+
+        jf::ObjectiveDefinition primaryProtect = protect;
+        primaryProtect.id = "protect_primary";
+        primaryProtect.primary = true;
+        jf::BattleMissionState primaryMission = mission;
+        primaryMission.definitions = {eliminate, primaryProtect};
+        primaryMission.progress = {{eliminate.id, jf::ObjectiveProgress{eliminate.id}},
+                                   {primaryProtect.id, jf::ObjectiveProgress{primaryProtect.id}}};
+        auto primaryErrors = jf::validateBattleMission(primaryMission, battle);
+        assert(!primaryErrors.empty());
+    }
+
+    {
         // DefeatUnit with a target id that doesn't exist in the battle is a
         // mission-authoring error, not an automatic win.
         jf::Unit player = makeUnit("player", jf::Team::Player, {1, 0});
