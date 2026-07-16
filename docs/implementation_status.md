@@ -134,6 +134,11 @@
   場合の`cancelAttackSelection()`呼び出しを追加して修正(実プレイの`main.cpp`は
   Cancelボタンがあるため無関係 - このBotだけの潜在バグだった)。修正後
   `jf_forest_balance`はBrokenwood 89.7%/87.7%、Timeout一桁まで回復したことを確認済み
+- M1-C完了(2026-07): Battle ObjectのSave Snapshotは対象外と判明したため実装不要と結論。
+  `include/jf/core/SaveSystem.hpp`の`ExpeditionCheckpoint`冒頭コメントが既に明記する通り、
+  「戦闘中・配置中の状態はそもそも一切保存しない」設計(中断したら最後のExploration/Camp
+  チェックポイントへ戻り、同じSeedから戦闘を決定論的に再生成する)がこの調査前から
+  確立しており、増援Wave状態を保存しない判断と同じ理由で対象外
 - M1-D Region Mission接続: 灰枝の森の共通Definition移行・MissionFlowのPending変換・
   BattleControllerの地域非依存は既存設計(`RegionDescriptor`/`StageDescriptor`/
   `GameApp::proceedToCamp()`)で既に満たされていることを確認。`GameApp::proceedToCamp()`に
@@ -258,8 +263,6 @@
 - `RootActionId`と順序付き`BattleEventEnvelope`による正式なRoot Action分解(M1-A実装Sliceの
   残り項目。現状は個別のBattleController呼び出し順で同等の効果を得ているのみで、契約が
   定めるデータ構造そのものはまだ存在しない)
-- Battle ObjectのSave Snapshot(Object ID、Definition ID、位置、Team、State、耐久、操作回数、
-  乱数配置結果の保存・復元)
 - `region_mission_data_contract.md`の`RegionDefinition`/`SiteDefinition`/
   `ExplorationChoiceDefinition`/`RewardGrantId`等の構造体そのものへの移行(M1-D項目1)。
   灰枝の森3地点(薬草の沢・折れ木の縄張り含む)追加後も`StageDescriptor`の軽量拡張
