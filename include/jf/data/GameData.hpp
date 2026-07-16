@@ -22,6 +22,12 @@ struct ClassDefinition {
     UnitClass id{};
     Stats baseStats;
     std::string weaponId;
+    // docs/implementation_roadmap.md M1-E slice5: display Locale Keys, so
+    // main.cpp's classNameFor()/classRoleFor() can look these up from data
+    // instead of a UnitClass switch that needs a new case every time a
+    // class is added.
+    std::string nameKey;
+    std::string roleKey;
 };
 
 struct UnitTemplate {

@@ -3,47 +3,65 @@
     {
       "id": "MarchCaptain",
       "baseStats": { "maxHp": 22, "strength": 7, "magic": 1, "speed": 7, "defense": 5, "resistance": 4, "move": 4 },
-      "weaponId": "iron_sword"
+      "weaponId": "iron_sword",
+      "nameKey": "class.march_captain",
+      "roleKey": "class.march_captain.role"
     },
     {
       "id": "VeteranGuard",
       "baseStats": { "maxHp": 28, "strength": 8, "magic": 0, "speed": 3, "defense": 8, "resistance": 3, "move": 3 },
-      "weaponId": "iron_lance"
+      "weaponId": "iron_lance",
+      "nameKey": "class.veteran_guard",
+      "roleKey": "class.veteran_guard.role"
     },
     {
       "id": "WatchArcher",
       "baseStats": { "maxHp": 18, "strength": 6, "magic": 0, "speed": 7, "defense": 5, "resistance": 2, "move": 4 },
-      "weaponId": "watch_bow"
+      "weaponId": "watch_bow",
+      "nameKey": "class.watch_archer",
+      "roleKey": "class.watch_archer.role"
     },
     {
       "id": "FrontierScout",
       "baseStats": { "maxHp": 18, "strength": 5, "magic": 0, "speed": 9, "defense": 3, "resistance": 3, "move": 5 },
-      "weaponId": "scout_blade"
+      "weaponId": "scout_blade",
+      "nameKey": "class.frontier_scout",
+      "roleKey": "class.frontier_scout.role"
     },
     {
       "id": "Spearman",
       "baseStats": { "maxHp": 23, "strength": 7, "magic": 0, "speed": 5, "defense": 7, "resistance": 3, "move": 4 },
-      "weaponId": "iron_spear"
+      "weaponId": "iron_spear",
+      "nameKey": "class.spearman",
+      "roleKey": "class.spearman.role"
     },
     {
       "id": "DawnChirurgeon",
       "baseStats": { "maxHp": 17, "strength": 2, "magic": 6, "speed": 6, "defense": 4, "resistance": 8, "move": 4 },
-      "weaponId": "dawn_staff"
+      "weaponId": "dawn_staff",
+      "nameKey": "class.dawn_chirurgeon",
+      "roleKey": "class.dawn_chirurgeon.role"
     },
     {
       "id": "Bandit",
       "baseStats": { "maxHp": 22, "strength": 9, "magic": 0, "speed": 4, "defense": 3, "resistance": 1, "move": 4 },
-      "weaponId": "iron_axe"
+      "weaponId": "iron_axe",
+      "nameKey": "class.bandit",
+      "roleKey": "class.bandit.role"
     },
     {
       "id": "Wolf",
       "baseStats": { "maxHp": 16, "strength": 6, "magic": 0, "speed": 7, "defense": 2, "resistance": 1, "move": 5 },
-      "weaponId": "wolf_bite"
+      "weaponId": "wolf_bite",
+      "nameKey": "class.wolf",
+      "roleKey": "class.wolf.role"
     },
     {
       "id": "AshenhornBoar",
       "baseStats": { "maxHp": 140, "strength": 9, "magic": 0, "speed": 3, "defense": 5, "resistance": 1, "move": 2 },
-      "weaponId": "boar_tusks"
+      "weaponId": "boar_tusks",
+      "nameKey": "class.ashenhorn_boar",
+      "roleKey": "class.ashenhorn_boar.role"
     }
   ]
 }

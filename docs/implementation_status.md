@@ -350,6 +350,19 @@
   非重複、HerbPatch枚数の一致、盤面左右端間の経路存在(無制限BFS)、同一Seedからの
   決定論的再生成を検証する。Route Graph到達可能性・Objective達成可能性の静的検査は
   対象外(M9で分岐Routeが増えてから着手)
+- `UnitClass` switch解消(表示名2箇所、2026-07、M1-E Slice5一部): `main.cpp`の
+  `classNameFor()`/`classRoleFor()`が`UnitClass`の`switch`文だったのを、`ClassDefinition`
+  (`data/classes.json`)へ`nameKey`/`roleKey`の2フィールドを追加してそこから引く形へ移行。
+  実装前に本物のブロッカーを発見: 両関数は`loadAppFont()`(Font Glyph収集、`GameData`
+  読込より前に実行)からも呼ばれており、素朴に`GameData`引数を追加するだけでは起動順序が
+  壊れる状態だった。調べた結果この呼び出し自体が既に冗長と判明(両関数は`tr()`のラッパーに
+  過ぎず、その和文は`allJapaneseGlyphText()`がLocale Table全体から自動収集済み)。冗長な
+  収集行を削除しただけで依存自体が消え、起動順序変更なしで済んだ。残る呼び出し元
+  (main.cppのUI描画関数9箇所)は全て`jf::GameApp& app`を引数に持っていたため
+  `app.gameData()`をそのまま渡すだけで済んだ。ビルド・`ctest`4種・実機起動確認
+  (フォントロード完了までクラッシュなしを確認)とも通過。兵種パッシブ自体
+  (`UnitClass.cpp`の`hasBrace`/`hasZoneOfControl`等)は元々`switch`ではなく単発の等値比較
+  関数群で、新兵種追加で既存コードを壊さない形に既になっていたため対象外と判断
 - 薬草地点・倒木の乱数配置を`StageDescriptor::HerbPatchGenerationRule`/
   `ObjectPlacementRule`という地域書側のデータへ一般化(2026-07)。`if (stage.terrainProfileId
   == ...)`というAd-hoc分岐だった折れ木の縄張りの倒木・薬草の沢の薬草地点の両方をこの形へ
@@ -362,7 +375,6 @@
   一部フィールドは出荷済み6 Stage全てでJSON化済み。Encounter生成ロジック自体・AI Profile・
   `region_mission_data_contract.md`が定めるフルSchemaへの全面移行はM9まで持ち越し)
 - 敵生成列をPlacement Ruleへ移す処理(薬草地点・倒木は完了、詳細は上記)
-- 既存兵種パッシブを能力ID参照へ移し、新兵種追加時の`switch`変更を不要にする処理
 - Boss専用一時状態を`Unit`からRuntime Stateへ分離する処理
 - Facility、Research、RecipeをJSONへ分離する定義型、所有状態、旧ID Alias、起動時検証
 - 全地域共通Checkpoint、Node変更時の退避、不正Routeの隔離復旧

@@ -343,8 +343,8 @@ std::vector<std::string> textLines(const std::string& text) {
 
 float textLineHeight(int fontSize) { return static_cast<float>(displayFontSize(fontSize)) + 5.0f; }
 
-std::string classNameFor(jf::UnitClass unitClass);
-std::string classRoleFor(jf::UnitClass unitClass);
+std::string classNameFor(const jf::GameData& data, jf::UnitClass unitClass);
+std::string classRoleFor(const jf::GameData& data, jf::UnitClass unitClass);
 std::string itemFullNameFor(jf::ItemType type);
 std::string itemDescriptionFor(jf::ItemType type);
 std::string materialNameFor(const std::string& id);
@@ -393,14 +393,12 @@ void loadAppFont() {
                               jf::UnitClass::Bandit, jf::UnitClass::Wolf, jf::UnitClass::AshenhornBoar}) {
         charsetSource += jf::toString(uc);
     }
+    // classNameFor()/classRoleFor()'s Japanese text is already covered by
+    // allJapaneseGlyphText() above (both are plain tr() wrappers over
+    // Locale Keys already in the loaded table) - no manual collection
+    // needed here, unlike the still-hardcoded helpers below.
     const Language previousLanguage = gLanguage;
     gLanguage = Language::Japanese;
-    for (jf::UnitClass uc : {jf::UnitClass::MarchCaptain, jf::UnitClass::VeteranGuard,
-                              jf::UnitClass::WatchArcher, jf::UnitClass::FrontierScout,
-                              jf::UnitClass::Spearman, jf::UnitClass::DawnChirurgeon,
-                              jf::UnitClass::Bandit, jf::UnitClass::Wolf, jf::UnitClass::AshenhornBoar}) {
-        charsetSource += classNameFor(uc) + classRoleFor(uc);
-    }
     for (const jf::ItemDefinition& item : jf::kItemCatalog)
         charsetSource += itemFullNameFor(item.type) + itemDescriptionFor(item.type);
     for (const char* id : {"wood", "hide", "herb", "gate_tools", "ash_road_map", "field_medicine",
@@ -467,22 +465,13 @@ Color teamColor(jf::Team team) {
     return team == jf::Team::Player ? Color{60, 120, 220, 255} : Color{200, 60, 60, 255};
 }
 
-// jf::toString(UnitClass) returns a fixed "English / Japanese" string (it's
-// data-layer, so it doesn't know about the display language setting); pick
-// out just the half the player currently wants to read.
-std::string classNameFor(jf::UnitClass unitClass) {
-    switch (unitClass) {
-        case jf::UnitClass::MarchCaptain: return tr("class.march_captain");
-        case jf::UnitClass::VeteranGuard: return tr("class.veteran_guard");
-        case jf::UnitClass::WatchArcher: return tr("class.watch_archer");
-        case jf::UnitClass::FrontierScout: return tr("class.frontier_scout");
-        case jf::UnitClass::Spearman: return tr("class.spearman");
-        case jf::UnitClass::DawnChirurgeon: return tr("class.dawn_chirurgeon");
-        case jf::UnitClass::Bandit: return tr("class.bandit");
-        case jf::UnitClass::Wolf: return tr("class.wolf");
-        case jf::UnitClass::AshenhornBoar: return tr("class.ashenhorn_boar");
-    }
-    return tr("class.unknown");
+// docs/implementation_roadmap.md M1-E slice5: looks up ClassDefinition's
+// data-driven nameKey (data/classes.json) instead of a UnitClass switch, so
+// a new class only needs a classes.json row, never a new case here.
+std::string classNameFor(const jf::GameData& data, jf::UnitClass unitClass) {
+    auto it = data.classesById.find(unitClass);
+    if (it == data.classesById.end()) return tr("class.unknown");
+    return tr(it->second.nameKey);
 }
 
 // Status-effect UI (docs/status_effects.md "UI"): one badge per currently
@@ -617,20 +606,11 @@ std::string weaponNameFor(const std::string& weaponId, const std::string& englis
 
 // One-line role summary for a unit class, matching its actual mechanical
 // trait (see jf::hasBrace/hasZoneOfControl/etc. in UnitClass.cpp) - shown in
-// the roster hover tooltip.
-std::string classRoleFor(jf::UnitClass unitClass) {
-    switch (unitClass) {
-        case jf::UnitClass::MarchCaptain: return tr("class.march_captain.role");
-        case jf::UnitClass::VeteranGuard: return tr("class.veteran_guard.role");
-        case jf::UnitClass::WatchArcher: return tr("class.watch_archer.role");
-        case jf::UnitClass::FrontierScout: return tr("class.frontier_scout.role");
-        case jf::UnitClass::Spearman: return tr("class.spearman.role");
-        case jf::UnitClass::DawnChirurgeon: return tr("class.dawn_chirurgeon.role");
-        case jf::UnitClass::Bandit: return tr("class.bandit.role");
-        case jf::UnitClass::Wolf: return tr("class.wolf.role");
-        case jf::UnitClass::AshenhornBoar: return tr("class.ashenhorn_boar.role");
-    }
-    return "";
+// the roster hover tooltip. Same data-driven lookup as classNameFor().
+std::string classRoleFor(const jf::GameData& data, jf::UnitClass unitClass) {
+    auto it = data.classesById.find(unitClass);
+    if (it == data.classesById.end()) return "";
+    return tr(it->second.roleKey);
 }
 
 // Locale counterpart to jf::kItemCatalog's (English-only) descriptions.
@@ -1373,7 +1353,7 @@ void drawTooltipBox(Vector2 mouse, const std::vector<TooltipLine>& lines) {
 // Hovering a unit shows its full stat block; hovering an empty tile shows
 // that tile's terrain (movement cost / defense bonus). Suppressed while a
 // bigger modal (combat preview, victory/defeat) already owns the screen.
-void drawHoverInfo(const jf::BattleController& controller, Vector2 mouse) {
+void drawHoverInfo(const jf::GameData& data, const jf::BattleController& controller, Vector2 mouse) {
     jf::GridPos pos;
     if (!tileFromScreen(mouse, pos)) return;
 
@@ -1382,7 +1362,7 @@ void drawHoverInfo(const jf::BattleController& controller, Vector2 mouse) {
 
     if (const jf::Unit* unit = battle.unitAt(pos)) {
         Color nameColor = teamColor(unit->team);
-        lines.push_back({unitDisplayNameFor(unit->name) + "  " + classNameFor(unit->unitClass), nameColor, 17});
+        lines.push_back({unitDisplayNameFor(unit->name) + "  " + classNameFor(data, unit->unitClass), nameColor, 17});
         lines.push_back({tr("ui.unit.hp_label") + " " + std::to_string(unit->currentHp) + " / " +
                               std::to_string(unit->stats.maxHp),
                           Color{190, 205, 215, 255}, 14});
@@ -1472,7 +1452,7 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
              18, hudTop - 36, 17, kColorAccentGold);
 
     if (jf::Unit* selected = controller.selectedUnit()) {
-        drawText(unitDisplayNameFor(selected->name) + "  " + classNameFor(selected->unitClass), 18, hudTop + 12, 19,
+        drawText(unitDisplayNameFor(selected->name) + "  " + classNameFor(app.gameData(), selected->unitClass), 18, hudTop + 12, 19,
                  kColorTextPrimary);
         const std::string hpText = "HP " + std::to_string(selected->currentHp) + "/" +
                                    std::to_string(selected->stats.maxHp);
@@ -1817,7 +1797,7 @@ void drawCampScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     y += 30;
     for (const jf::Unit& unit : app.battle().battle().units()) {
         if (unit.team != jf::Team::Player) continue;
-        std::string line = unitDisplayNameFor(unit.name) + " (" + classNameFor(unit.unitClass) + "): " +
+        std::string line = unitDisplayNameFor(unit.name) + " (" + classNameFor(app.gameData(), unit.unitClass) + "): " +
                             std::to_string(unit.currentHp) + " / " + std::to_string(unit.stats.maxHp) +
                             (unit.isAlive() ? "" : " - " + tr("ui.unit.down"));
         drawText(line, 60, y, 16, unit.isAlive() ? kColorTextPrimary : Color{225, 100, 100, 255});
@@ -2021,7 +2001,7 @@ void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     for (const auto& unit : app.roster()) {
         bool selected = std::find(app.selectedPartyIds().begin(), app.selectedPartyIds().end(), unit.id) != app.selectedPartyIds().end();
         std::string label = std::string(selected ? "[✓] " : "[ ] ") + unitDisplayNameFor(unit.name) + " - " +
-                            classNameFor(unit.classId);
+                            classNameFor(app.gameData(), unit.classId);
         Rectangle rowRect{40, static_cast<float>(y), 300, 40};
         Rectangle detailRect{348, static_cast<float>(y), 82, 40};
         if (button(rowRect, label, "", mouse, clicked)) app.togglePartyMember(unit.id);
@@ -2029,8 +2009,8 @@ void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         if (CheckCollisionPointRec(mouse, rowRect)) {
             const jf::Stats& stats = app.gameData().classDefinition(unit.classId).baseStats;
             hoverLines = {
-                {unitDisplayNameFor(unit.name) + "  " + classNameFor(unit.classId), kColorAccentGold, 17},
-                {classRoleFor(unit.classId), kColorTextMuted, 13},
+                {unitDisplayNameFor(unit.name) + "  " + classNameFor(app.gameData(), unit.classId), kColorAccentGold, 17},
+                {classRoleFor(app.gameData(), unit.classId), kColorTextMuted, 13},
                 {"HP " + std::to_string(stats.maxHp) + "  STR " + std::to_string(stats.strength) + "  MAG " +
                      std::to_string(stats.magic) + "  DEF " + std::to_string(stats.defense) + "  RES " +
                      std::to_string(stats.resistance) + "  MOV " + std::to_string(stats.move),
@@ -2352,7 +2332,7 @@ void drawPreBattleDeploymentScreen(jf::GameApp& app, Vector2 mouse, bool clicked
     for (std::size_t i = 0; i < players.size(); ++i) {
         bool placed = app.isDeploymentUnitPlaced(i);
         std::string status = tr(placed ? "ui.deployment.placed" : "ui.deployment.unplaced");
-        std::string label = unitDisplayNameFor(players[i].name) + " (" + classNameFor(players[i].unitClass) +
+        std::string label = unitDisplayNameFor(players[i].name) + " (" + classNameFor(app.gameData(), players[i].unitClass) +
                             ")  [" + status + "]";
         Rectangle slotRect{18.0f + static_cast<float>(i) * (kSlotWidth + 8.0f), hudTop + 8.0f, kSlotWidth, 34.0f};
         if (button(slotRect, label, "", mouse, clicked)) gDeploymentSelectedSlot = static_cast<int>(i);
@@ -2647,8 +2627,8 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     Rectangle identity{42, 104, 470, 500};
     drawCard(identity, kColorCard, kColorBorderSoft, 0.04f);
     drawText(unitDisplayNameFor(unit->name), 72, 132, 28, kColorAccentGold);
-    drawText(classNameFor(unit->classId), 72, 184, 20, kColorTextPrimary);
-    const std::string role = wrapTextToWidth(classRoleFor(unit->classId), 14, 400);
+    drawText(classNameFor(app.gameData(), unit->classId), 72, 184, 20, kColorTextPrimary);
+    const std::string role = wrapTextToWidth(classRoleFor(app.gameData(), unit->classId), 14, 400);
     drawText(role, 72, 230, 14, kColorTextMuted);
     const jf::Stats& stats = app.gameData().classDefinition(unit->classId).baseStats;
     drawSectionHeading(tr("ui.unit_screen.stats"), 72, 330, 18);
@@ -2725,7 +2705,7 @@ void drawFacilitiesScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     const jf::FacilityId facility = *gVisitedFacility;
     const bool forgeCraftPage = facility == jf::FacilityId::Forge && gForgeCraftClass.has_value();
     const std::string pageTitle = forgeCraftPage
-                                      ? tr("ui.forge.craft_prefix") + classNameFor(*gForgeCraftClass)
+                                      ? tr("ui.forge.craft_prefix") + classNameFor(app.gameData(), *gForgeCraftClass)
                                       : facilityIdNameFor(facility);
     drawText(pageTitle, 38, 24, 28, kColorTextPrimary);
     drawText(tr("ui.facilities.branches_unlocked", {{"count", std::to_string(facilityLevel(base, facility))}}),
@@ -2769,7 +2749,7 @@ void drawFacilitiesScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         };
         for (int index = 0; index < 6; ++index) {
             Rectangle craftRect{794.0f, 232.0f + index * 58.0f, 410.0f, 46.0f};
-            const std::string label = tr("ui.forge.craft_prefix") + classNameFor(craftClasses[index]);
+            const std::string label = tr("ui.forge.craft_prefix") + classNameFor(app.gameData(), craftClasses[index]);
             if (craftClasses[index] == jf::UnitClass::Spearman) {
                 if (button(craftRect, label, mouse, clicked)) gForgeCraftClass = craftClasses[index];
             } else {
@@ -3315,7 +3295,7 @@ int main() {
                 controller.inputState() != jf::BattleInputState::ConfirmObjectAttack &&
                 controller.inputState() != jf::BattleInputState::Victory &&
                 controller.inputState() != jf::BattleInputState::Defeat) {
-                drawHoverInfo(controller, mouse);
+                drawHoverInfo(app.gameData(), controller, mouse);
             }
 
             if (controller.inputState() == jf::BattleInputState::ConfirmAttack) {

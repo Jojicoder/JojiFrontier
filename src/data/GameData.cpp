@@ -190,6 +190,8 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
         def.baseStats.resistance = s.at("resistance").get<int>();
         def.baseStats.move = s.at("move").get<int>();
         def.weaponId = c.at("weaponId").get<std::string>();
+        def.nameKey = c.at("nameKey").get<std::string>();
+        def.roleKey = c.at("roleKey").get<std::string>();
         data.classesById[def.id] = def;
     }
 
