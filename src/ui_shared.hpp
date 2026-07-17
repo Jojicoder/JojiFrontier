@@ -40,6 +40,11 @@ extern const Color kColorTextFaint;
 enum class Language { English, Japanese };
 extern Language gLanguage;
 
+// docs/inventory_overflow.md「倉庫整理画面」: opened from multiple screens
+// (Camp, Base), so its state lives here rather than with any one screen's
+// file-local globals.
+extern bool gWarehouseCleanupOpen;
+
 Rectangle logicalViewport();
 Vector2 logicalMousePosition();
 void beginLogicalFrame();
