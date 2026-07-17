@@ -13,11 +13,9 @@
 #include "jf/core/Grid.hpp"
 #include "jf/core/Locale.hpp"
 #include "jf/data/GameData.hpp"
+#include "ui_shared.hpp"
 
-namespace {
-
-constexpr int kScreenWidth = 1280;
-constexpr int kScreenHeight = 800;
+namespace jfui {
 
 Rectangle logicalViewport() {
     const float scale = std::min(GetScreenWidth() / static_cast<float>(kScreenWidth),
@@ -52,16 +50,6 @@ void endLogicalFrame() {
     EndDrawing();
 }
 
-// Fixed side-view mapping. Each logical cell is a low floor surface; the
-// larger vertical space between rows belongs to the units standing on it.
-constexpr float kGridOriginX = 32.0f;
-constexpr float kTileW = 152.0f;
-constexpr float kTileH = 58.0f;
-constexpr float kGridOriginY = 220.0f;
-constexpr float kRowStep = 198.0f;
-constexpr float kUnitRadius = 40.0f;
-constexpr float kHudY = 704.0f;
-
 Rectangle tileRect(jf::GridPos pos) {
     return Rectangle{
         kGridOriginX + pos.col * kTileW,
@@ -84,21 +72,21 @@ Color withAlpha(Color color, unsigned char alpha) { return Color{color.r, color.
 // visually consistent. Gameplay-meaning colors (team colors, tile
 // highlight colors, terrain colors) are intentionally left where they
 // are so their meaning stays unambiguous.
-const Color kColorCard{23, 27, 38, 250};
-const Color kColorCardAlt{28, 33, 46, 250};
-const Color kColorBorder{108, 122, 145, 210};
-const Color kColorBorderSoft{72, 82, 100, 150};
-const Color kColorShadow{0, 0, 0, 90};
-const Color kColorAccentGold{224, 190, 120, 255};
-const Color kColorTextPrimary{238, 240, 245, 255};
-const Color kColorTextMuted{176, 186, 200, 255};
-const Color kColorTextFaint{140, 150, 165, 255};
+extern const Color kColorCard{23, 27, 38, 250};
+extern const Color kColorCardAlt{28, 33, 46, 250};
+extern const Color kColorBorder{108, 122, 145, 210};
+extern const Color kColorBorderSoft{72, 82, 100, 150};
+extern const Color kColorShadow{0, 0, 0, 90};
+extern const Color kColorAccentGold{224, 190, 120, 255};
+extern const Color kColorTextPrimary{238, 240, 245, 255};
+extern const Color kColorTextMuted{176, 186, 200, 255};
+extern const Color kColorTextFaint{140, 150, 165, 255};
 
 constexpr Color kFloorPanelColor{88, 98, 112, 255};
 
 // Rounded card with a soft drop shadow and a hairline border - the base
 // look reused by popups, tooltips, and HUD chrome throughout.
-void drawCard(Rectangle rect, Color fill, Color border, float roundness = 0.12f) {
+void drawCard(Rectangle rect, Color fill, Color border, float roundness) {
     Rectangle shadow{rect.x + 3.0f, rect.y + 4.0f, rect.width, rect.height};
     DrawRectangleRounded(shadow, roundness, 10, kColorShadow);
     DrawRectangleRounded(rect, roundness, 10, fill);
@@ -156,7 +144,6 @@ const std::string kJaJapaneseNative = "日本語";
 // --- Language setting -------------------------------------------------
 // Purely a display concern (like the font/colors above), not part of
 // battle rules, so it lives here rather than in GameApp/BattleController.
-enum class Language { English, Japanese };
 Language gLanguage = Language::English;
 bool gSettingsOpen = false;
 // Base screen sub-view toggle: purely a rendering concern (which panel the
@@ -475,16 +462,7 @@ std::string classNameFor(const jf::GameData& data, jf::UnitClass unitClass) {
 }
 
 // Status-effect UI (docs/status_effects.md "UI"): one badge per currently
-// active effect, in the doc's fixed display order. `glyph` is a single
-// character for the small on-grid badge; `label`/`detail` are the fuller
-// text used in the hover tooltip.
-struct StatusBadge {
-    std::string glyph;
-    std::string label;
-    std::string detail;
-    Color color;
-};
-
+// active effect, in the doc's fixed display order.
 std::vector<StatusBadge> activeStatusBadges(const jf::Unit& unit) {
     std::vector<StatusBadge> badges;
     if (unit.poisonRemainingProcs > 0) {
@@ -1330,12 +1308,6 @@ void drawObjectAttackPreviewPopup(const jf::ObjectAttackPreview& preview) {
                  std::to_string(preview.durabilityAfter),
              tx, ty, 19, Color{235, 90, 90, 255});
 }
-
-struct TooltipLine {
-    std::string text;
-    Color color;
-    int fontSize;
-};
 
 // Small panel anchored beside the cursor, flipped to stay on-screen near
 // the edges. Purely informational - it never affects input handling.
@@ -3490,7 +3462,9 @@ void runAutoSaveTick(jf::GameApp& app, std::uint64_t& savedRevision, Language& s
     }
 }
 
-} // namespace
+} // namespace jfui
+
+using namespace jfui;
 
 int main() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_HIGHDPI);
