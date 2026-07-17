@@ -2856,63 +2856,48 @@ void drawFacilitiesScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     if (hoveredNode) drawFacilityNodeTooltip(*hoveredNode, base, mouse);
 }
 
-// docs/inventory_overflow.md「倉庫整理画面」: lists storage/consumables/
-// pending-overflow and lets the player discard consumables and ordinary
-// materials (never equipped gear, key materials, or Discoveries - key
-// materials are refused by GameApp::discardStorage() itself). A single
-// explicit Confirm button per docs (no long-press, no two-step beyond the
-// one confirmation panel); the target list only drops an entry once the
-// discard call actually reports success.
-void drawWarehouseCleanupOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
-    if (!gWarehouseCleanupOpen) return;
-
-    DrawRectangle(0, 0, kScreenWidth, kScreenHeight, Color{0, 0, 0, 170});
-    Rectangle panel{static_cast<float>(kScreenWidth) / 2.0f - 280.0f, 60.0f, 560.0f, 680.0f};
-    drawCard(panel, kColorCard, withAlpha(kColorAccentGold, 230), 0.08f);
-
-    drawText(tr("ui.warehouse.title"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 20), 24,
+// The discard-confirmation sub-panel (shown when a discard button was just
+// clicked). Split out of drawWarehouseCleanupOverlay(); advances `y` past
+// itself when open, exactly as the original inline block did. No behavior
+// change.
+void drawWarehouseDiscardConfirm(jf::GameApp& app, Vector2 mouse, bool clicked, const Rectangle& panel, float& y) {
+    if (!gWarehouseDiscardConfirm) return;
+    const WarehouseDiscardTarget& target = *gWarehouseDiscardConfirm;
+    Rectangle confirmPanel{panel.x + 26, y, panel.width - 52, 100};
+    drawCard(confirmPanel, kColorCardAlt, withAlpha(Color{225, 120, 120, 255}, 220), 0.1f);
+    std::string message = jf::tr("ui.warehouse.discard_confirm", gLanguage == Language::Japanese,
+                                 {{"name", target.displayName}, {"quantity", std::to_string(target.quantity)}});
+    drawText(message, static_cast<int>(confirmPanel.x + 14), static_cast<int>(confirmPanel.y + 14), 14,
              kColorTextPrimary);
-
-    const bool blockedByOverflow = app.rewardOverflow().stacks.size() >= jf::RewardOverflowState::kMaxStacks;
-    float y = panel.y + 60.0f;
-    if (blockedByOverflow) {
-        drawText(tr("ui.warehouse.overflow_blocked"), static_cast<int>(panel.x + 26), static_cast<int>(y), 13,
-                 Color{225, 120, 120, 255});
-        y += 28.0f;
-    }
-
-    if (gWarehouseDiscardConfirm) {
-        const WarehouseDiscardTarget& target = *gWarehouseDiscardConfirm;
-        Rectangle confirmPanel{panel.x + 26, y, panel.width - 52, 100};
-        drawCard(confirmPanel, kColorCardAlt, withAlpha(Color{225, 120, 120, 255}, 220), 0.1f);
-        std::string message = jf::tr("ui.warehouse.discard_confirm", gLanguage == Language::Japanese,
-                                     {{"name", target.displayName}, {"quantity", std::to_string(target.quantity)}});
-        drawText(message, static_cast<int>(confirmPanel.x + 14), static_cast<int>(confirmPanel.y + 14), 14,
-                 kColorTextPrimary);
-        Rectangle confirmBtn{confirmPanel.x + 14, confirmPanel.y + 50, 150, 40};
-        Rectangle cancelBtn{confirmPanel.x + 14 + 150 + 16, confirmPanel.y + 50, 150, 40};
-        if (button(confirmBtn, tr("ui.button.confirm"), mouse, clicked)) {
-            bool discarded = false;
-            switch (target.kind) {
-                case WarehouseDiscardKind::Material:
-                    discarded = app.discardStorage(target.materialId, target.quantity);
-                    break;
-                case WarehouseDiscardKind::Item:
-                    discarded = app.discardItemStorage(target.itemType, target.quantity);
-                    break;
-                case WarehouseDiscardKind::Overflow:
-                    discarded = app.discardOverflowStack(target.overflowIndex, target.quantity);
-                    break;
-            }
-            (void)discarded;  // Success or failure, the confirm panel closes either way;
-                              // the list itself only reflects an entry's removal when
-                              // the underlying discard actually reduced its quantity.
-            gWarehouseDiscardConfirm.reset();
+    Rectangle confirmBtn{confirmPanel.x + 14, confirmPanel.y + 50, 150, 40};
+    Rectangle cancelBtn{confirmPanel.x + 14 + 150 + 16, confirmPanel.y + 50, 150, 40};
+    if (button(confirmBtn, tr("ui.button.confirm"), mouse, clicked)) {
+        bool discarded = false;
+        switch (target.kind) {
+            case WarehouseDiscardKind::Material:
+                discarded = app.discardStorage(target.materialId, target.quantity);
+                break;
+            case WarehouseDiscardKind::Item:
+                discarded = app.discardItemStorage(target.itemType, target.quantity);
+                break;
+            case WarehouseDiscardKind::Overflow:
+                discarded = app.discardOverflowStack(target.overflowIndex, target.quantity);
+                break;
         }
-        if (button(cancelBtn, tr("ui.button.cancel"), mouse, clicked)) gWarehouseDiscardConfirm.reset();
-        y = confirmPanel.y + confirmPanel.height + 16.0f;
+        (void)discarded;  // Success or failure, the confirm panel closes either way;
+                          // the list itself only reflects an entry's removal when
+                          // the underlying discard actually reduced its quantity.
+        gWarehouseDiscardConfirm.reset();
     }
+    if (button(cancelBtn, tr("ui.button.cancel"), mouse, clicked)) gWarehouseDiscardConfirm.reset();
+    y = confirmPanel.y + confirmPanel.height + 16.0f;
+}
 
+// The storage/consumables/pending-overflow discard lists. Split out of
+// drawWarehouseCleanupOverlay(); the three sections share the local drawRow
+// lambda and the running `y` cursor so they stay together in one function.
+// No behavior change.
+void drawWarehouseItemLists(jf::GameApp& app, Vector2 mouse, bool clicked, const Rectangle& panel, float& y) {
     auto drawRow = [&](const std::string& name, int quantity, WarehouseDiscardTarget target) {
         drawText(name + "  x" + std::to_string(quantity), static_cast<int>(panel.x + 26), static_cast<int>(y) + 6, 14,
                  kColorTextPrimary);
@@ -2987,6 +2972,35 @@ void drawWarehouseCleanupOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) 
         target.quantity = stack.quantity;
         drawRow(name, stack.quantity, target);
     }
+}
+
+// docs/inventory_overflow.md「倉庫整理画面」: lists storage/consumables/
+// pending-overflow and lets the player discard consumables and ordinary
+// materials (never equipped gear, key materials, or Discoveries - key
+// materials are refused by GameApp::discardStorage() itself). A single
+// explicit Confirm button per docs (no long-press, no two-step beyond the
+// one confirmation panel); the target list only drops an entry once the
+// discard call actually reports success.
+void drawWarehouseCleanupOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
+    if (!gWarehouseCleanupOpen) return;
+
+    DrawRectangle(0, 0, kScreenWidth, kScreenHeight, Color{0, 0, 0, 170});
+    Rectangle panel{static_cast<float>(kScreenWidth) / 2.0f - 280.0f, 60.0f, 560.0f, 680.0f};
+    drawCard(panel, kColorCard, withAlpha(kColorAccentGold, 230), 0.08f);
+
+    drawText(tr("ui.warehouse.title"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 20), 24,
+             kColorTextPrimary);
+
+    const bool blockedByOverflow = app.rewardOverflow().stacks.size() >= jf::RewardOverflowState::kMaxStacks;
+    float y = panel.y + 60.0f;
+    if (blockedByOverflow) {
+        drawText(tr("ui.warehouse.overflow_blocked"), static_cast<int>(panel.x + 26), static_cast<int>(y), 13,
+                 Color{225, 120, 120, 255});
+        y += 28.0f;
+    }
+
+    drawWarehouseDiscardConfirm(app, mouse, clicked, panel, y);
+    drawWarehouseItemLists(app, mouse, clicked, panel, y);
 
     Rectangle closeBtn{panel.x + panel.width - 26 - 120, panel.y + panel.height - 50, 120, 38};
     if (button(closeBtn, tr("ui.button.close"), mouse, clicked)) {
