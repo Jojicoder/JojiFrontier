@@ -1809,31 +1809,11 @@ void drawSectionHeading(const std::string& text, int x, int y, int fontSize) {
     drawText(text, x, y, fontSize, kColorTextPrimary);
 }
 
-void drawCampScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
-    ClearBackground(Color{18, 21, 30, 255});
-    DrawRectangleGradientV(0, 0, kScreenWidth, 70, Color{40, 46, 62, 255}, Color{24, 27, 38, 255});
-    DrawLine(0, 70, kScreenWidth, 70, withAlpha(kColorBorder, 160));
-    drawText(tr("ui.camp.title"), 40, 30, 32, kColorTextPrimary);
-
-    if (app.justSecuredLoot()) {
-        drawSectionHeading(tr("ui.camp.loot_secured"), 54, 90, 24);
-        int y = 140;
-        for (const std::string& item : app.lastSecuredLoot()) {
-            drawText("- " + materialNameFor(item), 60, y, 18, kColorTextPrimary);
-            y += 26;
-        }
-        if (app.lastSecuredLoot().empty()) {
-            drawText("(" + tr("ui.camp.no_loot") + ")", 60, y, 16,
-                     kColorTextMuted);
-            y += 26;
-        }
-        Rectangle rect{40, static_cast<float>(y + 30), 260, 50};
-        if (button(rect, tr("ui.button.continue"), mouse, clicked)) {
-            app.acknowledgeLootSecured();
-        }
-        return;
-    }
-
+// Party HP roster, the "next field" preview card, pending loot/Discoveries,
+// battles-won counter, and the carried bag summary. Split out of
+// drawCampScreen() - purely informational, no buttons, so it doesn't need
+// mouse/clicked. No behavior change.
+void drawCampSummary(jf::GameApp& app) {
     int y = 90;
     drawSectionHeading(tr("ui.camp.party_hp"), 54, y, 20);
     y += 30;
@@ -1930,35 +1910,41 @@ void drawCampScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
             bagX += textWidth(label, 13) + 18;
         }
     }
+}
+
+// The Continue Expedition / Return to Base / Items command row at the
+// bottom of the Camp screen. Split out of drawCampScreen(); no behavior
+// change.
+void drawCampCommandButtons(jf::GameApp& app, Vector2 mouse, bool clicked) {
     constexpr float commandY = 724.0f;
     DrawLine(40, commandY - 14, kScreenWidth - 40, commandY - 14, withAlpha(kColorBorderSoft, 200));
     Rectangle continueRect{40, commandY, 360, 50};
     Rectangle returnRect{420, commandY, 360, 50};
     Rectangle itemsRect{800, commandY, 360, 50};
-    if (!gCampItemMenuOpen) {
-        if (app.expeditionComplete()) {
-            disabledButton(continueRect, tr("ui.camp.route_complete_disabled"));
-        } else {
-            if (button(continueRect, tr("ui.button.continue_expedition"), mouse, clicked)) {
-                app.continueExpedition();
-            }
-        }
-        if (button(returnRect, tr("ui.button.return_to_base"), mouse, clicked)) {
-            gCampItemMenuOpen = false;
-            gCampSelectedItem.reset();
-            // docs/inventory_overflow.md「帰還処理」: a false return means the
-            // 200-Stack pending ceiling would be exceeded - route to cleanup
-            // instead of silently doing nothing.
-            if (!app.returnToBase()) gWarehouseCleanupOpen = true;
-        }
-        if (button(itemsRect, tr("ui.button.items"), mouse, clicked)) {
-            gCampItemMenuOpen = true;
-            gCampSelectedItem.reset();
+    if (app.expeditionComplete()) {
+        disabledButton(continueRect, tr("ui.camp.route_complete_disabled"));
+    } else {
+        if (button(continueRect, tr("ui.button.continue_expedition"), mouse, clicked)) {
+            app.continueExpedition();
         }
     }
+    if (button(returnRect, tr("ui.button.return_to_base"), mouse, clicked)) {
+        gCampItemMenuOpen = false;
+        gCampSelectedItem.reset();
+        // docs/inventory_overflow.md「帰還処理」: a false return means the
+        // 200-Stack pending ceiling would be exceeded - route to cleanup
+        // instead of silently doing nothing.
+        if (!app.returnToBase()) gWarehouseCleanupOpen = true;
+    }
+    if (button(itemsRect, tr("ui.button.items"), mouse, clicked)) {
+        gCampItemMenuOpen = true;
+        gCampSelectedItem.reset();
+    }
+}
 
-    if (!gCampItemMenuOpen) return;
-
+// The Items sub-panel (usable-item list, then unit-target list once one's
+// picked). Split out of drawCampScreen(); no behavior change.
+void drawCampItemMenu(jf::GameApp& app, Vector2 mouse, bool clicked) {
     Rectangle itemPanel{620, 300, 610, 390};
     DrawRectangle(0, 70, kScreenWidth, kScreenHeight - 70, Color{0, 0, 0, 105});
     drawCard(itemPanel, Color{20, 25, 36, 255}, withAlpha(kColorAccentGold, 230), 0.05f);
@@ -2023,6 +2009,36 @@ void drawCampScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         if (gCampSelectedItem) gCampSelectedItem.reset();
         else gCampItemMenuOpen = false;
     }
+}
+
+void drawCampScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
+    ClearBackground(Color{18, 21, 30, 255});
+    DrawRectangleGradientV(0, 0, kScreenWidth, 70, Color{40, 46, 62, 255}, Color{24, 27, 38, 255});
+    DrawLine(0, 70, kScreenWidth, 70, withAlpha(kColorBorder, 160));
+    drawText(tr("ui.camp.title"), 40, 30, 32, kColorTextPrimary);
+
+    if (app.justSecuredLoot()) {
+        drawSectionHeading(tr("ui.camp.loot_secured"), 54, 90, 24);
+        int y = 140;
+        for (const std::string& item : app.lastSecuredLoot()) {
+            drawText("- " + materialNameFor(item), 60, y, 18, kColorTextPrimary);
+            y += 26;
+        }
+        if (app.lastSecuredLoot().empty()) {
+            drawText("(" + tr("ui.camp.no_loot") + ")", 60, y, 16,
+                     kColorTextMuted);
+            y += 26;
+        }
+        Rectangle rect{40, static_cast<float>(y + 30), 260, 50};
+        if (button(rect, tr("ui.button.continue"), mouse, clicked)) {
+            app.acknowledgeLootSecured();
+        }
+        return;
+    }
+
+    drawCampSummary(app);
+    if (!gCampItemMenuOpen) drawCampCommandButtons(app, mouse, clicked);
+    if (gCampItemMenuOpen) drawCampItemMenu(app, mouse, clicked);
 }
 
 void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
