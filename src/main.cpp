@@ -3014,26 +3014,9 @@ void drawWarehouseCleanupOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) 
     }
 }
 
-// Small always-on-top corner button + modal for switching the display
-// language. Purely a rendering/UI concern (see the Language enum above),
-// so it lives entirely in this file and never touches GameApp/BattleState.
-// Draw this last on every screen so it sits above any other overlay.
-void drawSettingsOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
-    Rectangle cornerBtn{static_cast<float>(kScreenWidth) - 100.0f, 4.0f, 92.0f, 32.0f};
-    if (button(cornerBtn, tr("ui.settings.title"), mouse, gSettingsOpen ? false : clicked)) {
-        gSettingsOpen = !gSettingsOpen;
-    }
-
-    if (!gSettingsOpen) return;
-
-    DrawRectangle(0, 0, kScreenWidth, kScreenHeight, Color{0, 0, 0, 150});
-
-    Rectangle panel{static_cast<float>(kScreenWidth) / 2.0f - 190.0f, static_cast<float>(kScreenHeight) / 2.0f - 320.0f,
-                    380.0f, 640.0f};
-    drawCard(panel, kColorCard, withAlpha(kColorAccentGold, 230), 0.1f);
-
-    drawText(tr("ui.settings.title"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 22), 24,
-             kColorTextPrimary);
+// The language picker (English/Japanese) row. Split out of
+// drawSettingsOverlay(); no behavior change.
+void drawSettingsLanguageSection(Vector2 mouse, bool clicked, const Rectangle& panel) {
     drawText(tr("ui.settings.language"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 66), 15,
              kColorTextMuted);
 
@@ -3045,7 +3028,11 @@ void drawSettingsOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
 
     Rectangle activeHighlight = gLanguage == Language::English ? enBtn : jaBtn;
     DrawRectangleRoundedLinesEx(activeHighlight, 0.28f, 8, 3.0f, withAlpha(kColorAccentGold, 255));
+}
 
+// The window maximize/restore row. Split out of drawSettingsOverlay(); no
+// behavior change.
+void drawSettingsWindowSection(Vector2 mouse, bool clicked, const Rectangle& panel) {
     drawText(tr("ui.settings.window"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 158), 15,
              kColorTextMuted);
     bool maximized = IsWindowState(FLAG_WINDOW_MAXIMIZED);
@@ -3057,7 +3044,11 @@ void drawSettingsOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
     }
     drawText(tr("ui.settings.maximize_shortcut"), static_cast<int>(panel.x + 26),
              static_cast<int>(panel.y + 238), 12, kColorTextFaint);
+}
 
+// The retire-expedition row. Split out of drawSettingsOverlay(); no behavior
+// change.
+void drawSettingsExpeditionSection(jf::GameApp& app, Vector2 mouse, bool clicked, const Rectangle& panel) {
     drawText(tr("ui.settings.expedition_section"), static_cast<int>(panel.x + 26),
              static_cast<int>(panel.y + 266), 15, kColorTextMuted);
     Rectangle retireBtn{panel.x + 26, panel.y + 296, 328, 46};
@@ -3071,7 +3062,11 @@ void drawSettingsOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
     }
     drawText(tr("ui.settings.retire_expedition_note"),
              static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 346), 12, kColorTextFaint);
+}
 
+// The save-data export/import section, plus the transient save-status
+// message. Split out of drawSettingsOverlay(); no behavior change.
+void drawSettingsSaveDataSection(jf::GameApp& app, Vector2 mouse, bool clicked, const Rectangle& panel) {
     drawText(tr("ui.settings.save_data_section"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 380),
               15, kColorTextMuted);
 
@@ -3140,6 +3135,33 @@ void drawSettingsOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
         drawText(clipTextToWidth(pick(gSaveStatusMessage, gSaveStatusMessageJa), 12, 328),
                  static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 544), 12, kColorAccentGold);
     }
+}
+
+// Small always-on-top corner button + modal for switching the display
+// language. Purely a rendering/UI concern (see the Language enum above),
+// so it lives entirely in this file and never touches GameApp/BattleState.
+// Draw this last on every screen so it sits above any other overlay.
+void drawSettingsOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
+    Rectangle cornerBtn{static_cast<float>(kScreenWidth) - 100.0f, 4.0f, 92.0f, 32.0f};
+    if (button(cornerBtn, tr("ui.settings.title"), mouse, gSettingsOpen ? false : clicked)) {
+        gSettingsOpen = !gSettingsOpen;
+    }
+
+    if (!gSettingsOpen) return;
+
+    DrawRectangle(0, 0, kScreenWidth, kScreenHeight, Color{0, 0, 0, 150});
+
+    Rectangle panel{static_cast<float>(kScreenWidth) / 2.0f - 190.0f, static_cast<float>(kScreenHeight) / 2.0f - 320.0f,
+                    380.0f, 640.0f};
+    drawCard(panel, kColorCard, withAlpha(kColorAccentGold, 230), 0.1f);
+
+    drawText(tr("ui.settings.title"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 22), 24,
+             kColorTextPrimary);
+
+    drawSettingsLanguageSection(mouse, clicked, panel);
+    drawSettingsWindowSection(mouse, clicked, panel);
+    drawSettingsExpeditionSection(app, mouse, clicked, panel);
+    drawSettingsSaveDataSection(app, mouse, clicked, panel);
 
     Rectangle closeBtn{panel.x + 26, panel.y + 580, 328, 40};
     if (button(closeBtn, tr("ui.button.close"), mouse, clicked)) gSettingsOpen = false;
