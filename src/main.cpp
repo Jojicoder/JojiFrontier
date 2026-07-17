@@ -1420,6 +1420,249 @@ void drawHoverInfo(const jf::GameData& data, const jf::BattleController& control
     drawTooltipBox(mouse, lines);
 }
 
+// The fixed 5-slot action button row (plus the conditional 6th "Interact"
+// slot - see its own comment below) at the bottom of the Battle HUD, and
+// every inputState()-specific variant of it: item/skill sub-menus,
+// Confirm/Cancel pairs, and the plain "Cancel" shown while selecting a
+// target. Split out of drawBattleHud() itself (which also draws the
+// mission name / selected-unit info / step label above this row) purely to
+// keep each piece under a screenful - no behavior change.
+void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller, Vector2 mouse, bool clicked,
+                             int hudTop, int buttonWidth, int buttonHeight, int buttonGap, int firstActionX,
+                             int secondActionX, int thirdActionX, int fourthActionX, int fifthActionX,
+                             int sixthActionX) {
+    switch (controller.inputState()) {
+        case jf::BattleInputState::SelectUnit:
+            if (!gBattleItemMenuOpen) {
+                if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                           tr("ui.button.items"), mouse, clicked)) {
+                    gBattleItemMenuOpen = true;
+                }
+                if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                           tr("ui.button.end_turn"), mouse, clicked)) {
+                    controller.endPlayerTurn();
+                }
+                break;
+            }
+            {
+                int itemX = firstActionX;
+                int usableItemCount = 0;
+                const bool hasHealingTarget = std::any_of(
+                    controller.battle().units().begin(), controller.battle().units().end(), [](const jf::Unit& unit) {
+                        return unit.team == jf::Team::Player && unit.isAlive() && !unit.hasActed &&
+                               unit.currentHp < unit.stats.maxHp;
+                    });
+                const auto drawNeutralHealingItem = [&](jf::ItemType type, const std::string& en,
+                                                        const std::string& ja) {
+                    const int count = app.expedition().count(type);
+                    if (!hasHealingTarget || count <= 0) return;
+                    if (button(Rectangle{static_cast<float>(itemX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                               en + " " + std::to_string(count), ja + " " + std::to_string(count), mouse, clicked) &&
+                        app.chooseNeutralBattleHealingItem(type)) {
+                        gBattleItemMenuOpen = false;
+                    }
+                    itemX += buttonWidth + buttonGap;
+                    ++usableItemCount;
+                };
+                drawNeutralHealingItem(jf::ItemType::FieldTreatmentKit, tr("item.field_treatment_kit.short_name"),
+                                        tr("item.field_treatment_kit.short_name"));
+                if (usableItemCount == 0) {
+                    drawText(tr("ui.battle.no_usable_items"), firstActionX, hudTop + 39, 14,
+                             kColorTextMuted);
+                }
+                if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                           tr("ui.button.back"), mouse, clicked)) {
+                    gBattleItemMenuOpen = false;
+                }
+            }
+            break;
+        case jf::BattleInputState::SelectAction:
+            if (!gBattleItemMenuOpen && !gBattleSkillMenuOpen) {
+                if (controller.canInteract() &&
+                    button(Rectangle{static_cast<float>(sixthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                           tr("ui.button.interact"), mouse, clicked)) {
+                    controller.chooseInteract();
+                }
+                if (button(Rectangle{static_cast<float>(firstActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                           tr("ui.button.attack"), mouse, clicked)) {
+                    controller.chooseAttack();
+                }
+                if (button(Rectangle{static_cast<float>(secondActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                           tr("ui.button.skills"), mouse, clicked)) {
+                    gBattleSkillMenuOpen = true;
+                }
+                if (button(Rectangle{static_cast<float>(thirdActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                           tr("ui.button.items"), mouse, clicked)) {
+                    gBattleItemMenuOpen = true;
+                }
+                if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                           tr("ui.button.wait"), mouse, clicked)) {
+                    controller.chooseWait();
+                }
+                if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                           tr("ui.button.back"), mouse, clicked)) {
+                    controller.returnToMoveSelection();
+                }
+                break;
+            }
+
+            if (gBattleSkillMenuOpen) {
+                jf::Unit* selected = controller.selectedUnit();
+                bool anySkillShown = false;
+                if (selected && jf::canHeal(selected->unitClass)) {
+                    anySkillShown = true;
+                    if (button(Rectangle{static_cast<float>(firstActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                               tr("ui.button.heal"), mouse, clicked)) {
+                        controller.chooseHeal();
+                        if (controller.inputState() != jf::BattleInputState::SelectAction) {
+                            gBattleSkillMenuOpen = false;
+                        }
+                    }
+                }
+                // docs/implementation_roadmap.md M4 item 1: the 2 equipped
+                // Tier-1 skill slots, shown per docs/skill_system.md "使用
+                //不能スキルは非表示にせず、理由付きで無効表示" - an equipped
+                // but currently-unusable skill still shows, grayed out, with
+                // its reason on hover, rather than disappearing.
+                if (selected) {
+                    const auto skills = controller.selectedUnitSkills();
+                    const int slotX[2] = {secondActionX, thirdActionX};
+                    for (std::size_t i = 0; i < skills.size(); ++i) {
+                        if (skills[i].skillId.empty()) continue;
+                        anySkillShown = true;
+                        const jf::SkillDefinition* def = jf::findSkill(skills[i].skillId);
+                        std::string label = def ? pick(def->nameEn, def->nameJa) : skills[i].skillId;
+                        Rectangle rect{static_cast<float>(slotX[i]), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)};
+                        if (skills[i].available) {
+                            if (button(rect, label, label, mouse, clicked)) {
+                                controller.chooseSkill(static_cast<int>(i));
+                                if (controller.inputState() != jf::BattleInputState::SelectAction) {
+                                    gBattleSkillMenuOpen = false;
+                                }
+                            }
+                        } else {
+                            disabledButton(rect, label);
+                            if (CheckCollisionPointRec(mouse, rect)) {
+                                drawText(pick(skills[i].reasonEn, skills[i].reasonJa), slotX[i],
+                                         static_cast<int>(hudTop) + 74, 12, kColorTextMuted);
+                            }
+                        }
+                    }
+                }
+                if (!anySkillShown) {
+                    drawText(tr("ui.battle.no_usable_skills"), firstActionX, hudTop + 39, 14,
+                             kColorTextMuted);
+                }
+                if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                           tr("ui.button.back"), mouse, clicked)) {
+                    gBattleSkillMenuOpen = false;
+                }
+                break;
+            }
+
+            {
+                jf::Unit* selected = controller.selectedUnit();
+                const bool needsHealing = selected && selected->currentHp < selected->stats.maxHp;
+                int itemX = firstActionX;
+                int usableItemCount = 0;
+                const auto drawHealingItem = [&](jf::ItemType type, const std::string& en, const std::string& ja) {
+                    const int count = app.expedition().count(type);
+                    if (!needsHealing || count <= 0) return;
+                    if (button(Rectangle{static_cast<float>(itemX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                               en + " " + std::to_string(count), ja + " " + std::to_string(count), mouse, clicked) &&
+                        app.useBattleHealingItem(type)) {
+                        gBattleItemMenuOpen = false;
+                    }
+                    itemX += buttonWidth + buttonGap;
+                    ++usableItemCount;
+                };
+                drawHealingItem(jf::ItemType::FieldTreatmentKit, tr("item.field_treatment_kit.short_name"),
+                                tr("item.field_treatment_kit.short_name"));
+
+                const int boardCount = app.expedition().count(jf::ItemType::ProtectiveBoard);
+                if (boardCount > 0) {
+                    if (button(Rectangle{static_cast<float>(itemX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                               tr("item.protective_board.short_name") + " " + std::to_string(boardCount),
+                               tr("item.protective_board.short_name") + " " + std::to_string(boardCount), mouse,
+                               clicked) &&
+                        app.chooseProtectiveBoard()) {
+                        gBattleItemMenuOpen = false;
+                    }
+                    ++usableItemCount;
+                }
+                if (usableItemCount == 0) {
+                    drawText(tr("ui.battle.no_usable_items"), firstActionX, hudTop + 39, 14,
+                             kColorTextMuted);
+                }
+                if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                           tr("ui.button.back"), mouse, clicked)) {
+                    gBattleItemMenuOpen = false;
+                }
+            }
+            break;
+        case jf::BattleInputState::ConfirmAttack:
+            // The readable preview is drawn as its own popup (see
+            // drawCombatPreviewPopup); the HUD here just keeps the buttons.
+            if (button(Rectangle{static_cast<float>(thirdActionX), hudTop + 43.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                       tr("ui.button.confirm"), mouse, clicked))
+                controller.confirmAttack();
+            if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 43.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                       tr("ui.button.cancel"), mouse, clicked))
+                controller.cancelAttackSelection();
+            break;
+        case jf::BattleInputState::ConfirmSkillAttack:
+            // M4 item 3: same Confirm/Cancel pair as ConfirmAttack, for the
+            // 3 attack-shape skills' pre-resolution preview.
+            if (button(Rectangle{static_cast<float>(thirdActionX), hudTop + 43.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                       tr("ui.button.confirm"), mouse, clicked))
+                controller.confirmSkillAttack();
+            if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 43.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                       tr("ui.button.cancel"), mouse, clicked))
+                controller.cancelAttackSelection();
+            break;
+        case jf::BattleInputState::ConfirmObjectAttack:
+            // Battle Object統合: 同じConfirm/Cancelペア。Previewは
+            // drawCombatPreviewPopup相当の別ポップアップ側で描画。
+            if (button(Rectangle{static_cast<float>(thirdActionX), hudTop + 43.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                       tr("ui.button.confirm"), mouse, clicked)) {
+                // attackEventId()方式(lastAttacker_/lastAttackTarget_)はUnit
+                // 専用のためObjectには使えない - ここでConfirm直前にPreviewを
+                // 読み、確定後のバナー文言をその場で組み立てる
+                auto preview = controller.pendingObjectPreview();
+                controller.confirmObjectAttack();
+                if (preview) {
+                    std::string objectName = battleObjectNameForKind(preview->objectKind);
+                    pushBattleMessage(
+                        objectHitMessageText(unitDisplayNameFor(preview->attackerName), objectName, preview->damage),
+                        Color{255, 205, 120, 255});
+                    if (preview->durabilityAfter <= 0)
+                        pushBattleMessage(objectDestroyedMessageText(objectName), Color{225, 90, 90, 255});
+                }
+            }
+            if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 43.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                       tr("ui.button.cancel"), mouse, clicked))
+                controller.cancelAttackSelection();
+            break;
+        case jf::BattleInputState::SelectMove:
+            if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                       tr("ui.button.cancel"), mouse, clicked))
+                controller.cancelToUnitSelect();
+            break;
+        case jf::BattleInputState::SelectTarget:
+        case jf::BattleInputState::SelectHealTarget:
+        case jf::BattleInputState::SelectItemTarget:
+        case jf::BattleInputState::SelectBoardTarget:
+        case jf::BattleInputState::SelectSkillTarget:
+        case jf::BattleInputState::SelectInteractTarget:
+            if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                       tr("ui.button.back"), mouse, clicked))
+                controller.cancelAttackSelection();
+            break;
+        default:
+            break;
+    }
+}
+
 void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
     jf::BattleController& controller = app.battle();
     if (controller.inputState() != jf::BattleInputState::SelectAction &&
@@ -1498,237 +1741,8 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
             break;
     }
     if (!stepLabel.empty()) drawText(stepLabel, 420, hudTop + 12, 15, kColorAccentGold);
-
-    switch (controller.inputState()) {
-        case jf::BattleInputState::SelectUnit:
-            if (!gBattleItemMenuOpen) {
-                if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           tr("ui.button.items"), mouse, clicked)) {
-                    gBattleItemMenuOpen = true;
-                }
-                if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           tr("ui.button.end_turn"), mouse, clicked)) {
-                    controller.endPlayerTurn();
-                }
-                break;
-            }
-            {
-                int itemX = firstActionX;
-                int usableItemCount = 0;
-                const bool hasHealingTarget = std::any_of(
-                    controller.battle().units().begin(), controller.battle().units().end(), [](const jf::Unit& unit) {
-                        return unit.team == jf::Team::Player && unit.isAlive() && !unit.hasActed &&
-                               unit.currentHp < unit.stats.maxHp;
-                    });
-                const auto drawNeutralHealingItem = [&](jf::ItemType type, const std::string& en,
-                                                        const std::string& ja) {
-                    const int count = app.expedition().count(type);
-                    if (!hasHealingTarget || count <= 0) return;
-                    if (button(Rectangle{static_cast<float>(itemX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                               en + " " + std::to_string(count), ja + " " + std::to_string(count), mouse, clicked) &&
-                        app.chooseNeutralBattleHealingItem(type)) {
-                        gBattleItemMenuOpen = false;
-                    }
-                    itemX += buttonWidth + buttonGap;
-                    ++usableItemCount;
-                };
-                drawNeutralHealingItem(jf::ItemType::FieldTreatmentKit, tr("item.field_treatment_kit.short_name"),
-                                        tr("item.field_treatment_kit.short_name"));
-                if (usableItemCount == 0) {
-                    drawText(tr("ui.battle.no_usable_items"), firstActionX, hudTop + 39, 14,
-                             kColorTextMuted);
-                }
-                if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           tr("ui.button.back"), mouse, clicked)) {
-                    gBattleItemMenuOpen = false;
-                }
-            }
-            break;
-        case jf::BattleInputState::SelectAction:
-            if (!gBattleItemMenuOpen && !gBattleSkillMenuOpen) {
-                if (controller.canInteract() &&
-                    button(Rectangle{static_cast<float>(sixthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           tr("ui.button.interact"), mouse, clicked)) {
-                    controller.chooseInteract();
-                }
-                if (button(Rectangle{static_cast<float>(firstActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           tr("ui.button.attack"), mouse, clicked)) {
-                    controller.chooseAttack();
-                }
-                if (button(Rectangle{static_cast<float>(secondActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           tr("ui.button.skills"), mouse, clicked)) {
-                    gBattleSkillMenuOpen = true;
-                }
-                if (button(Rectangle{static_cast<float>(thirdActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           tr("ui.button.items"), mouse, clicked)) {
-                    gBattleItemMenuOpen = true;
-                }
-                if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           tr("ui.button.wait"), mouse, clicked)) {
-                    controller.chooseWait();
-                }
-                if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           tr("ui.button.back"), mouse, clicked)) {
-                    controller.returnToMoveSelection();
-                }
-                break;
-            }
-
-            if (gBattleSkillMenuOpen) {
-                jf::Unit* selected = controller.selectedUnit();
-                bool anySkillShown = false;
-                if (selected && jf::canHeal(selected->unitClass)) {
-                    anySkillShown = true;
-                    if (button(Rectangle{static_cast<float>(firstActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                               tr("ui.button.heal"), mouse, clicked)) {
-                        controller.chooseHeal();
-                        if (controller.inputState() != jf::BattleInputState::SelectAction) {
-                            gBattleSkillMenuOpen = false;
-                        }
-                    }
-                }
-                // docs/implementation_roadmap.md M4 item 1: the 2 equipped
-                // Tier-1 skill slots, shown per docs/skill_system.md "使用
-                //不能スキルは非表示にせず、理由付きで無効表示" - an equipped
-                // but currently-unusable skill still shows, grayed out, with
-                // its reason on hover, rather than disappearing.
-                if (selected) {
-                    const auto skills = controller.selectedUnitSkills();
-                    const int slotX[2] = {secondActionX, thirdActionX};
-                    for (std::size_t i = 0; i < skills.size(); ++i) {
-                        if (skills[i].skillId.empty()) continue;
-                        anySkillShown = true;
-                        const jf::SkillDefinition* def = jf::findSkill(skills[i].skillId);
-                        std::string label = def ? pick(def->nameEn, def->nameJa) : skills[i].skillId;
-                        Rectangle rect{static_cast<float>(slotX[i]), hudTop + 29.0f, buttonWidth, buttonHeight};
-                        if (skills[i].available) {
-                            if (button(rect, label, label, mouse, clicked)) {
-                                controller.chooseSkill(static_cast<int>(i));
-                                if (controller.inputState() != jf::BattleInputState::SelectAction) {
-                                    gBattleSkillMenuOpen = false;
-                                }
-                            }
-                        } else {
-                            disabledButton(rect, label);
-                            if (CheckCollisionPointRec(mouse, rect)) {
-                                drawText(pick(skills[i].reasonEn, skills[i].reasonJa), slotX[i],
-                                         static_cast<int>(hudTop) + 74, 12, kColorTextMuted);
-                            }
-                        }
-                    }
-                }
-                if (!anySkillShown) {
-                    drawText(tr("ui.battle.no_usable_skills"), firstActionX, hudTop + 39, 14,
-                             kColorTextMuted);
-                }
-                if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           tr("ui.button.back"), mouse, clicked)) {
-                    gBattleSkillMenuOpen = false;
-                }
-                break;
-            }
-
-            {
-                jf::Unit* selected = controller.selectedUnit();
-                const bool needsHealing = selected && selected->currentHp < selected->stats.maxHp;
-                int itemX = firstActionX;
-                int usableItemCount = 0;
-                const auto drawHealingItem = [&](jf::ItemType type, const std::string& en, const std::string& ja) {
-                    const int count = app.expedition().count(type);
-                    if (!needsHealing || count <= 0) return;
-                    if (button(Rectangle{static_cast<float>(itemX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                               en + " " + std::to_string(count), ja + " " + std::to_string(count), mouse, clicked) &&
-                        app.useBattleHealingItem(type)) {
-                        gBattleItemMenuOpen = false;
-                    }
-                    itemX += buttonWidth + buttonGap;
-                    ++usableItemCount;
-                };
-                drawHealingItem(jf::ItemType::FieldTreatmentKit, tr("item.field_treatment_kit.short_name"),
-                                tr("item.field_treatment_kit.short_name"));
-
-                const int boardCount = app.expedition().count(jf::ItemType::ProtectiveBoard);
-                if (boardCount > 0) {
-                    if (button(Rectangle{static_cast<float>(itemX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                               tr("item.protective_board.short_name") + " " + std::to_string(boardCount),
-                               tr("item.protective_board.short_name") + " " + std::to_string(boardCount), mouse,
-                               clicked) &&
-                        app.chooseProtectiveBoard()) {
-                        gBattleItemMenuOpen = false;
-                    }
-                    ++usableItemCount;
-                }
-                if (usableItemCount == 0) {
-                    drawText(tr("ui.battle.no_usable_items"), firstActionX, hudTop + 39, 14,
-                             kColorTextMuted);
-                }
-                if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                           tr("ui.button.back"), mouse, clicked)) {
-                    gBattleItemMenuOpen = false;
-                }
-            }
-            break;
-        case jf::BattleInputState::ConfirmAttack:
-            // The readable preview is drawn as its own popup (see
-            // drawCombatPreviewPopup); the HUD here just keeps the buttons.
-            if (button(Rectangle{static_cast<float>(thirdActionX), hudTop + 43.0f, buttonWidth, buttonHeight},
-                       tr("ui.button.confirm"), mouse, clicked))
-                controller.confirmAttack();
-            if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 43.0f, buttonWidth, buttonHeight},
-                       tr("ui.button.cancel"), mouse, clicked))
-                controller.cancelAttackSelection();
-            break;
-        case jf::BattleInputState::ConfirmSkillAttack:
-            // M4 item 3: same Confirm/Cancel pair as ConfirmAttack, for the
-            // 3 attack-shape skills' pre-resolution preview.
-            if (button(Rectangle{static_cast<float>(thirdActionX), hudTop + 43.0f, buttonWidth, buttonHeight},
-                       tr("ui.button.confirm"), mouse, clicked))
-                controller.confirmSkillAttack();
-            if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 43.0f, buttonWidth, buttonHeight},
-                       tr("ui.button.cancel"), mouse, clicked))
-                controller.cancelAttackSelection();
-            break;
-        case jf::BattleInputState::ConfirmObjectAttack:
-            // Battle Object統合: 同じConfirm/Cancelペア。Previewは
-            // drawCombatPreviewPopup相当の別ポップアップ側で描画。
-            if (button(Rectangle{static_cast<float>(thirdActionX), hudTop + 43.0f, buttonWidth, buttonHeight},
-                       tr("ui.button.confirm"), mouse, clicked)) {
-                // attackEventId()方式(lastAttacker_/lastAttackTarget_)はUnit
-                // 専用のためObjectには使えない - ここでConfirm直前にPreviewを
-                // 読み、確定後のバナー文言をその場で組み立てる
-                auto preview = controller.pendingObjectPreview();
-                controller.confirmObjectAttack();
-                if (preview) {
-                    std::string objectName = battleObjectNameForKind(preview->objectKind);
-                    pushBattleMessage(
-                        objectHitMessageText(unitDisplayNameFor(preview->attackerName), objectName, preview->damage),
-                        Color{255, 205, 120, 255});
-                    if (preview->durabilityAfter <= 0)
-                        pushBattleMessage(objectDestroyedMessageText(objectName), Color{225, 90, 90, 255});
-                }
-            }
-            if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 43.0f, buttonWidth, buttonHeight},
-                       tr("ui.button.cancel"), mouse, clicked))
-                controller.cancelAttackSelection();
-            break;
-        case jf::BattleInputState::SelectMove:
-            if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                       tr("ui.button.cancel"), mouse, clicked))
-                controller.cancelToUnitSelect();
-            break;
-        case jf::BattleInputState::SelectTarget:
-        case jf::BattleInputState::SelectHealTarget:
-        case jf::BattleInputState::SelectItemTarget:
-        case jf::BattleInputState::SelectBoardTarget:
-        case jf::BattleInputState::SelectSkillTarget:
-        case jf::BattleInputState::SelectInteractTarget:
-            if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, buttonWidth, buttonHeight},
-                       tr("ui.button.back"), mouse, clicked))
-                controller.cancelAttackSelection();
-            break;
-        default:
-            break;
-    }
+    drawBattleActionButtons(app, controller, mouse, clicked, hudTop, buttonWidth, buttonHeight, buttonGap,
+                           firstActionX, secondActionX, thirdActionX, fourthActionX, fifthActionX, sixthActionX);
 }
 
 void drawVictoryOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
