@@ -47,14 +47,16 @@ file(GLOB_RECURSE JF_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/src/*.cpp
 )
 list(REMOVE_ITEM JF_SOURCES ${CMAKE_SOURCE_DIR}/src/main.cpp ${CMAKE_SOURCE_DIR}/src/ui_battle.cpp
-    ${CMAKE_SOURCE_DIR}/src/ui_camp.cpp ${CMAKE_SOURCE_DIR}/src/ui_base.cpp)
+    ${CMAKE_SOURCE_DIR}/src/ui_camp.cpp ${CMAKE_SOURCE_DIR}/src/ui_base.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui_facilities.cpp)
 
 add_library(jf_lib STATIC ${JF_SOURCES})
 target_include_directories(jf_lib PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(jf_lib PUBLIC nlohmann_json::nlohmann_json)
 target_compile_features(jf_lib PUBLIC cxx_std_20)
 
-add_executable(JOJIFrontier src/main.cpp src/ui_battle.cpp src/ui_camp.cpp src/ui_base.cpp)
+add_executable(JOJIFrontier src/main.cpp src/ui_battle.cpp src/ui_camp.cpp src/ui_base.cpp
+    src/ui_facilities.cpp)
 target_link_libraries(JOJIFrontier PRIVATE jf_lib raylib)
 target_include_directories(JOJIFrontier PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
@@ -80,6 +82,13 @@ if(BUILD_TESTING)
     target_link_libraries(jf_locale_tests PRIVATE jf_lib)
     target_compile_definitions(jf_locale_tests PRIVATE JF_SOURCE_DATA_DIR="${CMAKE_SOURCE_DIR}/data")
     add_test(NAME jf_locale_tests COMMAND jf_locale_tests)
+    # Same NDEBUG issue as jf_battle_tests above - this target's own
+    # assert()s need to actually run under a Release/RelWithDebInfo build.
+    if(MSVC)
+        target_compile_options(jf_locale_tests PRIVATE /UNDEBUG)
+    else()
+        target_compile_options(jf_locale_tests PRIVATE -UNDEBUG)
+    endif()
 
     # docs/implementation_roadmap.md M1-E slice7 "コンテンツ検査ツール": structural
     # validation (route reachability, spawn/placement legality, determinism) for
