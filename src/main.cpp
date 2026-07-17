@@ -909,7 +909,14 @@ std::string objectDestroyedMessageText(const std::string& objectName) {
     return tr("battle.object_destroyed_message", {{"object", objectName}});
 }
 
-void drawGrid(const jf::BattleController& controller, float dt) {
+// Notices any battle-state transition that should surface as a one-shot
+// banner/animation this frame (a resolved attack, a reinforcement wave's
+// Scheduled->Announced, a Boss telegraph's None->Announced, a Boss crossing
+// its enrage threshold) and returns the currently-pending Boss telegraph's
+// danger-zone tiles for drawBoardTiles() to highlight. Split out of
+// drawGrid() purely to separate "notice state changes" from "draw the
+// board" - no behavior change.
+std::vector<jf::GridPos> detectAndAnnounceBattleEvents(const jf::BattleController& controller) {
     const jf::BattleState& battle = controller.battle();
 
     // Detect a newly-resolved attack (player or enemy) and kick off its
@@ -987,6 +994,16 @@ void drawGrid(const jf::BattleController& controller, float dt) {
         }
         it->second = unit.bossEnraged;
     }
+
+    return telegraphDangerTiles;
+}
+
+// The 3x8 board itself: terrain, Battle Objects, and every Tile-highlight
+// overlay (movement/attack/heal/item/board/skill/interact ranges, the
+// pending Boss charge danger zone). Split out of drawGrid(); no behavior
+// change.
+void drawBoardTiles(const jf::BattleController& controller, const std::vector<jf::GridPos>& telegraphDangerTiles) {
+    const jf::BattleState& battle = controller.battle();
 
     drawBattlefieldBackdrop();
 
@@ -1078,6 +1095,12 @@ void drawGrid(const jf::BattleController& controller, float dt) {
                 DrawRectangleRec(rect, Color{235, 150, 60, 140});
         }
     }
+}
+
+// Every living Unit's sprite: shadow, selection ring, body, HP bar, status
+// badges, and name tag. Split out of drawGrid(); no behavior change.
+void drawUnitSprites(const jf::BattleController& controller, float dt) {
+    const jf::BattleState& battle = controller.battle();
 
     for (const jf::Unit& unit : battle.units()) {
         if (!unit.isAlive()) continue;
@@ -1152,7 +1175,12 @@ void drawGrid(const jf::BattleController& controller, float dt) {
                              0.35f, 6, Color{14, 16, 22, 150});
         drawText(displayName, static_cast<int>(nameX), static_cast<int>(nameY), fontSize, kColorTextPrimary);
     }
+}
 
+void drawGrid(const jf::BattleController& controller, float dt) {
+    std::vector<jf::GridPos> telegraphDangerTiles = detectAndAnnounceBattleEvents(controller);
+    drawBoardTiles(controller, telegraphDangerTiles);
+    drawUnitSprites(controller, dt);
     drawBattleMessages(dt);
 }
 
