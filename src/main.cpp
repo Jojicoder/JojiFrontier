@@ -2758,54 +2758,56 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     }
 }
 
-void drawFacilitiesScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
-    ClearBackground(Color{18, 21, 30, 255});
-    const jf::BaseState& base = app.baseState();
-    Rectangle backRect{static_cast<float>(kScreenWidth) - 258.0f, 4.0f, 150.0f, 32.0f};
-
-    if (!gVisitedFacility) {
-        drawText(tr("ui.facilities.title"), 38, 24, 28, kColorTextPrimary);
-        drawText(outpostStageNameFor(base.outpostStage), 38, 60, 16, kColorTextMuted);
-        if (button(backRect, tr("ui.button.back"), mouse, clicked)) {
-            gVisitedFacility.reset();
-            gForgeCraftClass.reset();
-            gShowFacilities = false;
-        }
-
-        const jf::FacilityId facilities[] = {
-            jf::FacilityId::CommandPost, jf::FacilityId::TrainingGround, jf::FacilityId::Forge,
-            jf::FacilityId::Infirmary, jf::FacilityId::Workshop, jf::FacilityId::Barracks,
-        };
-        bool hasHoveredFacility = false;
-        jf::FacilityId hoveredFacility = jf::FacilityId::CommandPost;
-        for (int index = 0; index < 6; ++index) {
-            const jf::FacilityId facility = facilities[index];
-            const int col = index % 2;
-            const int row = index / 2;
-            Rectangle card{42.0f + col * 610.0f, 112.0f + row * 166.0f, 574.0f, 138.0f};
-            drawCard(card, kColorCard, kColorBorderSoft, 0.04f);
-            drawText(facilityIdNameFor(facility), static_cast<int>(card.x + 22), static_cast<int>(card.y + 18),
-                     21, kColorTextPrimary);
-            const bool constructed = facilityIsConstructed(base, facility);
-            drawText(tr("ui.facilities.branches_unlocked", {{"count", std::to_string(facilityLevel(base, facility))}}),
-                     static_cast<int>(card.x + 22), static_cast<int>(card.y + 59), 14, kColorAccentGold);
-            drawText(constructed ? tr("ui.facility_node.constructed") : tr("ui.facility_node.not_constructed"),
-                     static_cast<int>(card.x + 112), static_cast<int>(card.y + 59), 14,
-                     constructed ? Color{105, 205, 145, 255} : Color{180, 125, 125, 255});
-            Rectangle visitRect{card.x + card.width - 174.0f, card.y + 82.0f, 150.0f, 40.0f};
-            if (button(visitRect, "Visit", "訪れる", mouse, clicked)) {
-                gVisitedFacility = facility;
-                gForgeCraftClass.reset();
-            }
-            if (CheckCollisionPointRec(mouse, card) && !CheckCollisionPointRec(mouse, visitRect)) {
-                hasHoveredFacility = true;
-                hoveredFacility = facility;
-            }
-        }
-        if (hasHoveredFacility) drawFacilityTooltip(hoveredFacility, base, mouse);
-        return;
+// The facility card grid (list view, shown when no facility is visited
+// yet). Split out of drawFacilitiesScreen(); no behavior change.
+void drawFacilitiesList(jf::GameApp& app, Vector2 mouse, bool clicked, const jf::BaseState& base,
+                         const Rectangle& backRect) {
+    drawText(tr("ui.facilities.title"), 38, 24, 28, kColorTextPrimary);
+    drawText(outpostStageNameFor(base.outpostStage), 38, 60, 16, kColorTextMuted);
+    if (button(backRect, tr("ui.button.back"), mouse, clicked)) {
+        gVisitedFacility.reset();
+        gForgeCraftClass.reset();
+        gShowFacilities = false;
     }
 
+    const jf::FacilityId facilities[] = {
+        jf::FacilityId::CommandPost, jf::FacilityId::TrainingGround, jf::FacilityId::Forge,
+        jf::FacilityId::Infirmary, jf::FacilityId::Workshop, jf::FacilityId::Barracks,
+    };
+    bool hasHoveredFacility = false;
+    jf::FacilityId hoveredFacility = jf::FacilityId::CommandPost;
+    for (int index = 0; index < 6; ++index) {
+        const jf::FacilityId facility = facilities[index];
+        const int col = index % 2;
+        const int row = index / 2;
+        Rectangle card{42.0f + col * 610.0f, 112.0f + row * 166.0f, 574.0f, 138.0f};
+        drawCard(card, kColorCard, kColorBorderSoft, 0.04f);
+        drawText(facilityIdNameFor(facility), static_cast<int>(card.x + 22), static_cast<int>(card.y + 18),
+                 21, kColorTextPrimary);
+        const bool constructed = facilityIsConstructed(base, facility);
+        drawText(tr("ui.facilities.branches_unlocked", {{"count", std::to_string(facilityLevel(base, facility))}}),
+                 static_cast<int>(card.x + 22), static_cast<int>(card.y + 59), 14, kColorAccentGold);
+        drawText(constructed ? tr("ui.facility_node.constructed") : tr("ui.facility_node.not_constructed"),
+                 static_cast<int>(card.x + 112), static_cast<int>(card.y + 59), 14,
+                 constructed ? Color{105, 205, 145, 255} : Color{180, 125, 125, 255});
+        Rectangle visitRect{card.x + card.width - 174.0f, card.y + 82.0f, 150.0f, 40.0f};
+        if (button(visitRect, "Visit", "訪れる", mouse, clicked)) {
+            gVisitedFacility = facility;
+            gForgeCraftClass.reset();
+        }
+        if (CheckCollisionPointRec(mouse, card) && !CheckCollisionPointRec(mouse, visitRect)) {
+            hasHoveredFacility = true;
+            hoveredFacility = facility;
+        }
+    }
+    if (hasHoveredFacility) drawFacilityTooltip(hoveredFacility, base, mouse);
+}
+
+// The visited-facility detail page: upgrade/recipe node list plus the info
+// panel (including the Forge's class-recipe picker). Split out of
+// drawFacilitiesScreen(); no behavior change.
+void drawFacilityDetail(jf::GameApp& app, Vector2 mouse, bool clicked, const jf::BaseState& base,
+                         const Rectangle& backRect) {
     const jf::FacilityId facility = *gVisitedFacility;
     const bool forgeCraftPage = facility == jf::FacilityId::Forge && gForgeCraftClass.has_value();
     const std::string pageTitle = forgeCraftPage
@@ -2868,6 +2870,19 @@ void drawFacilitiesScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
                  794, 292, 14, kColorTextMuted);
     }
     if (hoveredNode) drawFacilityNodeTooltip(*hoveredNode, base, mouse);
+}
+
+void drawFacilitiesScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
+    ClearBackground(Color{18, 21, 30, 255});
+    const jf::BaseState& base = app.baseState();
+    Rectangle backRect{static_cast<float>(kScreenWidth) - 258.0f, 4.0f, 150.0f, 32.0f};
+
+    if (!gVisitedFacility) {
+        drawFacilitiesList(app, mouse, clicked, base, backRect);
+        return;
+    }
+
+    drawFacilityDetail(app, mouse, clicked, base, backRect);
 }
 
 // The discard-confirmation sub-panel (shown when a discard button was just
