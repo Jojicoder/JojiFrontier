@@ -2325,18 +2325,11 @@ void drawExplorationScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
 // Purely UI state - GameApp only knows about confirmed placements.
 int gDeploymentSelectedSlot = 0;
 
-void drawPreBattleDeploymentScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
-    ClearBackground(Color{16, 18, 26, 255});
-    DrawRectangleGradientV(0, 0, kScreenWidth, 70, Color{40, 46, 62, 255}, Color{24, 27, 38, 255});
-    DrawLine(0, 70, kScreenWidth, 70, withAlpha(kColorBorder, 160));
-    drawText(tr("ui.deployment.title"), 40, 20, 26, kColorTextPrimary);
-    drawText(tr("ui.deployment.instructions"), 40,
-             50, 15, kColorTextMuted);
-    drawText(tr("ui.deployment.enemy_forces") + " (Preview)", kScreenWidth - 300, 50, 15, kColorTextFaint);
-
-    const std::vector<jf::Unit>& players = app.deploymentPlayers();
-    int maxCol = app.deploymentMaxColumn();
-
+// Board tiles, enemy preview, placed allies, and the placement click
+// handler. Split out of drawPreBattleDeploymentScreen(); no behavior
+// change.
+void drawDeploymentBoard(jf::GameApp& app, Vector2 mouse, bool clicked, const std::vector<jf::Unit>& players,
+                          int maxCol) {
     for (int row = 0; row < jf::kGridRows; ++row) {
         for (int col = 0; col < jf::kGridCols; ++col) {
             jf::GridPos pos{row, col};
@@ -2412,7 +2405,12 @@ void drawPreBattleDeploymentScreen(jf::GameApp& app, Vector2 mouse, bool clicked
             }
         }
     }
+}
 
+// HUD bar: per-slot placement buttons, the "deploy all" hint, and the
+// Back/Begin Battle buttons. Split out of drawPreBattleDeploymentScreen();
+// no behavior change.
+void drawDeploymentHud(jf::GameApp& app, Vector2 mouse, bool clicked, const std::vector<jf::Unit>& players) {
     int hudTop = static_cast<int>(kHudY);
     DrawRectangleGradientV(0, hudTop, kScreenWidth, kScreenHeight - hudTop, Color{24, 28, 39, 255},
                            Color{15, 17, 24, 255});
@@ -2448,6 +2446,22 @@ void drawPreBattleDeploymentScreen(jf::GameApp& app, Vector2 mouse, bool clicked
     } else {
         disabledButton(beginRect, tr("ui.button.begin_battle"));
     }
+}
+
+void drawPreBattleDeploymentScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
+    ClearBackground(Color{16, 18, 26, 255});
+    DrawRectangleGradientV(0, 0, kScreenWidth, 70, Color{40, 46, 62, 255}, Color{24, 27, 38, 255});
+    DrawLine(0, 70, kScreenWidth, 70, withAlpha(kColorBorder, 160));
+    drawText(tr("ui.deployment.title"), 40, 20, 26, kColorTextPrimary);
+    drawText(tr("ui.deployment.instructions"), 40,
+             50, 15, kColorTextMuted);
+    drawText(tr("ui.deployment.enemy_forces") + " (Preview)", kScreenWidth - 300, 50, 15, kColorTextFaint);
+
+    const std::vector<jf::Unit>& players = app.deploymentPlayers();
+    int maxCol = app.deploymentMaxColumn();
+
+    drawDeploymentBoard(app, mouse, clicked, players, maxCol);
+    drawDeploymentHud(app, mouse, clicked, players);
 }
 
 std::string facilityIdNameFor(jf::FacilityId id) {
