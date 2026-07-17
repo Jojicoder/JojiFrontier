@@ -47,14 +47,14 @@ file(GLOB_RECURSE JF_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/src/*.cpp
 )
 list(REMOVE_ITEM JF_SOURCES ${CMAKE_SOURCE_DIR}/src/main.cpp ${CMAKE_SOURCE_DIR}/src/ui_battle.cpp
-    ${CMAKE_SOURCE_DIR}/src/ui_camp.cpp)
+    ${CMAKE_SOURCE_DIR}/src/ui_camp.cpp ${CMAKE_SOURCE_DIR}/src/ui_base.cpp)
 
 add_library(jf_lib STATIC ${JF_SOURCES})
 target_include_directories(jf_lib PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(jf_lib PUBLIC nlohmann_json::nlohmann_json)
 target_compile_features(jf_lib PUBLIC cxx_std_20)
 
-add_executable(JOJIFrontier src/main.cpp src/ui_battle.cpp src/ui_camp.cpp)
+add_executable(JOJIFrontier src/main.cpp src/ui_battle.cpp src/ui_camp.cpp src/ui_base.cpp)
 target_link_libraries(JOJIFrontier PRIVATE jf_lib raylib)
 target_include_directories(JOJIFrontier PRIVATE ${CMAKE_SOURCE_DIR}/include)
 

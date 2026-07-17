@@ -11,6 +11,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include <optional>
+
 #include "jf/core/Grid.hpp"
 #include "jf/data/GameData.hpp"
 
@@ -44,6 +46,16 @@ extern Language gLanguage;
 // (Camp, Base), so its state lives here rather than with any one screen's
 // file-local globals.
 extern bool gWarehouseCleanupOpen;
+
+// Base screen state (docs/implementation_roadmap.md "Phase 3.5"), also
+// touched by the not-yet-split Facilities/Unit screens and main.cpp's own
+// screen dispatcher - kept as extern globals rather than moved, since their
+// defining screen hasn't been split out yet.
+extern bool gShowFacilities;
+extern jf::RegionId gSelectedRegionId;
+extern std::optional<jf::FacilityId> gVisitedFacility;
+extern std::optional<jf::UnitClass> gForgeCraftClass;
+extern std::optional<std::string> gViewedUnitId;
 
 Rectangle logicalViewport();
 Vector2 logicalMousePosition();
