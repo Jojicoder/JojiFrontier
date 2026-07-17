@@ -2041,8 +2041,9 @@ void drawCampScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     if (gCampItemMenuOpen) drawCampItemMenu(app, mouse, clicked);
 }
 
-void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
-    ClearBackground(Color{18, 21, 30, 255});
+// Top bar: screen title plus the Facilities/Warehouse buttons. Split out of
+// drawBaseScreen(); no behavior change.
+void drawBaseTopBar(jf::GameApp& app, Vector2 mouse, bool clicked) {
     drawText(tr("ui.prep.title"), 38, 30, 30, kColorTextPrimary);
     Rectangle facilitiesRect{static_cast<float>(kScreenWidth) - 218.0f, 4.0f, 110.0f, 32.0f};
     if (button(facilitiesRect, tr("ui.facilities.title"), mouse, clicked)) {
@@ -2052,8 +2053,12 @@ void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     }
     Rectangle warehouseRect{static_cast<float>(kScreenWidth) - 336.0f, 4.0f, 110.0f, 32.0f};
     if (button(warehouseRect, tr("ui.warehouse.open_button"), mouse, clicked)) gWarehouseCleanupOpen = true;
-    std::vector<TooltipLine> hoverLines;
+}
 
+// The 4-of-roster party picker column. Split out of drawBaseScreen();
+// `hoverLines` is the single shared tooltip buffer every column of this
+// screen can write into (drawn once, at the very end) - no behavior change.
+void drawBasePartyRoster(jf::GameApp& app, Vector2 mouse, bool clicked, std::vector<TooltipLine>& hoverLines) {
     drawSectionHeading(tr("ui.prep.party_choose4"), 52, 92, 20);
     int y = 125;
     for (const auto& unit : app.roster()) {
@@ -2077,8 +2082,13 @@ void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         }
         y += 45;
     }
+}
+
+// The consumable-supplies craft/add column. Split out of drawBaseScreen();
+// no behavior change.
+void drawBaseSupplies(jf::GameApp& app, Vector2 mouse, bool clicked, std::vector<TooltipLine>& hoverLines) {
     drawSectionHeading(tr("ui.prep.supplies"), 492, 92, 20);
-    y = 125;
+    int y = 125;
     for (const auto& item : jf::kItemCatalog) {
         const int owned = app.baseState().ownedItemCount(item.type);
         const std::vector<jf::ItemCraftCost> cost = jf::itemCraftCost(item.type);
@@ -2122,9 +2132,13 @@ void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         }
         y += 45;
     }
+}
 
+// The unlocked/locked region picker list. Split out of drawBaseScreen(); no
+// behavior change.
+void drawBaseRegionList(jf::GameApp& app, Vector2 mouse, bool clicked, std::vector<TooltipLine>& hoverLines) {
     drawSectionHeading(tr("exploration.region_section"), 480, 405, 18);
-    y = 433;
+    int y = 433;
     for (const auto& summary : app.regionSummaries()) {
         Rectangle rowRect{480, static_cast<float>(y), 300, 40};
         std::string marker = summary.id == gSelectedRegionId ? "> " : "";
@@ -2142,9 +2156,13 @@ void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         }
         y += 45;
     }
+}
 
+// The prepared-bag slot list plus the Begin Expedition button. Split out of
+// drawBaseScreen(); no behavior change.
+void drawBaseBagAndExpedition(jf::GameApp& app, Vector2 mouse, bool clicked, std::vector<TooltipLine>& hoverLines) {
     drawSectionHeading(tr("ui.prep.bag_slots"), 842, 92, 20);
-    y = 125;
+    int y = 125;
     for (std::size_t i = 0; i < jf::ExpeditionState::kBagCapacity; ++i) {
         Rectangle slot{830, static_cast<float>(y), 370, 40};
         if (i < app.preparedBag().size()) {
@@ -2166,7 +2184,11 @@ void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
             app.startExpedition(toStart);
         }
     } else disabledButton(start, tr("ui.validation.select_exactly_4"));
+}
 
+// Outpost stage name/advance button and the Discovery registry list. Split
+// out of drawBaseScreen(); no behavior change.
+void drawBaseOutpostInfo(jf::GameApp& app, Vector2 mouse, bool clicked) {
     const jf::BaseState& base = app.baseState();
     drawSectionHeading(tr("ui.outpost.title"), 40, 520, 20);
     drawText(outpostStageNameFor(base.outpostStage), 40, 552, 22, kColorTextPrimary);
@@ -2188,7 +2210,17 @@ void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
             discoveryY += 28;
         }
     }
+}
 
+void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
+    ClearBackground(Color{18, 21, 30, 255});
+    drawBaseTopBar(app, mouse, clicked);
+    std::vector<TooltipLine> hoverLines;
+    drawBasePartyRoster(app, mouse, clicked, hoverLines);
+    drawBaseSupplies(app, mouse, clicked, hoverLines);
+    drawBaseRegionList(app, mouse, clicked, hoverLines);
+    drawBaseBagAndExpedition(app, mouse, clicked, hoverLines);
+    drawBaseOutpostInfo(app, mouse, clicked);
     drawTooltipBox(mouse, hoverLines);
 }
 
