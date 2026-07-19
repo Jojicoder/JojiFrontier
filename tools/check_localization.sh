@@ -16,16 +16,16 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MAIN_CPP="${SCRIPT_DIR}/../src/main.cpp"
 
-count=$(grep -c '^const std::string kJa' "$MAIN_CPP")
+count=$(grep -c '^extern const std::string kJa' "$MAIN_CPP")
 
 if [ "$count" -ne 1 ]; then
     echo "check_localization: expected exactly 1 kJa* constant (kJaJapaneseNative)," \
          "found $count in $MAIN_CPP" >&2
-    grep -n '^const std::string kJa' "$MAIN_CPP" >&2
+    grep -n '^extern const std::string kJa' "$MAIN_CPP" >&2
     exit 1
 fi
 
-if ! grep -q '^const std::string kJaJapaneseNative' "$MAIN_CPP"; then
+if ! grep -q '^extern const std::string kJaJapaneseNative' "$MAIN_CPP"; then
     echo "check_localization: the one allowed kJa* constant should be kJaJapaneseNative," \
          "but it was not found" >&2
     exit 1

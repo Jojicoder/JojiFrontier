@@ -42,6 +42,11 @@ extern const Color kColorTextFaint;
 enum class Language { English, Japanese };
 extern Language gLanguage;
 
+// A language picker's native-script label for switching TO Japanese
+// ("日本語") is not itself translated (same reasoning as the "English"
+// literal beside it), so it stays a plain constant rather than a Locale Key.
+extern const std::string kJaJapaneseNative;
+
 // docs/inventory_overflow.md「倉庫整理画面」: opened from multiple screens
 // (Camp, Base), so its state lives here rather than with any one screen's
 // file-local globals.
