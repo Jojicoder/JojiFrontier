@@ -54,6 +54,11 @@ StageDescriptor stageDescriptorFromContent(const StageContentData& content) {
     stage.understaffedThreshold = content.understaffedThreshold;
     stage.logCollisionBonusLoot = content.logCollisionBonusLoot;
     stage.noCasualtiesBonusLoot = content.noCasualtiesBonusLoot;
+    if (content.primaryHoldTileAlternative) {
+        const auto& r = *content.primaryHoldTileAlternative;
+        stage.primaryHoldTileAlternative =
+            StageDescriptor::HoldTileMissionRule{r.id, r.requiredHoldRounds, r.zoneMinCol, r.zoneMaxCol};
+    }
     return stage;
 }
 

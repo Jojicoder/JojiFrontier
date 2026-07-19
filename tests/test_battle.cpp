@@ -3079,6 +3079,46 @@ int main() {
     }
 
     {
+        // StageDescriptor::primaryHoldTileAlternative (docs/regions/
+        // cinderwatch_gate.md「2. 灰道の監視所」): BattleFactory widens the
+        // default single-member "primary" group to Any and adds a HoldTile
+        // objective targeting a real generated WatchPost tile, alongside the
+        // untouched default EliminateTeam member - both must remain valid
+        // win paths.
+        jf::GameData data = makeFactoryData();
+        jf::StageDescriptor stage = testStage0(jf::kSignalTowerTerrain); // highest WatchPost weight
+        stage.enemyCountOverride.reset();                                // irrelevant here, keep default roster
+        stage.primaryHoldTileAlternative =
+            jf::StageDescriptor::HoldTileMissionRule{"watchpost_hold", 2, 0, jf::kGridCols - 1};
+
+        jf::BattleState battle = jf::createScenarioBattle(data, stage, /*seed=*/7);
+
+        const jf::ObjectiveGroupDefinition* primaryGroup = nullptr;
+        for (const auto& group : battle.missionState().groups)
+            if (group.id == "primary") primaryGroup = &group;
+        assert(primaryGroup && primaryGroup->rule == jf::ObjectiveGroupRule::Any);
+
+        const jf::ObjectiveDefinition* holdDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.kind == jf::ObjectiveKind::HoldTile) holdDef = &def;
+        assert(holdDef && holdDef->id == "watchpost_hold" && holdDef->primary);
+        assert(holdDef->target.requiredHoldRounds == 2);
+        assert(holdDef->target.securingTeam == jf::Team::Player);
+        assert(jf::isInBounds(holdDef->target.tile));
+        assert(battle.terrainAt(holdDef->target.tile) == jf::TerrainType::WatchPost);
+        assert(!battle.unitAt(holdDef->target.tile)); // unoccupied at battle start
+
+        // EliminateTeam remains an independent win path: defeating every
+        // enemy wins even though nobody ever touched the HoldTile.
+        jf::AliveSnapshot before = jf::captureAliveSnapshot(battle);
+        for (jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+        jf::emitUnitDefeatedEvents(battle, before);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
         // ObjectiveProgress stays in sync with the live-evaluated kinds:
         // syncObjectiveProgress() marks a satisfied objective Completed, and
         // in an Any group the unmet side becomes Superseded rather than

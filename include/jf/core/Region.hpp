@@ -94,6 +94,25 @@ struct StageDescriptor {
     };
     std::optional<HerbPatchGenerationRule> herbPatchGeneration;
 
+    // docs/regions/cinderwatch_gate.md「2. 灰道の監視所」/
+    // docs/mission_objectives.md「地点維持」: this stage's primary objective
+    // is EliminateTeam OR holding a WatchPost tile for requiredHoldRounds
+    // consecutive rounds - unlike every other stage (plain EliminateTeam via
+    // BattleState's default mission ctor), so BattleFactory rewrites the
+    // default "primary" group's rule to Any and adds the HoldTile member
+    // when this is set. The tile itself is chosen at scenario-build time
+    // (like chooseSurveyTile()) from whichever WatchPost terrain tiles the
+    // stage's own TerrainProfile generated within [zoneMinCol, zoneMaxCol];
+    // falls back to any WatchPost tile on the board if none generated in
+    // that column range.
+    struct HoldTileMissionRule {
+        std::string id;
+        int requiredHoldRounds = 2;
+        int zoneMinCol = 0;
+        int zoneMaxCol = kGridCols - 1;
+    };
+    std::optional<HoldTileMissionRule> primaryHoldTileAlternative;
+
     // Per-route outcome override (docs/regions/ashbough_forest.md: each
     // site's 3 exploration choices can have genuinely different effects, not
     // just different numbers plugged into the same shared shape). Empty

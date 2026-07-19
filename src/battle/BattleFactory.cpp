@@ -239,6 +239,33 @@ GridPos chooseSurveyTile(const BattleState& battle, std::uint32_t seed) {
     return candidates[pick(rng)];
 }
 
+// docs/regions/cinderwatch_gate.md「2. 灰道の監視所」's HoldTile target: a
+// WatchPost tile within [zoneMinCol, zoneMaxCol] ("中央の監視床"), unoccupied
+// at battle start. Terrain generation is probabilistic (TerrainProfile
+// weights, not a guarantee), so this falls back to any board WatchPost tile
+// outside the zone, then to chooseSurveyTile()'s own board-wide fallback tile
+// if the profile happened to generate none at all - never leaves the
+// objective without a target.
+GridPos chooseHoldTile(const BattleState& battle, std::uint32_t seed, int zoneMinCol, int zoneMaxCol) {
+    auto watchPostCandidates = [&](int minCol, int maxCol) {
+        std::vector<GridPos> candidates;
+        for (int row = 0; row < kGridRows; ++row) {
+            for (int col = minCol; col <= maxCol; ++col) {
+                GridPos pos{row, col};
+                if (battle.terrainAt(pos) == TerrainType::WatchPost && !battle.unitAt(pos))
+                    candidates.push_back(pos);
+            }
+        }
+        return candidates;
+    };
+    std::vector<GridPos> candidates = watchPostCandidates(zoneMinCol, zoneMaxCol);
+    if (candidates.empty()) candidates = watchPostCandidates(0, kGridCols - 1);
+    if (candidates.empty()) return chooseSurveyTile(battle, seed);
+    std::mt19937 rng(seed ^ 0x7F4A7C15u);
+    std::uniform_int_distribution<std::size_t> pick(0, candidates.size() - 1);
+    return candidates[pick(rng)];
+}
+
 BattleState assembleScenario(const GameData& data, const std::vector<Unit>* survivors, const StageDescriptor& stage,
                              std::uint32_t seed, ExplorationOutcome outcome = {},
                              const std::vector<GridPos>* customPlayerPositions = nullptr,
@@ -289,6 +316,29 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
         if (!isPassable(terrain[key])) terrain[key] = TerrainType::Floor;
     }
     BattleState battle(std::move(units), terrain, seed);
+
+    if (stage.primaryHoldTileAlternative) {
+        // docs/regions/cinderwatch_gate.md「2. 灰道の監視所」: primary
+        // objective is EliminateTeam OR HoldTile. BattleState's ctor default
+        // (defaultEliminateEnemiesMission()) already added a single-member
+        // "primary" group with rule=All; widen it to Any and add the
+        // HoldTile alternative alongside the existing EliminateTeam member,
+        // rather than constructing a whole new mission from scratch.
+        const auto& rule = *stage.primaryHoldTileAlternative;
+        for (ObjectiveGroupDefinition& group : battle.missionState().groups) {
+            if (group.id == "primary") group.rule = ObjectiveGroupRule::Any;
+        }
+        ObjectiveDefinition hold;
+        hold.id = rule.id;
+        hold.kind = ObjectiveKind::HoldTile;
+        hold.primary = true;
+        hold.groupId = "primary";
+        hold.target.tile = chooseHoldTile(battle, seed, rule.zoneMinCol, rule.zoneMaxCol);
+        hold.target.securingTeam = Team::Player;
+        hold.target.requiredHoldRounds = rule.requiredHoldRounds;
+        battle.missionState().definitions.push_back(hold);
+        battle.missionState().progress[hold.id] = ObjectiveProgress{hold.id};
+    }
 
     std::vector<GridPos> herbTiles;
     if (stage.herbPatchGeneration) {

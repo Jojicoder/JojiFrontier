@@ -368,6 +368,12 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
                 stage.logCollisionBonusLoot = readLootStacks(s.at("logCollisionBonusLoot"));
             if (s.contains("noCasualtiesBonusLoot"))
                 stage.noCasualtiesBonusLoot = readLootStacks(s.at("noCasualtiesBonusLoot"));
+            if (s.contains("primaryHoldTileAlternative")) {
+                const auto& h = s.at("primaryHoldTileAlternative");
+                stage.primaryHoldTileAlternative = StageContentData::HoldTileMissionRuleData{
+                    h.at("id").get<std::string>(), h.value("requiredHoldRounds", 2), h.value("zoneMinCol", 0),
+                    h.value("zoneMaxCol", kGridCols - 1)};
+            }
         } catch (const std::exception& e) {
             std::cerr << "Invalid stage in regions.json: " << e.what() << std::endl;
             return std::nullopt;

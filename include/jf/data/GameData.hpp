@@ -120,6 +120,15 @@ struct StageContentData {
     int understaffedThreshold = 4;
     std::vector<LootStack> logCollisionBonusLoot;
     std::vector<LootStack> noCasualtiesBonusLoot;
+
+    // Mirrors StageDescriptor::HoldTileMissionRule.
+    struct HoldTileMissionRuleData {
+        std::string id;
+        int requiredHoldRounds = 2;
+        int zoneMinCol = 0;
+        int zoneMaxCol = kGridCols - 1;
+    };
+    std::optional<HoldTileMissionRuleData> primaryHoldTileAlternative;
 };
 
 struct GameData {
