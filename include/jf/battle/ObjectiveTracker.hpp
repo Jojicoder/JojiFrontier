@@ -30,6 +30,17 @@ struct BattleOutcome {
 // the objective's `target.securingTeam`.
 void handleObjectiveEvent(BattleMissionState& mission, const BattleEvent& event);
 
+// docs/mission_objectives.md「地点維持」(HoldTile): call exactly once per
+// round, at the same point BattleController emits RoundEndedEvent. Unlike
+// handleObjectiveEvent()'s other kinds, HoldTile needs live board occupancy
+// (not just the event payload), so it reads `battle` directly rather than
+// going through the generic event-id-deduplicated dispatch. For every
+// still-Active HoldTile objective: increments
+// ObjectiveProgress::consecutiveRoundsHeld if a target.securingTeam unit
+// currently occupies target.tile, resets it to 0 otherwise, and marks the
+// objective Completed the round the counter reaches target.requiredHoldRounds.
+void resolveHoldTileRoundEnd(BattleState& battle);
+
 // docs/mission_objectives.md "進捗同期": mutates ObjectiveProgress::status for
 // the live-evaluated kinds (EliminateTeam/DefeatUnit) and never reverts an
 // already-Completed objective. All-group: once every member is satisfied,

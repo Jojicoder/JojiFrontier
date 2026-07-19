@@ -123,10 +123,19 @@ BattleFactoryは入力完了後、戦闘開始前に次を検証する。
 | 設置物破壊 | `DestroyObject` | 指定Object IDまたはタグの耐久が0 | Yes | Yes |
 | 対象保護 | `ProtectUnit` | 戦闘終了時に指定対象が撤退していない | No | Yes |
 | 条件付き撃破 | `DefeatWithCondition` | 指定対象を地形衝突などの条件成立後に撃破 | No | Yes |
+| 地点維持 | `HoldTile` | 条件を満たすユニットが指定マスを指定ラウンド数連続で占有 | Yes | Yes |
 
 `SecureTile`は到達だけでは達成しない。対象マスで攻撃、スキル、アイテム、待機のいずれかを
 確定して行動終了した時点で達成する。専用調査が必要な場合は`OperateObject`を使い、通常の
 行動終了では達成させない。
+
+`HoldTile`(docs/regions/cinderwatch_gate.md「2. 灰道の監視所」の「中央の監視床を2ラウンド
+維持」)は`SecureTile`の「行動終了時1回だけ」とも`SurviveRounds`の「部隊全体の敗北回避」とも
+異なる第3の形: 指定マスに`target.securingTeam`のユニットが存在する状態が
+`RoundEnded`Event発行時点で連続何ラウンド続いたかを数える。対象マスから離れる、または
+撤退・戦闘不能で不在になった時点で連続カウントは0へ戻る（占有を再開すれば数え直しになる。
+「離れたら失敗」ではなく「連続条件が満たされ続けた時に限り、その時点で達成」という判定）。
+`requiredHoldRounds`ラウンド連続で占有を確認した`RoundEnded`の瞬間に`Completed`へ遷移する。
 
 ## データモデル
 
@@ -141,7 +150,8 @@ enum class ObjectiveKind {
     OperateObject,
     DestroyObject,
     ProtectUnit,
-    DefeatWithCondition
+    DefeatWithCondition,
+    HoldTile
 };
 
 enum class ObjectiveStatus {

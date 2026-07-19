@@ -2998,6 +2998,87 @@ int main() {
     }
 
     {
+        // HoldTile (docs/mission_objectives.md「地点維持」/
+        // docs/regions/cinderwatch_gate.md「2. 灰道の監視所」): a
+        // securingTeam unit must occupy the target tile for
+        // requiredHoldRounds CONSECUTIVE rounds - resolveHoldTileRoundEnd()
+        // is called once per round (BattleController's Enemy Phase end,
+        // right where RoundEndedEvent fires).
+        jf::Unit player = makeUnit("player", jf::Team::Player, {1, 4});
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 7}); // far enough away: no combat happens
+        jf::ObjectiveDefinition hold;
+        hold.id = "hold_watchpost";
+        hold.kind = jf::ObjectiveKind::HoldTile;
+        hold.primary = true;
+        hold.groupId = "primary";
+        hold.target.tile = {1, 4};
+        hold.target.securingTeam = jf::Team::Player;
+        hold.target.requiredHoldRounds = 2;
+        jf::BattleMissionState mission;
+        mission.groups.push_back({"primary", jf::ObjectiveGroupRule::All});
+        mission.definitions.push_back(hold);
+        mission.progress[hold.id] = jf::ObjectiveProgress{hold.id};
+
+        jf::BattleController controller(jf::BattleState({player, enemy}, {}, 0, mission));
+        assert(controller.battle().round() == 1);
+
+        // Round 1 ends with the player still on the tile: 1 of 2 consecutive
+        // rounds held, not yet Completed.
+        controller.endPlayerTurn();
+        for (int i = 0; i < 10 && controller.inputState() == jf::BattleInputState::EnemyTurn; ++i)
+            controller.update(1.0f);
+        assert(controller.inputState() == jf::BattleInputState::SelectUnit);
+        assert(controller.battle().round() == 2);
+        assert(controller.battle().missionState().progress.at(hold.id).consecutiveRoundsHeld == 1);
+        jf::syncObjectiveProgress(controller.battle());
+        assert(jf::evaluateBattleOutcome(controller.battle()).kind == jf::BattleOutcomeKind::Ongoing);
+
+        // Round 2 ends with the player still on the tile: 2 of 2 - Completed.
+        controller.endPlayerTurn();
+        for (int i = 0; i < 10 && controller.inputState() == jf::BattleInputState::EnemyTurn; ++i)
+            controller.update(1.0f);
+        assert(controller.inputState() == jf::BattleInputState::SelectUnit);
+        assert(controller.battle().round() == 3);
+        assert(controller.battle().missionState().progress.at(hold.id).consecutiveRoundsHeld == 2);
+        jf::syncObjectiveProgress(controller.battle());
+        assert(jf::evaluateBattleOutcome(controller.battle()).kind == jf::BattleOutcomeKind::Victory);
+
+        // Leaving the tile mid-way resets the consecutive counter rather
+        // than merely pausing it - a fresh mission that moves off-tile
+        // before round 1 ends must show 0, not 1.
+        jf::Unit movedAway = makeUnit("player", jf::Team::Player, {1, 0});
+        jf::BattleMissionState awayMission;
+        awayMission.groups.push_back({"primary", jf::ObjectiveGroupRule::All});
+        awayMission.definitions.push_back(hold);
+        awayMission.progress[hold.id] = jf::ObjectiveProgress{hold.id};
+        jf::BattleController awayController(jf::BattleState({movedAway, enemy}, {}, 0, awayMission));
+        awayController.endPlayerTurn();
+        for (int i = 0; i < 10 && awayController.inputState() == jf::BattleInputState::EnemyTurn; ++i)
+            awayController.update(1.0f);
+        assert(awayController.battle().missionState().progress.at(hold.id).consecutiveRoundsHeld == 0);
+        assert(awayController.battle().missionState().progress.at(hold.id).status == jf::ObjectiveStatus::Active);
+
+        // Validation: requiredHoldRounds must be >= 1, and the tile must be
+        // in-bounds, passable, and unoccupied at battle start (same shape as
+        // SecureTile's checks).
+        jf::ObjectiveDefinition badHold = hold;
+        badHold.target.requiredHoldRounds = 0;
+        jf::BattleMissionState badMission = mission;
+        badMission.definitions = {badHold};
+        badMission.progress = {{badHold.id, jf::ObjectiveProgress{badHold.id}}};
+        auto holdErrors = jf::validateBattleMission(badMission, controller.battle());
+        assert(!holdErrors.empty());
+
+        jf::ObjectiveDefinition occupiedHold = hold;
+        occupiedHold.target.tile = {1, 4}; // player still stands here in `controller`'s battle
+        jf::BattleMissionState occupiedMission = mission;
+        occupiedMission.definitions = {occupiedHold};
+        occupiedMission.progress = {{occupiedHold.id, jf::ObjectiveProgress{occupiedHold.id}}};
+        auto occupiedErrors = jf::validateBattleMission(occupiedMission, controller.battle());
+        assert(!occupiedErrors.empty());
+    }
+
+    {
         // ObjectiveProgress stays in sync with the live-evaluated kinds:
         // syncObjectiveProgress() marks a satisfied objective Completed, and
         // in an Any group the unmet side becomes Superseded rather than

@@ -73,7 +73,16 @@ enum class ObjectiveKind {
     // time (BattleController::selectInteractTarget()) - interactionCount
     // can only have advanced if an allowed class actually did it, so this
     // Objective doesn't need to separately re-check who performed it.
-    OperateObject
+    OperateObject,
+    // docs/mission_objectives.md「地点維持」: a `target.securingTeam` unit
+    // must occupy `target.tile` for `target.requiredHoldRounds` CONSECUTIVE
+    // rounds, checked at each RoundEndedEvent (handleObjectiveEvent()) - not
+    // Live-evaluated like SurviveRounds, since "consecutive" needs history
+    // (ObjectiveProgress::consecutiveRoundsHeld) that current BattleState
+    // alone can't reconstruct. Distinct from SecureTile (single
+    // action-ending touch, no persistence) and SurviveRounds (whole-team
+    // defeat-avoidance, not tied to any tile).
+    HoldTile
 };
 
 enum class ObjectiveStatus {
@@ -98,6 +107,7 @@ struct ObjectiveTarget {
     std::string objectId;             // DestroyObject
     int surviveUntilRound = 0;        // SurviveRounds
     int requiredEscapeCount = 1;      // EscapeUnits: distinct units needed on `tile`
+    int requiredHoldRounds = 1;       // HoldTile: consecutive rounds `tile` must stay held
 };
 
 struct ObjectiveDefinition {
@@ -122,6 +132,10 @@ struct ObjectiveProgress {
     // same unit ending multiple actions there doesn't count twice toward
     // requiredEscapeCount.
     std::unordered_set<std::string> creditedTargetIds;
+    // HoldTile only: consecutive RoundEndedEvents so far where a
+    // securingTeam unit occupied target.tile. Resets to 0 the instant the
+    // tile isn't held at a RoundEndedEvent.
+    int consecutiveRoundsHeld = 0;
 };
 
 // docs/mission_objectives.md "所有権と責務": BattleState owns this.

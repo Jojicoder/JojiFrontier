@@ -56,6 +56,12 @@ bool objectiveSatisfied(const BattleState& battle, const ObjectiveDefinition& de
             const BattleObjectState* object = battle.findObject(def.target.objectId);
             return object != nullptr && object->interactionCount > 0;
         }
+        case ObjectiveKind::HoldTile:
+            // Credited by handleObjectiveEvent()'s RoundEndedEvent handling
+            // below, the same "already Completed" read as SecureTile/
+            // EscapeUnits - the consecutive-round counting itself can't be
+            // Live-evaluated from current BattleState alone.
+            return progress.status == ObjectiveStatus::Completed;
     }
     return false;
 }
@@ -93,6 +99,21 @@ void handleObjectiveEvent(BattleMissionState& mission, const BattleEvent& event)
         // the same unit ending multiple actions here only counts once).
         if (def.kind == ObjectiveKind::SecureTile ||
             progress.creditedTargetIds.size() >= static_cast<std::size_t>(def.target.requiredEscapeCount)) {
+            progress.status = ObjectiveStatus::Completed;
+        }
+    }
+}
+
+void resolveHoldTileRoundEnd(BattleState& battle) {
+    BattleMissionState& mission = battle.missionState();
+    for (const ObjectiveDefinition& def : mission.definitions) {
+        if (def.kind != ObjectiveKind::HoldTile) continue;
+        ObjectiveProgress& progress = mission.progress[def.id];
+        if (progress.status == ObjectiveStatus::Completed) continue;
+        const Unit* holder = battle.unitAt(def.target.tile);
+        const bool held = holder != nullptr && holder->team == def.target.securingTeam && holder->isPresent();
+        progress.consecutiveRoundsHeld = held ? progress.consecutiveRoundsHeld + 1 : 0;
+        if (progress.consecutiveRoundsHeld >= def.target.requiredHoldRounds) {
             progress.status = ObjectiveStatus::Completed;
         }
     }
@@ -290,6 +311,20 @@ std::vector<std::string> validateBattleMission(const BattleMissionState& mission
             }
             if (def.primary) {
                 errors.push_back("ProtectUnit objective '" + def.id + "' must not be primary (secondary-only)");
+            }
+        } else if (def.kind == ObjectiveKind::HoldTile) {
+            if (def.target.requiredHoldRounds < 1) {
+                errors.push_back("HoldTile objective '" + def.id + "' needs requiredHoldRounds >= 1");
+            }
+            if (!isInBounds(def.target.tile)) {
+                errors.push_back("HoldTile objective '" + def.id + "' targets an out-of-bounds tile");
+            } else {
+                if (!isPassable(battle.terrainAt(def.target.tile))) {
+                    errors.push_back("HoldTile objective '" + def.id + "' targets an impassable tile");
+                }
+                if (battle.unitAt(def.target.tile)) {
+                    errors.push_back("HoldTile objective '" + def.id + "' targets a tile occupied at battle start");
+                }
             }
         } else if (def.kind == ObjectiveKind::OperateObject) {
             const BattleObjectState* object = battle.findObject(def.target.objectId);

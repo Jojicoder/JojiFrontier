@@ -1022,6 +1022,12 @@ void BattleController::update(float dt) {
                          {battle_.issueEventId(), 0, PhaseEndedEvent{Phase::EnemyPhase, battle_.round()}});
     // docs/mission_objectives.md: RoundEnded fires only when Enemy Phase ends.
     handleObjectiveEvent(battle_.missionState(), {battle_.issueEventId(), 0, RoundEndedEvent{battle_.round()}});
+    // docs/mission_objectives.md「地点維持」: HoldTile's consecutive-round
+    // counting needs live board occupancy, not just the RoundEndedEvent
+    // payload, so it's a dedicated call at the same point rather than routed
+    // through handleObjectiveEvent() (see resolveHoldTileRoundEnd()'s own doc
+    // comment).
+    resolveHoldTileRoundEnd(battle_);
     battle_.beginPlayerPhase();
     // Player Phase is starting: refill/tick down player-side skill charges.
     refreshSkillChargesOnPhaseStart(battle_, Team::Player);
