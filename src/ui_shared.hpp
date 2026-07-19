@@ -67,6 +67,9 @@ Vector2 logicalMousePosition();
 void beginLogicalFrame();
 void endLogicalFrame();
 
+void loadAppFont();
+void unloadAppFont();
+
 Rectangle tileRect(jf::GridPos pos);
 Color scaleColor(Color color, float factor);
 Color withAlpha(Color color, unsigned char alpha);

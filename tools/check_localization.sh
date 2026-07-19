@@ -6,7 +6,7 @@
 # time. Only `kJaJapaneseNative` is allowed to remain (docs/localization.md's
 # own "proper noun" exception: a language picker's native-script label for
 # switching TO that language is not itself a translatable string - see its
-# doc comment in src/main.cpp).
+# doc comment in src/ui_shared.cpp).
 #
 # This does NOT catch arbitrary player-facing literals or bilingual fields in
 # definition objects. It guards the legacy `kJa*` pattern eliminated by M3-B;
@@ -14,18 +14,18 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MAIN_CPP="${SCRIPT_DIR}/../src/main.cpp"
+SRC_DIR="${SCRIPT_DIR}/../src"
 
-count=$(grep -c '^extern const std::string kJa' "$MAIN_CPP")
+count=$(grep -rh '^extern const std::string kJa' "$SRC_DIR"/*.cpp | wc -l | tr -d ' ')
 
 if [ "$count" -ne 1 ]; then
     echo "check_localization: expected exactly 1 kJa* constant (kJaJapaneseNative)," \
-         "found $count in $MAIN_CPP" >&2
-    grep -n '^extern const std::string kJa' "$MAIN_CPP" >&2
+         "found $count in $SRC_DIR" >&2
+    grep -rn '^extern const std::string kJa' "$SRC_DIR"/*.cpp >&2
     exit 1
 fi
 
-if ! grep -q '^extern const std::string kJaJapaneseNative' "$MAIN_CPP"; then
+if ! grep -rq '^extern const std::string kJaJapaneseNative' "$SRC_DIR"/*.cpp; then
     echo "check_localization: the one allowed kJa* constant should be kJaJapaneseNative," \
          "but it was not found" >&2
     exit 1
