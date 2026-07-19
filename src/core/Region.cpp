@@ -62,14 +62,16 @@ StageDescriptor stageDescriptorFromContent(const StageContentData& content) {
     return stage;
 }
 
-// Matches docs/base_development.md's "最初の縦切り実装" table exactly - this
-// is a byte-for-byte migration of the old kVictoryLoot/kMissionNames/
-// kStageDiscoveries/fieldTypeForStage/stage==0/stage==2 special cases into
-// data, so Cinderwatch's behavior is unchanged by this refactor.
-// docs/implementation_roadmap.md M1-E slice1続き: all 3 stages now sourced
-// from `data/regions.json` (enemyRoster deliberately absent from all 3 -
-// empty means "use GameData::enemyRoster", the shared roster these stages
-// have always drawn from, per StageDescriptor's own top-of-file comment).
+// docs/implementation_roadmap.md M6-A: docs/regions/cinderwatch_gate.md's
+// full 6-site region, being migrated in from the old 3-battle placeholder
+// one Slice at a time. So far: site 1 (シンダーウォッチ外門,
+// cinderwatch_outer_gate) and site 2 (灰道の監視所, ashroad_watch) are real.
+// ironwatch_stores/signal_tower are the OLD pre-spec placeholder content,
+// kept as-is (not yet split into the doc's 3A/3B/5/6) so the region stays
+// completable end-to-end until M6-B/M6-C replace them - see each Slice's
+// own roadmap entry. `enemyRoster` deliberately absent from ironwatch_stores/
+// signal_tower - empty means "use GameData::enemyRoster", the shared roster
+// they've always drawn from, per StageDescriptor's own top-of-file comment.
 RegionDescriptor cinderwatchGateRegion(const GameData& data) {
     RegionDescriptor region;
     region.id = RegionId::CinderwatchGate;
@@ -80,7 +82,8 @@ RegionDescriptor cinderwatchGateRegion(const GameData& data) {
     region.displayNameEn = "Silenced Watchpost Cluster";
     region.displayNameJa = "沈黙した監視所群";
 
-    region.stages.push_back(stageDescriptorFromContent(data.stageContent("cinderwatch_outpost")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("cinderwatch_outer_gate")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("ashroad_watch")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("ironwatch_stores")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("signal_tower")));
 

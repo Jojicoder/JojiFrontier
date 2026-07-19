@@ -309,7 +309,8 @@ void loadAppFont() {
         charsetSource += itemFullNameFor(item.type) + itemDescriptionFor(item.type);
     for (const char* id : {"wood", "hide", "herb", "gate_tools", "ash_road_map", "field_medicine",
                            "watch_ledger", "signal_lens", "captains_seal", jf::kAshveilFangMaterial,
-                           jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment"})
+                           jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment", "iron", "stone",
+                           "old_gear"})
         charsetSource += materialNameFor(id);
     for (const char* weaponId : {"wolf_bite", "boar_tusks"}) charsetSource += weaponNameFor(weaponId, "");
     gLanguage = previousLanguage;
@@ -479,6 +480,7 @@ std::string materialNameFor(const std::string& id) {
     static const std::unordered_set<std::string> known = {
         "wood", "hide", "herb", "gate_tools", "ash_road_map", "field_medicine", "watch_ledger", "signal_lens",
         "captains_seal", jf::kAshveilFangMaterial, jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment",
+        "iron", "stone", "old_gear",
     };
     return known.count(id) ? tr("material." + id) : id;
 }

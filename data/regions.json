@@ -108,18 +108,58 @@
       "missionNameJa": "折れ木の縄張り"
     },
     {
-      "id": "cinderwatch_outpost",
-      "terrainProfileId": "cinderwatch_outpost",
-      "enemyCountOverride": 3,
-      "baseVictoryLoot": [
-        { "id": "gate_tools", "quantity": 1 },
-        { "id": "ash_road_map", "quantity": 1 },
-        { "id": "hide", "quantity": 2 },
-        { "id": "wood", "quantity": 4 }
+      "id": "cinderwatch_outer_gate",
+      "terrainProfileId": "cinderwatch_outer_gate",
+      "enemyRoster": [
+        { "id": "outer_gate_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "outer_gate_bandit2", "name": "Bandit", "classId": "Bandit" },
+        { "id": "outer_gate_archer1", "name": "Watch Archer", "classId": "WatchArcher" },
+        { "id": "outer_gate_spearman1", "name": "Spearman", "classId": "Spearman" }
       ],
+      "baseVictoryLoot": [
+        { "id": "iron", "quantity": 1 },
+        { "id": "stone", "quantity": 1 },
+        { "id": "wood", "quantity": 2 },
+        { "id": "hide", "quantity": 1 },
+        { "id": "gate_tools", "quantity": 1 }
+      ],
+      "routeVictoryLootDelta": [
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "stone", "quantity": -1 }] }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath", "partyDamage": 2, "enemiesRemoved": 1 }
+      ],
+      "scoutRouteDisabled": true,
+      "surveyObjectiveId": "cinderwatch_outer_gate_records",
       "discoveries": ["cinderwatch_recon_records"],
-      "missionNameEn": "Cinderwatch Gate",
-      "missionNameJa": "シンダーウォッチ関門"
+      "missionNameEn": "Cinderwatch Outer Gate",
+      "missionNameJa": "シンダーウォッチ外門"
+    },
+    {
+      "id": "ashroad_watch",
+      "terrainProfileId": "ashroad_watch",
+      "enemyRoster": [
+        { "id": "ashroad_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "ashroad_bandit2", "name": "Bandit", "classId": "Bandit" },
+        { "id": "ashroad_archer1", "name": "Watch Archer", "classId": "WatchArcher" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "old_gear", "quantity": 1 },
+        { "id": "stone", "quantity": 1 },
+        { "id": "wood", "quantity": 2 },
+        { "id": "hide", "quantity": 1 },
+        { "id": "ash_road_map", "quantity": 1 }
+      ],
+      "routeVictoryLootDelta": [
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "old_gear", "quantity": -1 }] },
+        { "choice": "ScoutRoute", "loot": [{ "id": "old_gear", "quantity": -1 }, { "id": "stone", "quantity": -1 }] }
+      ],
+      "surveyObjectiveId": "ashroad_watch_fixture",
+      "surveyBonusLoot": [{ "id": "iron", "quantity": 1 }],
+      "primaryHoldTileAlternative": { "id": "ashroad_watch_hold", "requiredHoldRounds": 2, "zoneMinCol": 3, "zoneMaxCol": 4 },
+      "missionNameEn": "Ashroad Watch Post",
+      "missionNameJa": "灰道の監視所"
     },
     {
       "id": "ironwatch_stores",

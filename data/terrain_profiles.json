@@ -16,6 +16,37 @@
       "ensureHorizontalRoute": true
     },
     {
+      "id": "cinderwatch_outer_gate",
+      "generationVersion": 1,
+      "seedSalt": 8,
+      "weights": [
+        { "terrain": "Rubble", "weight": 24 },
+        { "terrain": "WatchPost", "weight": 10 },
+        { "terrain": "Ash", "weight": 8 },
+        { "terrain": "Barrier", "weight": 6 },
+        { "terrain": "Floor", "weight": 52 }
+      ],
+      "signatureTerrain": "Rubble",
+      "maxBarriersPerColumn": 1,
+      "ensureHorizontalRoute": true
+    },
+    {
+      "id": "ashroad_watch",
+      "generationVersion": 1,
+      "seedSalt": 9,
+      "weights": [
+        { "terrain": "WatchPost", "weight": 12 },
+        { "terrain": "Rubble", "weight": 18 },
+        { "terrain": "Ash", "weight": 15 },
+        { "terrain": "Barrier", "weight": 7 },
+        { "terrain": "Floor", "weight": 48 }
+      ],
+      "signatureTerrain": "WatchPost",
+      "maxBarriersPerColumn": 1,
+      "ensureHorizontalRoute": true,
+      "countBounds": { "terrain": "WatchPost", "minimum": 2, "maximum": 3 }
+    },
+    {
       "id": "ash_road",
       "generationVersion": 1,
       "seedSalt": 1,

@@ -75,6 +75,21 @@ jf::GameData makeFactoryData() {
                              jf::ClassDefinition{jf::UnitClass::FrontierScout, stats, "sword"});
     data.classesById.emplace(jf::UnitClass::Spearman,
                              jf::ClassDefinition{jf::UnitClass::Spearman, stats, "iron_spear"});
+    // docs/regions/cinderwatch_gate.md's 回収団/元守備隊 rosters (site 1/2's
+    // enemyRoster in data/regions.json) use these two classes -
+    // GameApp::idlePlaceholderStage() always builds a battle from
+    // Cinderwatch's real stage[0] at construction time, so every test's
+    // synthetic GameData needs them registered too, not just the classes
+    // this file's own hand-authored StageDescriptors use.
+    jf::Weapon watchBow{.id = "watch_bow", .name = "Watch Bow", .might = 5, .minRange = 2,
+                        .maxRange = 3, .damageType = jf::DamageType::Physical};
+    data.weaponsById.emplace("watch_bow", watchBow);
+    data.classesById.emplace(jf::UnitClass::WatchArcher,
+                             jf::ClassDefinition{jf::UnitClass::WatchArcher, stats, "watch_bow"});
+    jf::Weapon ironAxe{.id = "iron_axe", .name = "Iron Axe", .might = 6, .minRange = 1,
+                      .maxRange = 1, .damageType = jf::DamageType::Physical};
+    data.weaponsById.emplace("iron_axe", ironAxe);
+    data.classesById.emplace(jf::UnitClass::Bandit, jf::ClassDefinition{jf::UnitClass::Bandit, stats, "iron_axe"});
     jf::Weapon dawnStaff{.id = "dawn_staff", .name = "Dawn Staff", .might = 3, .minRange = 1,
                         .maxRange = 2, .damageType = jf::DamageType::Magical};
     data.weaponsById.emplace("dawn_staff", dawnStaff);
@@ -162,6 +177,21 @@ bool startCinderwatchExpedition(jf::GameApp& app) {
     save.base.completedRegionIds.insert(jf::RegionId::AshboughForest);
     if (!app.applySaveData(save)) return false;
     return app.startExpedition(jf::RegionId::CinderwatchGate);
+}
+
+// docs/regions/cinderwatch_gate.md「1. シンダーウォッチ外門」disables ScoutRoute
+// (its class-gated 3rd choice needs 重装兵/HeavyInfantry, not implemented yet
+// - docs/implementation_roadmap.md M6-A). Tests that exercise the generic
+// ScoutRoute/PreBattleDeployment machinery advance past site 1 first and use
+// site 2 (灰道の監視所, ashroad_watch) instead, which keeps the default
+// FrontierScout-gated ScoutRoute untouched.
+bool advanceToAshroadWatch(jf::GameApp& app) {
+    if (!startCinderwatchExpedition(app)) return false;
+    if (!app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)) return false;
+    winCurrentBattle(app);
+    app.proceedToCamp();
+    app.continueExpedition();
+    return app.screen() == jf::Screen::Exploration;
 }
 
 // docs/regions/ashbough_forest.md "2. 薬草の沢": wins Ashbough Verge (the
@@ -589,7 +619,7 @@ int main() {
         jf::GameData scoutData = makeScoutFactoryData();
         {
             jf::GameApp app(scoutData);
-            startCinderwatchExpedition(app);
+            advanceToAshroadWatch(app);
             assert(app.partyHasFrontierScout());
             assert(app.chooseExplorationRoute(jf::ExplorationChoice::ScoutRoute));
             assert(app.screen() == jf::Screen::PreBattleDeployment);
@@ -611,7 +641,7 @@ int main() {
         // the chosen coordinates become the actual battle-start positions.
         jf::GameData scoutData = makeScoutFactoryData();
         jf::GameApp app(scoutData);
-        startCinderwatchExpedition(app);
+        assert(advanceToAshroadWatch(app));
         assert(app.chooseExplorationRoute(jf::ExplorationChoice::ScoutRoute));
 
         assert(!app.placeDeploymentUnit(0, {0, 3})); // outside left-3-column zone
@@ -658,7 +688,7 @@ int main() {
         // Back returns to Exploration and discards the in-progress placement.
         jf::GameData scoutData = makeScoutFactoryData();
         jf::GameApp app(scoutData);
-        startCinderwatchExpedition(app);
+        advanceToAshroadWatch(app);
         assert(app.chooseExplorationRoute(jf::ExplorationChoice::ScoutRoute));
         assert(app.placeDeploymentUnit(0, {0, 0}));
         app.cancelDeployment();
@@ -676,14 +706,22 @@ int main() {
         assert(startCinderwatchExpedition(app));
         assert(!jf::eligibleForOutpostStage(app.baseState(), jf::OutpostStage::PioneerOutpost));
 
-        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // stage 0 -> Battle
-        for (int stage = 0; stage < 3; ++stage) {
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // site 1 -> Battle
+        // docs/implementation_roadmap.md M6-A: Cinderwatch now has 4 stages
+        // (site 1/2 real, ironwatch_stores/signal_tower still the old
+        // placeholder pair) and, since it's on the Route Graph now, every
+        // stage transition goes through Exploration first (not just stage 0).
+        for (int stage = 0; stage < 4; ++stage) {
             assert(app.screen() == jf::Screen::Battle);
             winCurrentBattle(app);
             assert(app.battle().inputState() == jf::BattleInputState::Victory);
             app.proceedToCamp();
             assert(app.screen() == jf::Screen::Camp);
-            if (stage < 2) app.continueExpedition(); // -> Battle for the next stage
+            if (stage < 3) {
+                app.continueExpedition();
+                assert(app.screen() == jf::Screen::Exploration);
+                assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+            }
         }
         app.returnToBase();
         assert(app.screen() == jf::Screen::Base);
@@ -750,15 +788,21 @@ int main() {
         jf::GameApp app(data);
         assert(startCinderwatchExpedition(app));
         assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
-        for (int stage = 0; stage < 3; ++stage) {
+        for (int stage = 0; stage < 4; ++stage) {
             winCurrentBattle(app);
             app.proceedToCamp();
-            if (stage < 2) app.continueExpedition();
+            if (stage < 3) {
+                app.continueExpedition();
+                assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+            }
         }
         app.returnToBase();
         assert(app.advanceOutpostStage()); // -> PioneerOutpost
-        // 3 real victories bank exactly enough for all 4 optional facilities
-        // (docs/base_development.md "初期4施設の確定表"): wood:10, hide:5, herb:2.
+        // 4 real victories (docs/implementation_roadmap.md M6-A: site 1/2 now
+        // real, site 1/2 baseVictoryLoot include a small wood/hide top-up
+        // specifically to keep this total intact) bank exactly enough for
+        // all 4 optional facilities (docs/base_development.md "初期4施設の
+        // 確定表"): wood:10, hide:5, herb:2.
         assert(app.baseState().storageCount("wood") == 10);
         assert(app.baseState().storageCount("hide") == 5);
         assert(app.baseState().discoveryRegistry.count(jf::kHerbThicketDiscovery) == 1);
@@ -919,7 +963,9 @@ int main() {
         jf::GameApp app(data);
         assert(startCinderwatchExpedition(app));
         assert(!app.scoutNetworkUnlocked());
-        assert(app.explorationEnemyPreview().size() == 3);
+        // docs/implementation_roadmap.md M6-A: site 1's real roster (4 units,
+        // no enemyCountOverride) replaced the old 3-of-4 placeholder.
+        assert(app.explorationEnemyPreview().size() == 4);
     }
 
     {
@@ -4263,12 +4309,17 @@ int main() {
         assert(brokenStage.scoutRouteDisabled);
 
         jf::RegionDescriptor cinderwatch = jf::regionDescriptor(jf::RegionId::CinderwatchGate, *loaded);
-        assert(cinderwatch.stages.size() == 3);
-        assert(cinderwatch.stages[0].id == "cinderwatch_outpost" && cinderwatch.stages[0].enemyRoster.empty() &&
-              cinderwatch.stages[0].enemyCountOverride == 3);
-        assert(cinderwatch.stages[2].id == "signal_tower" && cinderwatch.stages[2].boostedFirstEnemy &&
-              cinderwatch.stages[2].boostedFirstEnemy->displayName == "Former Captain" &&
-              cinderwatch.stages[2].boostedFirstEnemy->maxHpBonus == 10);
+        // docs/implementation_roadmap.md M6-A: site 1 (cinderwatch_outer_gate)
+        // and site 2 (ashroad_watch) replaced the old placeholder stage 0,
+        // pushing ironwatch_stores/signal_tower to indices 2/3.
+        assert(cinderwatch.stages.size() == 4);
+        assert(cinderwatch.stages[0].id == "cinderwatch_outer_gate" && cinderwatch.stages[0].enemyRoster.size() == 4 &&
+              !cinderwatch.stages[0].enemyCountOverride && cinderwatch.stages[0].scoutRouteDisabled);
+        assert(cinderwatch.stages[1].id == "ashroad_watch" && cinderwatch.stages[1].primaryHoldTileAlternative &&
+              cinderwatch.stages[1].primaryHoldTileAlternative->requiredHoldRounds == 2);
+        assert(cinderwatch.stages[3].id == "signal_tower" && cinderwatch.stages[3].boostedFirstEnemy &&
+              cinderwatch.stages[3].boostedFirstEnemy->displayName == "Former Captain" &&
+              cinderwatch.stages[3].boostedFirstEnemy->maxHpBonus == 10);
 
         // Invalid regions.json (a stage referencing an unknown terrain
         // profile) must fail the whole Load, never silently drop the stage -

@@ -30,14 +30,52 @@ const RegionRouteGraph& ashboughGraph() {
     return graph;
 }
 
+// docs/implementation_roadmap.md M6-A: docs/campaign_route_graph.md's
+// Cinderwatch graph is `S1 外門 -> S2 監視所 -> C1 -> J1{S3 物資庫, S4 旧兵舎} ->
+// J2 -> C2 -> S5 信号塔下層 -> S6 最後の信号 -> 出口`, but `BranchGroup`/
+// conditional edges don't exist in this Schema yet (route_graph_data.md:
+// "BranchGroup、条件付きEdge...は、それらを使う次地域を実装する時に追加する" -
+// deferred to M6-B, when 3A/3B's actual branch is implemented). Until then
+// this graph only carries the site 1/2/Camp I portion that's genuinely
+// linear, chained straight through to the still-unsplit ironwatch_stores/
+// signal_tower placeholder content so the region stays completable
+// end-to-end (same stages Region.cpp's cinderwatchGateRegion() returns).
+const RegionRouteGraph& cinderwatchGraph() {
+    static const RegionRouteGraph graph{
+        RegionId::CinderwatchGate,
+        "cinderwatch_main_route",
+        "cinderwatch_entrance",
+        "cinderwatch_exit",
+        {
+            {"cinderwatch_entrance", RouteNodeKind::Entrance, std::nullopt},
+            {"cinderwatch_outer_gate", RouteNodeKind::Site, "cinderwatch_outer_gate"},
+            {"ashroad_watch", RouteNodeKind::Site, "ashroad_watch"},
+            {"cinderwatch_camp1", RouteNodeKind::Camp, std::nullopt},
+            {"ironwatch_stores", RouteNodeKind::Site, "ironwatch_stores"},
+            {"signal_tower", RouteNodeKind::Site, "signal_tower"},
+            {"cinderwatch_exit", RouteNodeKind::Exit, std::nullopt},
+        },
+        {
+            {"cinderwatch_entrance", "cinderwatch_outer_gate"},
+            {"cinderwatch_outer_gate", "ashroad_watch"},
+            {"ashroad_watch", "cinderwatch_camp1"},
+            {"cinderwatch_camp1", "ironwatch_stores"},
+            {"ironwatch_stores", "signal_tower"},
+            {"signal_tower", "cinderwatch_exit"},
+        },
+    };
+    return graph;
+}
+
 } // namespace
 
 bool usesRouteGraph(RegionId regionId) {
-    return regionId == RegionId::AshboughForest;
+    return regionId == RegionId::AshboughForest || regionId == RegionId::CinderwatchGate;
 }
 
 const RegionRouteGraph& regionRouteGraph(RegionId regionId) {
     if (regionId == RegionId::AshboughForest) return ashboughGraph();
+    if (regionId == RegionId::CinderwatchGate) return cinderwatchGraph();
     throw std::invalid_argument("region has no route graph");
 }
 
