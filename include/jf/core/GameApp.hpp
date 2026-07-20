@@ -12,6 +12,7 @@
 
 #include "jf/battle/BattleController.hpp"
 #include "jf/battle/BattleFactory.hpp"
+#include "jf/core/ExpeditionService.hpp"
 #include "jf/core/ExpeditionState.hpp"
 #include "jf/core/BaseState.hpp"
 #include "jf/core/Exploration.hpp"
@@ -95,12 +96,11 @@ public:
     // Ashbough Forest is always unlocked; every subsequent region requires
     // clearing the one before it (regionCleared() in jf/core/Region.hpp).
     bool isRegionUnlocked(RegionId regionId) const { return regionUnlocked(regionId, baseState_, data_); }
-    struct RegionSummary {
-        RegionId id;
-        std::string displayNameEn;
-        std::string displayNameJa;
-        bool unlocked;
-    };
+    // jf::RegionSummary (jf/core/ExpeditionService.hpp) - kept as an alias
+    // here rather than a redeclared nested struct, since GameApp.hpp already
+    // depends on ExpeditionService.hpp and callers spell this as
+    // GameApp::RegionSummary.
+    using RegionSummary = jf::RegionSummary;
     std::vector<RegionSummary> regionSummaries() const;
 
     // Base screen: advances outpostStage by one step once BaseState's
@@ -265,15 +265,10 @@ private:
     // entry/updates) - never mid-battle or mid-deployment.
     void updateExpeditionCheckpoint(ExpeditionCheckpoint::Stage stage);
     void syncPartySnapshotFromBattle();
+    // Thin wrapper: mutates expedition_ via ExpeditionService's
+    // advanceExpeditionRouteToNextSite() (docs/implementation_roadmap.md M6
+    // 「コンポーネント分離メモ」- see jf/core/ExpeditionService.hpp).
     bool advanceRouteToNextSite();
-    // docs/route_graph_data.md「分岐と合流」: the first BranchGroup member not
-    // yet resolved this expedition (RouteProgressSnapshot::resolvedNodeIds)
-    // and not already permanently Secured from a prior one (BaseState::
-    // siteAccess) - nullptr once every member qualifies, meaning traversal
-    // may continue past the branch.
-    const RouteNodeDefinition* nextUnresolvedBranchMember(const RegionRouteGraph& graph,
-                                                           const RouteNodeDefinition& branch,
-                                                           const RouteProgressSnapshot& progress) const;
 
     // docs/implementation_roadmap.md "Phase 1.5": the single place that
     // resolves which region/stage is currently active. Never cached as a
@@ -281,32 +276,9 @@ private:
     // and avoids a second source of truth to keep in sync with expedition_.
     RegionDescriptor currentRegion() const { return regionDescriptor(expedition_.regionId, data_); }
     // By value, not reference: currentRegion() returns a fresh temporary
-    // each call, so a reference into it would dangle immediately.
-    StageDescriptor currentStage() const {
-        RegionDescriptor region = currentRegion();
-        if (expedition_.routeProgress) {
-            const RegionRouteGraph& graph = regionRouteGraph(expedition_.regionId);
-            const RouteNodeDefinition* node = findRouteNode(graph, expedition_.routeProgress->currentNodeId);
-            if (!node || !node->stageId) throw std::logic_error("current route node is not a site");
-            auto stage = std::find_if(region.stages.begin(), region.stages.end(),
-                                      [&](const StageDescriptor& candidate) { return candidate.id == *node->stageId; });
-            if (stage == region.stages.end()) throw std::logic_error("route stage is not registered");
-            return *stage;
-        }
-        return region.stages.at(static_cast<std::size_t>(expedition_.stageIndex));
-    }
-    // Queues a promotion (never a demotion) of the given site's access tier,
-    // to be committed on a safe return - see returnToBase(). Deduplicates
-    // against both the currently-persisted tier and any already-pending
-    // update for the same site this run.
-    void queueSiteAccessPromotion(const std::string& key, SiteAccessState achieved);
-    // docs/region_mission_data_contract.md "地域完了判定": true once every
-    // stage of `regionId` is at least Surveyed, counting both
-    // baseState_.siteAccess (persisted from earlier runs) and this run's
-    // still-pending promotions (docs/regions/ashbough_forest.md "3条件が
-    // すべて揃った戦闘勝利時に限り" - the win that completes the last site
-    // must count immediately, before returnToBase() commits anything).
-    bool wouldRegionBeCleared(RegionId regionId) const;
+    // each call, so a reference into it would dangle immediately. Thin
+    // wrapper over ExpeditionService's computeCurrentStage().
+    StageDescriptor currentStage() const { return computeCurrentStage(expedition_, data_); }
 
     GameData data_;
     std::uint32_t expeditionSeed_ = 0;

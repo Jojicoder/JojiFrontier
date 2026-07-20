@@ -93,7 +93,8 @@ void GameApp::proceedToCamp() {
             stageDiscoveryAwarded_[stageIndex] = true;
         }
         SiteAccessState achieved = surveySucceeded ? SiteAccessState::Secured : SiteAccessState::Surveyed;
-        queueSiteAccessPromotion(siteAccessKey(expedition_.regionId, stage.id), achieved);
+        queueExpeditionSiteAccessPromotion(expedition_, siteAccessKey(expedition_.regionId, stage.id), achieved,
+                                           baseState_);
 
         // docs/regions/ashbough_forest.md "地域進行": once every site is
         // Surveyed+ (灰枝の林縁勝利、薬草の沢勝利、灰角大猪撃破), the win that
@@ -102,7 +103,7 @@ void GameApp::proceedToCamp() {
         // follows (docs/region_mission_data_contract.md "地域完了判定").
         if (!baseState_.completedRegionIds.count(expedition_.regionId) &&
             !expedition_.pendingRegionCompletions.count(expedition_.regionId) &&
-            wouldRegionBeCleared(expedition_.regionId)) {
+            computeWouldRegionBeCleared(expedition_.regionId, expedition_, baseState_, data_)) {
             expedition_.pendingRegionCompletions.insert(expedition_.regionId);
             if (expedition_.regionId == RegionId::AshboughForest)
                 expedition_.pendingDiscoveries.push_back(kAshboughForestSurveyCompleteDiscovery);
@@ -221,72 +222,14 @@ std::string GameApp::currentMissionNameJa() const {
     return currentStage().missionNameJa;
 }
 
-bool GameApp::expeditionComplete() const {
-    if (!expedition_.routeProgress)
-        return expedition_.battlesWon >= static_cast<int>(currentRegion().stages.size());
-    const RouteProgressSnapshot& progress = *expedition_.routeProgress;
-    if (!progress.resolvedNodeIds.count(progress.currentNodeId)) return false;
-    const RegionRouteGraph& graph = regionRouteGraph(expedition_.regionId);
-    const RouteNodeDefinition* node = nextRouteNode(graph, progress.currentNodeId);
-    while (node && node->kind != RouteNodeKind::Site) {
-        if (node->kind == RouteNodeKind::Exit) return true;
-        node = nextRouteNode(graph, node->id);
-    }
-    return node == nullptr;
-}
+bool GameApp::expeditionComplete() const { return computeExpeditionComplete(expedition_, data_); }
 
 std::optional<std::string> GameApp::nextMissionNameJa() const {
-    if (!expedition_.routeProgress) {
-        RegionDescriptor region = currentRegion();
-        std::size_t next = static_cast<std::size_t>(expedition_.stageIndex + 1);
-        if (next < region.stages.size()) return region.stages[next].missionNameJa;
-        return std::nullopt;
-    }
-    const RegionRouteGraph& graph = regionRouteGraph(expedition_.regionId);
-    const RouteNodeDefinition* node = nextRouteNode(graph, expedition_.routeProgress->currentNodeId);
-    while (node && node->kind != RouteNodeKind::Site) {
-        if (node->kind == RouteNodeKind::Exit) return std::nullopt;
-        node = nextRouteNode(graph, node->id);
-    }
-    if (!node || !node->stageId) return std::nullopt;
-    for (const StageDescriptor& stage : currentRegion().stages)
-        if (stage.id == *node->stageId) return stage.missionNameJa;
-    return std::nullopt;
+    return computeNextMissionNameJa(expedition_, data_);
 }
 
 std::optional<std::vector<std::string>> GameApp::nextSiteEnemyRosterNames() const {
-    std::optional<std::string> nextStageId;
-    if (!expedition_.routeProgress) {
-        RegionDescriptor region = currentRegion();
-        std::size_t next = static_cast<std::size_t>(expedition_.stageIndex + 1);
-        if (next >= region.stages.size()) return std::nullopt;
-        nextStageId = region.stages[next].id;
-    } else {
-        const RegionRouteGraph& graph = regionRouteGraph(expedition_.regionId);
-        const RouteNodeDefinition* node = nextRouteNode(graph, expedition_.routeProgress->currentNodeId);
-        while (node && node->kind != RouteNodeKind::Site) {
-            if (node->kind == RouteNodeKind::Exit) return std::nullopt;
-            node = nextRouteNode(graph, node->id);
-        }
-        if (!node || !node->stageId) return std::nullopt;
-        nextStageId = *node->stageId;
-    }
-    for (const StageDescriptor& stage : currentRegion().stages) {
-        if (stage.id != *nextStageId) continue;
-        std::vector<std::string> names;
-        for (const UnitTemplate& enemy : stage.enemyRoster) names.push_back(enemy.name);
-        // docs/regions/ashbough_forest.md "折れ木の縄張り": show the
-        // understaffed reinforcement too when it will actually spawn, so
-        // this preview doesn't undercount what the battle will contain.
-        if (stage.understaffedReinforcement) {
-            int livingPlayerCount = 0;
-            for (const Unit& unit : expeditionPartyUnits_) livingPlayerCount += unit.isAlive();
-            if (livingPlayerCount < stage.understaffedThreshold)
-                names.push_back(stage.understaffedReinforcement->name);
-        }
-        return names;
-    }
-    return std::nullopt;
+    return computeNextSiteEnemyRosterNames(expedition_, data_, expeditionPartyUnits_);
 }
 
 void GameApp::syncPartySnapshotFromBattle() {
@@ -297,61 +240,8 @@ void GameApp::syncPartySnapshotFromBattle() {
     if (!party.empty()) expeditionPartyUnits_ = std::move(party);
 }
 
-const RouteNodeDefinition* GameApp::nextUnresolvedBranchMember(const RegionRouteGraph& graph,
-                                                                const RouteNodeDefinition& branch,
-                                                                const RouteProgressSnapshot& progress) const {
-    for (const std::string& memberId : branch.branchMembers) {
-        if (progress.resolvedNodeIds.count(memberId)) continue;
-        const RouteNodeDefinition* member = findRouteNode(graph, memberId);
-        if (member && member->stageId) {
-            auto access = baseState_.siteAccess.find(siteAccessKey(expedition_.regionId, *member->stageId));
-            if (access != baseState_.siteAccess.end() && access->second >= SiteAccessState::Secured) continue;
-        }
-        return member;
-    }
-    return nullptr;
-}
-
 bool GameApp::advanceRouteToNextSite() {
-    if (!expedition_.routeProgress) return false;
-    RouteProgressSnapshot& progress = *expedition_.routeProgress;
-    const RegionRouteGraph& graph = regionRouteGraph(expedition_.regionId);
-    const RouteNodeDefinition* node = nextRouteNode(graph, progress.currentNodeId);
-    while (node) {
-        if (node->kind == RouteNodeKind::BranchGroup) {
-            // docs/route_graph_data.md「分岐と合流」: enter the first
-            // unresolved member (this expedition, or not yet permanently
-            // Secured); once every member qualifies, fall through to this
-            // BranchGroup's own single outgoing edge instead.
-            if (const RouteNodeDefinition* member = nextUnresolvedBranchMember(graph, *node, progress)) {
-                node = member;
-                continue;
-            }
-            node = nextRouteNode(graph, node->id);
-            continue;
-        }
-        progress.traversalHistory.push_back(node->id);
-        if (node->kind == RouteNodeKind::Exit) {
-            progress.currentNodeId = node->id;
-            return false;
-        }
-        if (node->kind == RouteNodeKind::Camp) {
-            progress.lastCheckpointNodeId = node->id;
-        } else if (node->kind == RouteNodeKind::Site) {
-            progress.currentNodeId = node->id;
-            progress.lastCheckpointNodeId = node->id;
-            RegionDescriptor region = currentRegion();
-            auto stage = std::find_if(region.stages.begin(), region.stages.end(),
-                                      [&](const StageDescriptor& candidate) {
-                                          return node->stageId && candidate.id == *node->stageId;
-                                      });
-            if (stage == region.stages.end()) return false;
-            expedition_.stageIndex = static_cast<int>(std::distance(region.stages.begin(), stage));
-            return true;
-        }
-        node = nextRouteNode(graph, node->id);
-    }
-    return false;
+    return advanceExpeditionRouteToNextSite(expedition_, baseState_, data_);
 }
 
 bool GameApp::returnToBase() {
@@ -498,12 +388,7 @@ void GameApp::removePreparedItem(std::size_t index) {
 }
 
 std::vector<GameApp::RegionSummary> GameApp::regionSummaries() const {
-    std::vector<RegionSummary> summaries;
-    for (RegionId id : {RegionId::AshboughForest, RegionId::CinderwatchGate}) {
-        RegionDescriptor region = regionDescriptor(id, data_);
-        summaries.push_back({id, region.displayNameEn, region.displayNameJa, isRegionUnlocked(id)});
-    }
-    return summaries;
+    return computeRegionSummaries(data_, baseState_);
 }
 
 bool GameApp::startExpedition(RegionId regionId) {
@@ -547,36 +432,7 @@ bool GameApp::partyHasClass(UnitClass unitClass) const {
 }
 
 SiteAccessState GameApp::currentSiteAccess() const {
-    auto it = baseState_.siteAccess.find(siteAccessKey(expedition_.regionId, currentStage().id));
-    return it == baseState_.siteAccess.end() ? SiteAccessState::Unknown : it->second;
-}
-
-void GameApp::queueSiteAccessPromotion(const std::string& key, SiteAccessState achieved) {
-    auto persistedIt = baseState_.siteAccess.find(key);
-    SiteAccessState persisted = persistedIt == baseState_.siteAccess.end() ? SiteAccessState::Unknown : persistedIt->second;
-    if (achieved <= persisted) return;
-    for (auto& [pendingKey, pendingState] : expedition_.pendingSiteAccessUpdates) {
-        if (pendingKey == key) {
-            if (achieved > pendingState) pendingState = achieved;
-            return;
-        }
-    }
-    expedition_.pendingSiteAccessUpdates.push_back({key, achieved});
-}
-
-bool GameApp::wouldRegionBeCleared(RegionId regionId) const {
-    RegionDescriptor region = regionDescriptor(regionId, data_);
-    for (const StageDescriptor& stage : region.stages) {
-        const std::string key = siteAccessKey(regionId, stage.id);
-        SiteAccessState state = SiteAccessState::Unknown;
-        auto persistedIt = baseState_.siteAccess.find(key);
-        if (persistedIt != baseState_.siteAccess.end()) state = persistedIt->second;
-        for (const auto& [pendingKey, pendingState] : expedition_.pendingSiteAccessUpdates) {
-            if (pendingKey == key && pendingState > state) state = pendingState;
-        }
-        if (state < SiteAccessState::Surveyed) return false;
-    }
-    return true;
+    return computeCurrentSiteAccess(expedition_, baseState_, data_);
 }
 
 bool GameApp::chooseSafePassage() {
