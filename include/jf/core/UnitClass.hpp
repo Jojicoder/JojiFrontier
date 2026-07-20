@@ -11,6 +11,10 @@ enum class UnitClass {
     FrontierScout,
     Spearman,
     DawnChirurgeon,
+    // docs/class_reference.md「後半6兵種」/M7項目1: 固有能力「重量装甲」
+    // (hasHeavyArmor())。加入経路(M7項目2)は未実装のため、まだ
+    // playerParty/reserveRosterには登場しない - Classとしてのみ完全に有効。
+    HeavyInfantry,
     Bandit,
     // docs/regions/ashbough_forest.md 灰枝の林縁: an ordinary large predator,
     // not a monster (per World Bible flora_fauna.md framing) - no special
@@ -34,5 +38,10 @@ bool ignoresAshPenalty(UnitClass unitClass);
 bool hasBrace(UnitClass unitClass);
 bool canHeal(UnitClass unitClass);
 int passiveEvasionBonus(UnitClass unitClass);
+// docs/class_reference.md「重量装甲」: this engine's knockback is always
+// exactly 1 tile (BattleState::applyKnockback), so "reduce distance by 1,
+// floor 0" collapses to "never gets knocked back" - consulted directly
+// there, unconditionally (unlike the consumable knockbackNegatesRemaining).
+bool hasHeavyArmor(UnitClass unitClass);
 
 } // namespace jf

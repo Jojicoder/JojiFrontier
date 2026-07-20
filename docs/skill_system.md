@@ -15,7 +15,9 @@
 
 - `SkillDefinition`registry: 初期6兵種(行軍隊長・古参守備兵・監視弓兵・辺境斥候・槍兵・
   暁の衛生兵)の各3スキル、計18件のメタデータ(ID、対象兵種、分類、使用方式、説明文、
-  解放段階)。後半6兵種(重装兵など)はUnitClass自体が未実装のため未登録
+  解放段階)。後半6兵種のうち重装兵(装甲前進/衝撃防御/障害物破砕、実戦効果まで実装済み)
+  はUnitClass登録済み。残り5兵種(辺境工作兵・伝令騎兵・辺境遊撃兵・旗手・戦術魔導師)は
+  UnitClass自体が未実装のため未登録
 - `Unit::skillSlots`(2枠)と`initializeSkillCharges()`/`refreshSkillChargesOnPhaseStart()`/
   `consumeSkillCharge()`/`skillSlotAvailable()`: 毎ターン・戦闘1回・CD2・1フェーズ1回・常時
   の5方式の充填・消費・クールダウン管理。`BattleController`のPlayer/Enemy Phase開始処理へ
@@ -39,7 +41,8 @@
 - 2番目・3番目スキルのDiscovery判定（具体的IDは本書で確定済みだが、現行コードは訓練分岐
   だけを見ている）
 - 暁の衛生兵のHeal自体をこの基盤へ統合すること（現状は既存の別実装のまま）
-- 後半6兵種のUnitClass、スキルRegistry、固有効果の実装
+- 残り5兵種(辺境工作兵・伝令騎兵・辺境遊撃兵・旗手・戦術魔導師)のUnitClass、スキル
+  Registry、固有効果の実装(重装兵は実装済み)
 
 ## スキル構成
 

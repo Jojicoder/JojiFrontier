@@ -101,6 +101,13 @@ jf::GameData makeFactoryData() {
     data.weaponsById.emplace("dawn_staff", dawnStaff);
     data.classesById.emplace(jf::UnitClass::DawnChirurgeon,
                              jf::ClassDefinition{jf::UnitClass::DawnChirurgeon, stats, "dawn_staff"});
+    jf::Stats heavyInfantryStats{.maxHp = 32, .strength = 8, .magic = 0, .speed = 2,
+                                 .defense = 12, .resistance = 2, .move = 3};
+    jf::Weapon ironGreathammer{.id = "iron_greathammer", .name = "Iron Greathammer", .might = 7, .minRange = 1,
+                               .maxRange = 1, .damageType = jf::DamageType::Physical};
+    data.weaponsById.emplace("iron_greathammer", ironGreathammer);
+    data.classesById.emplace(jf::UnitClass::HeavyInfantry,
+                             jf::ClassDefinition{jf::UnitClass::HeavyInfantry, heavyInfantryStats, "iron_greathammer"});
     jf::Weapon wolfBite{.id = "wolf_bite", .name = "Bite", .might = 5, .minRange = 1,
                        .maxRange = 1, .damageType = jf::DamageType::Physical};
     data.weaponsById.emplace("wolf_bite", wolfBite);
@@ -2623,6 +2630,142 @@ int main() {
         allyCrossedController.chooseSkill(0);
         assert(!contains(allyCrossedController.skillTargetTiles(), jf::GridPos{1, 2})); // occupied, can't land
         assert(contains(allyCrossedController.skillTargetTiles(), jf::GridPos{1, 3})); // crossable
+    }
+
+    {
+        // docs/class_reference.md「後半6兵種」/M7項目1: 重装兵(HeavyInfantry)の
+        // Class/武器データ整合性。加入経路(M7項目2)はまだ無いため
+        // playerParty/reserveRosterには登場しないが、Classとしては完全に有効。
+        jf::GameData data = makeFactoryData();
+        const jf::ClassDefinition& def = data.classDefinition(jf::UnitClass::HeavyInfantry);
+        assert(def.baseStats.maxHp == 32 && def.baseStats.strength == 8 && def.baseStats.magic == 0 &&
+              def.baseStats.speed == 2 && def.baseStats.defense == 12 && def.baseStats.resistance == 2 &&
+              def.baseStats.move == 3);
+        assert(def.weaponId == "iron_greathammer");
+        const jf::Weapon& weapon = data.weaponFor(jf::UnitClass::HeavyInfantry);
+        assert(weapon.id == "iron_greathammer" && weapon.might == 7 && weapon.minRange == 1 && weapon.maxRange == 1 &&
+              weapon.damageType == jf::DamageType::Physical);
+        assert(jf::unitClassFromString("HeavyInfantry") == jf::UnitClass::HeavyInfantry);
+        assert(jf::skillsForClass(jf::UnitClass::HeavyInfantry).size() == 3);
+        assert(jf::requiredTrainingNodeIdFor(jf::UnitClass::HeavyInfantry) == "vanguard_training");
+    }
+
+    {
+        // docs/class_reference.md「重量装甲」: this engine's knockback is
+        // always exactly 1 tile, so "reduce distance by 1, floor 0" means
+        // HeavyInfantry never gets knocked back at all - unconditionally,
+        // unlike Hide-Wrapped Grip's consumable knockbackNegatesRemaining
+        // (which this must NOT touch).
+        jf::Unit attacker = makeUnit("attacker", jf::Team::Player, {1, 2});
+        jf::Unit defender = makeUnit("defender", jf::Team::Enemy, {1, 3}, 4, jf::UnitClass::HeavyInfantry);
+        jf::BattleState battle({attacker, defender});
+        battle.applyKnockback(battle.units()[0], battle.units()[1]);
+        assert((battle.units()[1].position == jf::GridPos{1, 3})); // unmoved
+        assert(!battle.units()[1].staggerActive); // not even staggered - the knockback never happens at all
+        assert(battle.units()[1].knockbackNegatesRemaining == 0); // the consumable counter was never touched
+    }
+
+    {
+        // 重装兵`brace_for_impact`(衝撃防御): same auto-trigger-on-Wait shape
+        // as immovable_stance, but DEF+3 + full knockback negation - unlike
+        // immovable_stance, movement is NOT restricted on the next action.
+        jf::Unit heavy = makeUnit("heavy", jf::Team::Player, {1, 3}, 3, jf::UnitClass::HeavyInfantry);
+        heavy.stats.defense = 12;
+        heavy.skillSlots[0].skillId = "brace_for_impact";
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {2, 7});
+        jf::BattleState battle({heavy, enemy});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseWait();
+        assert(controller.battle().findUnit("heavy")->braceForImpactActive);
+        assert(controller.battle().findUnit("heavy")->effectiveDefense() == 15); // 12 + 3
+        assert(controller.battle().findUnit("heavy")->effectiveMove() == 3); // NOT forced to 0, unlike immovable_stance
+
+        for (int i = 0; i < 10 && controller.inputState() == jf::BattleInputState::EnemyTurn; ++i)
+            controller.update(1.0f);
+        assert(controller.inputState() == jf::BattleInputState::SelectUnit);
+        assert(controller.battle().findUnit("heavy")->braceForImpactActive); // survives the Enemy Phase
+
+        controller.selectUnit(*controller.battle().findUnit("heavy"));
+        controller.selectMoveTile(controller.battle().findUnit("heavy")->position);
+        controller.chooseProtectiveBoard();
+        assert(controller.inputState() == jf::BattleInputState::SelectBoardTarget);
+        assert(controller.selectBoardTarget(controller.boardTargetTiles().front()));
+        assert(!controller.battle().findUnit("heavy")->braceForImpactActive); // cleared after the next action
+    }
+
+    {
+        // 重装兵`armor_advance`(装甲前進): same self-movement shape as
+        // emergency_withdrawal, budget 2, ignoring Zone of Control.
+        jf::Unit heavy = makeUnit("heavy", jf::Team::Player, {1, 0}, 3, jf::UnitClass::HeavyInfantry);
+        heavy.skillSlots[0].skillId = "armor_advance";
+        jf::Unit guard = makeUnit("guard", jf::Team::Enemy, {0, 1}, 3, jf::UnitClass::VeteranGuard);
+        jf::BattleState battle({heavy, guard});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        // Normal movement (MOV 3) is stopped by the guard's ZoC at {1,1}.
+        const auto normalReach = jf::computeReachableTiles(controller.battle(), controller.battle().units()[0]);
+        assert(contains(normalReach, jf::GridPos{1, 1}));
+        assert(!contains(normalReach, jf::GridPos{1, 2}));
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectSkillTarget);
+        // Budget 2, ZoC ignored: {1,2} (distance 2, straight through the
+        // guard's ZoC) is reachable even though normal movement can't get
+        // there. {1,3} (distance 3) is out of the skill's fixed budget.
+        assert(contains(controller.skillTargetTiles(), jf::GridPos{1, 2}));
+        assert(!contains(controller.skillTargetTiles(), jf::GridPos{1, 3}));
+
+        assert(controller.selectSkillTarget(jf::GridPos{1, 2}));
+        assert((controller.battle().findUnit("heavy")->position == jf::GridPos{1, 2}));
+        assert(!jf::skillSlotAvailable(*controller.battle().findUnit("heavy"), 0)); // Cooldown2, just used
+    }
+
+    {
+        // 重装兵`break_obstacle`(障害物破砕): destroys an adjacent
+        // destructible Object instantly, regardless of remaining durability -
+        // unlike a normal Object attack, no damage roll at all. canBeAttacked
+        // == false objects (mission-critical/indestructible) aren't offered
+        // as targets, and it's OncePerBattle (can't be reused).
+        jf::Unit heavy = makeUnit("heavy", jf::Team::Player, {1, 3}, 4, jf::UnitClass::HeavyInfantry);
+        heavy.skillSlots[0].skillId = "break_obstacle";
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {2, 7});
+        jf::BattleState battle({heavy, enemy});
+        jf::BattleObjectDefinition logDef;
+        logDef.definitionId = "fallen_log";
+        logDef.kind = jf::BattleObjectKind::Barrier;
+        logDef.blocksMovement = true;
+        logDef.canBeAttacked = true;
+        logDef.maxDurability = 16; // high durability - an instant kill must ignore this entirely
+        battle.registerObjectDefinition(logDef);
+        assert(battle.placeObject({"log1", "fallen_log", {1, 4}}));
+        jf::BattleObjectDefinition indestructibleDef;
+        indestructibleDef.definitionId = "indestructible_wall";
+        indestructibleDef.kind = jf::BattleObjectKind::Barrier;
+        indestructibleDef.blocksMovement = true;
+        indestructibleDef.canBeAttacked = false;
+        battle.registerObjectDefinition(indestructibleDef);
+        assert(battle.placeObject({"wall1", "indestructible_wall", {1, 2}}));
+
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectSkillTarget);
+        assert(contains(controller.skillTargetTiles(), jf::GridPos{1, 4}));
+        assert(!contains(controller.skillTargetTiles(), jf::GridPos{1, 2})); // canBeAttacked == false
+
+        assert(controller.selectSkillTarget(jf::GridPos{1, 4}));
+        assert(controller.battle().findObject("log1")->state == jf::BattleObjectStateKind::Destroyed);
+        assert(controller.battle().findObject("log1")->durability == 0);
+        assert(!jf::skillSlotAvailable(*controller.battle().findUnit("heavy"), 0)); // OncePerBattle, just used
     }
 
     {

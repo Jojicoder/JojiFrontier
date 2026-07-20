@@ -70,6 +70,17 @@ const std::vector<SkillDefinition>& skillRegistry() {
         {"emergency_treatment", UnitClass::DawnChirurgeon, "Emergency Treatment", "緊急処置", SkillCategory::Active,
          SkillUsageType::OncePerBattle, "Heals one ally at or below 50% max HP for 12.",
          "現在HPが最大HPの50%以下の味方1人を12回復。", 3},
+
+        // 重装兵 (Heavy Infantry)
+        {"armor_advance", UnitClass::HeavyInfantry, "Armor Advance", "装甲前進", SkillCategory::Active,
+         SkillUsageType::Cooldown2, "Moves up to 2 tiles without attacking, ignoring enemy Zone of Control.",
+         "最大2マス移動する。移動中は敵のZone of Controlで停止せず、攻撃せず行動終了。", 1},
+        {"brace_for_impact", UnitClass::HeavyInfantry, "Brace for Impact", "衝撃防御", SkillCategory::Passive,
+         SkillUsageType::Always, "Triggers only on confirming Wait: DEF+3 and forced movement fully negated until the user's next action ends.",
+         "待機確定時のみ発動。次の自分の行動終了までDEF+3、強制移動を完全無効。", 2},
+        {"break_obstacle", UnitClass::HeavyInfantry, "Break Obstacle", "障害物破砕", SkillCategory::Active,
+         SkillUsageType::OncePerBattle, "Instantly destroys one adjacent destructible obstacle, ending the turn.",
+         "隣接する破壊可能な障害物1個を即座に破壊して行動終了。", 3},
     };
     return skills;
 }
@@ -93,6 +104,7 @@ std::string requiredTrainingNodeIdFor(UnitClass unitClass) {
     switch (unitClass) {
         case UnitClass::VeteranGuard:
         case UnitClass::Spearman:
+        case UnitClass::HeavyInfantry:
             return "vanguard_training";
         case UnitClass::WatchArcher:
         case UnitClass::FrontierScout:

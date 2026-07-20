@@ -130,6 +130,14 @@ struct Unit {
     // action" (clear at its end) - see BattleController::finishPlayerAction().
     bool immovableStanceActive = false;
     bool immovableStanceJustGranted = false;
+    // 重装兵`brace_for_impact` (docs/class_reference.md「後半6兵種」/
+    // docs/skill_system.md「重装兵」): same "auto-triggers on Wait, lasts
+    // through this unit's own next action" shape as immovable_stance above,
+    // but DEF+3 and full forced-movement negation instead of DEF+3-and-no-
+    // movement - so effectiveMove() is untouched, only effectiveDefense()
+    // and BattleState::applyKnockback() consult this.
+    bool braceForImpactActive = false;
+    bool braceForImpactJustGranted = false;
 
     // The 2 equipped-skill slots (docs/skill_system.md). See
     // jf/battle/SkillCharges.hpp for lifecycle management.
@@ -197,6 +205,7 @@ struct Unit {
         int def = stats.defense;
         if (defenseUpActive) def += 2;
         if (immovableStanceActive) def += 3; // 古参守備兵`immovable_stance`
+        if (braceForImpactActive) def += 3; // 重装兵`brace_for_impact`
         if (defenseDownActive) def = std::max(def - statusDefenseDownAmount(isBoss), 0);
         return def;
     }

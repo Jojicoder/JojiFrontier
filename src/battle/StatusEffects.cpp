@@ -93,6 +93,8 @@ void clearAllStatusEffects(BattleState& battle) {
         unit.moveUpActive = false;
         unit.immovableStanceActive = false;
         unit.immovableStanceJustGranted = false;
+        unit.braceForImpactActive = false;
+        unit.braceForImpactJustGranted = false;
         unit.braceSkillActive = false;
         unit.provokedByUnitId.clear();
         unit.overwatchActive = false;

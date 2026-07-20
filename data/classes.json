@@ -43,6 +43,13 @@
       "roleKey": "class.dawn_chirurgeon.role"
     },
     {
+      "id": "HeavyInfantry",
+      "baseStats": { "maxHp": 32, "strength": 8, "magic": 0, "speed": 2, "defense": 12, "resistance": 2, "move": 3 },
+      "weaponId": "iron_greathammer",
+      "nameKey": "class.heavy_infantry",
+      "roleKey": "class.heavy_infantry.role"
+    },
+    {
       "id": "Bandit",
       "baseStats": { "maxHp": 22, "strength": 9, "magic": 0, "speed": 4, "defense": 3, "resistance": 1, "move": 4 },
       "weaponId": "iron_axe",

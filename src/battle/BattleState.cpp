@@ -67,6 +67,10 @@ bool BattleState::consumeHerbPatch(Unit& unit, int healing) {
 }
 
 void BattleState::applyKnockback(const Unit& attacker, Unit& defender) {
+    // 重装兵「重量装甲」(常時、無条件)と`brace_for_impact`(次の自分の行動終了まで)
+    // はどちらも消費型ではない - Hide-Wrapped Gripの`knockbackNegatesRemaining`
+    // (1回限りの消費)とは別扱いで、カウンタを一切減らさず毎回無効化する。
+    if (hasHeavyArmor(defender.unitClass) || defender.braceForImpactActive) return;
     if (defender.knockbackNegatesRemaining > 0) {
         --defender.knockbackNegatesRemaining;
         return;

@@ -73,6 +73,20 @@ bool isAdvanceOrderShape(const std::string& skillId) { return skillId == "advanc
 // isAdvanceOrderShape above.
 bool isEmergencyWithdrawalShape(const std::string& skillId) { return skillId == "emergency_withdrawal"; }
 
+// 重装兵`armor_advance`(装甲前進): same self-only movement shape as
+// emergency_withdrawal above (no target unit, doesn't attack, ends the
+// turn) - reuses that reasoning rather than adding another one-line
+// comment.
+bool isArmorAdvanceShape(const std::string& skillId) { return skillId == "armor_advance"; }
+
+// 重装兵`break_obstacle`(障害物破砕): 隣接する破壊可能なObject1個を耐久に関わらず
+// 即座に破壊する。通常のObject攻撃(chooseAttack()のobjectTargetableTiles_収集/
+// confirmObjectAttack()のresolveObjectAttack())と土台は同じだが、ダメージ計算を
+// 経由せず耐久を直接0にする点が異なるため専用分岐にした。`canBeAttacked`ゲートを
+// 流用することで「任務上破壊不可」は自動的に満たされる。
+bool isBreakObstacleShape(const std::string& skillId) { return skillId == "break_obstacle"; }
+constexpr int kBreakObstacleRange = 1;
+
 // 古参守備兵`provoke`(挑発): 敵1体・射程2、Damageなし、対象へUnit::
 // provokedByUnitIdを設定するだけ - Mark形状に似るが、書き込む値がDamageの
 // 符号付き整数ではなく「このスキルを使ったUnitのid」で、しかも設定先は
@@ -159,15 +173,15 @@ void applyBuff(BuffKind kind, Unit& target) {
     }
 }
 
-// 辺境斥候`emergency_withdrawal`(緊急離脱): self-only movement, no attack, up
-// to 3 tiles - a genuinely new "self movement" shape (none of the 5 tables
-// above fit a skill with no target unit at all). Deliberately simpler than
-// the normal move computeReachableTiles(): fixed budget of 3 regardless of
-// MOV/terrain cost, and ignores Zone of Control entirely (the whole point
-// is bypassing it - "敵隣接から開始可能"), while still respecting normal
-// occupancy/passability/Battle Object blocking ("通常占有規則を守る").
-std::vector<GridPos> computeEmergencyWithdrawalTiles(const BattleState& battle, const Unit& mover) {
-    constexpr int kWithdrawalRange = 3;
+// Shared by 辺境斥候`emergency_withdrawal`(緊急離脱, range 3) and 重装兵
+// `armor_advance`(装甲前進, range 2) - both are "self-only movement, no
+// attack" shapes (none of the 5 tables above fit a skill with no target
+// unit at all). Deliberately simpler than the normal move
+// computeReachableTiles(): fixed budget regardless of MOV/terrain cost, and
+// ignores Zone of Control entirely (the whole point of both skills is
+// bypassing it), while still respecting normal occupancy/passability/
+// Battle Object blocking ("通常占有規則を守る").
+std::vector<GridPos> computeSelfMovementTiles(const BattleState& battle, const Unit& mover, int range) {
     std::vector<GridPos> result;
     std::unordered_map<int, int> bestCost;
     const auto key = [](GridPos pos) { return pos.row * kGridCols + pos.col; };
@@ -177,7 +191,7 @@ std::vector<GridPos> computeEmergencyWithdrawalTiles(const BattleState& battle, 
         std::vector<GridPos> next;
         for (GridPos current : frontier) {
             int cost = bestCost[key(current)];
-            if (cost >= kWithdrawalRange) continue;
+            if (cost >= range) continue;
             static const GridPos kDirections[] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
             for (GridPos dir : kDirections) {
                 GridPos candidate{current.row + dir.row, current.col + dir.col};
@@ -205,6 +219,16 @@ std::vector<GridPos> computeEmergencyWithdrawalTiles(const BattleState& battle, 
         result.push_back(pos);
     }
     return result;
+}
+
+std::vector<GridPos> computeEmergencyWithdrawalTiles(const BattleState& battle, const Unit& mover) {
+    constexpr int kWithdrawalRange = 3;
+    return computeSelfMovementTiles(battle, mover, kWithdrawalRange);
+}
+
+std::vector<GridPos> computeArmorAdvanceTiles(const BattleState& battle, const Unit& mover) {
+    constexpr int kArmorAdvanceRange = 2;
+    return computeSelfMovementTiles(battle, mover, kArmorAdvanceRange);
 }
 
 } // namespace
@@ -242,6 +266,12 @@ void BattleController::finishPlayerAction(Unit& unit, ActionKind actionKind) {
     if (unit.immovableStanceActive) {
         if (unit.immovableStanceJustGranted) unit.immovableStanceJustGranted = false;
         else unit.immovableStanceActive = false;
+    }
+    // 重装兵`brace_for_impact`: same two-flag "survives the granting Wait,
+    // clears at the end of the next action" shape as immovable_stance above.
+    if (unit.braceForImpactActive) {
+        if (unit.braceForImpactJustGranted) unit.braceForImpactJustGranted = false;
+        else unit.braceForImpactActive = false;
     }
     battle_.markActed(unit);
     emitUnitDefeatedEvents(battle_, aliveBefore);
@@ -563,6 +593,18 @@ void BattleController::chooseSkill(int slotIndex) {
         }
     } else if (isEmergencyWithdrawalShape(skillId)) {
         skillTargetTiles_ = computeEmergencyWithdrawalTiles(battle_, *selectedUnit_);
+    } else if (isArmorAdvanceShape(skillId)) {
+        skillTargetTiles_ = computeArmorAdvanceTiles(battle_, *selectedUnit_);
+    } else if (isBreakObstacleShape(skillId)) {
+        // Same object-targeting rule as chooseAttack()'s objectTargetableTiles_
+        // collection, restricted to range 1 instead of weapon range.
+        for (const BattleObjectState& object : battle_.objects()) {
+            if (object.state == BattleObjectStateKind::Destroyed) continue;
+            const BattleObjectDefinition* def = battle_.objectDefinition(object.definitionId);
+            if (!def || !def->canBeAttacked) continue;
+            if (manhattanDistance(selectedUnit_->position, object.position) <= kBreakObstacleRange)
+                skillTargetTiles_.push_back(object.position);
+        }
     } else if (isProvokeShape(skillId)) {
         for (Unit& unit : battle_.units()) {
             if (unit.team == selectedUnit_->team || !unit.isAlive()) continue;
@@ -579,12 +621,37 @@ bool BattleController::selectSkillTarget(GridPos pos) {
     if (inputState_ != BattleInputState::SelectSkillTarget || !selectedUnit_ || pendingSkillSlot_ < 0) return false;
     if (std::find(skillTargetTiles_.begin(), skillTargetTiles_.end(), pos) == skillTargetTiles_.end()) return false;
 
-    // 辺境斥候`emergency_withdrawal`: the destination is an empty tile, not a
-    // Unit, so it's handled here rather than falling into the target-lookup
-    // path every other skill (all of which act on a Unit) shares below.
-    if (isEmergencyWithdrawalShape(
-            selectedUnit_->skillSlots[static_cast<std::size_t>(pendingSkillSlot_)].skillId)) {
+    // 辺境斥候`emergency_withdrawal`/重装兵`armor_advance`: the destination is
+    // an empty tile, not a Unit, so both are handled here rather than
+    // falling into the target-lookup path every other skill (all of which
+    // act on a Unit) shares below - identical resolution, only their tile
+    // computation (chooseSkill() above) differs.
+    const std::string& shapeSkillId = selectedUnit_->skillSlots[static_cast<std::size_t>(pendingSkillSlot_)].skillId;
+    if (isEmergencyWithdrawalShape(shapeSkillId) || isArmorAdvanceShape(shapeSkillId)) {
         if (!battle_.moveUnit(*selectedUnit_, pos)) return false;
+        consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
+        finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+        selectedUnit_ = nullptr;
+        pendingSkillSlot_ = -1;
+        skillTargetTiles_.clear();
+        reachableTiles_.clear();
+        attackRangeTiles_.clear();
+        inputState_ = BattleInputState::SelectUnit;
+        evaluateOutcome();
+        return true;
+    }
+
+    // 重装兵`break_obstacle`: the destination is an Object, not a Unit -
+    // instant-destroy regardless of durability, same ObjectDestroyedEvent
+    // firing as confirmObjectAttack()'s resolveObjectAttack() path, minus
+    // the damage roll.
+    if (isBreakObstacleShape(shapeSkillId)) {
+        BattleObjectState* object = battle_.objectAt(pos);
+        if (!object || object->state == BattleObjectStateKind::Destroyed) return false;
+        object->durability = 0;
+        object->state = BattleObjectStateKind::Destroyed;
+        handleObjectiveEvent(battle_.missionState(),
+                             BattleEvent{battle_.issueEventId(), 0, ObjectDestroyedEvent{object->id}});
         consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
         finishPlayerAction(*selectedUnit_, ActionKind::Skill);
         selectedUnit_ = nullptr;
@@ -752,6 +819,15 @@ void BattleController::chooseWait() {
         if (slot.skillId == "immovable_stance") {
             selectedUnit_->immovableStanceActive = true;
             selectedUnit_->immovableStanceJustGranted = true;
+            break;
+        }
+    }
+    // 重装兵`brace_for_impact`(衝撃防御): same auto-trigger-on-Wait shape as
+    // immovable_stance above.
+    for (const SkillSlotState& slot : selectedUnit_->skillSlots) {
+        if (slot.skillId == "brace_for_impact") {
+            selectedUnit_->braceForImpactActive = true;
+            selectedUnit_->braceForImpactJustGranted = true;
             break;
         }
     }

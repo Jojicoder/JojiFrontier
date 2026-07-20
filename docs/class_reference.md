@@ -72,15 +72,17 @@ users now use the same Watch Archer and Spearman rules as player units.
 
 ## Planned expansion roster
 
-Heavy Infantry, Frontier Engineer, Messenger Cavalry, Banner Bearer, Frontier
-Ranger, and Battle Mage remain planned. Ranger is a tracker/trapper rather than
-a dedicated monster-hunter; wolves and large territorial wildlife may still be
-combat threats in Frontier scenarios. Battle Mage should remain tied to a rare
-named specialist.
+Heavy Infantry's Class/weapon/innate ability/skills are implemented (M7項目1);
+join path (party recruitment) remains out of scope. Frontier Engineer,
+Messenger Cavalry, Banner Bearer, Frontier Ranger, and Battle Mage remain
+planned. Ranger is a tracker/trapper rather than a dedicated monster-hunter;
+wolves and large territorial wildlife may still be combat threats in Frontier
+scenarios. Battle Mage should remain tied to a rare named specialist.
 
 ## 後半6兵種の基礎仕様
 
-後半6兵種は未実装だが、実装時の基準値と固有能力を次で固定する。数値は初期6兵種と同じ
+後半6兵種のうち重装兵はClass・武器・固有能力・スキルを実装済み(加入経路は対象外)。
+残り5兵種は未実装だが、実装時の基準値と固有能力を次で固定する。数値は初期6兵種と同じ
 装備補正前の基礎値であり、通常レベルによって上昇しない。
 
 | 兵種 | HP | STR | MAG | SPD | DEF | RES | MOV | 兵種固有能力 |
