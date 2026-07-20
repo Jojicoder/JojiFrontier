@@ -20,9 +20,9 @@ void drawBaseTopBar(jf::GameApp& app, Vector2 mouse, bool clicked) {
     drawText(tr("ui.prep.title"), 38, 30, 30, kColorTextPrimary);
     Rectangle facilitiesRect{static_cast<float>(kScreenWidth) - 218.0f, 4.0f, 110.0f, 32.0f};
     if (button(facilitiesRect, tr("ui.facilities.title"), mouse, clicked)) {
-        gVisitedFacility.reset();
-        gForgeCraftClass.reset();
-        gShowFacilities = true;
+        gBaseScreen.visitedFacility.reset();
+        gBaseScreen.forgeCraftClass.reset();
+        gBaseScreen.showFacilities = true;
     }
     Rectangle warehouseRect{static_cast<float>(kScreenWidth) - 336.0f, 4.0f, 110.0f, 32.0f};
     if (button(warehouseRect, tr("ui.warehouse.open_button"), mouse, clicked)) gWarehouseCleanupOpen = true;
@@ -41,7 +41,7 @@ void drawBasePartyRoster(jf::GameApp& app, Vector2 mouse, bool clicked, std::vec
         Rectangle rowRect{40, static_cast<float>(y), 300, 40};
         Rectangle detailRect{348, static_cast<float>(y), 82, 40};
         if (button(rowRect, label, "", mouse, clicked)) app.togglePartyMember(unit.id);
-        if (button(detailRect, "Details", "詳細", mouse, clicked)) gViewedUnitId = unit.id;
+        if (button(detailRect, "Details", "詳細", mouse, clicked)) gBaseScreen.viewedUnitId = unit.id;
         if (CheckCollisionPointRec(mouse, rowRect)) {
             const jf::Stats& stats = app.gameData().classDefinition(unit.classId).baseStats;
             hoverLines = {
@@ -114,10 +114,10 @@ void drawBaseRegionList(jf::GameApp& app, Vector2 mouse, bool clicked, std::vect
     int y = 433;
     for (const auto& summary : app.regionSummaries()) {
         Rectangle rowRect{480, static_cast<float>(y), 300, 40};
-        std::string marker = summary.id == gSelectedRegionId ? "> " : "";
+        std::string marker = summary.id == gBaseScreen.selectedRegionId ? "> " : "";
         if (summary.unlocked) {
             if (button(rowRect, marker + summary.displayNameEn, marker + summary.displayNameJa, mouse, clicked))
-                gSelectedRegionId = summary.id;
+                gBaseScreen.selectedRegionId = summary.id;
         } else {
             disabledButton(rowRect, pick(summary.displayNameEn, summary.displayNameJa));
             if (CheckCollisionPointRec(mouse, rowRect)) {
@@ -153,7 +153,7 @@ void drawBaseBagAndExpedition(jf::GameApp& app, Vector2 mouse, bool clicked, std
     Rectangle start{830, 430, 370, 58};
     if (app.selectedPartyIds().size() == 4) {
         if (button(start, tr("ui.button.begin_expedition"), mouse, clicked)) {
-            jf::RegionId toStart = app.isRegionUnlocked(gSelectedRegionId) ? gSelectedRegionId : jf::RegionId::AshboughForest;
+            jf::RegionId toStart = app.isRegionUnlocked(gBaseScreen.selectedRegionId) ? gBaseScreen.selectedRegionId : jf::RegionId::AshboughForest;
             app.startExpedition(toStart);
         }
     } else disabledButton(start, tr("ui.validation.select_exactly_4"));

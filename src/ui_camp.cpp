@@ -14,8 +14,11 @@
 
 namespace jfui {
 
-bool gCampItemMenuOpen = false;
-std::optional<jf::ItemType> gCampSelectedItem;
+struct CampScreenState {
+    bool itemMenuOpen = false;
+    std::optional<jf::ItemType> selectedItem;
+};
+CampScreenState gCampScreen;
 
 // Party HP roster, the "next field" preview card, pending loot/Discoveries,
 // battles-won counter, and the carried bag summary. Split out of
@@ -137,16 +140,16 @@ void drawCampCommandButtons(jf::GameApp& app, Vector2 mouse, bool clicked) {
         }
     }
     if (button(returnRect, tr("ui.button.return_to_base"), mouse, clicked)) {
-        gCampItemMenuOpen = false;
-        gCampSelectedItem.reset();
+        gCampScreen.itemMenuOpen = false;
+        gCampScreen.selectedItem.reset();
         // docs/inventory_overflow.md「帰還処理」: a false return means the
         // 200-Stack pending ceiling would be exceeded - route to cleanup
         // instead of silently doing nothing.
         if (!app.returnToBase()) gWarehouseCleanupOpen = true;
     }
     if (button(itemsRect, tr("ui.button.items"), mouse, clicked)) {
-        gCampItemMenuOpen = true;
-        gCampSelectedItem.reset();
+        gCampScreen.itemMenuOpen = true;
+        gCampScreen.selectedItem.reset();
     }
 }
 
@@ -156,7 +159,7 @@ void drawCampItemMenu(jf::GameApp& app, Vector2 mouse, bool clicked) {
     Rectangle itemPanel{620, 300, 610, 390};
     DrawRectangle(0, 70, kScreenWidth, kScreenHeight - 70, Color{0, 0, 0, 105});
     drawCard(itemPanel, Color{20, 25, 36, 255}, withAlpha(kColorAccentGold, 230), 0.05f);
-    drawText(gCampSelectedItem ? tr("ui.camp.choose_target")
+    drawText(gCampScreen.selectedItem ? tr("ui.camp.choose_target")
                                : tr("ui.camp.usable_items"),
              646, 324, 21, kColorAccentGold);
 
@@ -168,7 +171,7 @@ void drawCampItemMenu(jf::GameApp& app, Vector2 mouse, bool clicked) {
         return unit.team == jf::Team::Player && !unit.isAlive();
     });
 
-    if (!gCampSelectedItem) {
+    if (!gCampScreen.selectedItem) {
         int itemY = 372;
         int usableCount = 0;
         const auto itemChoice = [&](jf::ItemType type, bool usable) {
@@ -177,11 +180,11 @@ void drawCampItemMenu(jf::GameApp& app, Vector2 mouse, bool clicked) {
             if (button(Rectangle{646, static_cast<float>(itemY), 430, 48},
                        itemFullNameFor(type) + "  x" + std::to_string(count), "", mouse, clicked)) {
                 if (type == jf::ItemType::CampRations) {
-                    if (app.useCampItem(type)) gCampItemMenuOpen = false;
+                    if (app.useCampItem(type)) gCampScreen.itemMenuOpen = false;
                 } else if (type == jf::ItemType::ReturnFlare) {
-                    if (app.useCampItem(type)) gCampItemMenuOpen = false;
+                    if (app.useCampItem(type)) gCampScreen.itemMenuOpen = false;
                 } else {
-                    gCampSelectedItem = type;
+                    gCampScreen.selectedItem = type;
                 }
             }
             itemY += 56;
@@ -198,15 +201,15 @@ void drawCampItemMenu(jf::GameApp& app, Vector2 mouse, bool clicked) {
         int targetY = 372;
         for (const jf::Unit& unit : units) {
             if (unit.team != jf::Team::Player) continue;
-            const bool rescue = *gCampSelectedItem == jf::ItemType::RescuePack;
+            const bool rescue = *gCampScreen.selectedItem == jf::ItemType::RescuePack;
             const bool valid = rescue ? !unit.isAlive() : unit.isAlive() && unit.currentHp < unit.stats.maxHp;
             if (!valid) continue;
             std::string label = unitDisplayNameFor(unit.name) + "  HP " + std::to_string(unit.currentHp) + "/" +
                                 std::to_string(unit.stats.maxHp);
             if (button(Rectangle{646, static_cast<float>(targetY), 430, 48}, label, "", mouse, clicked) &&
-                app.useCampItem(*gCampSelectedItem, unit.id)) {
-                gCampSelectedItem.reset();
-                gCampItemMenuOpen = false;
+                app.useCampItem(*gCampScreen.selectedItem, unit.id)) {
+                gCampScreen.selectedItem.reset();
+                gCampScreen.itemMenuOpen = false;
                 break;
             }
             targetY += 58;
@@ -214,8 +217,8 @@ void drawCampItemMenu(jf::GameApp& app, Vector2 mouse, bool clicked) {
     }
 
     if (button(Rectangle{1090, 626, 116, 44}, tr("ui.button.back"), mouse, clicked)) {
-        if (gCampSelectedItem) gCampSelectedItem.reset();
-        else gCampItemMenuOpen = false;
+        if (gCampScreen.selectedItem) gCampScreen.selectedItem.reset();
+        else gCampScreen.itemMenuOpen = false;
     }
 }
 
@@ -245,8 +248,8 @@ void drawCampScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     }
 
     drawCampSummary(app);
-    if (!gCampItemMenuOpen) drawCampCommandButtons(app, mouse, clicked);
-    if (gCampItemMenuOpen) drawCampItemMenu(app, mouse, clicked);
+    if (!gCampScreen.itemMenuOpen) drawCampCommandButtons(app, mouse, clicked);
+    if (gCampScreen.itemMenuOpen) drawCampItemMenu(app, mouse, clicked);
 }
 
 }  // namespace jfui

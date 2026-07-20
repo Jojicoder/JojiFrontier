@@ -18,8 +18,11 @@
 
 namespace jfui {
 
-bool gBattleItemMenuOpen = false;
-bool gBattleSkillMenuOpen = false;
+struct BattleScreenState {
+    bool itemMenuOpen = false;
+    bool skillMenuOpen = false;
+};
+BattleScreenState gBattleScreen;
 
 bool containsTile(const std::vector<jf::GridPos>& tiles, jf::GridPos pos) {
     for (const auto& t : tiles) {
@@ -758,10 +761,10 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
                              int sixthActionX) {
     switch (controller.inputState()) {
         case jf::BattleInputState::SelectUnit:
-            if (!gBattleItemMenuOpen) {
+            if (!gBattleScreen.itemMenuOpen) {
                 if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
                            tr("ui.button.items"), mouse, clicked)) {
-                    gBattleItemMenuOpen = true;
+                    gBattleScreen.itemMenuOpen = true;
                 }
                 if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
                            tr("ui.button.end_turn"), mouse, clicked)) {
@@ -784,7 +787,7 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
                     if (button(Rectangle{static_cast<float>(itemX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
                                en + " " + std::to_string(count), ja + " " + std::to_string(count), mouse, clicked) &&
                         app.chooseNeutralBattleHealingItem(type)) {
-                        gBattleItemMenuOpen = false;
+                        gBattleScreen.itemMenuOpen = false;
                     }
                     itemX += buttonWidth + buttonGap;
                     ++usableItemCount;
@@ -797,12 +800,12 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
                 }
                 if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
                            tr("ui.button.back"), mouse, clicked)) {
-                    gBattleItemMenuOpen = false;
+                    gBattleScreen.itemMenuOpen = false;
                 }
             }
             break;
         case jf::BattleInputState::SelectAction:
-            if (!gBattleItemMenuOpen && !gBattleSkillMenuOpen) {
+            if (!gBattleScreen.itemMenuOpen && !gBattleScreen.skillMenuOpen) {
                 if (controller.canInteract() &&
                     button(Rectangle{static_cast<float>(sixthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
                            tr("ui.button.interact"), mouse, clicked)) {
@@ -814,11 +817,11 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
                 }
                 if (button(Rectangle{static_cast<float>(secondActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
                            tr("ui.button.skills"), mouse, clicked)) {
-                    gBattleSkillMenuOpen = true;
+                    gBattleScreen.skillMenuOpen = true;
                 }
                 if (button(Rectangle{static_cast<float>(thirdActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
                            tr("ui.button.items"), mouse, clicked)) {
-                    gBattleItemMenuOpen = true;
+                    gBattleScreen.itemMenuOpen = true;
                 }
                 if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
                            tr("ui.button.wait"), mouse, clicked)) {
@@ -831,7 +834,7 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
                 break;
             }
 
-            if (gBattleSkillMenuOpen) {
+            if (gBattleScreen.skillMenuOpen) {
                 jf::Unit* selected = controller.selectedUnit();
                 bool anySkillShown = false;
                 if (selected && jf::canHeal(selected->unitClass)) {
@@ -840,7 +843,7 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
                                tr("ui.button.heal"), mouse, clicked)) {
                         controller.chooseHeal();
                         if (controller.inputState() != jf::BattleInputState::SelectAction) {
-                            gBattleSkillMenuOpen = false;
+                            gBattleScreen.skillMenuOpen = false;
                         }
                     }
                 }
@@ -862,7 +865,7 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
                             if (button(rect, label, label, mouse, clicked)) {
                                 controller.chooseSkill(static_cast<int>(i));
                                 if (controller.inputState() != jf::BattleInputState::SelectAction) {
-                                    gBattleSkillMenuOpen = false;
+                                    gBattleScreen.skillMenuOpen = false;
                                 }
                             }
                         } else {
@@ -880,7 +883,7 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
                 }
                 if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
                            tr("ui.button.back"), mouse, clicked)) {
-                    gBattleSkillMenuOpen = false;
+                    gBattleScreen.skillMenuOpen = false;
                 }
                 break;
             }
@@ -896,7 +899,7 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
                     if (button(Rectangle{static_cast<float>(itemX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
                                en + " " + std::to_string(count), ja + " " + std::to_string(count), mouse, clicked) &&
                         app.useBattleHealingItem(type)) {
-                        gBattleItemMenuOpen = false;
+                        gBattleScreen.itemMenuOpen = false;
                     }
                     itemX += buttonWidth + buttonGap;
                     ++usableItemCount;
@@ -911,7 +914,7 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
                                tr("item.protective_board.short_name") + " " + std::to_string(boardCount), mouse,
                                clicked) &&
                         app.chooseProtectiveBoard()) {
-                        gBattleItemMenuOpen = false;
+                        gBattleScreen.itemMenuOpen = false;
                     }
                     ++usableItemCount;
                 }
@@ -921,7 +924,7 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
                 }
                 if (button(Rectangle{static_cast<float>(fifthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
                            tr("ui.button.back"), mouse, clicked)) {
-                    gBattleItemMenuOpen = false;
+                    gBattleScreen.itemMenuOpen = false;
                 }
             }
             break;
@@ -992,8 +995,8 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
     jf::BattleController& controller = app.battle();
     if (controller.inputState() != jf::BattleInputState::SelectAction &&
         controller.inputState() != jf::BattleInputState::SelectUnit) {
-        gBattleItemMenuOpen = false;
-        gBattleSkillMenuOpen = false;
+        gBattleScreen.itemMenuOpen = false;
+        gBattleScreen.skillMenuOpen = false;
     }
     constexpr int hudTop = static_cast<int>(kHudY);
     constexpr int buttonWidth = 108;
@@ -1040,8 +1043,8 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
             stepLabel = tr("ui.battle.choose_move");
             break;
         case jf::BattleInputState::SelectAction:
-            if (gBattleItemMenuOpen) stepLabel = tr("ui.battle.choose_item");
-            else if (gBattleSkillMenuOpen) stepLabel = tr("ui.battle.choose_skill");
+            if (gBattleScreen.itemMenuOpen) stepLabel = tr("ui.battle.choose_item");
+            else if (gBattleScreen.skillMenuOpen) stepLabel = tr("ui.battle.choose_skill");
             else stepLabel = tr("ui.battle.choose_action");
             break;
         case jf::BattleInputState::SelectItemTarget:

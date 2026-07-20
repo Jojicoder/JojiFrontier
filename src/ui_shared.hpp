@@ -54,13 +54,18 @@ extern bool gWarehouseCleanupOpen;
 
 // Base screen state (docs/implementation_roadmap.md "Phase 3.5"), also
 // touched by the not-yet-split Facilities/Unit screens and main.cpp's own
-// screen dispatcher - kept as extern globals rather than moved, since their
-// defining screen hasn't been split out yet.
-extern bool gShowFacilities;
-extern jf::RegionId gSelectedRegionId;
-extern std::optional<jf::FacilityId> gVisitedFacility;
-extern std::optional<jf::UnitClass> gForgeCraftClass;
-extern std::optional<std::string> gViewedUnitId;
+// screen dispatcher - kept as an extern struct rather than moved into any
+// one screen's file-local globals, since main.cpp's dispatcher and
+// ui_facilities.cpp both need direct access and no single screen owns all
+// of it yet.
+struct BaseScreenState {
+    bool showFacilities = false;
+    jf::RegionId selectedRegionId = jf::RegionId::AshboughForest;
+    std::optional<jf::FacilityId> visitedFacility;
+    std::optional<jf::UnitClass> forgeCraftClass;
+    std::optional<std::string> viewedUnitId;
+};
+extern BaseScreenState gBaseScreen;
 
 Rectangle logicalViewport();
 Vector2 logicalMousePosition();

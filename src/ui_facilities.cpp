@@ -263,10 +263,10 @@ void drawForgeEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, flo
 
 void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     auto unit = std::find_if(app.roster().begin(), app.roster().end(), [&](const jf::UnitTemplate& candidate) {
-        return gViewedUnitId && candidate.id == *gViewedUnitId;
+        return gBaseScreen.viewedUnitId && candidate.id == *gBaseScreen.viewedUnitId;
     });
     if (unit == app.roster().end()) {
-        gViewedUnitId.reset();
+        gBaseScreen.viewedUnitId.reset();
         return;
     }
 
@@ -274,7 +274,7 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     drawText(tr("ui.unit_screen.title"), 38, 24, 28, kColorTextPrimary);
     Rectangle backRect{static_cast<float>(kScreenWidth) - 258.0f, 4.0f, 150.0f, 32.0f};
     if (button(backRect, "Party List", "編成一覧へ", mouse, clicked)) {
-        gViewedUnitId.reset();
+        gBaseScreen.viewedUnitId.reset();
         return;
     }
 
@@ -315,9 +315,9 @@ void drawFacilitiesList(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
     drawText(tr("ui.facilities.title"), 38, 24, 28, kColorTextPrimary);
     drawText(outpostStageNameFor(base.outpostStage), 38, 60, 16, kColorTextMuted);
     if (button(backRect, tr("ui.button.back"), mouse, clicked)) {
-        gVisitedFacility.reset();
-        gForgeCraftClass.reset();
-        gShowFacilities = false;
+        gBaseScreen.visitedFacility.reset();
+        gBaseScreen.forgeCraftClass.reset();
+        gBaseScreen.showFacilities = false;
     }
 
     const jf::FacilityId facilities[] = {
@@ -342,8 +342,8 @@ void drawFacilitiesList(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
                  constructed ? Color{105, 205, 145, 255} : Color{180, 125, 125, 255});
         Rectangle visitRect{card.x + card.width - 174.0f, card.y + 82.0f, 150.0f, 40.0f};
         if (button(visitRect, "Visit", "訪れる", mouse, clicked)) {
-            gVisitedFacility = facility;
-            gForgeCraftClass.reset();
+            gBaseScreen.visitedFacility = facility;
+            gBaseScreen.forgeCraftClass.reset();
         }
         if (CheckCollisionPointRec(mouse, card) && !CheckCollisionPointRec(mouse, visitRect)) {
             hasHoveredFacility = true;
@@ -358,19 +358,19 @@ void drawFacilitiesList(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
 // drawFacilitiesScreen(); no behavior change.
 void drawFacilityDetail(jf::GameApp& app, Vector2 mouse, bool clicked, const jf::BaseState& base,
                          const Rectangle& backRect) {
-    const jf::FacilityId facility = *gVisitedFacility;
-    const bool forgeCraftPage = facility == jf::FacilityId::Forge && gForgeCraftClass.has_value();
+    const jf::FacilityId facility = *gBaseScreen.visitedFacility;
+    const bool forgeCraftPage = facility == jf::FacilityId::Forge && gBaseScreen.forgeCraftClass.has_value();
     const std::string pageTitle = forgeCraftPage
-                                      ? tr("ui.forge.craft_prefix") + classNameFor(app.gameData(), *gForgeCraftClass)
+                                      ? tr("ui.forge.craft_prefix") + classNameFor(app.gameData(), *gBaseScreen.forgeCraftClass)
                                       : facilityIdNameFor(facility);
     drawText(pageTitle, 38, 24, 28, kColorTextPrimary);
     drawText(tr("ui.facilities.branches_unlocked", {{"count", std::to_string(facilityLevel(base, facility))}}),
              38, 64, 16, kColorAccentGold);
     drawText(facilityRoleFor(facility), 138, 58, 14, kColorTextMuted);
     if (forgeCraftPage) {
-        if (button(backRect, tr("ui.forge.back_to_forge"), mouse, clicked)) gForgeCraftClass.reset();
+        if (button(backRect, tr("ui.forge.back_to_forge"), mouse, clicked)) gBaseScreen.forgeCraftClass.reset();
     } else if (button(backRect, tr("ui.facilities.back_to_list"), mouse, clicked)) {
-        gVisitedFacility.reset();
+        gBaseScreen.visitedFacility.reset();
     }
 
     drawSectionHeading(forgeCraftPage ? tr("ui.forge.recipes") : tr("ui.forge.upgrades"),
@@ -381,7 +381,7 @@ void drawFacilityDetail(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
         if (node.facility != facility) continue;
         const bool isWeaponRecipe = node.id.rfind("craft_", 0) == 0;
         if (facility == jf::FacilityId::Forge) {
-            if (forgeCraftPage && (!isWeaponRecipe || *gForgeCraftClass != jf::UnitClass::Spearman)) continue;
+            if (forgeCraftPage && (!isWeaponRecipe || *gBaseScreen.forgeCraftClass != jf::UnitClass::Spearman)) continue;
             if (!forgeCraftPage && isWeaponRecipe) continue;
         }
         Rectangle rowPanel{36.0f, nodeY - 5.0f, 696.0f, 38.0f};
@@ -407,7 +407,7 @@ void drawFacilityDetail(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
             Rectangle craftRect{794.0f, 232.0f + index * 58.0f, 410.0f, 46.0f};
             const std::string label = tr("ui.forge.craft_prefix") + classNameFor(app.gameData(), craftClasses[index]);
             if (craftClasses[index] == jf::UnitClass::Spearman) {
-                if (button(craftRect, label, mouse, clicked)) gForgeCraftClass = craftClasses[index];
+                if (button(craftRect, label, mouse, clicked)) gBaseScreen.forgeCraftClass = craftClasses[index];
             } else {
                 disabledButton(craftRect, label + tr("ui.forge.craft_planned_suffix"));
             }
@@ -427,7 +427,7 @@ void drawFacilitiesScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     const jf::BaseState& base = app.baseState();
     Rectangle backRect{static_cast<float>(kScreenWidth) - 258.0f, 4.0f, 150.0f, 32.0f};
 
-    if (!gVisitedFacility) {
+    if (!gBaseScreen.visitedFacility) {
         drawFacilitiesList(app, mouse, clicked, base, backRect);
         return;
     }

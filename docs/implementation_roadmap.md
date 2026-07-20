@@ -1520,6 +1520,21 @@ M6以降のSlice運用:
 - UIは画面ファイル単位には分かれているが、各画面内の一時状態(`gSettingsOpen`、
   `gVisitedFacility`など)がグローバルに増えている。画面が増える段階でScreen State構造体へ
   まとめる
+  - **第1弾着手済み(2026-07)**: 実態調査の結果、`g`接頭辞グローバルは約30個あり、
+    (a)他ファイル未参照のファイルローカルな画面状態と、(b)`extern`で複数ファイルから
+    共有される横断状態、の2種に分かれることが判明。今回は両方から着手可能な範囲だけを
+    構造体化した: `ui_camp.cpp`の`CampScreenState`(`itemMenuOpen`/`selectedItem`)、
+    `ui_battle.cpp`の`BattleScreenState`(`itemMenuOpen`/`skillMenuOpen`、いずれも
+    ファイルローカル)、および`ui_shared.hpp`の`BaseScreenState`
+    (`showFacilities`/`selectedRegionId`/`visitedFacility`/`forgeCraftClass`/
+    `viewedUnitId` - `main.cpp`のScreen dispatcherと`ui_base.cpp`/`ui_facilities.cpp`の
+    3ファイルが共有する、Base画面のドリルダウン状態。`ui_shared.hpp`のコメントが
+    「本来Base画面に属するが分割未了のためextern」と既に自己申告していた箇所)
+  - **意図的に対象外としたもの**: `gSettingsOpen`/`gSaveStore`/`gAutoSaveEnabled`/
+    `gSaveHudState`系/`gSaveRecoveryOpen`系/`gWarehouseCleanupOpen`/`gPendingImport`系は、
+    特定の1画面に属さない「アプリ全体のライフサイクル状態」(Save機構、`main()`の
+    イベントループ/オートセーブTickが直接読み書き)であり、そもそも「画面State」という
+    概念に当てはまらないため見送った。無理にまとめる自然な置き場所がない
 - 戦闘には`BattleEvents`がある一方、拠点・遠征・報酬・UIには横断イベント口がまだない。
   Audio、ログ、演出を追加する前に、必要最小限の`AppEvent`/`AudioEvent`通知口を用意する
 - Audioは未実装なので、直接`PlaySound()`を各UI/ロジックへ散らさず、最初から

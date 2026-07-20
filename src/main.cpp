@@ -27,11 +27,7 @@ namespace jfui {
 // currently drawn. Ashbough Forest is always unlocked, so it's a safe
 // default region; the Begin Expedition button re-validates against GameApp
 // before starting.
-bool gShowFacilities = false;
-jf::RegionId gSelectedRegionId = jf::RegionId::AshboughForest;
-std::optional<jf::FacilityId> gVisitedFacility;
-std::optional<jf::UnitClass> gForgeCraftClass;
-std::optional<std::string> gViewedUnitId;
+BaseScreenState gBaseScreen;
 
 // docs/inventory_overflow.md「倉庫整理画面」: independent of GameApp::Screen
 // (same convention as gSettingsOpen/gCampItemMenuOpen above) so it can
@@ -202,8 +198,8 @@ void drawCurrentScreen(jf::GameApp& app, Vector2 mouse, float dt, bool clicked, 
         endLogicalFrame();
     } else {
         beginLogicalFrame();
-        if (gShowFacilities) drawFacilitiesScreen(app, mouse, sceneClicked);
-        else if (gViewedUnitId) drawUnitScreen(app, mouse, sceneClicked);
+        if (gBaseScreen.showFacilities) drawFacilitiesScreen(app, mouse, sceneClicked);
+        else if (gBaseScreen.viewedUnitId) drawUnitScreen(app, mouse, sceneClicked);
         else drawBaseScreen(app, mouse, sceneClicked);
         drawWarehouseCleanupOverlay(app, mouse, sceneClicked);
         drawSettingsOverlay(app, mouse, clicked);
