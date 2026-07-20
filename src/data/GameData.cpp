@@ -61,6 +61,18 @@ std::optional<BattleObjectKind> battleObjectKindFromString(const std::string& na
 
 namespace {
 
+std::optional<BattleObjectStateKind> battleObjectStateKindFromString(const std::string& name) {
+    if (name == "Active") return BattleObjectStateKind::Active;
+    if (name == "Disabled") return BattleObjectStateKind::Disabled;
+    if (name == "Opened") return BattleObjectStateKind::Opened;
+    if (name == "Destroyed") return BattleObjectStateKind::Destroyed;
+    return std::nullopt;
+}
+
+} // namespace
+
+namespace {
+
 DamageType damageTypeFromString(const std::string& name) {
     return name == "Magical" ? DamageType::Magical : DamageType::Physical;
 }
@@ -345,6 +357,42 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
                         for (const std::string& tag : d.at("tags").get<std::vector<std::string>>())
                             definition.tags.insert(tag);
                     }
+                    if (d.contains("interaction")) {
+                        const auto& i = d.at("interaction");
+                        ObjectInteractionDefinition interaction;
+                        interaction.interactionId = i.at("interactionId").get<std::string>();
+                        interaction.range = i.value("range", 1);
+                        if (i.contains("allowedClasses")) {
+                            for (const std::string& className : i.at("allowedClasses").get<std::vector<std::string>>()) {
+                                auto classId = unitClassFromString(className);
+                                if (!classId) {
+                                    std::cerr << "Stage " << stage.id << " has an unknown interaction allowedClass"
+                                              << std::endl;
+                                    return std::nullopt;
+                                }
+                                interaction.allowedClasses.insert(*classId);
+                            }
+                        }
+                        if (i.contains("requiredState")) {
+                            auto requiredState = battleObjectStateKindFromString(i.at("requiredState").get<std::string>());
+                            if (!requiredState) {
+                                std::cerr << "Stage " << stage.id << " has an unknown interaction requiredState"
+                                          << std::endl;
+                                return std::nullopt;
+                            }
+                            interaction.requiredState = *requiredState;
+                        }
+                        interaction.maxUses = i.value("maxUses", 1);
+                        definition.interaction = interaction;
+                    }
+                    if (d.contains("interactionResultState")) {
+                        auto resultState = battleObjectStateKindFromString(d.at("interactionResultState").get<std::string>());
+                        if (!resultState) {
+                            std::cerr << "Stage " << stage.id << " has an unknown interactionResultState" << std::endl;
+                            return std::nullopt;
+                        }
+                        definition.interactionResultState = *resultState;
+                    }
                     std::vector<std::string> validationErrors;
                     if (!validateObjectDefinition(definition, &validationErrors)) {
                         std::cerr << "Stage " << stage.id << " has an invalid object definition "
@@ -353,10 +401,21 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
                         std::cerr << std::endl;
                         return std::nullopt;
                     }
+                    std::optional<std::string> operateObjectiveId;
+                    if (r.contains("operateObjectiveId")) {
+                        operateObjectiveId = r.at("operateObjectiveId").get<std::string>();
+                        if (definition.kind != BattleObjectKind::Device || !definition.interaction) {
+                            std::cerr << "Stage " << stage.id
+                                      << " has operateObjectiveId on a rule whose definition isn't an interactable "
+                                         "Device"
+                                      << std::endl;
+                            return std::nullopt;
+                        }
+                    }
                     stage.objectPlacementRules.push_back(StageContentData::ObjectPlacementRuleData{
                         definition, r.at("idPrefix").get<std::string>(), r.value("count", 1),
                         r.value("scalesWithExtraBarrierOutcome", false), r.value("zoneMinCol", 0),
-                        r.value("zoneMaxCol", kGridCols - 1), r.value("avoidFirstEnemyRow", false)});
+                        r.value("zoneMaxCol", kGridCols - 1), r.value("avoidFirstEnemyRow", false), operateObjectiveId});
                 }
             }
             if (s.contains("enemyCountOverride")) stage.enemyCountOverride = s.at("enemyCountOverride").get<std::size_t>();

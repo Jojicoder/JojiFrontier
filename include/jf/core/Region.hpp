@@ -183,6 +183,18 @@ struct StageDescriptor {
         // Enemy Unit's row, so a Boss (typically that first Enemy) can't
         // find its charge lane blocked before Round 1.
         bool avoidFirstEnemyRow = false;
+        // docs/regions/cinderwatch_gate.md「5. 信号塔下層」's 2 control
+        // panels: if set, BattleFactory generates one OperateObject
+        // Objective per instance this rule actually placed (primary=true,
+        // groupId="primary", target.objectId = the placed instance's id),
+        // and - the first time any rule in the stage sets this - removes
+        // the default EliminateTeam member from the "primary" group rather
+        // than widening it to Any like primaryHoldTileAlternative does
+        // (validateBattleMission() requires exactly one non-empty primary
+        // group, and the doc's "敵全滅後、残った制御盤を操作" reads as
+        // operating still being required even after a wipe, not an
+        // independent win condition - so EliminateTeam alone shouldn't win).
+        std::optional<std::string> operateObjectiveId;
     };
     std::vector<ObjectPlacementRule> objectPlacementRules;
 

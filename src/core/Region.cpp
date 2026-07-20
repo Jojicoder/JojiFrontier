@@ -44,7 +44,7 @@ StageDescriptor stageDescriptorFromContent(const StageContentData& content) {
     for (const auto& rule : content.objectPlacementRules) {
         stage.objectPlacementRules.push_back(StageDescriptor::ObjectPlacementRule{
             rule.definition, rule.idPrefix, rule.count, rule.scalesWithExtraBarrierOutcome, rule.zoneMinCol,
-            rule.zoneMaxCol, rule.avoidFirstEnemyRow});
+            rule.zoneMaxCol, rule.avoidFirstEnemyRow, rule.operateObjectiveId});
     }
     stage.enemyCountOverride = content.enemyCountOverride;
     stage.enemyZoneWidth = content.enemyZoneWidth;
@@ -69,23 +69,35 @@ StageDescriptor stageDescriptorFromContent(const StageContentData& content) {
 // full 6-site region, being migrated in from the old 3-battle placeholder
 // one Slice at a time. So far: site 1 (シンダーウォッチ外門,
 // cinderwatch_outer_gate), site 2 (灰道の監視所, ashroad_watch), site 3A
-// (アイアンウォッチ物資庫, ironwatch_stores), and site 4 (旧兵舎, old_barracks)
-// are real; the RouteGraph (RouteGraph.cpp) branches site 3's slot between
-// ironwatch_stores and old_barracks per the doc's 3A/3B. `signal_tower` is
-// still the OLD pre-spec placeholder content standing in for sites 5+6
-// combined, kept as-is so the region stays completable end-to-end until a
-// later Slice replaces it - see M6-C's own roadmap entry. ironwatch_stores'
-// real content (M6-C item 1) deliberately stops short of the design doc's
-// 工作兵護衛/加入候補 (needs a controllable-NPC-unit subsystem that doesn't
-// exist anywhere in the codebase, plus M7項目5's Pending加入候補基盤), its
-// class-gated 3rd exploration choice (`辺境工兵` isn't a real UnitClass yet -
+// (アイアンウォッチ物資庫, ironwatch_stores), site 4 (旧兵舎, old_barracks), and
+// site 5 (信号塔下層, signal_tower) are real; the RouteGraph (RouteGraph.cpp)
+// branches site 3's slot between ironwatch_stores and old_barracks per the
+// doc's 3A/3B. `last_signal` (site 6, 最後の信号) is the OLD pre-spec
+// placeholder content that used to stand in for sites 5+6 combined - kept
+// under a new id after the M6-C item2 split so the region stays completable
+// end-to-end until the next Slice replaces it with the real boss fight
+// (`boostedFirstEnemy` Former Captain, `captains_seal`/`ashveil_fang`
+// rewards, and the wood/hide balance top-up all carried over unchanged from
+// the pre-split `signal_tower`). ironwatch_stores' real content (M6-C
+// item 1) deliberately stops short of the design doc's 工作兵護衛/加入候補
+// (needs a controllable-NPC-unit subsystem that doesn't exist anywhere in
+// the codebase, plus M7項目5's Pending加入候補基盤), its class-gated 3rd
+// exploration choice (`辺境工兵` isn't a real UnitClass yet -
 // scoutRouteDisabled like site 1's own `[重装兵]`), and the "both crates
 // opened within 2 rounds" reinforcement trigger (no state-conditioned
 // reinforcement trigger exists, only choice-conditioned via
-// ExplorationOutcome.enableReinforcementWave). `enemyRoster` deliberately
-// absent from signal_tower - empty means "use GameData::enemyRoster", the
-// shared roster it still draws from, per StageDescriptor's own top-of-file
-// comment.
+// ExplorationOutcome.enableReinforcementWave). signal_tower's real content
+// (M6-C item2) similarly stops short of: the "敵全滅後に操作" route's
+// 6-round time limit (no round-limit defeat condition exists anywhere in
+// the engine or docs/mission_objectives.md's own data model), the axeman
+// reinforcement's exact "after the first panel is operated" trigger
+// (approximated as a fixed round 2, same shape as herbwater_hollow's),
+// the class-gated 3rd exploration choice (same `辺境工兵` gap as
+// ironwatch_stores), and the 軍旗記録 discovery (same "no recruit-candidate
+// system to register it against yet" reasoning as ironwatch_stores' 野戦
+// 工作記録). `enemyRoster` deliberately absent from last_signal - empty
+// means "use GameData::enemyRoster", the shared roster it still draws
+// from, per StageDescriptor's own top-of-file comment.
 RegionDescriptor cinderwatchGateRegion(const GameData& data) {
     RegionDescriptor region;
     region.id = RegionId::CinderwatchGate;
@@ -101,6 +113,7 @@ RegionDescriptor cinderwatchGateRegion(const GameData& data) {
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("ironwatch_stores")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("old_barracks")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("signal_tower")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("last_signal")));
 
     return region;
 }

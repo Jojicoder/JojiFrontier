@@ -395,6 +395,19 @@ void drawBoardTiles(const jf::BattleController& controller, const std::vector<jf
                     DrawRectangleLinesEx(box, 2.0f, Color{88, 60, 30, 255});
                     DrawLineEx({box.x, box.y + box.height * 0.5f}, {box.x + box.width, box.y + box.height * 0.5f},
                                2.0f, Color{88, 60, 30, 255});
+                } else if (definition && definition->kind == jf::BattleObjectKind::Device) {
+                    // docs/regions/cinderwatch_gate.md「5. 信号塔下層」's control
+                    // panels: an upright panel with a status light, so an
+                    // un-operated Device (Active, dim/red) visibly changes
+                    // once interacted with (Opened, lit/green) - distinct
+                    // from the Barrier/Marker/Container shapes above.
+                    Rectangle panel{rect.x + rect.width * 0.5f - 9.0f, rect.y + rect.height * 0.5f - 15.0f, 18.0f,
+                                    26.0f};
+                    DrawRectangleRec(panel, Color{70, 74, 82, 235});
+                    DrawRectangleLinesEx(panel, 2.0f, Color{30, 32, 36, 255});
+                    bool operated = object->state == jf::BattleObjectStateKind::Opened;
+                    DrawCircle(static_cast<int>(panel.x + panel.width * 0.5f), static_cast<int>(panel.y + 7.0f), 4.0f,
+                              operated ? Color{110, 220, 130, 255} : Color{214, 70, 70, 255});
                 }
             }
 

@@ -109,6 +109,7 @@ struct StageContentData {
         int zoneMinCol = 0;
         int zoneMaxCol = kGridCols - 1;
         bool avoidFirstEnemyRow = false;
+        std::optional<std::string> operateObjectiveId;
     };
     std::vector<ObjectPlacementRuleData> objectPlacementRules;
     std::optional<std::size_t> enemyCountOverride;

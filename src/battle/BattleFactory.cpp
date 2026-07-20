@@ -402,6 +402,42 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
 
     placeRandomObjects(battle, stage, outcome, seed);
 
+    // docs/regions/cinderwatch_gate.md「5. 信号塔下層」's 2 control panels:
+    // an objectPlacementRules entry that sets operateObjectiveId gets one
+    // OperateObject Objective per instance it actually placed (found by
+    // idPrefix rather than trusting `rule.count`, since placeRandomObjects()
+    // may have placed fewer if candidates ran out). The first such rule
+    // replaces the default "eliminate_enemies" primary member instead of
+    // widening the group to Any (see StageDescriptor::ObjectPlacementRule's
+    // own comment on why) - defeating every enemy alone must not win a
+    // stage whose actual objective is operating both panels.
+    bool replacedDefaultPrimary = false;
+    for (const StageDescriptor::ObjectPlacementRule& rule : stage.objectPlacementRules) {
+        if (!rule.operateObjectiveId) continue;
+        if (!replacedDefaultPrimary) {
+            auto& definitions = battle.missionState().definitions;
+            definitions.erase(std::remove_if(definitions.begin(), definitions.end(),
+                                             [](const ObjectiveDefinition& def) {
+                                                 return def.id == "eliminate_enemies" && def.groupId == "primary";
+                                             }),
+                              definitions.end());
+            battle.missionState().progress.erase("eliminate_enemies");
+            replacedDefaultPrimary = true;
+        }
+        int index = 0;
+        for (const BattleObjectState& object : battle.objects()) {
+            if (object.id.rfind(rule.idPrefix + "_", 0) != 0) continue;
+            ObjectiveDefinition operate;
+            operate.id = *rule.operateObjectiveId + "_" + std::to_string(++index);
+            operate.kind = ObjectiveKind::OperateObject;
+            operate.primary = true;
+            operate.groupId = "primary";
+            operate.target.objectId = object.id;
+            battle.missionState().definitions.push_back(operate);
+            battle.missionState().progress[operate.id] = ObjectiveProgress{operate.id};
+        }
+    }
+
     if (stage.surveyObjectiveId) {
         // docs/regions/ashbough_forest.md "薬草の沢"'s common secondary is
         // satisfied by ending a turn on EITHER of the 2 HerbPatch tiles -

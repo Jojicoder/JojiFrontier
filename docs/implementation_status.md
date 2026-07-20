@@ -632,16 +632,21 @@
   変換していた挙動を修正。`BaseState.completedRegions`内の不明IDはSave全体を
   読込失敗にし(恒久データのため)、`ExpeditionCheckpoint.regionId`内の不明IDは
   その中断セーブだけを破棄する(中断セーブは再生成可能なため)
-- 沈黙した監視所群(M6-A/B/C項目1、`implementation_roadmap.md`詳細): 地点1
+- 沈黙した監視所群(M6-A/B/C項目1・2、`implementation_roadmap.md`詳細): 地点1
   (シンダーウォッチ外門)・地点2(灰道の監視所)・地点3A(アイアンウォッチ物資庫)・
-  地点3B(旧兵舎)が実コンテンツ、`RouteGraph`による地点3A/3Bの分岐(`BranchGroup`/
-  `AllMembers`)・キャンプI/IIまで実装済み。地点3Aは専用地形・正本敵編成・探索2択
-  (弓兵除外+障害物2個/鉄材+1)・「物資箱2個のうち1個以上を確保」副目標
-  (`surveyTileCount`+`chooseSurveyTiles()`、地形を変更しない汎用N枚選択、
+  地点3B(旧兵舎)・地点5(信号塔下層)が実コンテンツ、`RouteGraph`による地点3A/3Bの
+  分岐(`BranchGroup`/`AllMembers`)・キャンプI/IIまで実装済み。地点3Aは専用地形・
+  正本敵編成・探索2択(弓兵除外+障害物2個/鉄材+1)・「物資箱2個のうち1個以上を確保」
+  副目標(`surveyTileCount`+`chooseSurveyTiles()`、地形を変更しない汎用N枚選択、
   `supply_crate` Containerマーカー表示)まで実装。工作兵護衛・3つ目の探索選択・
   状態条件付き増援・加入候補は未実装(controllable-NPCサブシステムと
-  `FrontierEngineer`クラス自体が存在しないため)。地点5/6(信号塔下層・最後の信号)は
-  引き続き旧プレースホルダー(`signal_tower`)のまま
+  `FrontierEngineer`クラス自体が存在しないため)。地点5は専用の2操作可能Device
+  (副信号機・主信号機、JSON側で`interaction`を宣言する経路を新設)がprimary目的
+  そのもの(デフォルトのEliminateTeamメンバーを置き換え、`validateBattleMission()`
+  の「primaryグループはちょうど1つ」制約に対応)、軍旗保管箱の副目標、ラウンド2
+  固定近似の増援まで実装。6ラウンド制限・3つ目の探索選択・軍旗記録discoveryは
+  未実装(ラウンド超過での敗北条件がコード上どこにも存在しないため)。地点6
+  (最後の信号)は`last_signal`という新プレースホルダーへ切り出し済みで、次Sliceの担当
 
 未実装:
 

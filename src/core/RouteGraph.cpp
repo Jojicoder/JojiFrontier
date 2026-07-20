@@ -30,16 +30,16 @@ const RegionRouteGraph& ashboughGraph() {
     return graph;
 }
 
-// docs/implementation_roadmap.md M6-B: docs/campaign_route_graph.md's
+// docs/implementation_roadmap.md M6-B/C: docs/campaign_route_graph.md's
 // Cinderwatch graph is `S1 外門 -> S2 監視所 -> C1 -> J1{S3 物資庫, S4 旧兵舎} ->
 // J2 -> C2 -> S5 信号塔下層 -> S6 最後の信号 -> 出口`. J1/J2 is a single
 // BranchGroup node here (`cinderwatch_stores_barracks`, AllMembers): a
 // member Site's own outgoing edge always points straight back to the
 // BranchGroup (see below), so advanceRouteToNextSite() naturally revisits
 // it after each member resolves and only continues past once both are
-// done - no separate "J2" node needed. Site 5/6 (信号塔下層/最後の信号)
-// aren't split out yet; `signal_tower` (still the old pre-spec placeholder)
-// stands in for both until M6-C.
+// done - no separate "J2" node needed. Site 5 (信号塔下層) is real as of
+// M6-C item2; site 6 (最後の信号) is `last_signal`, still a pre-spec
+// placeholder standing in for the boss fight until the next Slice.
 const RegionRouteGraph& cinderwatchGraph() {
     static const RegionRouteGraph graph{
         RegionId::CinderwatchGate,
@@ -57,6 +57,7 @@ const RegionRouteGraph& cinderwatchGraph() {
             {"old_barracks", RouteNodeKind::Site, "old_barracks", {}, BranchCompletion::AllMembers},
             {"cinderwatch_camp2", RouteNodeKind::Camp, std::nullopt, {}, BranchCompletion::AllMembers},
             {"signal_tower", RouteNodeKind::Site, "signal_tower", {}, BranchCompletion::AllMembers},
+            {"last_signal", RouteNodeKind::Site, "last_signal", {}, BranchCompletion::AllMembers},
             {"cinderwatch_exit", RouteNodeKind::Exit, std::nullopt, {}, BranchCompletion::AllMembers},
         },
         {
@@ -68,7 +69,8 @@ const RegionRouteGraph& cinderwatchGraph() {
             {"old_barracks", "cinderwatch_stores_barracks"},
             {"cinderwatch_stores_barracks", "cinderwatch_camp2"},
             {"cinderwatch_camp2", "signal_tower"},
-            {"signal_tower", "cinderwatch_exit"},
+            {"signal_tower", "last_signal"},
+            {"last_signal", "cinderwatch_exit"},
         },
     };
     return graph;

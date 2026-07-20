@@ -143,12 +143,23 @@ jf::GameData makeChirurgeonFactoryData() {
     return data;
 }
 
-// Forces a live GameApp battle to Victory by zeroing every enemy's HP and
+// Forces a live GameApp battle to Victory by zeroing every enemy's HP,
+// satisfying any OperateObject primary objectives (docs/regions/
+// cinderwatch_gate.md「5. 信号塔下層」's 2 control panels replace the
+// default EliminateTeam primary member - see BattleFactory.cpp's
+// assembleScenario() - so zeroing HP alone doesn't win that stage), and
 // then running one no-op player action (select -> stay in place -> wait) so
-// BattleController::evaluateOutcome() notices allEnemiesDefeated().
+// BattleController::evaluateOutcome() notices completion.
 void winCurrentBattle(jf::GameApp& app) {
     for (jf::Unit& unit : app.battle().battle().units()) {
         if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+    }
+    for (const jf::BattleObjectState& object : app.battle().battle().objects()) {
+        const jf::BattleObjectDefinition* definition = app.battle().battle().objectDefinition(object.definitionId);
+        if (definition && definition->interaction) {
+            if (jf::BattleObjectState* mutableObject = app.battle().battle().findObject(object.id))
+                mutableObject->interactionCount = std::max(mutableObject->interactionCount, 1);
+        }
     }
     if (app.battle().battle().hasPendingRequiredEnemyReinforcements()) {
         // Test helper only: advance the BattleState clock directly until a
@@ -198,6 +209,27 @@ bool advanceToAshroadWatch(jf::GameApp& app) {
     app.proceedToCamp();
     app.continueExpedition();
     return app.screen() == jf::Screen::Exploration;
+}
+
+// docs/regions/cinderwatch_gate.md「5. 信号塔下層」: wins site 1/2, both
+// branch members (ironwatch_stores, old_barracks), and continues through
+// Camp II to signal_tower's Exploration screen, the shared setup every
+// signal_tower test needs.
+bool advanceToSignalTower(jf::GameApp& app) {
+    if (!advanceToAshroadWatch(app)) return false; // -> Exploration for site 2 (ashroad_watch)
+    if (!app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)) return false; // site 2 -> Battle
+    winCurrentBattle(app);
+    app.proceedToCamp();
+    app.continueExpedition(); // -> branch, first unresolved member
+    if (!app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)) return false;
+    winCurrentBattle(app);
+    app.proceedToCamp();
+    app.continueExpedition(); // -> branch again, other member
+    if (!app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)) return false;
+    winCurrentBattle(app);
+    app.proceedToCamp();
+    app.continueExpedition(); // both members resolved -> Camp II -> signal_tower
+    return app.screen() == jf::Screen::Exploration && app.currentMissionNameJa() == "信号塔下層";
 }
 
 // docs/regions/ashbough_forest.md "2. 薬草の沢": wins Ashbough Verge (the
@@ -713,20 +745,20 @@ int main() {
         assert(!jf::eligibleForOutpostStage(app.baseState(), jf::OutpostStage::PioneerOutpost));
 
         assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // site 1 -> Battle
-        // docs/implementation_roadmap.md M6-B: Cinderwatch now has 5 real
-        // battles end-to-end (site 1/2/旧兵舎 real, ironwatch_stores/
-        // signal_tower still the old placeholder pair standing in for 3A/
-        // 5+6) - both branch members (ironwatch_stores, old_barracks) are
-        // required before Camp II, and since the region is on the Route
-        // Graph now, every stage transition goes through Exploration first
-        // (not just stage 0).
-        for (int stage = 0; stage < 5; ++stage) {
+        // docs/implementation_roadmap.md M6-C: Cinderwatch now has 6 real
+        // battles end-to-end (site 1/2/3A/3B/5 real, last_signal still the
+        // old placeholder standing in for site 6's boss fight) - both
+        // branch members (ironwatch_stores, old_barracks) are required
+        // before Camp II, and since the region is on the Route Graph now,
+        // every stage transition goes through Exploration first (not just
+        // stage 0).
+        for (int stage = 0; stage < 6; ++stage) {
             assert(app.screen() == jf::Screen::Battle);
             winCurrentBattle(app);
             assert(app.battle().inputState() == jf::BattleInputState::Victory);
             app.proceedToCamp();
             assert(app.screen() == jf::Screen::Camp);
-            if (stage < 4) {
+            if (stage < 5) {
                 app.continueExpedition();
                 assert(app.screen() == jf::Screen::Exploration);
                 assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
@@ -797,20 +829,20 @@ int main() {
         jf::GameApp app(data);
         assert(startCinderwatchExpedition(app));
         assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
-        for (int stage = 0; stage < 5; ++stage) {
+        for (int stage = 0; stage < 6; ++stage) {
             winCurrentBattle(app);
             app.proceedToCamp();
-            if (stage < 4) {
+            if (stage < 5) {
                 app.continueExpedition();
                 assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
             }
         }
         app.returnToBase();
         assert(app.advanceOutpostStage()); // -> PioneerOutpost
-        // 5 real victories (docs/implementation_roadmap.md M6-B: site 1/2/
-        // old_barracks now real, their baseVictoryLoot includes a small
-        // wood/hide top-up specifically to keep this total intact) bank
-        // exactly enough for
+        // 6 real victories (docs/implementation_roadmap.md M6-C: site 1/2/
+        // 3A/3B/5 now real, their baseVictoryLoot includes a small wood/hide
+        // top-up specifically to keep this total intact - last_signal, still
+        // a placeholder, carries the rest) bank exactly enough for
         // all 4 optional facilities (docs/base_development.md "初期4施設の
         // 確定表"): wood:10, hide:5, herb:2.
         assert(app.baseState().storageCount("wood") == 10);
@@ -890,6 +922,13 @@ int main() {
         winCurrentBattle(app);
         app.proceedToCamp();
         app.continueExpedition(); // both members resolved -> past the branch, into Camp II -> signal_tower
+        assert(app.screen() == jf::Screen::Exploration);
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(!app.expeditionComplete()); // last_signal (site 6) still unresolved
+
+        app.continueExpedition(); // -> last_signal
         assert(app.screen() == jf::Screen::Exploration);
         assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
         winCurrentBattle(app);
@@ -998,6 +1037,103 @@ int main() {
         assert(app.baseState().storageCount("iron") == 4);
         assert(app.baseState().discoveryRegistry.count(jf::kFieldMedicineDiscovery) == 0);
         assert(app.baseState().discoveryRegistry.count(jf::kHerbThicketDiscovery) == 1);
+    }
+
+    {
+        // docs/implementation_roadmap.md M6-C item2 / docs/regions/
+        // cinderwatch_gate.md「5. 信号塔下層」: primary is 2 OperateObject
+        // Objectives (副信号機・主信号機), replacing the default EliminateTeam
+        // member entirely (BattleFactory.cpp's assembleScenario()) - so
+        // defeating every enemy without operating both panels must NOT win.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(advanceToSignalTower(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+
+        for (jf::Unit& unit : app.battle().battle().units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+        // Resolve the round-2 axeman wave first (same shortcut as
+        // winCurrentBattle()) - hasPendingRequiredEnemyReinforcements()
+        // blocks Victory regardless of the primary objectives, and it's
+        // Scheduled from round 1 since this stage's reinforcement isn't
+        // choice-conditional.
+        if (app.battle().battle().hasPendingRequiredEnemyReinforcements()) {
+            app.battle().battle().beginEnemyPhase();
+            app.battle().battle().beginPlayerPhase();
+            app.battle().battle().beginEnemyPhase();
+            for (jf::Unit& unit : app.battle().battle().units())
+                if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+        }
+        auto actOnce = [&]() {
+            jf::Unit* actor = nullptr;
+            for (jf::Unit& unit : app.battle().battle().units()) {
+                if (unit.team == jf::Team::Player && unit.isAlive() && !unit.hasActed) {
+                    actor = &unit;
+                    break;
+                }
+            }
+            app.battle().selectUnit(*actor);
+            app.battle().selectMoveTile(actor->position);
+            app.battle().chooseWait();
+        };
+
+        jf::BattleObjectState* secondaryPanel = app.battle().battle().findObject("secondary_signal_panel_1");
+        assert(secondaryPanel != nullptr);
+        secondaryPanel->interactionCount = 1; // only ONE of the 2 panels operated
+        actOnce();
+        assert(app.battle().inputState() != jf::BattleInputState::Victory); // primary_signal_panel still unoperated
+
+        jf::BattleObjectState* primaryPanel = app.battle().battle().findObject("primary_signal_panel_1");
+        assert(primaryPanel != nullptr);
+        primaryPanel->interactionCount = 1;
+        actOnce();
+        assert(app.battle().inputState() == jf::BattleInputState::Victory); // both panels now operated
+
+        const jf::BattleMissionState& mission = app.battle().battle().missionState();
+        const auto group = std::find_if(mission.groups.begin(), mission.groups.end(),
+                                        [](const auto& g) { return g.id == "primary"; });
+        assert(group != mission.groups.end() && group->rule == jf::ObjectiveGroupRule::All);
+        assert(mission.progress.count("eliminate_enemies") == 0); // default primary member was removed, not widened
+
+        app.proceedToCamp();
+        assert(app.screen() == jf::Screen::Camp);
+        assert(app.baseState().discoveryRegistry.count(jf::kReturnSignalDiscovery) == 0); // not banked until return
+    }
+
+    {
+        // 軍旗保管箱を確保: same surveyObjectiveId/surveyTileCount(1)/
+        // surveyTileObjectDefinitionId pattern as 3A's supply crates, just a
+        // single tile this time. Also confirms the round-2 axeman
+        // reinforcement (docs' "制御盤1個目の操作後" trigger, approximated
+        // to a fixed round since no event-conditioned reinforcement trigger
+        // exists) actually spawns.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(advanceToSignalTower(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+
+        const jf::BattleMissionState& mission = app.battle().battle().missionState();
+        const auto group = std::find_if(mission.groups.begin(), mission.groups.end(), [](const auto& g) {
+            return g.id == "signal_tower_banner_chest";
+        });
+        assert(group != mission.groups.end() && group->rule == jf::ObjectiveGroupRule::Any);
+        int chestObjectiveCount = 0;
+        for (const jf::ObjectiveDefinition& def : mission.definitions) {
+            if (def.groupId == "signal_tower_banner_chest") {
+                ++chestObjectiveCount;
+                assert(def.kind == jf::ObjectiveKind::SecureTile);
+            }
+        }
+        assert(chestObjectiveCount == 1);
+        int chestObjectCount = 0;
+        for (const jf::BattleObjectState& object : app.battle().battle().objects())
+            if (object.definitionId == "banner_chest") ++chestObjectCount;
+        assert(chestObjectCount == 1);
+
+        assert(app.battle().battle().hasPendingRequiredEnemyReinforcements());
+        winCurrentBattle(app); // advances through the round-2 wave internally
+        assert(!app.battle().battle().hasPendingRequiredEnemyReinforcements());
+        assert(app.battle().inputState() == jf::BattleInputState::Victory);
     }
 
     {
@@ -4480,8 +4616,10 @@ int main() {
         jf::RegionDescriptor cinderwatch = jf::regionDescriptor(jf::RegionId::CinderwatchGate, *loaded);
         // docs/implementation_roadmap.md M6-A: site 1 (cinderwatch_outer_gate)
         // and site 2 (ashroad_watch) replaced the old placeholder stage 0,
-        // pushing ironwatch_stores/signal_tower to indices 2/3.
-        assert(cinderwatch.stages.size() == 5);
+        // pushing ironwatch_stores/signal_tower to indices 2/3. M6-C item2
+        // then split signal_tower (site 5, index 4, now real) from
+        // last_signal (site 6, index 5, still the boss placeholder).
+        assert(cinderwatch.stages.size() == 6);
         assert(cinderwatch.stages[0].id == "cinderwatch_outer_gate" && cinderwatch.stages[0].enemyRoster.size() == 4 &&
               !cinderwatch.stages[0].enemyCountOverride && cinderwatch.stages[0].scoutRouteDisabled);
         assert(cinderwatch.stages[1].id == "ashroad_watch" && cinderwatch.stages[1].primaryHoldTileAlternative &&
@@ -4495,9 +4633,20 @@ int main() {
               cinderwatch.stages[2].scoutRouteDisabled && cinderwatch.stages[2].surveyTileCount &&
               *cinderwatch.stages[2].surveyTileCount == 2 && cinderwatch.stages[2].routeDiscoveries.size() == 1);
         assert(cinderwatch.stages[3].id == "old_barracks" && cinderwatch.stages[3].enemyRoster.size() == 4);
-        assert(cinderwatch.stages[4].id == "signal_tower" && cinderwatch.stages[4].boostedFirstEnemy &&
-              cinderwatch.stages[4].boostedFirstEnemy->displayName == "Former Captain" &&
-              cinderwatch.stages[4].boostedFirstEnemy->maxHpBonus == 10);
+        // docs/implementation_roadmap.md M6-C item2: signal_tower (site 5)
+        // is real content now - its own roster (古参守備兵・監視弓兵2・槍兵2),
+        // 2 operable Device control panels (secondary_signal_panel_1/
+        // primary_signal_panel_1, each its own objectPlacementRules entry
+        // with operateObjectiveId set) replacing the default EliminateTeam
+        // primary, and a single-tile "軍旗保管箱確保" survey objective.
+        assert(cinderwatch.stages[4].id == "signal_tower" && cinderwatch.stages[4].enemyRoster.size() == 5 &&
+              cinderwatch.stages[4].objectPlacementRules.size() == 2 &&
+              cinderwatch.stages[4].objectPlacementRules[0].operateObjectiveId &&
+              cinderwatch.stages[4].objectPlacementRules[1].operateObjectiveId &&
+              cinderwatch.stages[4].surveyTileCount && *cinderwatch.stages[4].surveyTileCount == 1);
+        assert(cinderwatch.stages[5].id == "last_signal" && cinderwatch.stages[5].boostedFirstEnemy &&
+              cinderwatch.stages[5].boostedFirstEnemy->displayName == "Former Captain" &&
+              cinderwatch.stages[5].boostedFirstEnemy->maxHpBonus == 10);
 
         // docs/route_graph_data.md「分岐と合流」: J1{ironwatch_stores,
         // old_barracks} is a single BranchGroup node (AllMembers) between
