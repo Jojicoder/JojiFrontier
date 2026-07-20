@@ -250,8 +250,22 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
                     stage.routeVictoryLootDelta.emplace_back(*choice, readLootStacks(d.at("loot")));
                 }
             }
+            if (s.contains("routeDiscoveries")) {
+                for (const auto& d : s.at("routeDiscoveries")) {
+                    auto choice = explorationChoiceFromString(d.at("choice").get<std::string>());
+                    if (!choice) {
+                        std::cerr << "Stage " << stage.id << " has an unknown ExplorationChoice in routeDiscoveries"
+                                  << std::endl;
+                        return std::nullopt;
+                    }
+                    stage.routeDiscoveries.emplace_back(*choice, d.at("discoveries").get<std::vector<std::string>>());
+                }
+            }
             if (s.contains("surveyObjectiveId")) stage.surveyObjectiveId = s.at("surveyObjectiveId").get<std::string>();
             if (s.contains("surveyBonusLoot")) stage.surveyBonusLoot = readLootStacks(s.at("surveyBonusLoot"));
+            if (s.contains("surveyTileCount")) stage.surveyTileCount = s.at("surveyTileCount").get<int>();
+            if (s.contains("surveyTileObjectDefinitionId"))
+                stage.surveyTileObjectDefinitionId = s.at("surveyTileObjectDefinitionId").get<std::string>();
             if (s.contains("discoveries")) stage.discoveries = s.at("discoveries").get<std::vector<std::string>>();
             stage.missionNameEn = s.at("missionNameEn").get<std::string>();
             stage.missionNameJa = s.at("missionNameJa").get<std::string>();
@@ -373,6 +387,53 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
                 stage.primaryHoldTileAlternative = StageContentData::HoldTileMissionRuleData{
                     h.at("id").get<std::string>(), h.value("requiredHoldRounds", 2), h.value("zoneMinCol", 0),
                     h.value("zoneMaxCol", kGridCols - 1)};
+            }
+            if (stage.surveyTileCount) {
+                if (*stage.surveyTileCount < 1) {
+                    std::cerr << "Stage " << stage.id << " has a non-positive surveyTileCount" << std::endl;
+                    return std::nullopt;
+                }
+                if (!stage.surveyObjectiveId) {
+                    std::cerr << "Stage " << stage.id << " has surveyTileCount without surveyObjectiveId"
+                              << std::endl;
+                    return std::nullopt;
+                }
+                if (stage.herbPatchGeneration) {
+                    // BattleFactory.cpp's assembleScenario() prefers HerbPatch
+                    // tiles over surveyTileCount whenever both are set, so a
+                    // stage combining them would have surveyTileCount silently
+                    // ignored - reject the data instead of shipping a dead field.
+                    std::cerr << "Stage " << stage.id << " sets both surveyTileCount and herbPatchGeneration"
+                              << std::endl;
+                    return std::nullopt;
+                }
+            } else if (stage.surveyTileObjectDefinitionId) {
+                std::cerr << "Stage " << stage.id << " has surveyTileObjectDefinitionId without surveyTileCount"
+                          << std::endl;
+                return std::nullopt;
+            }
+            {
+                // Same-choice entries in routeOutcomes/routeVictoryLootDelta/
+                // routeDiscoveries would silently pick "whichever the loop
+                // sees last" (routeOutcomes) or double-apply (the two additive
+                // lists) rather than the author's intent - almost certainly a
+                // copy-paste mistake, so reject it outright.
+                auto hasDuplicateChoice = [](const auto& entries) {
+                    for (std::size_t i = 0; i < entries.size(); ++i) {
+                        for (std::size_t j = i + 1; j < entries.size(); ++j) {
+                            if (entries[i].first == entries[j].first) return true;
+                        }
+                    }
+                    return false;
+                };
+                if (hasDuplicateChoice(stage.routeOutcomes) || hasDuplicateChoice(stage.routeVictoryLootDelta) ||
+                    hasDuplicateChoice(stage.routeDiscoveries)) {
+                    std::cerr << "Stage " << stage.id
+                              << " has a duplicate ExplorationChoice in routeOutcomes/routeVictoryLootDelta/"
+                                 "routeDiscoveries"
+                              << std::endl;
+                    return std::nullopt;
+                }
             }
         } catch (const std::exception& e) {
             std::cerr << "Invalid stage in regions.json: " << e.what() << std::endl;

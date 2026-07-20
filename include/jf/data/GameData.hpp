@@ -73,8 +73,11 @@ struct StageContentData {
     std::vector<UnitTemplate> enemyRoster;
     std::vector<LootStack> baseVictoryLoot;
     std::vector<std::pair<ExplorationChoice, std::vector<LootStack>>> routeVictoryLootDelta;
+    std::vector<std::pair<ExplorationChoice, std::vector<DiscoveryId>>> routeDiscoveries;
     std::optional<std::string> surveyObjectiveId;
     std::vector<LootStack> surveyBonusLoot;
+    std::optional<int> surveyTileCount;
+    std::optional<std::string> surveyTileObjectDefinitionId;
     std::vector<DiscoveryId> discoveries;
     std::string missionNameEn;
     std::string missionNameJa;

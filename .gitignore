@@ -7,3 +7,4 @@ compile_commands.json
 .claude/
 joji_frontier_save.json
 joji_frontier_save.json.bak
+joji_frontier_save*.json

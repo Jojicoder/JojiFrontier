@@ -903,6 +903,104 @@ int main() {
     }
 
     {
+        // docs/implementation_roadmap.md M6-C item1 / docs/regions/
+        // cinderwatch_gate.md「3. アイアンウォッチ物資庫」: FrontalAdvance
+        // (医療区画を先に確保) keeps the full 4-unit roster and grants
+        // ironwatch_field_medicine_records.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(startCinderwatchExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // site 1
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition();
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // site 2
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> branch, ironwatch_stores first
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+
+        int enemyCount = 0;
+        for (const jf::Unit& unit : app.battle().battle().units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 4);
+
+        // docs/regions/cinderwatch_gate.md「3. アイアンウォッチ物資庫」's "物資箱
+        // 2個のうち1個以上を確保": 2 SecureTile objectives grouped Any under
+        // "ironwatch_stores_crates", one supply_crate Container marker per
+        // tile, and - unlike Herbwater Hollow's HerbPatch tiles - the tiles
+        // themselves must NOT have had their Terrain changed (a supply crate
+        // shouldn't heal a unit that ends its turn there).
+        const jf::BattleMissionState& mission = app.battle().battle().missionState();
+        const auto group = std::find_if(mission.groups.begin(), mission.groups.end(), [](const auto& g) {
+            return g.id == "ironwatch_stores_crates";
+        });
+        assert(group != mission.groups.end() && group->rule == jf::ObjectiveGroupRule::Any);
+        int crateObjectiveCount = 0;
+        std::vector<jf::GridPos> crateTiles;
+        for (const jf::ObjectiveDefinition& def : mission.definitions) {
+            if (def.groupId == "ironwatch_stores_crates") {
+                ++crateObjectiveCount;
+                assert(def.kind == jf::ObjectiveKind::SecureTile);
+                crateTiles.push_back(def.target.tile);
+            }
+        }
+        assert(crateObjectiveCount == 2);
+        for (const jf::GridPos& tile : crateTiles)
+            assert(app.battle().battle().terrainAt(tile) != jf::TerrainType::HerbPatch);
+        int crateObjectCount = 0;
+        for (const jf::BattleObjectState& object : app.battle().battle().objects())
+            if (object.definitionId == "supply_crate") ++crateObjectCount;
+        assert(crateObjectCount == 2);
+
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(app.baseState().discoveryRegistry.count(jf::kFieldMedicineDiscovery) == 0); // not registered yet
+    }
+
+    {
+        // 工具庫を先に確保 (CollapsedSidePath): drops the archer
+        // (enemiesRemoved on a roster with the archer listed last), adds 2
+        // stacked-crate obstacles (extraBarrierCount ->
+        // objectPlacementRules' scalesWithExtraBarrierOutcome), grants +1
+        // iron on top of the base victory loot, and does NOT grant
+        // ironwatch_field_medicine_records (route-gated to FrontalAdvance
+        // via the new routeDiscoveries field) - herb_thicket_grounds still
+        // does, unconditionally, since nothing else grants it.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(startCinderwatchExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // site 1
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition();
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // site 2
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> branch, ironwatch_stores first
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::CollapsedSidePath));
+
+        int enemyCount = 0;
+        int objectCount = 0;
+        for (const jf::Unit& unit : app.battle().battle().units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        for (const jf::BattleObjectState& object : app.battle().battle().objects())
+            if (object.definitionId == "stacked_crate") ++objectCount;
+        assert(enemyCount == 3);
+        assert(objectCount == 2);
+
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.returnToBase();
+        // Storage only commits pendingLoot on returnToBase(), so this totals
+        // site 1 (cinderwatch_outer_gate)'s iron:1 plus ironwatch_stores'
+        // own iron:2 (baseVictoryLoot) + iron:1 (routeVictoryLootDelta).
+        assert(app.baseState().storageCount("iron") == 4);
+        assert(app.baseState().discoveryRegistry.count(jf::kFieldMedicineDiscovery) == 0);
+        assert(app.baseState().discoveryRegistry.count(jf::kHerbThicketDiscovery) == 1);
+    }
+
+    {
         // Multi-material shortfall must not partially consume storage: when
         // one of several required materials is missing, unlockFacilityNode
         // fails and leaves every material stack exactly as it was.
@@ -4388,6 +4486,14 @@ int main() {
               !cinderwatch.stages[0].enemyCountOverride && cinderwatch.stages[0].scoutRouteDisabled);
         assert(cinderwatch.stages[1].id == "ashroad_watch" && cinderwatch.stages[1].primaryHoldTileAlternative &&
               cinderwatch.stages[1].primaryHoldTileAlternative->requiredHoldRounds == 2);
+        // docs/implementation_roadmap.md M6-C item1: ironwatch_stores (site
+        // 3A) is real content now - own roster (斧兵・槍兵2・弓兵, archer last
+        // so CollapsedSidePath's enemiesRemoved:1 drops it), disabled 3rd
+        // exploration choice (辺境工兵 isn't a real UnitClass yet), and a
+        // 2-tile "物資箱確保" survey objective via the new surveyTileCount.
+        assert(cinderwatch.stages[2].id == "ironwatch_stores" && cinderwatch.stages[2].enemyRoster.size() == 4 &&
+              cinderwatch.stages[2].scoutRouteDisabled && cinderwatch.stages[2].surveyTileCount &&
+              *cinderwatch.stages[2].surveyTileCount == 2 && cinderwatch.stages[2].routeDiscoveries.size() == 1);
         assert(cinderwatch.stages[3].id == "old_barracks" && cinderwatch.stages[3].enemyRoster.size() == 4);
         assert(cinderwatch.stages[4].id == "signal_tower" && cinderwatch.stages[4].boostedFirstEnemy &&
               cinderwatch.stages[4].boostedFirstEnemy->displayName == "Former Captain" &&

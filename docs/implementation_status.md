@@ -632,6 +632,16 @@
   変換していた挙動を修正。`BaseState.completedRegions`内の不明IDはSave全体を
   読込失敗にし(恒久データのため)、`ExpeditionCheckpoint.regionId`内の不明IDは
   その中断セーブだけを破棄する(中断セーブは再生成可能なため)
+- 沈黙した監視所群(M6-A/B/C項目1、`implementation_roadmap.md`詳細): 地点1
+  (シンダーウォッチ外門)・地点2(灰道の監視所)・地点3A(アイアンウォッチ物資庫)・
+  地点3B(旧兵舎)が実コンテンツ、`RouteGraph`による地点3A/3Bの分岐(`BranchGroup`/
+  `AllMembers`)・キャンプI/IIまで実装済み。地点3Aは専用地形・正本敵編成・探索2択
+  (弓兵除外+障害物2個/鉄材+1)・「物資箱2個のうち1個以上を確保」副目標
+  (`surveyTileCount`+`chooseSurveyTiles()`、地形を変更しない汎用N枚選択、
+  `supply_crate` Containerマーカー表示)まで実装。工作兵護衛・3つ目の探索選択・
+  状態条件付き増援・加入候補は未実装(controllable-NPCサブシステムと
+  `FrontierEngineer`クラス自体が存在しないため)。地点5/6(信号塔下層・最後の信号)は
+  引き続き旧プレースホルダー(`signal_tower`)のまま
 
 未実装:
 
@@ -642,8 +652,9 @@
   複数地点の順序制御と到達画面は実装済み
 - 灰角大猪の突進予告、薙ぎ払い、激昂、倒木衝突
 - `RegionProgress`による3地点合成の地域目標・Discovery管理
-- `campaign_route_graph.md`で62地点の接続は設計済み。実行時モデルは灰枝の森の直線経路のみ実装済みで、
-  他地域の分岐・合流・条件判定は未実装
+- `campaign_route_graph.md`で62地点の接続は設計済み。実行時モデルは灰枝の森の直線経路と、
+  沈黙した監視所群の地点3A/3B分岐(`RouteNodeKind::BranchGroup`、`AllMembers`、
+  順不同解決)のみ実装済みで、他地域の分岐・合流・Condition・Variant・旧ID Aliasは未実装
 - 正式仕様へ追加した、地域入口から連続する経路確保済み地点の一括通過、既知Campでの停止選択、
   地点別`reconLoot`（初回通常素材の50〜70%）は未実装。現行UIは地点ごとに安全通過を選ぶ
 - Pending加入候補、候補重複防止、安全帰還後の候補登録、集会所加入

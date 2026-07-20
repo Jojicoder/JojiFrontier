@@ -68,15 +68,34 @@ struct StageDescriptor {
     // per-route reward table). Empty for stages whose reward doesn't vary
     // by route - true today of all 3 existing Cinderwatch stages.
     std::vector<std::pair<ExplorationChoice, std::vector<LootStack>>> routeVictoryLootDelta;
+    // Same idea as routeVictoryLootDelta, for stage.discoveries
+    // (docs/regions/cinderwatch_gate.md "3. アイアンウォッチ物資庫"'s
+    // per-route records: 医療区画確保→野戦医療記録, 工具庫確保→野戦工作記録).
+    // Additive on top of the unconditional `discoveries` list, not a
+    // replacement - see computeStageDiscoveries().
+    std::vector<std::pair<ExplorationChoice, std::vector<DiscoveryId>>> routeDiscoveries;
     // If set, this stage has a SecureTile objective with this id; on
     // success, surveyBonusLoot is added on top of the route-adjusted total.
     // BattleFactory decides how many tiles/objectives to generate for it:
-    // one random tile in the enemy zone by default, or one per HerbPatch
-    // tile the stage's terrain generation placed (docs/regions/
-    // ashbough_forest.md "薬草の沢"'s 2-tile "薬草地点確保"), grouped as Any
-    // either way - see BattleFactory.cpp's assembleScenario().
+    // one per HerbPatch tile the stage's terrain generation placed
+    // (docs/regions/ashbough_forest.md "薬草の沢"'s 2-tile "薬草地点確保") if
+    // any were placed; otherwise `surveyTileCount` plain (no-terrain-change)
+    // tiles via chooseSurveyTiles() (docs/regions/cinderwatch_gate.md
+    // "3. アイアンウォッチ物資庫"'s 2-crate "物資箱確保" - HerbPatch's own
+    // healing-on-end-turn effect doesn't belong on a supply crate, so this
+    // path never touches Terrain), or a single such tile if
+    // `surveyTileCount` is unset - grouped as Any either way, see
+    // BattleFactory.cpp's assembleScenario().
     std::optional<std::string> surveyObjectiveId;
     std::vector<LootStack> surveyBonusLoot;
+    std::optional<int> surveyTileCount;
+    // If set alongside surveyTileCount, a non-blocking BattleObjectKind::
+    // Container is placed at each survey tile (docs/regions/
+    // cinderwatch_gate.md "3. アイアンウォッチ物資庫"'s "物資箱2個" - without
+    // this, the SecureTile targets are invisible, so a player can't tell
+    // which tile is "the crate"). Ignored when herbPatchGeneration supplied
+    // the tiles instead (already visibly marked by its own Terrain).
+    std::optional<std::string> surveyTileObjectDefinitionId;
 
     // docs/implementation_roadmap.md M1-E slice3 "薬草地点...はBattle Object/
     // Placement Ruleとして配置し、地点名で判定しない": generalizes what used
@@ -213,6 +232,14 @@ ExplorationOutcome stageRouteOutcome(const StageDescriptor& stage, ExplorationCh
 // zero-quantity stack.
 std::vector<LootStack> computeStageVictoryLoot(const StageDescriptor& stage, ExplorationChoice choice,
                                                bool surveyObjectiveSucceeded);
+
+// Same idea as computeStageVictoryLoot but for discoveries: the
+// unconditional `stage.discoveries` plus whichever `routeDiscoveries` entry
+// matches `choice` (docs/regions/cinderwatch_gate.md "3. アイアンウォッチ
+// 物資庫"). No dedup beyond what a std::vector naturally gives - discovery
+// ids are inserted into a set downstream (BaseState::discoveryRegistry), so
+// a duplicate here is harmless.
+std::vector<DiscoveryId> computeStageDiscoveries(const StageDescriptor& stage, ExplorationChoice choice);
 
 // Stable key for BaseState::siteAccess / save data: a site is identified by
 // which region it's in plus its StageDescriptor::id, since ids are only

@@ -384,6 +384,17 @@ void drawBoardTiles(const jf::BattleController& controller, const std::vector<jf
                                  {rect.x + rect.width * 0.35f, rect.y + rect.height - 14.0f},
                                  {rect.x + rect.width * 0.65f, rect.y + rect.height - 14.0f},
                                  Color{205, 82, 82, 190});
+                } else if (definition && definition->kind == jf::BattleObjectKind::Container) {
+                    // docs/regions/cinderwatch_gate.md「3. アイアンウォッチ物資庫」's
+                    // supply crates: a small crate-shaped rectangle (box +
+                    // lid seam) so a Container reads as distinct from the
+                    // Barrier's crossed planks and the Marker's plain ring.
+                    Rectangle box{rect.x + rect.width * 0.5f - 13.0f, rect.y + rect.height * 0.42f - 10.0f, 26.0f,
+                                  20.0f};
+                    DrawRectangleRec(box, Color{163, 118, 66, 235});
+                    DrawRectangleLinesEx(box, 2.0f, Color{88, 60, 30, 255});
+                    DrawLineEx({box.x, box.y + box.height * 0.5f}, {box.x + box.width, box.y + box.height * 0.5f},
+                               2.0f, Color{88, 60, 30, 255});
                 }
             }
 

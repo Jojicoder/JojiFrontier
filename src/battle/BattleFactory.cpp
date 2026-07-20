@@ -239,6 +239,44 @@ GridPos chooseSurveyTile(const BattleState& battle, std::uint32_t seed) {
     return candidates[pick(rng)];
 }
 
+// docs/regions/cinderwatch_gate.md「3. アイアンウォッチ物資庫」's 2-crate
+// "物資箱確保": same candidate pool and column zone as chooseSurveyTile(),
+// but returns up to `count` distinct tiles without changing Terrain -
+// unlike herbPatchGeneration's HerbPatch tiles, a supply crate isn't
+// supposed to heal a unit that ends its turn there. Shuffle-and-take rather
+// than chooseSurveyTile()'s repeated-pick approach so the same tile is
+// never returned twice. If the enemy-side zone happens to have zero
+// passable/unoccupied tiles (a heavy-Barrier TerrainProfile could do this),
+// falls back to the same board-wide search chooseHoldTile() uses for
+// WatchPost tiles, rather than blindly returning a fixed corner that could
+// itself be impassable or unit-occupied.
+std::vector<GridPos> chooseSurveyTiles(const BattleState& battle, std::uint32_t seed, int count) {
+    // !battle.objectAt(pos) matters here specifically because ironwatch_stores
+    // combines this with objectPlacementRules (stacked_crate obstacles) in
+    // the same [kRightZoneMinCol, kRightZoneMaxCol] zone - placeRandomObjects()
+    // already ran by the time this is called (BattleFactory.cpp's
+    // assembleScenario()), so without this check a survey tile could land on
+    // an already-placed blocksMovement Object.
+    auto passableCandidates = [&](int minCol, int maxCol) {
+        std::vector<GridPos> candidates;
+        for (int row = 0; row < kGridRows; ++row) {
+            for (int col = minCol; col <= maxCol; ++col) {
+                GridPos pos{row, col};
+                if (isPassable(battle.terrainAt(pos)) && !battle.unitAt(pos) && !battle.objectAt(pos))
+                    candidates.push_back(pos);
+            }
+        }
+        return candidates;
+    };
+    std::vector<GridPos> candidates = passableCandidates(kRightZoneMinCol, kRightZoneMaxCol);
+    if (candidates.empty()) candidates = passableCandidates(0, kGridCols - 1);
+    if (candidates.empty()) return {GridPos{0, kRightZoneMinCol}};
+    std::mt19937 rng(seed ^ 0xA5A5A5A5u);
+    std::shuffle(candidates.begin(), candidates.end(), rng);
+    if (static_cast<int>(candidates.size()) > count) candidates.resize(static_cast<std::size_t>(count));
+    return candidates;
+}
+
 // docs/regions/cinderwatch_gate.md「2. 灰道の監視所」's HoldTile target: a
 // WatchPost tile within [zoneMinCol, zoneMaxCol] ("中央の監視床"), unoccupied
 // at battle start. Terrain generation is probabilistic (TerrainProfile
@@ -368,14 +406,18 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
         // docs/regions/ashbough_forest.md "薬草の沢"'s common secondary is
         // satisfied by ending a turn on EITHER of the 2 HerbPatch tiles -
         // one SecureTile objective per tile, grouped Any under the stage's
-        // surveyObjectiveId. A stage with no HerbPatch tiles (e.g. 灰枝の
-        // 林縁) falls back to the original single-random-tile pick. Reusing
-        // the objective id as the group id is safe: objective ids and group
-        // ids are independent namespaces (see validateBattleMission()).
+        // surveyObjectiveId. A stage with no HerbPatch tiles falls back to
+        // `surveyTileCount` plain tiles via chooseSurveyTiles()
+        // (docs/regions/cinderwatch_gate.md "3. アイアンウォッチ物資庫"'s
+        // 2-crate "物資箱確保"), or the original single-random-tile pick
+        // (灰枝の林縁 etc.) if surveyTileCount is unset. Reusing the
+        // objective id as the group id is safe: objective ids and group ids
+        // are independent namespaces (see validateBattleMission()).
         battle.missionState().groups.push_back({*stage.surveyObjectiveId, ObjectiveGroupRule::Any});
-        std::vector<GridPos> surveyTiles = herbTiles.empty()
-                                               ? std::vector<GridPos>{chooseSurveyTile(battle, seed)}
-                                               : herbTiles;
+        std::vector<GridPos> surveyTiles =
+            !herbTiles.empty() ? herbTiles
+            : stage.surveyTileCount ? chooseSurveyTiles(battle, seed, *stage.surveyTileCount)
+                                     : std::vector<GridPos>{chooseSurveyTile(battle, seed)};
         for (std::size_t i = 0; i < surveyTiles.size(); ++i) {
             ObjectiveDefinition survey;
             survey.id = surveyTiles.size() == 1 ? *stage.surveyObjectiveId
@@ -387,6 +429,20 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
             survey.target.securingTeam = Team::Player;
             battle.missionState().definitions.push_back(survey);
             battle.missionState().progress[survey.id] = ObjectiveProgress{survey.id};
+        }
+        // docs/regions/cinderwatch_gate.md「3. アイアンウォッチ物資庫」's "物資箱
+        // 2個": herbTiles is already visibly marked by its own HerbPatch
+        // Terrain, but the plain chooseSurveyTiles()/chooseSurveyTile() tiles
+        // above are otherwise invisible - place a non-blocking Container
+        // marker on each so the player can see which tile is the target.
+        if (herbTiles.empty() && stage.surveyTileObjectDefinitionId) {
+            battle.registerObjectDefinition(
+                BattleObjectDefinition{*stage.surveyTileObjectDefinitionId, BattleObjectKind::Container});
+            for (std::size_t i = 0; i < surveyTiles.size(); ++i) {
+                battle.placeObject({*stage.surveyTileObjectDefinitionId + "_" + std::to_string(i + 1),
+                                    *stage.surveyTileObjectDefinitionId, surveyTiles[i], BattleObjectTeam::Neutral,
+                                    BattleObjectStateKind::Active, 0, 0});
+            }
         }
     }
 

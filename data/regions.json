@@ -163,14 +163,55 @@
     },
     {
       "id": "ironwatch_stores",
-      "terrainProfileId": "ash_road",
+      "terrainProfileId": "ironwatch_stores",
+      "enemyRoster": [
+        { "id": "ironwatch_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "ironwatch_spearman1", "name": "Spearman", "classId": "Spearman" },
+        { "id": "ironwatch_spearman2", "name": "Spearman", "classId": "Spearman" },
+        { "id": "ironwatch_archer1", "name": "Watch Archer", "classId": "WatchArcher" }
+      ],
       "baseVictoryLoot": [
         { "id": "field_medicine", "quantity": 1 },
         { "id": "watch_ledger", "quantity": 1 },
+        { "id": "iron", "quantity": 2 },
+        { "id": "old_gear", "quantity": 1 },
         { "id": "wood", "quantity": 3 },
         { "id": "herb", "quantity": 2 }
       ],
-      "discoveries": ["ironwatch_field_medicine_records", "herb_thicket_grounds"],
+      "routeVictoryLootDelta": [
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "iron", "quantity": 1 }] }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath", "enemiesRemoved": 1, "extraBarrierCount": 2 }
+      ],
+      "routeDiscoveries": [
+        { "choice": "FrontalAdvance", "discoveries": ["ironwatch_field_medicine_records"] }
+      ],
+      "discoveries": ["herb_thicket_grounds"],
+      "scoutRouteDisabled": true,
+      "objectPlacementRules": [
+        {
+          "definition": {
+            "definitionId": "stacked_crate",
+            "kind": "Barrier",
+            "blocksMovement": true,
+            "canBeAttacked": true,
+            "maxDurability": 12,
+            "defense": 2,
+            "resistance": 2
+          },
+          "idPrefix": "stacked_crate",
+          "count": 0,
+          "scalesWithExtraBarrierOutcome": true,
+          "zoneMinCol": 2,
+          "zoneMaxCol": 5,
+          "avoidFirstEnemyRow": true
+        }
+      ],
+      "surveyObjectiveId": "ironwatch_stores_crates",
+      "surveyTileCount": 2,
+      "surveyTileObjectDefinitionId": "supply_crate",
       "missionNameEn": "Ironwatch Stores",
       "missionNameJa": "アイアンウォッチ物資庫"
     },

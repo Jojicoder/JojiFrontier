@@ -88,7 +88,8 @@ void GameApp::proceedToCamp() {
     if (!isReconnaissanceRun_) {
         std::size_t stageIndex = static_cast<std::size_t>(expedition_.stageIndex);
         if (stageIndex < stageDiscoveryAwarded_.size() && !stageDiscoveryAwarded_[stageIndex]) {
-            for (const DiscoveryId& discovery : stage.discoveries) expedition_.pendingDiscoveries.push_back(discovery);
+            for (const DiscoveryId& discovery : computeStageDiscoveries(stage, lastExplorationChoice_))
+                expedition_.pendingDiscoveries.push_back(discovery);
             stageDiscoveryAwarded_[stageIndex] = true;
         }
         SiteAccessState achieved = surveySucceeded ? SiteAccessState::Secured : SiteAccessState::Surveyed;

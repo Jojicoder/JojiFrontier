@@ -62,6 +62,21 @@
       "ensureHorizontalRoute": true
     },
     {
+      "id": "ironwatch_stores",
+      "generationVersion": 1,
+      "seedSalt": 11,
+      "weights": [
+        { "terrain": "Rubble", "weight": 24 },
+        { "terrain": "Barrier", "weight": 10 },
+        { "terrain": "Ash", "weight": 8 },
+        { "terrain": "WatchPost", "weight": 4 },
+        { "terrain": "Floor", "weight": 54 }
+      ],
+      "signatureTerrain": "Rubble",
+      "maxBarriersPerColumn": 1,
+      "ensureHorizontalRoute": true
+    },
+    {
       "id": "ash_road",
       "generationVersion": 1,
       "seedSalt": 1,
