@@ -246,71 +246,10 @@ bool GameApp::advanceRouteToNextSite() {
 
 bool GameApp::returnToBase() {
     if (screen_ != Screen::Camp) return false;
-
-    // docs/inventory_overflow.md「帰還処理」: compute what fits before
-    // mutating anything, so a 200-Stack ceiling breach (checked below) leaves
-    // storage/overflow untouched rather than partially applied.
-    std::unordered_map<LootId, int> materialAdds;
-    for (const LootStack& loot : expedition_.pendingLoot) materialAdds[loot.id] += loot.quantity;
-
-    std::unordered_map<LootId, int> fitPlan;
-    std::vector<std::pair<LootId, int>> overflowPlan;
-    for (const auto& [id, quantity] : materialAdds) {
-        const bool isKeyMaterial = baseState_.materialStorageCap(id) == BaseState::kKeyMaterialStorageCap;
-        const int cap = baseState_.materialStorageCap(id);
-        const int current = baseState_.storageCount(id);
-        const int room = std::max(0, cap - current);
-        const int fits = std::min(room, quantity);
-        if (fits > 0) fitPlan[id] = fits;
-        // docs/inventory_overflow.md「保留中のキー素材...は存在させない。これらは
-        // 重複除去して直接恒久化する」: a key material's excess beyond its
-        // 1-cap is deduplicated away here, never queued as overflow.
-        if (!isKeyMaterial) {
-            const int overflow = quantity - fits;
-            if (overflow > 0) overflowPlan.push_back({id, overflow});
-        }
-    }
-
-    // Unused expedition items are already owned by the player, but they still
-    // need the same capacity-safe commit as newly secured materials. This also
-    // makes imported/older saves safe when their storage and bag totals exceed
-    // the current per-item cap.
-    std::unordered_map<ItemType, int> returnedItems;
-    for (ItemType item : expedition_.bag) ++returnedItems[item];
-    std::unordered_map<ItemType, int> itemFitPlan;
-    for (const auto& [item, quantity] : returnedItems) {
-        const int room = std::max(0, BaseState::kItemStorageCap - baseState_.ownedItemCount(item));
-        const int fits = std::min(room, quantity);
-        if (fits > 0) itemFitPlan[item] = fits;
-        const int overflow = quantity - fits;
-        if (overflow > 0)
-            overflowPlan.push_back({"item:" + std::to_string(static_cast<int>(item)), overflow});
-    }
-
-    if (baseState_.rewardOverflow.stacks.size() + overflowPlan.size() > RewardOverflowState::kMaxStacks)
-        return false;
-
+    ReturnToBaseResult result = applyExpeditionReturnToBase(expedition_, baseState_, returnGrantSequence_);
+    if (!result.success) return false;
     justSecuredLoot_ = true;
-    lastSecuredLoot_.clear();
-    for (const LootStack& loot : expedition_.pendingLoot) lastSecuredLoot_.push_back(loot.id);
-    for (const auto& [id, quantity] : fitPlan) baseState_.addStorage(id, quantity);
-    for (const auto& [item, quantity] : itemFitPlan) baseState_.addItemStorage(item, quantity);
-    if (!overflowPlan.empty()) {
-        const std::string grantId = "return-" + std::to_string(++returnGrantSequence_);
-        for (const auto& [id, quantity] : overflowPlan)
-            baseState_.rewardOverflow.stacks.push_back({grantId, id, quantity});
-    }
-
-    for (const DiscoveryId& discovery : expedition_.pendingDiscoveries)
-        baseState_.discoveryRegistry.insert(discovery);
-    for (const auto& [key, achieved] : expedition_.pendingSiteAccessUpdates) {
-        auto it = baseState_.siteAccess.find(key);
-        if (it == baseState_.siteAccess.end() || it->second < achieved) baseState_.siteAccess[key] = achieved;
-    }
-    for (RegionId regionId : expedition_.pendingRegionCompletions) baseState_.completedRegionIds.insert(regionId);
-    // The bag has been committed above; resetToBase() must not return it a
-    // second time.
-    expedition_.bag.clear();
+    lastSecuredLoot_ = std::move(result.securedLootIds);
     resetToBase();
     justSecuredLoot_ = true;
     markPersistentStateChanged();
@@ -489,22 +428,7 @@ bool GameApp::chooseReconnaissance() {
 
 int GameApp::bulkPassSecuredSites() {
     if (screen_ != Screen::Exploration || !expedition_.routeProgress) return 0;
-
-    int passed = 0;
-    // Mirrors continueExpedition()'s own guard ("don't advance once the
-    // expedition is already complete"): stop the instant the site just
-    // marked resolved is the last one before the Exit, WITHOUT calling
-    // advanceRouteToNextSite() - that call would move currentNodeId to the
-    // Exit node itself, which breaks expeditionComplete()'s invariant that
-    // currentNodeId always names the last *resolved Site*, not the Exit.
-    while (currentStage().contentImplemented && currentSiteAccess() == SiteAccessState::Secured) {
-        expedition_.routeProgress->resolvedNodeIds.insert(expedition_.routeProgress->currentNodeId);
-        expedition_.routeProgress->safelyPassedNodeIds.insert(expedition_.routeProgress->currentNodeId);
-        expedition_.battlesWon += 1;
-        ++passed;
-        if (expeditionComplete()) break;
-        if (!advanceRouteToNextSite()) break; // defensive: shouldn't happen given the check above
-    }
+    int passed = bulkAdvanceSecuredSites(expedition_, baseState_, data_);
     if (passed == 0) return 0;
 
     // Same "no battle fought, just need a party-state container for the
@@ -968,23 +892,9 @@ void GameApp::resetToBase() {
 }
 
 void GameApp::updateExpeditionCheckpoint(ExpeditionCheckpoint::Stage stage) {
-    ExpeditionCheckpoint checkpoint;
-    checkpoint.stage = stage;
-    checkpoint.regionId = expedition_.regionId;
-    checkpoint.expeditionStage = expedition_.stageIndex;
-    checkpoint.seed = expeditionSeed_;
-    checkpoint.pendingLoot = expedition_.pendingLoot;
-    checkpoint.pendingDiscoveries = expedition_.pendingDiscoveries;
-    checkpoint.bag = expedition_.bag;
-    checkpoint.battlesWon = expedition_.battlesWon;
-    checkpoint.routeProgress = expedition_.routeProgress;
-    checkpoint.stageDiscoveryAwarded = stageDiscoveryAwarded_;
-    checkpoint.pendingSiteAccessUpdates = expedition_.pendingSiteAccessUpdates;
-    checkpoint.pendingRegionCompletions = expedition_.pendingRegionCompletions;
     if (stage == ExpeditionCheckpoint::Stage::Camp) syncPartySnapshotFromBattle();
-    for (const Unit& unit : expeditionPartyUnits_)
-        checkpoint.partyUnits.push_back({unit.id, unit.currentHp});
-    expeditionCheckpoint_ = std::move(checkpoint);
+    expeditionCheckpoint_ =
+        buildExpeditionCheckpoint(stage, expedition_, expeditionSeed_, stageDiscoveryAwarded_, expeditionPartyUnits_);
     ++expeditionRevision_;
 }
 

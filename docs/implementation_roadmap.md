@@ -1497,6 +1497,26 @@ M6以降のSlice運用:
   太くなりつつある。M6後半〜M8で関連処理を増やす時は、必要になった範囲から
   `ExpeditionService`、`RewardService`、`FacilityService`、`RosterService`相当へ
   小さく切り出す
+  - **`ExpeditionService`着手済み(2026-07、2Slice)**: `jf/core/ExpeditionService.hpp`/
+    `.cpp`。この既存コードベースの流儀(`Region.hpp`の`computeStageVictoryLoot()`、
+    `RouteGraph.hpp`の`findRouteNode()`)に合わせ、ステートフルな"Service"クラスでは
+    なく自由関数群として実装。第1弾は`BattleController`/`Screen`に一切触れない
+    純粋な状態照会ロジック(`computeCurrentStage`/`computeExpeditionComplete`/
+    `advanceExpeditionRouteToNextSite`等10個)、第2弾は`returnToBase()`の帰還処理・
+    `updateExpeditionCheckpoint()`のスナップショット組み立て・
+    `bulkPassSecuredSites()`のRoute前進ループを追加抽出した
+    (`applyExpeditionReturnToBase`/`buildExpeditionCheckpoint`/
+    `bulkAdvanceSecuredSites`)。`GameApp`の公開APIは一切変更していない
+    (既存テスト・UIは無修正でそのまま通る純粋リファクタ)
+  - **意図的に対象外としたもの**: `chooseExplorationRoute`/`continueExpedition`/
+    `chooseSafePassage`/`chooseReconnaissance`/`confirmDeployment`/
+    `placeDeploymentUnit`関連/`resetToBase`/`startExpedition`/`acknowledgeDefeat`/
+    `retireExpedition`は、`battleController_`の構築・差し替えと`screen_`遷移
+    (PreBattleDeploymentの5メンバ変数も含む)がロジックの大半を占め、これ以上
+    切り離すと`battleController_`/`screen_`を大量の可変参照として自由関数へ渡す
+    だけになり、結合度が下がらず見通し改善にならないと判断して見送った。これらは
+    「遠征状態」ではなく「アプリの戦闘セッション/画面フローそのもの」であり、
+    `GameApp`が引き続き責務を持つのが妥当
 - UIは画面ファイル単位には分かれているが、各画面内の一時状態(`gSettingsOpen`、
   `gVisitedFacility`など)がグローバルに増えている。画面が増える段階でScreen State構造体へ
   まとめる

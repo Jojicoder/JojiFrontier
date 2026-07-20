@@ -1,6 +1,7 @@
 #include "jf/core/ExpeditionService.hpp"
 
 #include <algorithm>
+#include <unordered_map>
 
 namespace jf {
 
@@ -190,6 +191,116 @@ bool computeWouldRegionBeCleared(RegionId regionId, const ExpeditionState& exped
         if (state < SiteAccessState::Surveyed) return false;
     }
     return true;
+}
+
+ReturnToBaseResult applyExpeditionReturnToBase(ExpeditionState& expedition, BaseState& baseState,
+                                               std::uint64_t& returnGrantSequence) {
+    // docs/inventory_overflow.md「帰還処理」: compute what fits before
+    // mutating anything, so a 200-Stack ceiling breach (checked below) leaves
+    // storage/overflow untouched rather than partially applied.
+    std::unordered_map<LootId, int> materialAdds;
+    for (const LootStack& loot : expedition.pendingLoot) materialAdds[loot.id] += loot.quantity;
+
+    std::unordered_map<LootId, int> fitPlan;
+    std::vector<std::pair<LootId, int>> overflowPlan;
+    for (const auto& [id, quantity] : materialAdds) {
+        const bool isKeyMaterial = baseState.materialStorageCap(id) == BaseState::kKeyMaterialStorageCap;
+        const int cap = baseState.materialStorageCap(id);
+        const int current = baseState.storageCount(id);
+        const int room = std::max(0, cap - current);
+        const int fits = std::min(room, quantity);
+        if (fits > 0) fitPlan[id] = fits;
+        // docs/inventory_overflow.md「保留中のキー素材...は存在させない。これらは
+        // 重複除去して直接恒久化する」: a key material's excess beyond its
+        // 1-cap is deduplicated away here, never queued as overflow.
+        if (!isKeyMaterial) {
+            const int overflow = quantity - fits;
+            if (overflow > 0) overflowPlan.push_back({id, overflow});
+        }
+    }
+
+    // Unused expedition items are already owned by the player, but they still
+    // need the same capacity-safe commit as newly secured materials. This also
+    // makes imported/older saves safe when their storage and bag totals exceed
+    // the current per-item cap.
+    std::unordered_map<ItemType, int> returnedItems;
+    for (ItemType item : expedition.bag) ++returnedItems[item];
+    std::unordered_map<ItemType, int> itemFitPlan;
+    for (const auto& [item, quantity] : returnedItems) {
+        const int room = std::max(0, BaseState::kItemStorageCap - baseState.ownedItemCount(item));
+        const int fits = std::min(room, quantity);
+        if (fits > 0) itemFitPlan[item] = fits;
+        const int overflow = quantity - fits;
+        if (overflow > 0)
+            overflowPlan.push_back({"item:" + std::to_string(static_cast<int>(item)), overflow});
+    }
+
+    if (baseState.rewardOverflow.stacks.size() + overflowPlan.size() > RewardOverflowState::kMaxStacks)
+        return {};
+
+    ReturnToBaseResult result;
+    result.success = true;
+    for (const LootStack& loot : expedition.pendingLoot) result.securedLootIds.push_back(loot.id);
+    for (const auto& [id, quantity] : fitPlan) baseState.addStorage(id, quantity);
+    for (const auto& [item, quantity] : itemFitPlan) baseState.addItemStorage(item, quantity);
+    if (!overflowPlan.empty()) {
+        const std::string grantId = "return-" + std::to_string(++returnGrantSequence);
+        for (const auto& [id, quantity] : overflowPlan)
+            baseState.rewardOverflow.stacks.push_back({grantId, id, quantity});
+    }
+
+    for (const DiscoveryId& discovery : expedition.pendingDiscoveries) baseState.discoveryRegistry.insert(discovery);
+    for (const auto& [key, achieved] : expedition.pendingSiteAccessUpdates) {
+        auto it = baseState.siteAccess.find(key);
+        if (it == baseState.siteAccess.end() || it->second < achieved) baseState.siteAccess[key] = achieved;
+    }
+    for (RegionId regionId : expedition.pendingRegionCompletions) baseState.completedRegionIds.insert(regionId);
+    // The bag has been committed above; GameApp::resetToBase() must not
+    // return it a second time.
+    expedition.bag.clear();
+    return result;
+}
+
+ExpeditionCheckpoint buildExpeditionCheckpoint(ExpeditionCheckpoint::Stage stage, const ExpeditionState& expedition,
+                                               std::uint32_t seed, const std::vector<bool>& stageDiscoveryAwarded,
+                                               const std::vector<Unit>& partyUnits) {
+    ExpeditionCheckpoint checkpoint;
+    checkpoint.stage = stage;
+    checkpoint.regionId = expedition.regionId;
+    checkpoint.expeditionStage = expedition.stageIndex;
+    checkpoint.seed = seed;
+    checkpoint.pendingLoot = expedition.pendingLoot;
+    checkpoint.pendingDiscoveries = expedition.pendingDiscoveries;
+    checkpoint.bag = expedition.bag;
+    checkpoint.battlesWon = expedition.battlesWon;
+    checkpoint.routeProgress = expedition.routeProgress;
+    checkpoint.stageDiscoveryAwarded = stageDiscoveryAwarded;
+    checkpoint.pendingSiteAccessUpdates = expedition.pendingSiteAccessUpdates;
+    checkpoint.pendingRegionCompletions = expedition.pendingRegionCompletions;
+    for (const Unit& unit : partyUnits) checkpoint.partyUnits.push_back({unit.id, unit.currentHp});
+    return checkpoint;
+}
+
+int bulkAdvanceSecuredSites(ExpeditionState& expedition, const BaseState& baseState, const GameData& data) {
+    if (!expedition.routeProgress) return 0;
+    int passed = 0;
+    // Mirrors continueExpedition()'s own guard ("don't advance once the
+    // expedition is already complete"): stop the instant the site just
+    // marked resolved is the last one before the Exit, WITHOUT calling
+    // advanceExpeditionRouteToNextSite() - that call would move
+    // currentNodeId to the Exit node itself, which breaks
+    // computeExpeditionComplete()'s invariant that currentNodeId always
+    // names the last *resolved Site*, not the Exit.
+    while (computeCurrentStage(expedition, data).contentImplemented &&
+          computeCurrentSiteAccess(expedition, baseState, data) == SiteAccessState::Secured) {
+        expedition.routeProgress->resolvedNodeIds.insert(expedition.routeProgress->currentNodeId);
+        expedition.routeProgress->safelyPassedNodeIds.insert(expedition.routeProgress->currentNodeId);
+        expedition.battlesWon += 1;
+        ++passed;
+        if (computeExpeditionComplete(expedition, data)) break;
+        if (!advanceExpeditionRouteToNextSite(expedition, baseState, data)) break; // defensive: shouldn't happen
+    }
+    return passed;
 }
 
 } // namespace jf
