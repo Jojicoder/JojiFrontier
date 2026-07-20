@@ -308,9 +308,9 @@ void loadAppFont() {
     for (const jf::ItemDefinition& item : jf::kItemCatalog)
         charsetSource += itemFullNameFor(item.type) + itemDescriptionFor(item.type);
     for (const char* id : {"wood", "hide", "herb", "gate_tools", "ash_road_map", "field_medicine",
-                           "watch_ledger", "signal_lens", "captains_seal", jf::kAshveilFangMaterial,
+                           "watch_ledger", "captains_seal", jf::kAshveilFangMaterial,
                            jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment", "iron", "stone",
-                           "old_gear"})
+                           "old_gear", "signal_core", "quality_iron"})
         charsetSource += materialNameFor(id);
     for (const char* weaponId : {"wolf_bite", "boar_tusks"}) charsetSource += weaponNameFor(weaponId, "");
     gLanguage = previousLanguage;
@@ -478,9 +478,9 @@ std::string unitDisplayNameFor(const std::string& englishName) {
 
 std::string materialNameFor(const std::string& id) {
     static const std::unordered_set<std::string> known = {
-        "wood", "hide", "herb", "gate_tools", "ash_road_map", "field_medicine", "watch_ledger", "signal_lens",
+        "wood", "hide", "herb", "gate_tools", "ash_road_map", "field_medicine", "watch_ledger",
         "captains_seal", jf::kAshveilFangMaterial, jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment",
-        "iron", "stone", "old_gear",
+        "iron", "stone", "old_gear", "signal_core", "quality_iron",
     };
     return known.count(id) ? tr("material." + id) : id;
 }

@@ -632,21 +632,29 @@
   変換していた挙動を修正。`BaseState.completedRegions`内の不明IDはSave全体を
   読込失敗にし(恒久データのため)、`ExpeditionCheckpoint.regionId`内の不明IDは
   その中断セーブだけを破棄する(中断セーブは再生成可能なため)
-- 沈黙した監視所群(M6-A/B/C項目1・2、`implementation_roadmap.md`詳細): 地点1
-  (シンダーウォッチ外門)・地点2(灰道の監視所)・地点3A(アイアンウォッチ物資庫)・
-  地点3B(旧兵舎)・地点5(信号塔下層)が実コンテンツ、`RouteGraph`による地点3A/3Bの
-  分岐(`BranchGroup`/`AllMembers`)・キャンプI/IIまで実装済み。地点3Aは専用地形・
-  正本敵編成・探索2択(弓兵除外+障害物2個/鉄材+1)・「物資箱2個のうち1個以上を確保」
-  副目標(`surveyTileCount`+`chooseSurveyTiles()`、地形を変更しない汎用N枚選択、
-  `supply_crate` Containerマーカー表示)まで実装。工作兵護衛・3つ目の探索選択・
-  状態条件付き増援・加入候補は未実装(controllable-NPCサブシステムと
-  `FrontierEngineer`クラス自体が存在しないため)。地点5は専用の2操作可能Device
-  (副信号機・主信号機、JSON側で`interaction`を宣言する経路を新設)がprimary目的
-  そのもの(デフォルトのEliminateTeamメンバーを置き換え、`validateBattleMission()`
-  の「primaryグループはちょうど1つ」制約に対応)、軍旗保管箱の副目標、ラウンド2
-  固定近似の増援まで実装。6ラウンド制限・3つ目の探索選択・軍旗記録discoveryは
-  未実装(ラウンド超過での敗北条件がコード上どこにも存在しないため)。地点6
-  (最後の信号)は`last_signal`という新プレースホルダーへ切り出し済みで、次Sliceの担当
+- 沈黙した監視所群(M6-A/B/C項目1・2・3、`implementation_roadmap.md`詳細):
+  全6地点(地点1シンダーウォッチ外門・地点2灰道の監視所・地点3Aアイアンウォッチ
+  物資庫・地点3B旧兵舎・地点5信号塔下層・地点6最後の信号)が実コンテンツ、
+  `RouteGraph`による地点3A/3Bの分岐(`BranchGroup`/`AllMembers`)・キャンプI/II
+  まで実装済み。地点3Aは専用地形・正本敵編成・探索2択(弓兵除外+障害物2個/鉄材+1)・
+  「物資箱2個のうち1個以上を確保」副目標(`surveyTileCount`+`chooseSurveyTiles()`、
+  地形を変更しない汎用N枚選択、`supply_crate` Containerマーカー表示)まで実装。
+  工作兵護衛・3つ目の探索選択・状態条件付き増援・加入候補は未実装
+  (controllable-NPCサブシステムと`FrontierEngineer`クラス自体が存在しないため)。
+  地点5は専用の2操作可能Device(副信号機・主信号機、JSON側で`interaction`を宣言する
+  経路を新設)がprimary目的そのもの(デフォルトのEliminateTeamメンバーを置き換え、
+  `validateBattleMission()`の「primaryグループはちょうど1つ」制約に対応)、
+  軍旗保管箱の副目標、ラウンド2固定近似の増援まで実装。6ラウンド制限・3つ目の
+  探索選択・軍旗記録discoveryは未実装(ラウンド超過での敗北条件がコード上どこにも
+  存在しないため)。地点6(元守備隊長ボス)は`MarchCaptain`+`boostedFirstEnemy`
+  (新設`strengthBonus`含む)、`ObjectiveKind::DefeatUnit`をJSON側でスキーマ化した
+  `primaryDefeatUnitId`(同じくEliminateTeam置き換え方式)、既存
+  `noCasualtiesBonusLoot`を再利用した「味方戦闘不能者0」副目標、実在クラス
+  (`MarchCaptain`)ゆえ無効化しなかった`[行軍隊長]`探索選択まで実装。地域完了
+  (`completedRegionIds`追加)は既存の`wouldRegionBeCleared()`汎用機構がそのまま
+  機能し、地点6実装だけで自然に達成された。ボス固有行動3種(射線命令・防衛隊形・
+  信号封鎖)・主信号機の耐久/破壊敗北条件・「元守備兵2人以上撤退」副目標・
+  軍旗記録discovery・地域の最低保証報酬(取り逃し分の最終地点回収)は未実装
 
 未実装:
 

@@ -51,7 +51,7 @@ StageDescriptor stageDescriptorFromContent(const StageContentData& content) {
     if (content.boostedFirstEnemy) {
         stage.boostedFirstEnemy = StageDescriptor::BoostedEnemy{
             content.boostedFirstEnemy->displayName, content.boostedFirstEnemy->maxHpBonus,
-            content.boostedFirstEnemy->defenseBonus};
+            content.boostedFirstEnemy->defenseBonus, content.boostedFirstEnemy->strengthBonus};
     }
     stage.understaffedReinforcement = content.understaffedReinforcement;
     stage.understaffedThreshold = content.understaffedThreshold;
@@ -62,6 +62,7 @@ StageDescriptor stageDescriptorFromContent(const StageContentData& content) {
         stage.primaryHoldTileAlternative =
             StageDescriptor::HoldTileMissionRule{r.id, r.requiredHoldRounds, r.zoneMinCol, r.zoneMaxCol};
     }
+    stage.primaryDefeatUnitId = content.primaryDefeatUnitId;
     return stage;
 }
 

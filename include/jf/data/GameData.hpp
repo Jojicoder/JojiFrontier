@@ -118,6 +118,7 @@ struct StageContentData {
         std::string displayName;
         int maxHpBonus = 0;
         int defenseBonus = 0;
+        int strengthBonus = 0;
     };
     std::optional<BoostedEnemyData> boostedFirstEnemy;
     std::optional<UnitTemplate> understaffedReinforcement;
@@ -133,6 +134,7 @@ struct StageContentData {
         int zoneMaxCol = kGridCols - 1;
     };
     std::optional<HoldTileMissionRuleData> primaryHoldTileAlternative;
+    std::optional<std::string> primaryDefeatUnitId;
 };
 
 struct GameData {

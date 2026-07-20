@@ -78,7 +78,6 @@
   "material.ash_road_map": "灰街道の地図",
   "material.field_medicine": "野戦医療資材",
   "material.watch_ledger": "監視所の台帳",
-  "material.signal_lens": "信号レンズ",
   "material.captains_seal": "隊長の印章",
   "material.ashveil_fang": "灰霧の大牙",
   "material.ashenhorn_fang": "灰角の大牙",
@@ -87,6 +86,8 @@
   "material.iron": "鉄材",
   "material.stone": "石材",
   "material.old_gear": "旧軍備",
+  "material.signal_core": "信号機の中核部品",
+  "material.quality_iron": "高品質鉄材",
 
   "weapon.iron_sword": "鉄の剣",
   "weapon.iron_lance": "鉄のランス",

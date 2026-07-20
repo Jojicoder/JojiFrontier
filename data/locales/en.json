@@ -78,7 +78,6 @@
   "material.ash_road_map": "Ash Road Map",
   "material.field_medicine": "Field Medicine",
   "material.watch_ledger": "Watch Ledger",
-  "material.signal_lens": "Signal Lens",
   "material.captains_seal": "Captain's Seal",
   "material.ashveil_fang": "Ashveil Fang",
   "material.ashenhorn_fang": "Ashenhorn Fang",
@@ -87,6 +86,8 @@
   "material.iron": "Iron",
   "material.stone": "Stone",
   "material.old_gear": "Old Gear",
+  "material.signal_core": "Signal Core Component",
+  "material.quality_iron": "Quality Iron",
 
   "weapon.iron_sword": "Iron Sword",
   "weapon.iron_lance": "Iron Lance",

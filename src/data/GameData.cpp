@@ -1,5 +1,6 @@
 #include "jf/data/GameData.hpp"
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 
@@ -423,7 +424,8 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
             if (s.contains("boostedFirstEnemy")) {
                 const auto& b = s.at("boostedFirstEnemy");
                 stage.boostedFirstEnemy = StageContentData::BoostedEnemyData{
-                    b.at("displayName").get<std::string>(), b.value("maxHpBonus", 0), b.value("defenseBonus", 0)};
+                    b.at("displayName").get<std::string>(), b.value("maxHpBonus", 0), b.value("defenseBonus", 0),
+                    b.value("strengthBonus", 0)};
             }
             if (s.contains("understaffedReinforcement")) {
                 const auto& u = s.at("understaffedReinforcement");
@@ -446,6 +448,17 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
                 stage.primaryHoldTileAlternative = StageContentData::HoldTileMissionRuleData{
                     h.at("id").get<std::string>(), h.value("requiredHoldRounds", 2), h.value("zoneMinCol", 0),
                     h.value("zoneMaxCol", kGridCols - 1)};
+            }
+            if (s.contains("primaryDefeatUnitId")) {
+                stage.primaryDefeatUnitId = s.at("primaryDefeatUnitId").get<std::string>();
+                bool foundInRoster =
+                    std::any_of(stage.enemyRoster.begin(), stage.enemyRoster.end(),
+                               [&](const UnitTemplate& unit) { return unit.id == *stage.primaryDefeatUnitId; });
+                if (!foundInRoster) {
+                    std::cerr << "Stage " << stage.id << " has primaryDefeatUnitId referencing an unknown enemyRoster id"
+                              << std::endl;
+                    return std::nullopt;
+                }
             }
             if (stage.surveyTileCount) {
                 if (*stage.surveyTileCount < 1) {

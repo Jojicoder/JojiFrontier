@@ -301,13 +301,47 @@
     {
       "id": "last_signal",
       "terrainProfileId": "signal_tower",
-      "boostedFirstEnemy": { "displayName": "Former Captain", "maxHpBonus": 10, "defenseBonus": 2 },
+      "enemyRoster": [
+        { "id": "last_signal_boss1", "name": "Former Captain", "classId": "MarchCaptain" },
+        { "id": "last_signal_veteran1", "name": "Veteran Guard", "classId": "VeteranGuard" },
+        { "id": "last_signal_archer1", "name": "Watch Archer", "classId": "WatchArcher" },
+        { "id": "last_signal_archer2", "name": "Watch Archer", "classId": "WatchArcher" },
+        { "id": "last_signal_spearman1", "name": "Spearman", "classId": "Spearman" }
+      ],
+      "boostedFirstEnemy": { "displayName": "Former Captain", "maxHpBonus": 10, "defenseBonus": 2, "strengthBonus": 2 },
+      "primaryDefeatUnitId": "last_signal_boss1",
       "baseVictoryLoot": [
+        { "id": "iron", "quantity": 2 },
+        { "id": "old_gear", "quantity": 2 },
+        { "id": "signal_core", "quantity": 1 },
         { "id": "captains_seal", "quantity": 1 },
         { "id": "ashveil_fang", "quantity": 1 },
         { "id": "wood", "quantity": 3 },
         { "id": "hide", "quantity": 3 }
       ],
+      "routeVictoryLootDelta": [
+        { "choice": "ScoutRoute", "loot": [{ "id": "old_gear", "quantity": 1 }] }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance", "enableReinforcementWave": true },
+        { "choice": "CollapsedSidePath", "enableReinforcementWave": false },
+        { "choice": "ScoutRoute", "enableReinforcementWave": true }
+      ],
+      "scoutRouteRequiredClass": "MarchCaptain",
+      "timedReinforcement": {
+        "id": "last_signal_axeman",
+        "spawnRound": 3,
+        "spawnPhase": "EnemyPhase",
+        "announceRoundsBefore": 1,
+        "requiredForElimination": true,
+        "units": [{ "id": "last_signal_reinforcement_bandit", "name": "Bandit", "classId": "Bandit" }],
+        "orderedSpawnCandidates": [
+          { "row": 0, "col": 0 },
+          { "row": 1, "col": 0 },
+          { "row": 2, "col": 0 }
+        ]
+      },
+      "noCasualtiesBonusLoot": [{ "id": "quality_iron", "quantity": 1 }],
       "missionNameEn": "The Last Signal",
       "missionNameJa": "最後の信号"
     }

@@ -34,11 +34,14 @@ struct StageDescriptor {
     // から生成する" - narrower than the usual 3-column enemy spawn zone.
     // nullopt means the usual width (kSpawnZoneWidth, BattleFactory.cpp).
     std::optional<int> enemyZoneWidth;
-    // Cinderwatch stage 2's "Former Captain" reskin/buff of enemyRoster[0].
+    // Cinderwatch site 6's (最後の信号) "Former Captain" reskin/buff of
+    // enemyRoster[0] - docs/regions/cinderwatch_gate.md「地域ボス 元守備隊長」's
+    // "現行試作の行軍隊長基礎値にHP+10、DEF+2、STR+2".
     struct BoostedEnemy {
         std::string displayName;
         int maxHpBonus = 0;
         int defenseBonus = 0;
+        int strengthBonus = 0;
     };
     std::optional<BoostedEnemy> boostedFirstEnemy;
     // docs/regions/ashbough_forest.md "折れ木の縄張り": if the party arrives
@@ -131,6 +134,18 @@ struct StageDescriptor {
         int zoneMaxCol = kGridCols - 1;
     };
     std::optional<HoldTileMissionRule> primaryHoldTileAlternative;
+
+    // docs/regions/cinderwatch_gate.md「地域ボス 元守備隊長」's "主目的: 元守備隊長を
+    // 戦闘不能にして撤退させる": if set (to a `enemyRoster` unit's id),
+    // BattleFactory replaces the default EliminateTeam primary member with a
+    // single DefeatUnit targeting this unit - same "replace, don't widen"
+    // reasoning as OperateObject above (only one primary group is allowed,
+    // and killing every OTHER enemy while leaving the boss standing must
+    // not win). Only covers "戦闘不能" (HP0) - this engine has no enemy
+    // voluntary-retreat/surrender AI, so "撤退させる" isn't separately
+    // modeled (same gap as the "元守備兵を2人以上撤退・降伏" secondary, left
+    // unimplemented).
+    std::optional<std::string> primaryDefeatUnitId;
 
     // Per-route outcome override (docs/regions/ashbough_forest.md: each
     // site's 3 exploration choices can have genuinely different effects, not

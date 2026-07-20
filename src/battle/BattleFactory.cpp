@@ -208,6 +208,7 @@ std::vector<Unit> buildEnemies(const GameData& data, const StageDescriptor& stag
             enemy.stats.maxHp += stage.boostedFirstEnemy->maxHpBonus;
             enemy.currentHp = enemy.stats.maxHp;
             enemy.stats.defense += stage.boostedFirstEnemy->defenseBonus;
+            enemy.stats.strength += stage.boostedFirstEnemy->strengthBonus;
         }
         enemies.push_back(enemy);
     }
@@ -436,6 +437,31 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
             battle.missionState().definitions.push_back(operate);
             battle.missionState().progress[operate.id] = ObjectiveProgress{operate.id};
         }
+    }
+
+    // docs/regions/cinderwatch_gate.md「地域ボス 元守備隊長」's "主目的: 元守備隊長を
+    // 戦闘不能にして撤退させる": replaces the default EliminateTeam primary
+    // member with a single DefeatUnit targeting the boss, same "replace,
+    // not widen" reasoning as the OperateObject block above (see
+    // StageDescriptor::primaryDefeatUnitId's own comment).
+    if (stage.primaryDefeatUnitId) {
+        auto& definitions = battle.missionState().definitions;
+        definitions.erase(std::remove_if(definitions.begin(), definitions.end(),
+                                         [](const ObjectiveDefinition& def) {
+                                             return def.id == "eliminate_enemies" && def.groupId == "primary";
+                                         }),
+                          definitions.end());
+        battle.missionState().progress.erase("eliminate_enemies");
+
+        ObjectiveDefinition defeatBoss;
+        defeatBoss.id = "defeat_boss";
+        defeatBoss.kind = ObjectiveKind::DefeatUnit;
+        defeatBoss.primary = true;
+        defeatBoss.groupId = "primary";
+        defeatBoss.target.unitId = *stage.primaryDefeatUnitId;
+        defeatBoss.target.team = Team::Enemy;
+        battle.missionState().definitions.push_back(defeatBoss);
+        battle.missionState().progress[defeatBoss.id] = ObjectiveProgress{defeatBoss.id};
     }
 
     if (stage.surveyObjectiveId) {

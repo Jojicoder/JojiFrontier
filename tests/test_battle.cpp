@@ -161,9 +161,12 @@ void winCurrentBattle(jf::GameApp& app) {
                 mutableObject->interactionCount = std::max(mutableObject->interactionCount, 1);
         }
     }
-    if (app.battle().battle().hasPendingRequiredEnemyReinforcements()) {
-        // Test helper only: advance the BattleState clock directly until a
-        // scheduled mandatory wave resolves, then defeat the spawned units.
+    // Test helper only: advance the BattleState clock directly until every
+    // scheduled mandatory wave resolves (loops rather than a single cycle
+    // since not every stage's spawnRound is 2 - docs/regions/
+    // cinderwatch_gate.md「地域ボス 元守備隊長」's axeman is spawnRound 3),
+    // then defeat the spawned units each time.
+    while (app.battle().battle().hasPendingRequiredEnemyReinforcements()) {
         app.battle().battle().beginEnemyPhase();
         app.battle().battle().beginPlayerPhase();
         app.battle().battle().beginEnemyPhase();
@@ -230,6 +233,18 @@ bool advanceToSignalTower(jf::GameApp& app) {
     app.proceedToCamp();
     app.continueExpedition(); // both members resolved -> Camp II -> signal_tower
     return app.screen() == jf::Screen::Exploration && app.currentMissionNameJa() == "信号塔下層";
+}
+
+// docs/regions/cinderwatch_gate.md「6. 最後の信号」: wins signal_tower and
+// continues to last_signal's Exploration screen, the shared setup every
+// last_signal (boss) test needs.
+bool advanceToLastSignal(jf::GameApp& app) {
+    if (!advanceToSignalTower(app)) return false;
+    if (!app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)) return false;
+    winCurrentBattle(app);
+    app.proceedToCamp();
+    app.continueExpedition();
+    return app.screen() == jf::Screen::Exploration && app.currentMissionNameJa() == "最後の信号";
 }
 
 // docs/regions/ashbough_forest.md "2. 薬草の沢": wins Ashbough Verge (the
@@ -1134,6 +1149,113 @@ int main() {
         winCurrentBattle(app); // advances through the round-2 wave internally
         assert(!app.battle().battle().hasPendingRequiredEnemyReinforcements());
         assert(app.battle().inputState() == jf::BattleInputState::Victory);
+    }
+
+    {
+        // docs/implementation_roadmap.md M6-C item3 / docs/regions/
+        // cinderwatch_gate.md「地域ボス 元守備隊長」: primary is a single
+        // DefeatUnit targeting the boss, replacing the default EliminateTeam
+        // member entirely - so leaving every OTHER enemy alive while
+        // defeating only the boss must still win.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(advanceToLastSignal(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+
+        // Resolve the round-3 axeman wave first (same shortcut as
+        // winCurrentBattle()) - hasPendingRequiredEnemyReinforcements()
+        // blocks Victory regardless of the primary objective.
+        while (app.battle().battle().hasPendingRequiredEnemyReinforcements()) {
+            app.battle().battle().beginEnemyPhase();
+            app.battle().battle().beginPlayerPhase();
+            app.battle().battle().beginEnemyPhase();
+        }
+
+        jf::Unit* boss = nullptr;
+        for (jf::Unit& unit : app.battle().battle().units()) {
+            if (unit.team == jf::Team::Enemy && unit.id == "last_signal_boss1") {
+                boss = &unit;
+                break;
+            }
+        }
+        assert(boss != nullptr);
+        boss->currentHp = 0; // only the boss defeated - every other enemy left alive
+
+        jf::Unit* actor = nullptr;
+        for (jf::Unit& unit : app.battle().battle().units()) {
+            if (unit.team == jf::Team::Player && unit.isAlive() && !unit.hasActed) {
+                actor = &unit;
+                break;
+            }
+        }
+        app.battle().selectUnit(*actor);
+        app.battle().selectMoveTile(actor->position);
+        app.battle().chooseWait();
+        assert(app.battle().inputState() == jf::BattleInputState::Victory);
+
+        const jf::BattleMissionState& mission = app.battle().battle().missionState();
+        assert(mission.progress.count("eliminate_enemies") == 0); // default primary member was removed
+        assert(mission.progress.at("defeat_boss").status == jf::ObjectiveStatus::Completed);
+    }
+
+    {
+        // `[行軍隊長]` (MarchCaptain is a real UnitClass, unlike 3A/5's
+        // disabled 3rd choices): route is selectable when the party has a
+        // MarchCaptain, and grants +1 old_gear on top of the base reward.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data); // data.playerParty[0] defaults to MarchCaptain (makeFactoryData())
+        assert(advanceToLastSignal(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::ScoutRoute));
+
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.returnToBase();
+        // 2 (this stage's own baseVictoryLoot) + 1 (routeVictoryLootDelta) is
+        // this stage's own contribution; storageCount reflects the whole
+        // 6-battle expedition's old_gear, so just check the delta landed.
+        assert(app.baseState().storageCount("old_gear") >= 3);
+    }
+
+    {
+        // 味方戦闘不能者0 (docs/regions/cinderwatch_gate.md's noCasualties
+        // secondary) reuses StageDescriptor::noCasualtiesBonusLoot - already
+        // implemented/JSON-wired since Brokenwood Territory, no new code.
+        // Also confirms the round-3 axeman reinforcement (spawnRound 3,
+        // unlike site 5's round-2 one) actually spawns.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(advanceToLastSignal(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+
+        assert(app.battle().battle().hasPendingRequiredEnemyReinforcements());
+        winCurrentBattle(app); // advances through the round-3 wave internally
+        assert(!app.battle().battle().hasPendingRequiredEnemyReinforcements());
+        assert(app.battle().inputState() == jf::BattleInputState::Victory);
+        app.proceedToCamp();
+        app.returnToBase();
+        assert(app.baseState().storageCount("quality_iron") == 1);
+    }
+
+    {
+        // M6完了Gate: 6地点すべて実装済みの状態で最後まで攻略・安全帰還すると、
+        // 汎用の`wouldRegionBeCleared()`/`pendingRegionCompletions`機構
+        // (地点固有のC++分岐なし)がRegionId::CinderwatchGateを
+        // `completedRegionIds`へ追加すること。
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(startCinderwatchExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        for (int stage = 0; stage < 6; ++stage) {
+            winCurrentBattle(app);
+            app.proceedToCamp();
+            if (stage < 5) {
+                app.continueExpedition();
+                assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+            }
+        }
+        assert(!app.baseState().completedRegionIds.count(jf::RegionId::CinderwatchGate));
+        app.returnToBase();
+        assert(app.baseState().completedRegionIds.count(jf::RegionId::CinderwatchGate) == 1);
     }
 
     {
@@ -4644,9 +4766,20 @@ int main() {
               cinderwatch.stages[4].objectPlacementRules[0].operateObjectiveId &&
               cinderwatch.stages[4].objectPlacementRules[1].operateObjectiveId &&
               cinderwatch.stages[4].surveyTileCount && *cinderwatch.stages[4].surveyTileCount == 1);
+        // docs/implementation_roadmap.md M6-C item3: last_signal (site 6) is
+        // real content now - own roster (元守備隊長・古参守備兵・監視弓兵2・
+        // 槍兵), a single DefeatUnit primary targeting the boss (replacing
+        // the default EliminateTeam), and the real `[行軍隊長]` class gate
+        // (MarchCaptain is a real UnitClass, unlike ironwatch_stores/
+        // signal_tower's disabled 3rd choices).
         assert(cinderwatch.stages[5].id == "last_signal" && cinderwatch.stages[5].boostedFirstEnemy &&
               cinderwatch.stages[5].boostedFirstEnemy->displayName == "Former Captain" &&
-              cinderwatch.stages[5].boostedFirstEnemy->maxHpBonus == 10);
+              cinderwatch.stages[5].boostedFirstEnemy->maxHpBonus == 10 &&
+              cinderwatch.stages[5].boostedFirstEnemy->strengthBonus == 2 &&
+              cinderwatch.stages[5].primaryDefeatUnitId &&
+              *cinderwatch.stages[5].primaryDefeatUnitId == "last_signal_boss1" &&
+              cinderwatch.stages[5].scoutRouteRequiredClass == jf::UnitClass::MarchCaptain &&
+              !cinderwatch.stages[5].scoutRouteDisabled);
 
         // docs/route_graph_data.md「分岐と合流」: J1{ironwatch_stores,
         // old_barracks} is a single BranchGroup node (AllMembers) between
