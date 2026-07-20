@@ -266,6 +266,14 @@ private:
     void updateExpeditionCheckpoint(ExpeditionCheckpoint::Stage stage);
     void syncPartySnapshotFromBattle();
     bool advanceRouteToNextSite();
+    // docs/route_graph_data.md「分岐と合流」: the first BranchGroup member not
+    // yet resolved this expedition (RouteProgressSnapshot::resolvedNodeIds)
+    // and not already permanently Secured from a prior one (BaseState::
+    // siteAccess) - nullptr once every member qualifies, meaning traversal
+    // may continue past the branch.
+    const RouteNodeDefinition* nextUnresolvedBranchMember(const RegionRouteGraph& graph,
+                                                           const RouteNodeDefinition& branch,
+                                                           const RouteProgressSnapshot& progress) const;
 
     // docs/implementation_roadmap.md "Phase 1.5": the single place that
     // resolves which region/stage is currently active. Never cached as a

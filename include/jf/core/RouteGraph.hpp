@@ -9,12 +9,23 @@
 
 namespace jf {
 
-enum class RouteNodeKind { Entrance, Site, Camp, Exit };
+enum class RouteNodeKind { Entrance, Site, BranchGroup, Camp, Exit };
+
+// docs/route_graph_data.md「分岐と合流」: only AllMembers is used today
+// (docs/regions/cinderwatch_gate.md's 物資庫/旧兵舎 both must be secured
+// before Camp II becomes permanently usable); AnyMember is declared for
+// Schema completeness but nothing constructs one yet.
+enum class BranchCompletion { AnyMember, AllMembers };
 
 struct RouteNodeDefinition {
     std::string id;
     RouteNodeKind kind = RouteNodeKind::Site;
     std::optional<std::string> stageId;
+    // BranchGroup only: the Site node ids the player resolves in any order
+    // before traversal is allowed to continue past this node - see
+    // advanceRouteToNextSite()'s BranchGroup handling.
+    std::vector<std::string> branchMembers;
+    BranchCompletion branchCompletion = BranchCompletion::AllMembers;
 };
 
 struct RouteEdgeDefinition {

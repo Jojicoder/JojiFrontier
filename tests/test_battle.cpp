@@ -90,6 +90,12 @@ jf::GameData makeFactoryData() {
                       .maxRange = 1, .damageType = jf::DamageType::Physical};
     data.weaponsById.emplace("iron_axe", ironAxe);
     data.classesById.emplace(jf::UnitClass::Bandit, jf::ClassDefinition{jf::UnitClass::Bandit, stats, "iron_axe"});
+    // docs/regions/cinderwatch_gate.md's old_barracks (site 3B) roster.
+    jf::Weapon ironLance{.id = "iron_lance", .name = "Iron Lance", .might = 6, .minRange = 1,
+                         .maxRange = 1, .damageType = jf::DamageType::Physical};
+    data.weaponsById.emplace("iron_lance", ironLance);
+    data.classesById.emplace(jf::UnitClass::VeteranGuard,
+                             jf::ClassDefinition{jf::UnitClass::VeteranGuard, stats, "iron_lance"});
     jf::Weapon dawnStaff{.id = "dawn_staff", .name = "Dawn Staff", .might = 3, .minRange = 1,
                         .maxRange = 2, .damageType = jf::DamageType::Magical};
     data.weaponsById.emplace("dawn_staff", dawnStaff);
@@ -707,17 +713,20 @@ int main() {
         assert(!jf::eligibleForOutpostStage(app.baseState(), jf::OutpostStage::PioneerOutpost));
 
         assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // site 1 -> Battle
-        // docs/implementation_roadmap.md M6-A: Cinderwatch now has 4 stages
-        // (site 1/2 real, ironwatch_stores/signal_tower still the old
-        // placeholder pair) and, since it's on the Route Graph now, every
-        // stage transition goes through Exploration first (not just stage 0).
-        for (int stage = 0; stage < 4; ++stage) {
+        // docs/implementation_roadmap.md M6-B: Cinderwatch now has 5 real
+        // battles end-to-end (site 1/2/旧兵舎 real, ironwatch_stores/
+        // signal_tower still the old placeholder pair standing in for 3A/
+        // 5+6) - both branch members (ironwatch_stores, old_barracks) are
+        // required before Camp II, and since the region is on the Route
+        // Graph now, every stage transition goes through Exploration first
+        // (not just stage 0).
+        for (int stage = 0; stage < 5; ++stage) {
             assert(app.screen() == jf::Screen::Battle);
             winCurrentBattle(app);
             assert(app.battle().inputState() == jf::BattleInputState::Victory);
             app.proceedToCamp();
             assert(app.screen() == jf::Screen::Camp);
-            if (stage < 3) {
+            if (stage < 4) {
                 app.continueExpedition();
                 assert(app.screen() == jf::Screen::Exploration);
                 assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
@@ -788,19 +797,20 @@ int main() {
         jf::GameApp app(data);
         assert(startCinderwatchExpedition(app));
         assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
-        for (int stage = 0; stage < 4; ++stage) {
+        for (int stage = 0; stage < 5; ++stage) {
             winCurrentBattle(app);
             app.proceedToCamp();
-            if (stage < 3) {
+            if (stage < 4) {
                 app.continueExpedition();
                 assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
             }
         }
         app.returnToBase();
         assert(app.advanceOutpostStage()); // -> PioneerOutpost
-        // 4 real victories (docs/implementation_roadmap.md M6-A: site 1/2 now
-        // real, site 1/2 baseVictoryLoot include a small wood/hide top-up
-        // specifically to keep this total intact) bank exactly enough for
+        // 5 real victories (docs/implementation_roadmap.md M6-B: site 1/2/
+        // old_barracks now real, their baseVictoryLoot includes a small
+        // wood/hide top-up specifically to keep this total intact) bank
+        // exactly enough for
         // all 4 optional facilities (docs/base_development.md "初期4施設の
         // 確定表"): wood:10, hide:5, herb:2.
         assert(app.baseState().storageCount("wood") == 10);
@@ -829,6 +839,67 @@ int main() {
         assert(app.unlockFacilityNode("craft_heavy_spear"));
 
         assert(app.unlockFacilityNode("trait_hide_wrapped_grip")); // hide:1, exactly what's left
+    }
+
+    {
+        // docs/route_graph_data.md「分岐と合流」/「受入条件」: "2地点Branchを
+        // 任意順で解決し、片方だけ持ち帰れる" - resolve old_barracks (branch
+        // member 2, listed AFTER ironwatch_stores in branchMembers) before
+        // ironwatch_stores, safe-return with only that one secured, then
+        // confirm a fresh expedition safely passes the already-secured
+        // member and still reaches Camp II / signal_tower via the other.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(startCinderwatchExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // site 1
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition();
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // site 2
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> branch, picks the first unresolved member (ironwatch_stores)
+        assert(app.screen() == jf::Screen::Exploration);
+        // Deliberately win the OTHER member first to prove order doesn't
+        // matter for AllMembers completion: retire without finishing the
+        // branch, so nothing is permanently secured yet...
+        assert(app.retireExpedition());
+        assert(app.screen() == jf::Screen::Base);
+
+        jf::SaveData primed = app.createSaveData("en");
+        primed.base.completedRegionIds.insert(jf::RegionId::AshboughForest);
+        primed.base.siteAccess[jf::siteAccessKey(jf::RegionId::CinderwatchGate, "cinderwatch_outer_gate")] =
+            jf::SiteAccessState::Secured;
+        primed.base.siteAccess[jf::siteAccessKey(jf::RegionId::CinderwatchGate, "ashroad_watch")] =
+            jf::SiteAccessState::Secured;
+        assert(app.applySaveData(primed));
+        assert(app.startExpedition(jf::RegionId::CinderwatchGate));
+        // Both site 1/2 already Secured - bulkPassSecuredSites() must walk
+        // straight through them without a battle and land in the branch.
+        assert(app.bulkPassSecuredSites() == 2);
+        assert(app.screen() == jf::Screen::Exploration);
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // enters old_barracks first
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(app.screen() == jf::Screen::Camp);
+        assert(!app.expeditionComplete()); // ironwatch_stores (the other member) is still unresolved
+
+        app.continueExpedition(); // -> branch again, only ironwatch_stores left unresolved
+        assert(app.screen() == jf::Screen::Exploration);
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // both members resolved -> past the branch, into Camp II -> signal_tower
+        assert(app.screen() == jf::Screen::Exploration);
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(app.expeditionComplete());
+        assert(app.returnToBase());
+        assert(app.baseState().siteAccess.at(jf::siteAccessKey(jf::RegionId::CinderwatchGate, "old_barracks")) >=
+              jf::SiteAccessState::Surveyed);
+        assert(app.baseState().siteAccess.at(jf::siteAccessKey(jf::RegionId::CinderwatchGate, "ironwatch_stores")) >=
+              jf::SiteAccessState::Surveyed);
     }
 
     {
@@ -4312,14 +4383,24 @@ int main() {
         // docs/implementation_roadmap.md M6-A: site 1 (cinderwatch_outer_gate)
         // and site 2 (ashroad_watch) replaced the old placeholder stage 0,
         // pushing ironwatch_stores/signal_tower to indices 2/3.
-        assert(cinderwatch.stages.size() == 4);
+        assert(cinderwatch.stages.size() == 5);
         assert(cinderwatch.stages[0].id == "cinderwatch_outer_gate" && cinderwatch.stages[0].enemyRoster.size() == 4 &&
               !cinderwatch.stages[0].enemyCountOverride && cinderwatch.stages[0].scoutRouteDisabled);
         assert(cinderwatch.stages[1].id == "ashroad_watch" && cinderwatch.stages[1].primaryHoldTileAlternative &&
               cinderwatch.stages[1].primaryHoldTileAlternative->requiredHoldRounds == 2);
-        assert(cinderwatch.stages[3].id == "signal_tower" && cinderwatch.stages[3].boostedFirstEnemy &&
-              cinderwatch.stages[3].boostedFirstEnemy->displayName == "Former Captain" &&
-              cinderwatch.stages[3].boostedFirstEnemy->maxHpBonus == 10);
+        assert(cinderwatch.stages[3].id == "old_barracks" && cinderwatch.stages[3].enemyRoster.size() == 4);
+        assert(cinderwatch.stages[4].id == "signal_tower" && cinderwatch.stages[4].boostedFirstEnemy &&
+              cinderwatch.stages[4].boostedFirstEnemy->displayName == "Former Captain" &&
+              cinderwatch.stages[4].boostedFirstEnemy->maxHpBonus == 10);
+
+        // docs/route_graph_data.md「分岐と合流」: J1{ironwatch_stores,
+        // old_barracks} is a single BranchGroup node (AllMembers) between
+        // Camp I and Camp II.
+        const jf::RegionRouteGraph& cinderwatchRoute = jf::regionRouteGraph(jf::RegionId::CinderwatchGate);
+        const jf::RouteNodeDefinition* branch = jf::findRouteNode(cinderwatchRoute, "cinderwatch_stores_barracks");
+        assert(branch && branch->kind == jf::RouteNodeKind::BranchGroup &&
+              branch->branchCompletion == jf::BranchCompletion::AllMembers && branch->branchMembers.size() == 2);
+        assert(jf::validateRouteGraph(cinderwatchRoute, nullptr));
 
         // Invalid regions.json (a stage referencing an unknown terrain
         // profile) must fail the whole Load, never silently drop the stage -

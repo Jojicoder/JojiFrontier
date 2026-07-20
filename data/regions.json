@@ -175,6 +175,22 @@
       "missionNameJa": "アイアンウォッチ物資庫"
     },
     {
+      "id": "old_barracks",
+      "terrainProfileId": "old_barracks",
+      "enemyRoster": [
+        { "id": "old_barracks_veteran1", "name": "Veteran Guard", "classId": "VeteranGuard" },
+        { "id": "old_barracks_spearman1", "name": "Spearman", "classId": "Spearman" },
+        { "id": "old_barracks_spearman2", "name": "Spearman", "classId": "Spearman" },
+        { "id": "old_barracks_archer1", "name": "Watch Archer", "classId": "WatchArcher" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "iron", "quantity": 1 },
+        { "id": "stone", "quantity": 1 }
+      ],
+      "missionNameEn": "Old Barracks",
+      "missionNameJa": "旧兵舎"
+    },
+    {
       "id": "signal_tower",
       "terrainProfileId": "signal_tower",
       "boostedFirstEnemy": { "displayName": "Former Captain", "maxHpBonus": 10, "defenseBonus": 2 },

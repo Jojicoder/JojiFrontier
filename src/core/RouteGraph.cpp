@@ -30,16 +30,16 @@ const RegionRouteGraph& ashboughGraph() {
     return graph;
 }
 
-// docs/implementation_roadmap.md M6-A: docs/campaign_route_graph.md's
+// docs/implementation_roadmap.md M6-B: docs/campaign_route_graph.md's
 // Cinderwatch graph is `S1 外門 -> S2 監視所 -> C1 -> J1{S3 物資庫, S4 旧兵舎} ->
-// J2 -> C2 -> S5 信号塔下層 -> S6 最後の信号 -> 出口`, but `BranchGroup`/
-// conditional edges don't exist in this Schema yet (route_graph_data.md:
-// "BranchGroup、条件付きEdge...は、それらを使う次地域を実装する時に追加する" -
-// deferred to M6-B, when 3A/3B's actual branch is implemented). Until then
-// this graph only carries the site 1/2/Camp I portion that's genuinely
-// linear, chained straight through to the still-unsplit ironwatch_stores/
-// signal_tower placeholder content so the region stays completable
-// end-to-end (same stages Region.cpp's cinderwatchGateRegion() returns).
+// J2 -> C2 -> S5 信号塔下層 -> S6 最後の信号 -> 出口`. J1/J2 is a single
+// BranchGroup node here (`cinderwatch_stores_barracks`, AllMembers): a
+// member Site's own outgoing edge always points straight back to the
+// BranchGroup (see below), so advanceRouteToNextSite() naturally revisits
+// it after each member resolves and only continues past once both are
+// done - no separate "J2" node needed. Site 5/6 (信号塔下層/最後の信号)
+// aren't split out yet; `signal_tower` (still the old pre-spec placeholder)
+// stands in for both until M6-C.
 const RegionRouteGraph& cinderwatchGraph() {
     static const RegionRouteGraph graph{
         RegionId::CinderwatchGate,
@@ -47,20 +47,27 @@ const RegionRouteGraph& cinderwatchGraph() {
         "cinderwatch_entrance",
         "cinderwatch_exit",
         {
-            {"cinderwatch_entrance", RouteNodeKind::Entrance, std::nullopt},
-            {"cinderwatch_outer_gate", RouteNodeKind::Site, "cinderwatch_outer_gate"},
-            {"ashroad_watch", RouteNodeKind::Site, "ashroad_watch"},
-            {"cinderwatch_camp1", RouteNodeKind::Camp, std::nullopt},
-            {"ironwatch_stores", RouteNodeKind::Site, "ironwatch_stores"},
-            {"signal_tower", RouteNodeKind::Site, "signal_tower"},
-            {"cinderwatch_exit", RouteNodeKind::Exit, std::nullopt},
+            {"cinderwatch_entrance", RouteNodeKind::Entrance, std::nullopt, {}, BranchCompletion::AllMembers},
+            {"cinderwatch_outer_gate", RouteNodeKind::Site, "cinderwatch_outer_gate", {}, BranchCompletion::AllMembers},
+            {"ashroad_watch", RouteNodeKind::Site, "ashroad_watch", {}, BranchCompletion::AllMembers},
+            {"cinderwatch_camp1", RouteNodeKind::Camp, std::nullopt, {}, BranchCompletion::AllMembers},
+            {"cinderwatch_stores_barracks", RouteNodeKind::BranchGroup, std::nullopt,
+             {"ironwatch_stores", "old_barracks"}, BranchCompletion::AllMembers},
+            {"ironwatch_stores", RouteNodeKind::Site, "ironwatch_stores", {}, BranchCompletion::AllMembers},
+            {"old_barracks", RouteNodeKind::Site, "old_barracks", {}, BranchCompletion::AllMembers},
+            {"cinderwatch_camp2", RouteNodeKind::Camp, std::nullopt, {}, BranchCompletion::AllMembers},
+            {"signal_tower", RouteNodeKind::Site, "signal_tower", {}, BranchCompletion::AllMembers},
+            {"cinderwatch_exit", RouteNodeKind::Exit, std::nullopt, {}, BranchCompletion::AllMembers},
         },
         {
             {"cinderwatch_entrance", "cinderwatch_outer_gate"},
             {"cinderwatch_outer_gate", "ashroad_watch"},
             {"ashroad_watch", "cinderwatch_camp1"},
-            {"cinderwatch_camp1", "ironwatch_stores"},
-            {"ironwatch_stores", "signal_tower"},
+            {"cinderwatch_camp1", "cinderwatch_stores_barracks"},
+            {"ironwatch_stores", "cinderwatch_stores_barracks"},
+            {"old_barracks", "cinderwatch_stores_barracks"},
+            {"cinderwatch_stores_barracks", "cinderwatch_camp2"},
+            {"cinderwatch_camp2", "signal_tower"},
             {"signal_tower", "cinderwatch_exit"},
         },
     };
@@ -104,6 +111,14 @@ bool validateRouteGraph(const RegionRouteGraph& graph, std::string* error) {
         if (node.id.empty() || !ids.insert(node.id).second) return fail("duplicate route node");
         if (node.kind == RouteNodeKind::Site && (!node.stageId || node.stageId->empty()))
             return fail("site node has no stage id");
+        if (node.kind == RouteNodeKind::BranchGroup) {
+            if (node.branchMembers.empty()) return fail("branch group has no members");
+            for (const std::string& memberId : node.branchMembers) {
+                const RouteNodeDefinition* member = findRouteNode(graph, memberId);
+                if (!member || member->kind != RouteNodeKind::Site)
+                    return fail("branch group references an unknown or non-Site member");
+            }
+        }
     }
     for (const RouteEdgeDefinition& edge : graph.edges)
         if (!findRouteNode(graph, edge.from) || !findRouteNode(graph, edge.to))

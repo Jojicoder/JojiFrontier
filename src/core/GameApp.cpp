@@ -296,12 +296,39 @@ void GameApp::syncPartySnapshotFromBattle() {
     if (!party.empty()) expeditionPartyUnits_ = std::move(party);
 }
 
+const RouteNodeDefinition* GameApp::nextUnresolvedBranchMember(const RegionRouteGraph& graph,
+                                                                const RouteNodeDefinition& branch,
+                                                                const RouteProgressSnapshot& progress) const {
+    for (const std::string& memberId : branch.branchMembers) {
+        if (progress.resolvedNodeIds.count(memberId)) continue;
+        const RouteNodeDefinition* member = findRouteNode(graph, memberId);
+        if (member && member->stageId) {
+            auto access = baseState_.siteAccess.find(siteAccessKey(expedition_.regionId, *member->stageId));
+            if (access != baseState_.siteAccess.end() && access->second >= SiteAccessState::Secured) continue;
+        }
+        return member;
+    }
+    return nullptr;
+}
+
 bool GameApp::advanceRouteToNextSite() {
     if (!expedition_.routeProgress) return false;
     RouteProgressSnapshot& progress = *expedition_.routeProgress;
     const RegionRouteGraph& graph = regionRouteGraph(expedition_.regionId);
     const RouteNodeDefinition* node = nextRouteNode(graph, progress.currentNodeId);
     while (node) {
+        if (node->kind == RouteNodeKind::BranchGroup) {
+            // docs/route_graph_data.md「分岐と合流」: enter the first
+            // unresolved member (this expedition, or not yet permanently
+            // Secured); once every member qualifies, fall through to this
+            // BranchGroup's own single outgoing edge instead.
+            if (const RouteNodeDefinition* member = nextUnresolvedBranchMember(graph, *node, progress)) {
+                node = member;
+                continue;
+            }
+            node = nextRouteNode(graph, node->id);
+            continue;
+        }
         progress.traversalHistory.push_back(node->id);
         if (node->kind == RouteNodeKind::Exit) {
             progress.currentNodeId = node->id;

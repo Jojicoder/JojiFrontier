@@ -62,15 +62,18 @@ StageDescriptor stageDescriptorFromContent(const StageContentData& content) {
     return stage;
 }
 
-// docs/implementation_roadmap.md M6-A: docs/regions/cinderwatch_gate.md's
+// docs/implementation_roadmap.md M6-A/B: docs/regions/cinderwatch_gate.md's
 // full 6-site region, being migrated in from the old 3-battle placeholder
 // one Slice at a time. So far: site 1 (シンダーウォッチ外門,
-// cinderwatch_outer_gate) and site 2 (灰道の監視所, ashroad_watch) are real.
-// ironwatch_stores/signal_tower are the OLD pre-spec placeholder content,
-// kept as-is (not yet split into the doc's 3A/3B/5/6) so the region stays
-// completable end-to-end until M6-B/M6-C replace them - see each Slice's
-// own roadmap entry. `enemyRoster` deliberately absent from ironwatch_stores/
-// signal_tower - empty means "use GameData::enemyRoster", the shared roster
+// cinderwatch_outer_gate), site 2 (灰道の監視所, ashroad_watch), and site 4
+// (旧兵舎, old_barracks) are real; the RouteGraph (RouteGraph.cpp) branches
+// site 3's slot between ironwatch_stores and old_barracks per the doc's
+// 3A/3B. `ironwatch_stores`/`signal_tower` are still the OLD pre-spec
+// placeholder content (ironwatch_stores standing in for the real site 3A,
+// signal_tower for sites 5+6 combined) kept as-is so the region stays
+// completable end-to-end until later Slices replace them - see each
+// Slice's own roadmap entry. `enemyRoster` deliberately absent from
+// ironwatch_stores/signal_tower - empty means "use GameData::enemyRoster", the shared roster
 // they've always drawn from, per StageDescriptor's own top-of-file comment.
 RegionDescriptor cinderwatchGateRegion(const GameData& data) {
     RegionDescriptor region;
@@ -85,6 +88,7 @@ RegionDescriptor cinderwatchGateRegion(const GameData& data) {
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("cinderwatch_outer_gate")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("ashroad_watch")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("ironwatch_stores")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("old_barracks")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("signal_tower")));
 
     return region;

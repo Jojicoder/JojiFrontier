@@ -47,6 +47,21 @@
       "countBounds": { "terrain": "WatchPost", "minimum": 2, "maximum": 3 }
     },
     {
+      "id": "old_barracks",
+      "generationVersion": 1,
+      "seedSalt": 10,
+      "weights": [
+        { "terrain": "Ash", "weight": 22 },
+        { "terrain": "Rubble", "weight": 22 },
+        { "terrain": "WatchPost", "weight": 6 },
+        { "terrain": "Barrier", "weight": 6 },
+        { "terrain": "Floor", "weight": 44 }
+      ],
+      "signatureTerrain": "Ash",
+      "maxBarriersPerColumn": 1,
+      "ensureHorizontalRoute": true
+    },
+    {
       "id": "ash_road",
       "generationVersion": 1,
       "seedSalt": 1,
