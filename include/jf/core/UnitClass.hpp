@@ -27,6 +27,10 @@ enum class UnitClass {
     // (canSetSimpleTrap())。加入経路(M7項目2)は未実装のため、まだ
     // playerParty/reserveRosterには登場しない - Classとしてのみ完全に有効。
     FrontierRanger,
+    // docs/class_reference.md「後半6兵種」/M7項目1: 固有能力「戦旗」
+    // (hasBannerAura())。加入経路(M7項目2)は未実装のため、まだ
+    // playerParty/reserveRosterには登場しない - Classとしてのみ完全に有効。
+    BannerBearer,
     Bandit,
     // docs/regions/ashbough_forest.md 灰枝の林縁: an ordinary large predator,
     // not a monster (per World Bible flora_fauna.md framing) - no special
@@ -68,5 +72,10 @@ bool canReMove(UnitClass unitClass);
 // 隣接空きマスへ罠を設置(BattleController::chooseSimpleTrap())。設置物
 // Definitionは`snare_trap`スキルと共有する("ranger_trap")。
 bool canSetSimpleTrap(UnitClass unitClass);
+// docs/class_reference.md「戦旗」: マンハッタン距離2以内の味方のSTR/MAGを+1する
+// 常時Aura(旗手自身は対象外、複数いても重複しない) - CombatResolver.cppの
+// bannerAuraBonus()とStatusEffects.cppのconsumeUnyieldingSignalIfAvailable()
+// (`unyielding_signal`)が参照する。
+bool hasBannerAura(UnitClass unitClass);
 
 } // namespace jf

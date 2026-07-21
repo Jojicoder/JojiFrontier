@@ -45,7 +45,7 @@ void triggerRangerTrapIfPresent(BattleState& battle, Unit& mover) {
     if (mover.team != Team::Enemy) return;
     BattleObjectState* trap = battle.objectAt(mover.position);
     if (!trap || trap->definitionId != "ranger_trap" || trap->state == BattleObjectStateKind::Destroyed) return;
-    applyMoveDown(mover);
+    applyMoveDown(battle, mover);
     trap->state = BattleObjectStateKind::Destroyed;
     handleObjectiveEvent(battle.missionState(),
                          BattleEvent{battle.issueEventId(), 0, ObjectDestroyedEvent{trap->id}});
@@ -84,7 +84,7 @@ void tryCounterthrust(BattleState& battle, Unit& defender, Unit& attacker) {
         int dist = manhattanDistance(defender.position, attacker.position);
         if (dist < defender.minimumAttackRange() || dist > defender.weapon.maxRange) return;
         const bool hit = battle.rollAttackHit(attacker);
-        resolveAttack(defender, attacker, battle.combatDefenseBonus(attacker, defender), hit);
+        resolveAttack(battle, defender, attacker, battle.combatDefenseBonus(attacker, defender), hit);
         if (hit && defender.weapon.causesKnockback && attacker.isAlive())
             battle.applyKnockback(defender, attacker);
         consumeSkillCharge(defender, static_cast<int>(i));
@@ -111,7 +111,7 @@ void triggerOverwatch(BattleState& battle, Unit& enemy) {
         int dist = manhattanDistance(watcher.position, enemy.position);
         if (dist < watcher.minimumAttackRange() || dist > watcher.weapon.maxRange) continue;
         const bool hit = battle.rollAttackHit(enemy);
-        resolveAttack(watcher, enemy, battle.combatDefenseBonus(enemy, watcher), hit);
+        resolveAttack(battle, watcher, enemy, battle.combatDefenseBonus(enemy, watcher), hit);
         if (hit && watcher.weapon.causesKnockback && enemy.isAlive()) battle.applyKnockback(watcher, enemy);
         watcher.overwatchActive = false;
     }
@@ -130,7 +130,7 @@ Unit* attackIfPossible(BattleState& battle, Unit& enemy, Unit* preferredTarget, 
 
     if (preferredTarget && preferredTarget->isAlive() && inRange(*preferredTarget)) {
         const bool hit = battle.rollAttackHit(*preferredTarget);
-        resolveAttack(enemy, *preferredTarget,
+        resolveAttack(battle, enemy, *preferredTarget,
                       battle.combatDefenseBonus(*preferredTarget, enemy), hit);
         if (hit && enemy.weapon.causesKnockback && preferredTarget->isAlive())
             battle.applyKnockback(enemy, *preferredTarget);
@@ -141,7 +141,7 @@ Unit* attackIfPossible(BattleState& battle, Unit& enemy, Unit* preferredTarget, 
     for (auto& u : battle.units()) {
         if (u.team == Team::Player && u.isAlive() && inRange(u)) {
             const bool hit = battle.rollAttackHit(u);
-            resolveAttack(enemy, u, battle.combatDefenseBonus(u, enemy), hit);
+            resolveAttack(battle, enemy, u, battle.combatDefenseBonus(u, enemy), hit);
             if (hit && enemy.weapon.causesKnockback && u.isAlive()) battle.applyKnockback(enemy, u);
             tryCounterthrust(battle, u, enemy);
             return &u;

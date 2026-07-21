@@ -129,6 +129,13 @@ jf::GameData makeFactoryData() {
     data.weaponsById.emplace("hunting_bow", huntingBow);
     data.classesById.emplace(jf::UnitClass::FrontierRanger,
                              jf::ClassDefinition{jf::UnitClass::FrontierRanger, frontierRangerStats, "hunting_bow"});
+    jf::Stats bannerBearerStats{.maxHp = 22, .strength = 5, .magic = 2, .speed = 5,
+                                .defense = 5, .resistance = 6, .move = 4};
+    jf::Weapon bannerSpear{.id = "banner_spear", .name = "Banner Spear", .might = 4, .minRange = 1,
+                           .maxRange = 2, .damageType = jf::DamageType::Physical};
+    data.weaponsById.emplace("banner_spear", bannerSpear);
+    data.classesById.emplace(jf::UnitClass::BannerBearer,
+                             jf::ClassDefinition{jf::UnitClass::BannerBearer, bannerBearerStats, "banner_spear"});
     jf::Weapon wolfBite{.id = "wolf_bite", .name = "Bite", .might = 5, .minRange = 1,
                        .maxRange = 1, .damageType = jf::DamageType::Physical};
     data.weaponsById.emplace("wolf_bite", wolfBite);
@@ -497,7 +504,7 @@ int main() {
             assert(first.rollAttackHit(first.units()[1]) == second.rollAttackHit(second.units()[1]));
 
         const int hpBefore = first.units()[1].currentHp;
-        jf::resolveAttack(first.units()[0], first.units()[1], 0, false);
+        jf::resolveAttack(first, first.units()[0], first.units()[1], 0, false);
         assert(first.units()[1].currentHp == hpBefore);
 
         defender.unitClass = jf::UnitClass::FrontierScout;
@@ -1864,12 +1871,14 @@ int main() {
         jf::applyBurn(unit);
         assert(unit.burnRemainingProcs == 2);
 
-        jf::applyMoveDown(unit);
-        assert(unit.moveDownActive);
-        assert(unit.effectiveMove() == unit.stats.move - 2);
+        jf::BattleState soloBattle({unit});
+        jf::applyMoveDown(soloBattle, soloBattle.units()[0]);
+        assert(soloBattle.units()[0].moveDownActive);
+        assert(soloBattle.units()[0].effectiveMove() == unit.stats.move - 2);
         jf::Unit lowMove = makeUnit("lowmove", jf::Team::Player, {1, 0}, 1);
-        jf::applyMoveDown(lowMove);
-        assert(lowMove.effectiveMove() == 1); // 最低MOVは1
+        jf::BattleState lowMoveBattle({lowMove});
+        jf::applyMoveDown(lowMoveBattle, lowMoveBattle.units()[0]);
+        assert(lowMoveBattle.units()[0].effectiveMove() == 1); // 最低MOVは1
 
         jf::applyDefenseDown(unit);
         assert(unit.effectiveDefense() == std::max(unit.stats.defense - 3, 0));
@@ -1877,10 +1886,11 @@ int main() {
 
         jf::Unit boss2 = makeUnit("boss2", jf::Team::Enemy, {1, 5});
         boss2.isBoss = true;
-        jf::applyMoveDown(boss2);
-        jf::applyDefenseDown(boss2);
-        assert(boss2.effectiveMove() == boss2.stats.move - 1);
-        assert(boss2.effectiveDefense() == boss2.stats.defense - 2);
+        jf::BattleState boss2Battle({boss2});
+        jf::applyMoveDown(boss2Battle, boss2Battle.units()[0]);
+        jf::applyDefenseDown(boss2Battle.units()[0]);
+        assert(boss2Battle.units()[0].effectiveMove() == boss2.stats.move - 1);
+        assert(boss2Battle.units()[0].effectiveDefense() == boss2.stats.defense - 2);
     }
 
     {
@@ -1888,23 +1898,24 @@ int main() {
         // penalty), clears when the unit finishes its next action, and
         // cannot be reapplied while immune. A boss instead just takes MOV-1.
         jf::Unit unit = makeUnit("staggered", jf::Team::Player, {1, 0});
-        jf::applyStagger(unit);
-        assert(unit.staggerActive);
-        assert(unit.effectiveMove() == 0);
-
         jf::BattleState battle({unit});
+        jf::applyStagger(battle, battle.units()[0]);
+        assert(battle.units()[0].staggerActive);
+        assert(battle.units()[0].effectiveMove() == 0);
+
         jf::processActionEndStatusEffects(battle, battle.units()[0]);
         assert(!battle.units()[0].staggerActive);
         assert(battle.units()[0].staggerImmune);
         assert(battle.units()[0].effectiveMove() == battle.units()[0].stats.move);
 
-        jf::applyStagger(battle.units()[0]); // no-op while immune
+        jf::applyStagger(battle, battle.units()[0]); // no-op while immune
         assert(!battle.units()[0].staggerActive);
 
         jf::Unit boss = makeUnit("boss", jf::Team::Enemy, {1, 5});
         boss.isBoss = true;
-        jf::applyStagger(boss);
-        assert(boss.effectiveMove() == boss.stats.move - 1); // MOV-1, not a full lock
+        jf::BattleState bossBattle({boss});
+        jf::applyStagger(bossBattle, bossBattle.units()[0]);
+        assert(bossBattle.units()[0].effectiveMove() == boss.stats.move - 1); // MOV-1, not a full lock
     }
 
     {
@@ -1943,7 +1954,7 @@ int main() {
         jf::Unit unit = makeUnit("cured", jf::Team::Player, {1, 0});
         jf::applyPoison(unit);
         jf::applyBurn(unit);
-        jf::applyMoveDown(unit);
+        unit.moveDownActive = true; // not testing applyMoveDown() itself here, just the cure
         jf::applyDefenseDown(unit);
         unit.staggerImmune = true;
         jf::clearAllStatusEffects(unit);
@@ -2024,10 +2035,11 @@ int main() {
         assert(normalDamage == baseline + 2);
 
         marked.markedBonusDamage = 2;
-        jf::resolveAttack(attacker, marked, 0, false); // miss: must not consume the mark
-        assert(marked.markedBonusDamage == 2);
-        jf::resolveAttack(attacker, marked, 0, true); // hit: consumes it
-        assert(marked.markedBonusDamage == 0);
+        jf::BattleState battle2({attacker, marked});
+        jf::resolveAttack(battle2, battle2.units()[0], battle2.units()[1], 0, false); // miss: must not consume the mark
+        assert(battle2.units()[1].markedBonusDamage == 2);
+        jf::resolveAttack(battle2, battle2.units()[0], battle2.units()[1], 0, true); // hit: consumes it
+        assert(battle2.units()[1].markedBonusDamage == 0);
     }
 
     {
@@ -3276,6 +3288,133 @@ int main() {
         controller.confirmSkillAttack();
         assert((controller.battle().findUnit("enemy")->position == jf::GridPos{1, 2})); // blocked, unmoved
         assert(!controller.battle().findUnit("enemy")->staggerActive); // no stagger, unlike a real knockback
+    }
+
+    {
+        // docs/class_reference.md「後半6兵種」/M7項目1: 旗手(BannerBearer)の
+        // Class/武器データ整合性。
+        jf::GameData data = makeFactoryData();
+        const jf::ClassDefinition& def = data.classDefinition(jf::UnitClass::BannerBearer);
+        assert(def.baseStats.maxHp == 22 && def.baseStats.strength == 5 && def.baseStats.magic == 2 &&
+              def.baseStats.speed == 5 && def.baseStats.defense == 5 && def.baseStats.resistance == 6 &&
+              def.baseStats.move == 4);
+        assert(def.weaponId == "banner_spear");
+        const jf::Weapon& weapon = data.weaponFor(jf::UnitClass::BannerBearer);
+        assert(weapon.id == "banner_spear" && weapon.might == 4 && weapon.minRange == 1 && weapon.maxRange == 2 &&
+              weapon.damageType == jf::DamageType::Physical);
+        assert(jf::unitClassFromString("BannerBearer") == jf::UnitClass::BannerBearer);
+        assert(jf::skillsForClass(jf::UnitClass::BannerBearer).size() == 3);
+        assert(jf::requiredTrainingNodeIdFor(jf::UnitClass::BannerBearer) == "specialist_training");
+    }
+
+    {
+        // 旗手「戦旗」: マンハッタン距離2以内の味方STR/MAGを+1する常時Aura。
+        // 旗手自身は対象外、敵は対象外、距離3では効かない、複数いても+1のまま。
+        jf::Unit attacker = makeUnit("attacker", jf::Team::Player, {1, 0});
+        jf::Unit bearer = makeUnit("bearer", jf::Team::Player, {1, 2}, 4, jf::UnitClass::BannerBearer);
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 5});
+        std::vector<jf::Unit> units{attacker, bearer, enemy};
+        assert(jf::bannerAuraBonus(units, units[0]) == 1); // attacker: distance 2
+        assert(jf::bannerAuraBonus(units, units[1]) == 0); // bearer itself excluded
+        assert(jf::bannerAuraBonus(units, units[2]) == 0); // enemy team, irrelevant anyway
+
+        jf::Unit far = makeUnit("far", jf::Team::Player, {1, 7});
+        units.push_back(far);
+        assert(jf::bannerAuraBonus(units, units[3]) == 0); // distance 5, out of range
+
+        jf::Unit bearer2 = makeUnit("bearer2", jf::Team::Player, {1, 1}, 4, jf::UnitClass::BannerBearer);
+        units.push_back(bearer2);
+        assert(jf::bannerAuraBonus(units, units[0]) == 1); // 2 bearers in range, still +1
+
+        const int baseline = jf::computeDamage(attacker, enemy, 0);
+        const int boosted = jf::computeDamage(attacker, enemy, 0, jf::bannerAuraBonus(units, attacker));
+        assert(boosted == baseline + 1);
+    }
+
+    {
+        // 旗手`rallying_banner`(奮起の旗): 距離2以内の味方(自身含む)へ
+        // DEF+1/RES+1、次のEnemy Phase終了で解除。
+        jf::Unit bearer = makeUnit("bearer", jf::Team::Player, {1, 3}, 4, jf::UnitClass::BannerBearer);
+        bearer.skillSlots[0].skillId = "rallying_banner";
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {1, 5}); // distance 2
+        jf::Unit farAlly = makeUnit("farAlly", jf::Team::Player, {1, 7}); // distance 4, out of range
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {2, 7});
+        jf::BattleState battle({bearer, ally, farAlly, enemy});
+        jf::BattleController controller(std::move(battle));
+        for (jf::Unit& u : controller.battle().units()) jf::initializeSkillCharges(u);
+
+        controller.selectUnit(*controller.battle().findUnit("bearer"));
+        controller.selectMoveTile(controller.battle().findUnit("bearer")->position);
+        controller.chooseSkill(0);
+        assert(controller.battle().findUnit("bearer")->rallyingBannerActive);
+        assert(controller.battle().findUnit("bearer")->effectiveDefense() == 2 + 1); // makeUnit()'s default DEF
+        assert(controller.battle().findUnit("bearer")->effectiveResistance() == 1 + 1); // makeUnit()'s default RES
+        assert(controller.battle().findUnit("ally")->rallyingBannerActive);
+        assert(!controller.battle().findUnit("farAlly")->rallyingBannerActive);
+
+        controller.endPlayerTurn();
+        for (int i = 0; i < 10 && controller.inputState() == jf::BattleInputState::EnemyTurn; ++i)
+            controller.update(1.0f);
+        assert(!controller.battle().findUnit("bearer")->rallyingBannerActive); // cleared at Enemy Phase end
+        assert(!controller.battle().findUnit("ally")->rallyingBannerActive);
+    }
+
+    {
+        // 旗手`marching_rhythm`(行軍の律動): 距離2以内の未行動の味方のMOV+1、
+        // このPlayer Phase終了で解除。既に行動済みの味方は対象外。
+        jf::Unit bearer = makeUnit("bearer", jf::Team::Player, {1, 3}, 4, jf::UnitClass::BannerBearer);
+        bearer.skillSlots[0].skillId = "marching_rhythm";
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {1, 5}); // distance 2, unacted
+        jf::Unit actedAlly = makeUnit("actedAlly", jf::Team::Player, {1, 4}); // distance 1, but already acted
+        actedAlly.hasActed = true;
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {2, 7});
+        jf::BattleState battle({bearer, ally, actedAlly, enemy});
+        jf::BattleController controller(std::move(battle));
+        for (jf::Unit& u : controller.battle().units()) jf::initializeSkillCharges(u);
+
+        controller.selectUnit(*controller.battle().findUnit("bearer"));
+        controller.selectMoveTile(controller.battle().findUnit("bearer")->position);
+        controller.chooseSkill(0);
+        assert(controller.battle().findUnit("ally")->moveUpActive);
+        assert(controller.battle().findUnit("ally")->effectiveMove() == 4 + 1);
+        assert(!controller.battle().findUnit("actedAlly")->moveUpActive); // already acted, excluded
+        assert(!jf::skillSlotAvailable(*controller.battle().findUnit("bearer"), 0)); // OncePerBattle, just used
+
+        controller.endPlayerTurn();
+        assert(!controller.battle().findUnit("ally")->moveUpActive); // cleared at this Player Phase end
+    }
+
+    {
+        // 旗手`unyielding_signal`(不退の合図): 距離2以内の味方が受ける最初の
+        // 移動低下/よろめきを無効化し、1Phase1回のチャージを消費する。射程外は
+        // 保護しない。
+        jf::Unit bearer = makeUnit("bearer", jf::Team::Player, {1, 3}, 4, jf::UnitClass::BannerBearer);
+        bearer.skillSlots[0].skillId = "unyielding_signal";
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {1, 5}); // distance 2
+        jf::Unit farAlly = makeUnit("farAlly", jf::Team::Player, {1, 7}); // distance 4, unprotected
+        jf::BattleState battle({bearer, ally, farAlly});
+        for (jf::Unit& u : battle.units()) jf::initializeSkillCharges(u);
+        assert(jf::skillSlotAvailable(battle.units()[0], 0));
+
+        jf::applyMoveDown(battle, *battle.findUnit("ally"));
+        assert(!battle.findUnit("ally")->moveDownActive); // negated
+        assert(!jf::skillSlotAvailable(battle.units()[0], 0)); // charge consumed
+
+        jf::applyMoveDown(battle, *battle.findUnit("farAlly"));
+        assert(battle.findUnit("farAlly")->moveDownActive); // out of range, not protected (and charge spent anyway)
+
+        // よろめきも同様に無効化する。
+        jf::Unit bearer2 = makeUnit("bearer2", jf::Team::Player, {1, 3}, 4, jf::UnitClass::BannerBearer);
+        bearer2.skillSlots[0].skillId = "unyielding_signal";
+        jf::Unit ally2 = makeUnit("ally2", jf::Team::Player, {1, 4});
+        jf::BattleState battle2({bearer2, ally2});
+        for (jf::Unit& u : battle2.units()) jf::initializeSkillCharges(u);
+        jf::applyStagger(battle2, *battle2.findUnit("ally2"));
+        assert(!battle2.findUnit("ally2")->staggerActive);
+
+        // 毒は対象外(consumeUnyieldingSignalIfAvailableを経由しない)。
+        jf::applyPoison(*battle2.findUnit("ally2"));
+        assert(battle2.findUnit("ally2")->poisonRemainingProcs > 0);
     }
 
     {
@@ -6281,14 +6420,15 @@ int main() {
         attacker.weapon.onHitStatuses = {jf::StatusEffectType::Poison, jf::StatusEffectType::Burn,
                                          jf::StatusEffectType::MoveDown, jf::StatusEffectType::DefenseDown,
                                          jf::StatusEffectType::Stagger};
-        jf::resolveAttack(attacker, target, 0, true);
-        assert(target.poisonRemainingProcs > 0 && target.burnRemainingProcs > 0);
-        assert(target.moveDownActive && target.defenseDownActive && target.staggerActive);
-        jf::BattleState battle({target});
+        jf::BattleState battle({attacker, target});
+        jf::resolveAttack(battle, battle.units()[0], battle.units()[1], 0, true);
+        assert(battle.units()[1].poisonRemainingProcs > 0 && battle.units()[1].burnRemainingProcs > 0);
+        assert(battle.units()[1].moveDownActive && battle.units()[1].defenseDownActive &&
+              battle.units()[1].staggerActive);
         battle.setTerrain({1, 1}, jf::TerrainType::Shallows);
-        battle.units()[0].position = {1, 1};
-        jf::processActionEndStatusEffects(battle, battle.units()[0]);
-        assert(battle.units()[0].burnRemainingProcs == 0);
+        battle.units()[1].position = {1, 1};
+        jf::processActionEndStatusEffects(battle, battle.units()[1]);
+        assert(battle.units()[1].burnRemainingProcs == 0);
     }
 
     {

@@ -11,7 +11,12 @@ namespace jf {
 // rather than stacking.
 void applyPoison(Unit& target);
 void applyBurn(Unit& target);
-void applyMoveDown(Unit& target);
+// 旗手`unyielding_signal`(不退の合図): before actually applying Move Down,
+// checks for a nearby available-charge BannerBearer via
+// consumeUnyieldingSignalIfAvailable() and no-ops if one consumes it - hence
+// the BattleState& (needs the full unit list to search, and to consume the
+// banner bearer's own skill charge).
+void applyMoveDown(BattleState& battle, Unit& target);
 void applyDefenseDown(Unit& target);
 // docs/initial_skill_effects.md 暁の衛生兵`protective_treatment`/行軍隊長
 // `hold_formation`: RES+3 / DEF+2 until the next Enemy Phase ends - unlike
@@ -37,10 +42,18 @@ void applyProvoke(Unit& target, const std::string& casterId);
 // a genuinely different timing from the 3 buffs above.
 void applyMoveUp(Unit& target);
 // No-op while the target is stagger-immune (docs/status_effects.md
-// "よろめき" 再付与耐性).
-void applyStagger(Unit& target);
-void applyStatusEffect(Unit& target, StatusEffectType effect);
-void applyWeaponOnHitStatuses(const Unit& attacker, Unit& target);
+// "よろめき" 再付与耐性). Same `unyielding_signal` negation as applyMoveDown()
+// above (checked after the stagger-immunity no-op, before actually staggering).
+void applyStagger(BattleState& battle, Unit& target);
+void applyStatusEffect(BattleState& battle, Unit& target, StatusEffectType effect);
+// 旗手`unyielding_signal`: shared by applyMoveDown()/applyStagger() above -
+// finds a living ally BannerBearer within distance 2 of `target` with
+// `unyielding_signal` equipped and its OncePerPhase charge available; if
+// found, consumes that charge and returns true (caller skips applying the
+// effect). Poison/Burn/DefenseDown/damage never call this - only Move Down
+// and Stagger are covered (docs/skill_system.md「旗手」).
+bool consumeUnyieldingSignalIfAvailable(BattleState& battle, Unit& target);
+void applyWeaponOnHitStatuses(BattleState& battle, const Unit& attacker, Unit& target);
 
 // 万能薬・状態治療スキル: clears every status effect on one unit. Leaves
 // staggerImmune untouched - that is a cooldown against reapplication, not a

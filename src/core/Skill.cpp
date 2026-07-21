@@ -114,6 +114,17 @@ const std::vector<SkillDefinition>& skillRegistry() {
         {"driving_shot", UnitClass::FrontierRanger, "Driving Shot", "追い込み射撃", SkillCategory::Active,
          SkillUsageType::Cooldown2, "A normal attack (weapon range) that pushes the target 1 tile away from the user.",
          "通常攻撃(武器射程)を行い、対象を使用者から離れる方向へ1マス押し出す。", 3},
+
+        // 旗手 (Banner Bearer)
+        {"rallying_banner", UnitClass::BannerBearer, "Rallying Banner", "奮起の旗", SkillCategory::Active,
+         SkillUsageType::Cooldown2, "Allies within range 2 get DEF+1/RES+1 until the next Enemy Phase ends.",
+         "距離2以内の味方のDEFとRES+1。次のEnemy Phase終了まで。", 1},
+        {"marching_rhythm", UnitClass::BannerBearer, "Marching Rhythm", "行軍の律動", SkillCategory::Active,
+         SkillUsageType::OncePerBattle, "Unacted allies within range 2 get MOV+1 until this Player Phase ends.",
+         "距離2以内にいる未行動の味方のMOV+1。このPlayer Phase終了まで。", 2},
+        {"unyielding_signal", UnitClass::BannerBearer, "Unyielding Signal", "不退の合図", SkillCategory::Reactive,
+         SkillUsageType::OncePerPhase, "Negates the first Move Down or Stagger an ally within range 2 would receive.",
+         "距離2以内の味方が受ける最初の移動低下またはよろめきを無効化。", 3},
     };
     return skills;
 }
@@ -147,6 +158,7 @@ std::string requiredTrainingNodeIdFor(UnitClass unitClass) {
         case UnitClass::MarchCaptain:
         case UnitClass::DawnChirurgeon:
         case UnitClass::FrontierEngineer:
+        case UnitClass::BannerBearer:
             return "specialist_training";
         case UnitClass::Bandit:
         case UnitClass::Wolf:

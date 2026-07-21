@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "jf/battle/SkillCharges.hpp"
 #include "jf/core/StatusEffect.hpp"
 
 namespace jf {
@@ -23,7 +24,24 @@ void applyBurn(Unit& target) {
     target.burnRemainingProcs = statusBurnMaxProcs(target.isBoss);
 }
 
-void applyMoveDown(Unit& target) {
+bool consumeUnyieldingSignalIfAvailable(BattleState& battle, Unit& target) {
+    for (Unit& unit : battle.units()) {
+        if (&unit == &target || unit.team != target.team || !unit.isAlive() || !hasBannerAura(unit.unitClass))
+            continue;
+        if (manhattanDistance(unit.position, target.position) > 2) continue;
+        for (int slot = 0; slot < static_cast<int>(unit.skillSlots.size()); ++slot) {
+            if (unit.skillSlots[static_cast<std::size_t>(slot)].skillId == "unyielding_signal" &&
+                skillSlotAvailable(unit, slot)) {
+                consumeSkillCharge(unit, slot);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void applyMoveDown(BattleState& battle, Unit& target) {
+    if (consumeUnyieldingSignalIfAvailable(battle, target)) return;
     target.moveDownActive = true;
 }
 
@@ -55,24 +73,25 @@ void applyMoveUp(Unit& target) {
     target.moveUpActive = true;
 }
 
-void applyStagger(Unit& target) {
+void applyStagger(BattleState& battle, Unit& target) {
     if (target.staggerImmune) return;
+    if (consumeUnyieldingSignalIfAvailable(battle, target)) return;
     target.staggerActive = true;
 }
 
-void applyStatusEffect(Unit& target, StatusEffectType effect) {
+void applyStatusEffect(BattleState& battle, Unit& target, StatusEffectType effect) {
     switch (effect) {
     case StatusEffectType::Poison: applyPoison(target); break;
     case StatusEffectType::Burn: applyBurn(target); break;
-    case StatusEffectType::MoveDown: applyMoveDown(target); break;
+    case StatusEffectType::MoveDown: applyMoveDown(battle, target); break;
     case StatusEffectType::DefenseDown: applyDefenseDown(target); break;
-    case StatusEffectType::Stagger: applyStagger(target); break;
+    case StatusEffectType::Stagger: applyStagger(battle, target); break;
     }
 }
 
-void applyWeaponOnHitStatuses(const Unit& attacker, Unit& target) {
+void applyWeaponOnHitStatuses(BattleState& battle, const Unit& attacker, Unit& target) {
     if (!target.isAlive()) return;
-    for (StatusEffectType effect : attacker.weapon.onHitStatuses) applyStatusEffect(target, effect);
+    for (StatusEffectType effect : attacker.weapon.onHitStatuses) applyStatusEffect(battle, target, effect);
 }
 
 void clearAllStatusEffects(Unit& target) {
@@ -142,6 +161,7 @@ void clearSkillBuffsAtEnemyPhaseEnd(BattleState& battle) {
         unit.braceSkillActive = false;
         unit.provokedByUnitId.clear();
         unit.quarryRevealed = false; // 辺境猟兵`read_quarry`: "次のEnemy Phase終了まで"
+        unit.rallyingBannerActive = false; // 旗手`rallying_banner`: 同じく"次のEnemy Phase終了まで"
     }
 }
 

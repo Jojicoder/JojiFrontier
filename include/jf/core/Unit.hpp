@@ -165,6 +165,11 @@ struct Unit {
     // overwatchActive等と同じ「次のEnemy Phase終了まで」ライフサイクルで
     // clearSkillBuffsAtEnemyPhaseEnd()が解除する。
     bool quarryRevealed = false;
+    // 旗手`rallying_banner`(奮起の旗): 距離2以内の味方(自身含む)にDEF+1/RES+1を
+    // 付与、次のEnemy Phase終了まで。既存のdefenseUpActive(+2)/resistanceUpActive
+    // (+3)とは数値が異なるため使い回さず専用フィールドにする。
+    // clearSkillBuffsAtEnemyPhaseEnd()が解除する。
+    bool rallyingBannerActive = false;
 
     // The 2 equipped-skill slots (docs/skill_system.md). See
     // jf/battle/SkillCharges.hpp for lifecycle management.
@@ -234,6 +239,7 @@ struct Unit {
         if (defenseUpActive) def += 2;
         if (immovableStanceActive) def += 3; // 古参守備兵`immovable_stance`
         if (braceForImpactActive) def += 3; // 重装兵`brace_for_impact`
+        if (rallyingBannerActive) def += 1; // 旗手`rallying_banner`
         if (defenseDownActive) def = std::max(def - statusDefenseDownAmount(isBoss), 0);
         return def;
     }
@@ -241,7 +247,10 @@ struct Unit {
     // RES after protective_treatment's buff (docs/initial_skill_effects.md -
     // a flat +3, no boss scaling specified, unlike the debuff amounts above).
     int effectiveResistance() const {
-        return resistanceUpActive ? stats.resistance + 3 : stats.resistance;
+        int res = stats.resistance;
+        if (resistanceUpActive) res += 3;
+        if (rallyingBannerActive) res += 1; // 旗手`rallying_banner`
+        return res;
     }
 };
 

@@ -153,6 +153,15 @@ bool isRideThroughShape(const std::string& skillId) { return skillId == "ride_th
 bool isRescueTransferShape(const std::string& skillId) { return skillId == "rescue_transfer"; }
 constexpr int kRescueTransferRange = 1;
 
+// 旗手`rallying_banner`(奮起の旗): hold_formationと同じ「対象選択なしで即時
+// 解決するAoE」だが、範囲が距離2(隣接1ではない)、かつDEFとRESを同時に+1する
+// (既存のBuffKindはどちらか一方だけのため)点が異なるため専用分岐にした。
+bool isRallyingBannerShape(const std::string& skillId) { return skillId == "rallying_banner"; }
+// 旗手`marching_rhythm`(行軍の律動): hold_formation型のAoEだが範囲が距離2、
+// かつ「未行動の」味方限定(既存のapplyMoveUp()をそのまま再利用する)。
+bool isMarchingRhythmShape(const std::string& skillId) { return skillId == "marching_rhythm"; }
+constexpr int kBannerAuraRange = 2;
+
 // 監視弓兵`overwatch`(警戒射撃): self-only, no target to choose - resolves
 // immediately like hold_formation/extended_lockdown's selfOnly buffs below,
 // but arms Unit::overwatchActive rather than a BuffKind (this isn't a stat
@@ -380,7 +389,8 @@ std::optional<CombatPreview> BattleController::pendingPreview() const {
     }
     return jf::previewAttack(*selectedUnit_, *pendingTarget_,
                              battle_.combatDefenseBonus(*pendingTarget_, *selectedUnit_),
-                             battle_.combatHitChance(*pendingTarget_));
+                             battle_.combatHitChance(*pendingTarget_),
+                             bannerAuraBonus(battle_.units(), *selectedUnit_));
 }
 
 void BattleController::markActionResolved(Unit& unit, ActionKind actionKind) {
@@ -753,8 +763,10 @@ void BattleController::chooseSkill(int slotIndex) {
     const bool overwatch = isOverwatchShape(skillId);
     const bool trailblaze = isTrailblazeShape(skillId);
     const bool rideThrough = isRideThroughShape(skillId);
+    const bool rallyingBanner = isRallyingBannerShape(skillId);
+    const bool marchingRhythm = isMarchingRhythmShape(skillId);
     if (auto buff = buffSkillShapes().find(skillId);
-        overwatch || trailblaze || rideThrough ||
+        overwatch || trailblaze || rideThrough || rallyingBanner || marchingRhythm ||
         (buff != buffSkillShapes().end() && (buff->second.selfAndAllAdjacent || buff->second.selfOnly))) {
         if (overwatch) {
             selectedUnit_->overwatchActive = true;
@@ -765,6 +777,18 @@ void BattleController::chooseSkill(int slotIndex) {
             }
         } else if (rideThrough) {
             selectedUnit_->rideThroughBudgetActive = true;
+        } else if (rallyingBanner) {
+            for (Unit& unit : battle_.units()) {
+                if (unit.team != selectedUnit_->team || !unit.isAlive()) continue;
+                if (manhattanDistance(selectedUnit_->position, unit.position) <= kBannerAuraRange)
+                    unit.rallyingBannerActive = true;
+            }
+        } else if (marchingRhythm) {
+            for (Unit& unit : battle_.units()) {
+                if (unit.team != selectedUnit_->team || !unit.isAlive() || unit.hasActed) continue;
+                if (manhattanDistance(selectedUnit_->position, unit.position) <= kBannerAuraRange)
+                    applyMoveUp(unit);
+            }
         } else if (buff->second.selfOnly) {
             applyBuff(buff->second.kind, *selectedUnit_);
         } else {
@@ -1185,7 +1209,8 @@ std::optional<CombatPreview> BattleController::pendingSkillPreview() const {
     // すべてでPreviewと実結果が一致").
     CombatPreview preview = jf::previewAttack(*selectedUnit_, *pendingTarget_,
                                               battle_.combatDefenseBonus(*pendingTarget_, *selectedUnit_),
-                                              battle_.combatHitChance(*pendingTarget_));
+                                              battle_.combatHitChance(*pendingTarget_),
+                                              bannerAuraBonus(battle_.units(), *selectedUnit_));
     if (attack->second.bonusDamage > 0) {
         preview.damage += attack->second.bonusDamage;
         preview.targetHpAfter = std::max(pendingTarget_->currentHp - preview.damage, 0);
@@ -1224,18 +1249,19 @@ void BattleController::confirmSkillAttack() {
     const AliveSnapshot aliveBeforeAttack = captureAliveSnapshot(battle_);
     const int hpBeforeAttack = pendingTarget_->currentHp;
     const bool hit = battle_.rollAttackHit(*pendingTarget_);
-    resolveAttack(*selectedUnit_, *pendingTarget_, battle_.combatDefenseBonus(*pendingTarget_, *selectedUnit_), hit);
+    resolveAttack(battle_, *selectedUnit_, *pendingTarget_, battle_.combatDefenseBonus(*pendingTarget_, *selectedUnit_),
+                 hit, bannerAuraBonus(battle_.units(), *selectedUnit_));
     if (hit && selectedUnit_->weapon.causesKnockback && pendingTarget_->isAlive())
         battle_.applyKnockback(*selectedUnit_, *pendingTarget_);
     if (hit && attack->second.bonusDamage > 0 && pendingTarget_->isAlive())
         pendingTarget_->currentHp = std::max(0, pendingTarget_->currentHp - attack->second.bonusDamage);
     lastDamage_ = std::max(0, hpBeforeAttack - pendingTarget_->currentHp);
     lastAttackHit_ = lastDamage_ > 0;
-    if (hit && attack->second.appliesMoveDown && pendingTarget_->isAlive()) applyMoveDown(*pendingTarget_);
+    if (hit && attack->second.appliesMoveDown && pendingTarget_->isAlive()) applyMoveDown(battle_, *pendingTarget_);
     if (hit && attack->second.appliesForcedPush && pendingTarget_->isAlive())
         applyForcedPush(battle_, *selectedUnit_, *pendingTarget_);
     if (hit && pendingTarget_->isAlive())
-        for (StatusEffectType effect : attack->second.statuses) applyStatusEffect(*pendingTarget_, effect);
+        for (StatusEffectType effect : attack->second.statuses) applyStatusEffect(battle_, *pendingTarget_, effect);
     emitUnitDefeatedEvents(battle_, aliveBeforeAttack);
 
     consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
@@ -1387,8 +1413,9 @@ void BattleController::confirmAttack() {
     const AliveSnapshot aliveBeforeAttack = captureAliveSnapshot(battle_);
     const int hpBeforeAttack = pendingTarget_->currentHp;
     const bool hit = battle_.rollAttackHit(*pendingTarget_);
-    resolveAttack(*selectedUnit_, *pendingTarget_,
-                  battle_.combatDefenseBonus(*pendingTarget_, *selectedUnit_), hit);
+    resolveAttack(battle_, *selectedUnit_, *pendingTarget_,
+                  battle_.combatDefenseBonus(*pendingTarget_, *selectedUnit_), hit,
+                  bannerAuraBonus(battle_.units(), *selectedUnit_));
     lastDamage_ = std::max(0, hpBeforeAttack - pendingTarget_->currentHp);
     lastAttackHit_ = lastDamage_ > 0;
     if (hit && selectedUnit_->weapon.causesKnockback && pendingTarget_->isAlive())

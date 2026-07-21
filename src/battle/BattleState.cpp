@@ -90,7 +90,7 @@ void BattleState::applyKnockback(const Unit& attacker, Unit& defender) {
     // in place instead of just doing nothing.
     if (!isInBounds(dest) || unitAt(dest) || !isPassable(terrainAt(dest)) || objectBlocksMovementAt(dest) ||
         objectBlocksStoppingAt(dest)) {
-        applyStagger(defender);
+        applyStagger(*this, defender);
         return;
     }
     defender.position = dest;
