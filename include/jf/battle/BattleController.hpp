@@ -22,6 +22,10 @@ enum class BattleInputState {
     SelectAction,
     SelectTarget,
     SelectHealTarget,
+    // 辺境工兵「野戦工作」(docs/class_reference.md「後半6兵種」): same
+    // dedicated-command shape as SelectHealTarget above, for an固有能力
+    // outside the 2 equip slots.
+    SelectFieldFortificationTarget,
     SelectItemTarget,
     SelectBoardTarget,
     SelectSkillTarget,
@@ -92,6 +96,7 @@ public:
     // move tile; once the unit has moved, it narrows to just its new tile.
     const std::vector<GridPos>& attackRangeTiles() const { return attackRangeTiles_; }
     const std::vector<GridPos>& healableTiles() const { return healableTiles_; }
+    const std::vector<GridPos>& fieldFortificationTiles() const { return fieldFortificationTiles_; }
     const std::vector<GridPos>& itemTargetTiles() const { return itemTargetTiles_; }
     const std::vector<GridPos>& boardTargetTiles() const { return boardTargetTiles_; }
     const std::vector<GridPos>& skillTargetTiles() const { return skillTargetTiles_; }
@@ -142,6 +147,10 @@ public:
     void selectInteractTarget(GridPos pos);
     void chooseHeal();
     void selectHealTarget(GridPos pos);
+    // 辺境工兵「野戦工作」: chooseHeal()/selectHealTarget()と同じ即時解決
+    // パターン。既に使用済み(Unit::fieldFortificationUsed)ならno-op。
+    void chooseFieldFortification();
+    void selectFieldFortificationTarget(GridPos pos);
     bool useHealingItem(int amount);
     bool chooseHealingItemTarget(int amount);
     bool selectHealingItemTarget(GridPos pos);
@@ -205,6 +214,7 @@ private:
     std::vector<GridPos> objectInteractableTiles_;
     std::vector<GridPos> attackRangeTiles_;
     std::vector<GridPos> healableTiles_;
+    std::vector<GridPos> fieldFortificationTiles_;
     std::vector<GridPos> itemTargetTiles_;
     std::vector<GridPos> boardTargetTiles_;
     std::vector<GridPos> skillTargetTiles_;

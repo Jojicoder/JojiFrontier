@@ -50,6 +50,13 @@
       "roleKey": "class.heavy_infantry.role"
     },
     {
+      "id": "FrontierEngineer",
+      "baseStats": { "maxHp": 21, "strength": 6, "magic": 1, "speed": 5, "defense": 5, "resistance": 4, "move": 4 },
+      "weaponId": "engineer_hammer",
+      "nameKey": "class.frontier_engineer",
+      "roleKey": "class.frontier_engineer.role"
+    },
+    {
       "id": "Bandit",
       "baseStats": { "maxHp": 22, "strength": 9, "magic": 0, "speed": 4, "defense": 3, "resistance": 1, "move": 4 },
       "weaponId": "iron_axe",

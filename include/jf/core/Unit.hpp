@@ -138,6 +138,11 @@ struct Unit {
     // and BattleState::applyKnockback() consult this.
     bool braceForImpactActive = false;
     bool braceForImpactJustGranted = false;
+    // 辺境工兵「野戦工作」(docs/class_reference.md「後半6兵種」): 戦闘中1回の
+    // Active固有能力(canHeal()と同じく2スキル枠の外)。canHeal()同様この
+    // フィールドで一度使用済みかを追跡する(clearAllStatusEffectsでは戻さない
+    // -戦闘スコープの1回きり)。
+    bool fieldFortificationUsed = false;
 
     // The 2 equipped-skill slots (docs/skill_system.md). See
     // jf/battle/SkillCharges.hpp for lifecycle management.

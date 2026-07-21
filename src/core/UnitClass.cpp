@@ -11,6 +11,7 @@ std::string toString(UnitClass unitClass) {
         case UnitClass::Spearman: return "Spearman / 槍兵";
         case UnitClass::DawnChirurgeon: return "Dawn Chirurgeon / 暁の衛生兵";
         case UnitClass::HeavyInfantry: return "Heavy Infantry / 重装兵";
+        case UnitClass::FrontierEngineer: return "Frontier Engineer / 辺境工兵";
         case UnitClass::Bandit: return "Bandit / 盗賊";
         case UnitClass::Wolf: return "Wolf / 狼";
         case UnitClass::AshenhornBoar: return "Ashenhorn Boar / 灰角大猪";
@@ -25,5 +26,6 @@ bool hasBrace(UnitClass unitClass) { return unitClass == UnitClass::Spearman; }
 bool canHeal(UnitClass unitClass) { return unitClass == UnitClass::DawnChirurgeon; }
 int passiveEvasionBonus(UnitClass unitClass) { return unitClass == UnitClass::FrontierScout ? 10 : 0; }
 bool hasHeavyArmor(UnitClass unitClass) { return unitClass == UnitClass::HeavyInfantry; }
+bool canFieldFortify(UnitClass unitClass) { return unitClass == UnitClass::FrontierEngineer; }
 
 } // namespace jf

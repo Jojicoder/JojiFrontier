@@ -87,6 +87,25 @@ bool isArmorAdvanceShape(const std::string& skillId) { return skillId == "armor_
 bool isBreakObstacleShape(const std::string& skillId) { return skillId == "break_obstacle"; }
 constexpr int kBreakObstacleRange = 1;
 
+// 辺境工兵`field_repair`(野戦補修): 隣接する自チームの設置物1個の耐久を回復する。
+// break_obstacle同様Object相手の専用分岐だが、破壊ではなく耐久を加算する点が異なる。
+bool isFieldRepairShape(const std::string& skillId) { return skillId == "field_repair"; }
+constexpr int kFieldRepairRange = 1;
+constexpr int kFieldRepairAmount = 6;
+
+// 辺境工兵`rubble_charge`(瓦礫爆破): break_obstacleと同じ即時破壊に加え、対象マスの
+// 直上・直下(row±1、同col)にいる敵へ固定3ダメージを与える。反応攻撃は発生させない
+// (通常の反撃トリガーを経由しないため)。
+bool isRubbleChargeShape(const std::string& skillId) { return skillId == "rubble_charge"; }
+constexpr int kRubbleChargeRange = 2;
+constexpr int kRubbleChargeSplashDamage = 3;
+
+// 辺境工兵`rapid_barricade`(即席防壁): 空きマスへ耐久6の設置物(rapid_barricade
+// Definition)を配置する。次の自軍Phase開始時にBattleController::finishEnemyPhase()
+// が自動的にDestroyed化する(固有能力`field_barricade`は消滅しない永続版)。
+bool isRapidBarricadeShape(const std::string& skillId) { return skillId == "rapid_barricade"; }
+constexpr int kRapidBarricadeRange = 2;
+
 // 古参守備兵`provoke`(挑発): 敵1体・射程2、Damageなし、対象へUnit::
 // provokedByUnitIdを設定するだけ - Mark形状に似るが、書き込む値がDamageの
 // 符号付き整数ではなく「このスキルを使ったUnitのid」で、しかも設定先は
@@ -436,6 +455,39 @@ void BattleController::selectHealTarget(GridPos pos) {
     evaluateOutcome();
 }
 
+void BattleController::chooseFieldFortification() {
+    if (inputState_ != BattleInputState::SelectAction || !selectedUnit_ ||
+        !canFieldFortify(selectedUnit_->unitClass) || selectedUnit_->fieldFortificationUsed) return;
+
+    fieldFortificationTiles_.clear();
+    constexpr GridPos directions[] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+    for (GridPos direction : directions) {
+        GridPos pos{selectedUnit_->position.row + direction.row, selectedUnit_->position.col + direction.col};
+        if (isInBounds(pos) && isPassable(battle_.terrainAt(pos)) && !battle_.unitAt(pos) && !battle_.objectAt(pos))
+            fieldFortificationTiles_.push_back(pos);
+    }
+    if (!fieldFortificationTiles_.empty()) inputState_ = BattleInputState::SelectFieldFortificationTarget;
+}
+
+void BattleController::selectFieldFortificationTarget(GridPos pos) {
+    if (inputState_ != BattleInputState::SelectFieldFortificationTarget || !selectedUnit_) return;
+    if (std::find(fieldFortificationTiles_.begin(), fieldFortificationTiles_.end(), pos) ==
+        fieldFortificationTiles_.end()) return;
+
+    BattleObjectTeam team =
+        selectedUnit_->team == Team::Player ? BattleObjectTeam::Player : BattleObjectTeam::Enemy;
+    battle_.placeObject({selectedUnit_->id + "_field_barricade", "field_barricade", pos, team,
+                         BattleObjectStateKind::Active, 10, 0});
+    selectedUnit_->fieldFortificationUsed = true;
+    finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+    selectedUnit_ = nullptr;
+    fieldFortificationTiles_.clear();
+    reachableTiles_.clear();
+    attackRangeTiles_.clear();
+    inputState_ = BattleInputState::SelectUnit;
+    evaluateOutcome();
+}
+
 bool BattleController::useHealingItem(int amount) {
     if (inputState_ != BattleInputState::SelectAction || !selectedUnit_ || amount <= 0) return false;
     if (selectedUnit_->currentHp >= selectedUnit_->stats.maxHp) return false;
@@ -611,6 +663,49 @@ void BattleController::chooseSkill(int slotIndex) {
             if (manhattanDistance(selectedUnit_->position, unit.position) <= kProvokeRange)
                 skillTargetTiles_.push_back(unit.position);
         }
+    } else if (isFieldRepairShape(skillId)) {
+        BattleObjectTeam ownTeam =
+            selectedUnit_->team == Team::Player ? BattleObjectTeam::Player : BattleObjectTeam::Enemy;
+        for (const BattleObjectState& object : battle_.objects()) {
+            if (object.state == BattleObjectStateKind::Destroyed || object.team != ownTeam) continue;
+            const BattleObjectDefinition* def = battle_.objectDefinition(object.definitionId);
+            if (!def || !def->canBeRepaired || object.durability >= def->maxDurability) continue;
+            if (manhattanDistance(selectedUnit_->position, object.position) <= kFieldRepairRange)
+                skillTargetTiles_.push_back(object.position);
+        }
+    } else if (isRubbleChargeShape(skillId)) {
+        for (const BattleObjectState& object : battle_.objects()) {
+            if (object.state == BattleObjectStateKind::Destroyed) continue;
+            const BattleObjectDefinition* def = battle_.objectDefinition(object.definitionId);
+            if (!def || !def->canBeAttacked) continue;
+            if (manhattanDistance(selectedUnit_->position, object.position) <= kRubbleChargeRange)
+                skillTargetTiles_.push_back(object.position);
+        }
+    } else if (isRapidBarricadeShape(skillId)) {
+        // 「即席防壁と固有能力の防護板は同時に合計2個まで存在できる」: if the
+        // cap is already reached, no target tile is offered - the skill is
+        // effectively unusable, same "no target -> skill doesn't activate"
+        // pattern chooseSkill() uses everywhere else (see the empty-check
+        // below).
+        int barricadeCount = 0;
+        for (const BattleObjectState& object : battle_.objects()) {
+            if (object.state != BattleObjectStateKind::Destroyed &&
+                (object.definitionId == "field_barricade" || object.definitionId == "rapid_barricade")) {
+                ++barricadeCount;
+            }
+        }
+        if (barricadeCount < 2) {
+            for (int row = 0; row < kGridRows; ++row) {
+                for (int col = 0; col < kGridCols; ++col) {
+                    GridPos pos{row, col};
+                    if (manhattanDistance(selectedUnit_->position, pos) > kRapidBarricadeRange ||
+                        pos == selectedUnit_->position || !isPassable(battle_.terrainAt(pos)) ||
+                        battle_.unitAt(pos) || battle_.objectAt(pos))
+                        continue;
+                    skillTargetTiles_.push_back(pos);
+                }
+            }
+        }
     }
     if (skillTargetTiles_.empty()) return;
     pendingSkillSlot_ = slotIndex;
@@ -652,6 +747,80 @@ bool BattleController::selectSkillTarget(GridPos pos) {
         object->state = BattleObjectStateKind::Destroyed;
         handleObjectiveEvent(battle_.missionState(),
                              BattleEvent{battle_.issueEventId(), 0, ObjectDestroyedEvent{object->id}});
+        consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
+        finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+        selectedUnit_ = nullptr;
+        pendingSkillSlot_ = -1;
+        skillTargetTiles_.clear();
+        reachableTiles_.clear();
+        attackRangeTiles_.clear();
+        inputState_ = BattleInputState::SelectUnit;
+        evaluateOutcome();
+        return true;
+    }
+
+    // 辺境工兵`field_repair`(野戦補修): the destination is an Object, not a
+    // Unit - increases its durability by kFieldRepairAmount, capped at the
+    // Definition's maxDurability.
+    if (isFieldRepairShape(shapeSkillId)) {
+        BattleObjectState* object = battle_.objectAt(pos);
+        const BattleObjectDefinition* def = object ? battle_.objectDefinition(object->definitionId) : nullptr;
+        if (!object || !def) return false;
+        object->durability = std::min(object->durability + kFieldRepairAmount, def->maxDurability);
+        consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
+        finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+        selectedUnit_ = nullptr;
+        pendingSkillSlot_ = -1;
+        skillTargetTiles_.clear();
+        reachableTiles_.clear();
+        attackRangeTiles_.clear();
+        inputState_ = BattleInputState::SelectUnit;
+        evaluateOutcome();
+        return true;
+    }
+
+    // 辺境工兵`rubble_charge`(瓦礫爆破): same instant-destroy as
+    // break_obstacle, plus a fixed kRubbleChargeSplashDamage hit (no
+    // DEF/RES, no counter) to any enemy directly above/below the destroyed
+    // tile - mirrors the mark_target bonusDamage idiom below (AliveSnapshot
+    // -> currentHp -= amount -> emitUnitDefeatedEvents).
+    if (isRubbleChargeShape(shapeSkillId)) {
+        BattleObjectState* object = battle_.objectAt(pos);
+        if (!object || object->state == BattleObjectStateKind::Destroyed) return false;
+        object->durability = 0;
+        object->state = BattleObjectStateKind::Destroyed;
+        handleObjectiveEvent(battle_.missionState(),
+                             BattleEvent{battle_.issueEventId(), 0, ObjectDestroyedEvent{object->id}});
+
+        const AliveSnapshot aliveBeforeSplash = captureAliveSnapshot(battle_);
+        for (GridPos splashPos : {GridPos{pos.row - 1, pos.col}, GridPos{pos.row + 1, pos.col}}) {
+            Unit* splashTarget = battle_.unitAt(splashPos);
+            if (splashTarget && splashTarget->team != selectedUnit_->team && splashTarget->isAlive())
+                splashTarget->currentHp = std::max(0, splashTarget->currentHp - kRubbleChargeSplashDamage);
+        }
+        emitUnitDefeatedEvents(battle_, aliveBeforeSplash);
+
+        consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
+        finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+        selectedUnit_ = nullptr;
+        pendingSkillSlot_ = -1;
+        skillTargetTiles_.clear();
+        reachableTiles_.clear();
+        attackRangeTiles_.clear();
+        inputState_ = BattleInputState::SelectUnit;
+        evaluateOutcome();
+        return true;
+    }
+
+    // 辺境工兵`rapid_barricade`(即席防壁): the destination is an empty tile -
+    // places a temporary "rapid_barricade" Object (distinct definitionId from
+    // the permanent 固有能力 barricade so finishEnemyPhase()'s Player-Phase-
+    // start cleanup can target only this one).
+    if (isRapidBarricadeShape(shapeSkillId)) {
+        BattleObjectTeam team =
+            selectedUnit_->team == Team::Player ? BattleObjectTeam::Player : BattleObjectTeam::Enemy;
+        battle_.placeObject({"rapid_barricade_" + std::to_string(battle_.issueEventId()), "rapid_barricade", pos,
+                             team, BattleObjectStateKind::Active, 6, 0});
         consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
         finishPlayerAction(*selectedUnit_, ActionKind::Skill);
         selectedUnit_ = nullptr;
@@ -1105,6 +1274,24 @@ void BattleController::update(float dt) {
     // comment).
     resolveHoldTileRoundEnd(battle_);
     battle_.beginPlayerPhase();
+    // 辺境工兵`rapid_barricade`(即席防壁)「次の自軍Phase開始時に消滅」: unlike
+    // `field_barricade`(固有能力「野戦工作」、永続)、この専用definitionIdの
+    // 設置物だけを自軍Phase開始のたびに破棄する。
+    {
+        std::vector<BattleObjectId> expiredBarricadeIds;
+        for (const BattleObjectState& object : battle_.objects()) {
+            if (object.definitionId == "rapid_barricade" && object.state != BattleObjectStateKind::Destroyed)
+                expiredBarricadeIds.push_back(object.id);
+        }
+        for (const BattleObjectId& id : expiredBarricadeIds) {
+            if (BattleObjectState* object = battle_.findObject(id)) {
+                object->durability = 0;
+                object->state = BattleObjectStateKind::Destroyed;
+                handleObjectiveEvent(battle_.missionState(),
+                                     BattleEvent{battle_.issueEventId(), 0, ObjectDestroyedEvent{object->id}});
+            }
+        }
+    }
     // Player Phase is starting: refill/tick down player-side skill charges.
     refreshSkillChargesOnPhaseStart(battle_, Team::Player);
     handleObjectiveEvent(battle_.missionState(),

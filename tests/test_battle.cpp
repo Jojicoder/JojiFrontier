@@ -108,6 +108,13 @@ jf::GameData makeFactoryData() {
     data.weaponsById.emplace("iron_greathammer", ironGreathammer);
     data.classesById.emplace(jf::UnitClass::HeavyInfantry,
                              jf::ClassDefinition{jf::UnitClass::HeavyInfantry, heavyInfantryStats, "iron_greathammer"});
+    jf::Stats frontierEngineerStats{.maxHp = 21, .strength = 6, .magic = 1, .speed = 5,
+                                    .defense = 5, .resistance = 4, .move = 4};
+    jf::Weapon engineerHammer{.id = "engineer_hammer", .name = "Engineer Hammer", .might = 5, .minRange = 1,
+                              .maxRange = 1, .damageType = jf::DamageType::Physical};
+    data.weaponsById.emplace("engineer_hammer", engineerHammer);
+    data.classesById.emplace(jf::UnitClass::FrontierEngineer,
+                             jf::ClassDefinition{jf::UnitClass::FrontierEngineer, frontierEngineerStats, "engineer_hammer"});
     jf::Weapon wolfBite{.id = "wolf_bite", .name = "Bite", .might = 5, .minRange = 1,
                        .maxRange = 1, .damageType = jf::DamageType::Physical};
     data.weaponsById.emplace("wolf_bite", wolfBite);
@@ -2766,6 +2773,183 @@ int main() {
         assert(controller.battle().findObject("log1")->state == jf::BattleObjectStateKind::Destroyed);
         assert(controller.battle().findObject("log1")->durability == 0);
         assert(!jf::skillSlotAvailable(*controller.battle().findUnit("heavy"), 0)); // OncePerBattle, just used
+    }
+
+    {
+        // docs/class_reference.md「後半6兵種」/M7項目1: 辺境工兵
+        // (FrontierEngineer)のClass/武器データ整合性。
+        jf::GameData data = makeFactoryData();
+        const jf::ClassDefinition& def = data.classDefinition(jf::UnitClass::FrontierEngineer);
+        assert(def.baseStats.maxHp == 21 && def.baseStats.strength == 6 && def.baseStats.magic == 1 &&
+              def.baseStats.speed == 5 && def.baseStats.defense == 5 && def.baseStats.resistance == 4 &&
+              def.baseStats.move == 4);
+        assert(def.weaponId == "engineer_hammer");
+        const jf::Weapon& weapon = data.weaponFor(jf::UnitClass::FrontierEngineer);
+        assert(weapon.id == "engineer_hammer" && weapon.might == 5 && weapon.minRange == 1 && weapon.maxRange == 1 &&
+              weapon.damageType == jf::DamageType::Physical);
+        assert(jf::unitClassFromString("FrontierEngineer") == jf::UnitClass::FrontierEngineer);
+        assert(jf::skillsForClass(jf::UnitClass::FrontierEngineer).size() == 3);
+        assert(jf::requiredTrainingNodeIdFor(jf::UnitClass::FrontierEngineer) == "specialist_training");
+    }
+
+    {
+        // 辺境工兵「野戦工作」: once-per-battle Active固有能力, own dedicated
+        // command outside the 2 equip slots (same shape as canHeal()/
+        // chooseHeal()). Places a durability-10 barricade on an adjacent
+        // empty tile; a 2nd use is refused via fieldFortificationUsed.
+        jf::Unit engineer = makeUnit("engineer", jf::Team::Player, {1, 3}, 4, jf::UnitClass::FrontierEngineer);
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {2, 7});
+        jf::BattleState battle({engineer, enemy});
+        battle.registerObjectDefinition(jf::BattleObjectDefinition{.definitionId = "field_barricade",
+                                                                    .kind = jf::BattleObjectKind::Barrier,
+                                                                    .maxDurability = 10,
+                                                                    .blocksMovement = true,
+                                                                    .canBeAttacked = true,
+                                                                    .canBeRepaired = true});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseFieldFortification();
+        assert(controller.inputState() == jf::BattleInputState::SelectFieldFortificationTarget);
+        assert(contains(controller.fieldFortificationTiles(), jf::GridPos{1, 4}));
+
+        controller.selectFieldFortificationTarget(jf::GridPos{1, 4});
+        const jf::BattleObjectState* placed = controller.battle().objectAt(jf::GridPos{1, 4});
+        assert(placed && placed->definitionId == "field_barricade" && placed->durability == 10);
+        assert(controller.battle().findUnit("engineer")->fieldFortificationUsed);
+
+        for (int i = 0; i < 10 && controller.inputState() == jf::BattleInputState::EnemyTurn; ++i)
+            controller.update(1.0f);
+        controller.selectUnit(*controller.battle().findUnit("engineer"));
+        controller.selectMoveTile(controller.battle().findUnit("engineer")->position);
+        controller.chooseFieldFortification();
+        assert(controller.inputState() == jf::BattleInputState::SelectAction); // no-op, already used
+    }
+
+    {
+        // 辺境工兵`field_repair`(野戦補修): heals a damaged adjacent friendly
+        // placed object's durability by 6 (capped at max). Full-durability
+        // and enemy-team objects aren't offered as targets.
+        jf::Unit engineer = makeUnit("engineer", jf::Team::Player, {1, 3}, 4, jf::UnitClass::FrontierEngineer);
+        engineer.skillSlots[0].skillId = "field_repair";
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {2, 7});
+        jf::BattleState battle({engineer, enemy});
+        jf::BattleObjectDefinition barricadeDef{.definitionId = "field_barricade",
+                                                .kind = jf::BattleObjectKind::Barrier,
+                                                .maxDurability = 10,
+                                                .blocksMovement = true,
+                                                .canBeAttacked = true,
+                                                .canBeRepaired = true};
+        battle.registerObjectDefinition(barricadeDef);
+        assert(battle.placeObject({"dmg1", "field_barricade", {1, 4}, jf::BattleObjectTeam::Player,
+                                   jf::BattleObjectStateKind::Active, 4, 0}));
+        assert(battle.placeObject({"full1", "field_barricade", {1, 2}, jf::BattleObjectTeam::Player,
+                                   jf::BattleObjectStateKind::Active, 10, 0}));
+        assert(battle.placeObject({"enemy1", "field_barricade", {0, 3}, jf::BattleObjectTeam::Enemy,
+                                   jf::BattleObjectStateKind::Active, 4, 0}));
+
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectSkillTarget);
+        assert(contains(controller.skillTargetTiles(), jf::GridPos{1, 4})); // damaged, friendly
+        assert(!contains(controller.skillTargetTiles(), jf::GridPos{1, 2})); // already full
+        assert(!contains(controller.skillTargetTiles(), jf::GridPos{0, 3})); // enemy team
+
+        assert(controller.selectSkillTarget(jf::GridPos{1, 4}));
+        assert(controller.battle().findObject("dmg1")->durability == 10); // 4 + 6, capped at max
+    }
+
+    {
+        // 辺境工兵`rubble_charge`(瓦礫爆破): destroys a range-2 breakable
+        // Object instantly and deals 3 fixed damage to enemies directly
+        // above/below it, ignoring DEF. OncePerBattle.
+        jf::Unit engineer = makeUnit("engineer", jf::Team::Player, {1, 3}, 4, jf::UnitClass::FrontierEngineer);
+        engineer.skillSlots[0].skillId = "rubble_charge";
+        jf::BattleState battle({engineer});
+        jf::BattleObjectDefinition logDef;
+        logDef.definitionId = "fallen_log";
+        logDef.kind = jf::BattleObjectKind::Barrier;
+        logDef.blocksMovement = true;
+        logDef.canBeAttacked = true;
+        logDef.maxDurability = 16;
+        battle.registerObjectDefinition(logDef);
+        assert(battle.placeObject({"log1", "fallen_log", {1, 5}}));
+        jf::Unit enemyAbove = makeUnit("enemyAbove", jf::Team::Enemy, {0, 5});
+        jf::Unit enemyBelow = makeUnit("enemyBelow", jf::Team::Enemy, {2, 5});
+        battle.units().push_back(enemyAbove);
+        battle.units().push_back(enemyBelow);
+
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectSkillTarget);
+        assert(contains(controller.skillTargetTiles(), jf::GridPos{1, 5})); // range 2
+
+        int hpBeforeAbove = controller.battle().findUnit("enemyAbove")->currentHp;
+        int hpBeforeBelow = controller.battle().findUnit("enemyBelow")->currentHp;
+        assert(controller.selectSkillTarget(jf::GridPos{1, 5}));
+        assert(controller.battle().findObject("log1")->state == jf::BattleObjectStateKind::Destroyed);
+        assert(controller.battle().findUnit("enemyAbove")->currentHp == hpBeforeAbove - 3);
+        assert(controller.battle().findUnit("enemyBelow")->currentHp == hpBeforeBelow - 3);
+        assert(!jf::skillSlotAvailable(*controller.battle().findUnit("engineer"), 0)); // OncePerBattle, just used
+    }
+
+    {
+        // 辺境工兵`rapid_barricade`(即席防壁): places a durability-6 barricade
+        // on a range-2 empty tile that auto-expires at the next allied
+        // Phase start, and shares a combined 2-object cap with
+        // `field_barricade`.
+        jf::Unit engineer = makeUnit("engineer", jf::Team::Player, {1, 3}, 4, jf::UnitClass::FrontierEngineer);
+        engineer.skillSlots[0].skillId = "rapid_barricade";
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {2, 7});
+        jf::BattleState battle({engineer, enemy});
+        battle.registerObjectDefinition(jf::BattleObjectDefinition{.definitionId = "field_barricade",
+                                                                    .kind = jf::BattleObjectKind::Barrier,
+                                                                    .maxDurability = 10,
+                                                                    .blocksMovement = true,
+                                                                    .canBeAttacked = true,
+                                                                    .canBeRepaired = true});
+        battle.registerObjectDefinition(jf::BattleObjectDefinition{.definitionId = "rapid_barricade",
+                                                                    .kind = jf::BattleObjectKind::Barrier,
+                                                                    .maxDurability = 6,
+                                                                    .blocksMovement = true,
+                                                                    .canBeAttacked = true,
+                                                                    .canBeRepaired = true});
+        // Cap test setup: 2 barricades already on the field.
+        assert(battle.placeObject({"cap1", "field_barricade", {0, 6}, jf::BattleObjectTeam::Player,
+                                   jf::BattleObjectStateKind::Active, 10, 0}));
+        assert(battle.placeObject({"cap2", "rapid_barricade", {0, 7}, jf::BattleObjectTeam::Player,
+                                   jf::BattleObjectStateKind::Active, 6, 0}));
+
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectAction); // cap reached, no target offered
+
+        // Destroy one existing barricade to drop below the cap, then place.
+        controller.battle().findObject("cap2")->state = jf::BattleObjectStateKind::Destroyed;
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectSkillTarget);
+        assert(contains(controller.skillTargetTiles(), jf::GridPos{1, 5})); // range 2, empty
+
+        assert(controller.selectSkillTarget(jf::GridPos{1, 5}));
+        const jf::BattleObjectState* placed = controller.battle().objectAt(jf::GridPos{1, 5});
+        assert(placed && placed->definitionId == "rapid_barricade" && placed->durability == 6);
+
+        for (int i = 0; i < 10 && controller.inputState() == jf::BattleInputState::EnemyTurn; ++i)
+            controller.update(1.0f);
+        assert(controller.inputState() == jf::BattleInputState::SelectUnit); // next Player Phase started
+        const jf::BattleObjectState* afterExpiry = controller.battle().objectAt(jf::GridPos{1, 5});
+        assert(afterExpiry && afterExpiry->state == jf::BattleObjectStateKind::Destroyed); // auto-expired
     }
 
     {

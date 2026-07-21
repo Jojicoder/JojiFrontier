@@ -356,6 +356,24 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
     }
     BattleState battle(std::move(units), terrain, seed);
 
+    // 辺境工兵「野戦工作」/`rapid_barricade`(docs/skill_system.md「辺境工兵」):
+    // unlike every other object Definition in this file, these are spawned at
+    // runtime by a Skill/固有能力 (BattleController::placeObject() calls), not
+    // by a StageDescriptor placement rule - so they must be registered
+    // unconditionally here rather than left to placeRandomObjects() below.
+    battle.registerObjectDefinition(BattleObjectDefinition{.definitionId = "field_barricade",
+                                                            .kind = BattleObjectKind::Barrier,
+                                                            .maxDurability = 10,
+                                                            .blocksMovement = true,
+                                                            .canBeAttacked = true,
+                                                            .canBeRepaired = true});
+    battle.registerObjectDefinition(BattleObjectDefinition{.definitionId = "rapid_barricade",
+                                                            .kind = BattleObjectKind::Barrier,
+                                                            .maxDurability = 6,
+                                                            .blocksMovement = true,
+                                                            .canBeAttacked = true,
+                                                            .canBeRepaired = true});
+
     if (stage.primaryHoldTileAlternative) {
         // docs/regions/cinderwatch_gate.md「2. 灰道の監視所」: primary
         // objective is EliminateTeam OR HoldTile. BattleState's ctor default

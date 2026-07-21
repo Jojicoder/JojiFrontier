@@ -81,6 +81,17 @@ const std::vector<SkillDefinition>& skillRegistry() {
         {"break_obstacle", UnitClass::HeavyInfantry, "Break Obstacle", "障害物破砕", SkillCategory::Active,
          SkillUsageType::OncePerBattle, "Instantly destroys one adjacent destructible obstacle, ending the turn.",
          "隣接する破壊可能な障害物1個を即座に破壊して行動終了。", 3},
+
+        // 辺境工兵 (Frontier Engineer)
+        {"field_repair", UnitClass::FrontierEngineer, "Field Repair", "野戦補修", SkillCategory::Active,
+         SkillUsageType::Cooldown2, "Restores 6 durability to an adjacent friendly placed object.",
+         "隣接する味方設置物の耐久を6回復。", 1},
+        {"rubble_charge", UnitClass::FrontierEngineer, "Rubble Charge", "瓦礫爆破", SkillCategory::Active,
+         SkillUsageType::OncePerBattle, "Destroys a destructible obstacle within range 2, dealing 3 fixed damage to enemies directly above and below it.",
+         "射程2の破壊可能な障害物を破壊し、その上下隣接マスの敵へ固定3ダメージ。", 2},
+        {"rapid_barricade", UnitClass::FrontierEngineer, "Rapid Barricade", "即席防壁", SkillCategory::Active,
+         SkillUsageType::Cooldown2, "Places a durability-6 barricade on an empty tile within range 2; it disappears at the start of the next allied Phase.",
+         "射程2の空きマスへ耐久6の防護板を設置。次の自軍Phase開始時に消滅。", 3},
     };
     return skills;
 }
@@ -111,6 +122,7 @@ std::string requiredTrainingNodeIdFor(UnitClass unitClass) {
             return "mobility_training";
         case UnitClass::MarchCaptain:
         case UnitClass::DawnChirurgeon:
+        case UnitClass::FrontierEngineer:
             return "specialist_training";
         case UnitClass::Bandit:
         case UnitClass::Wolf:
