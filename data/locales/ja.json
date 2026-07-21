@@ -307,7 +307,7 @@
   "ui.facilities.unequip_trait": "調整特性を解除",
   "ui.facilities.trait_locked": "調整特性(未解放)",
   "exploration.region_section": "遠征先",
-  "exploration.region_locked_ashbough_forest": "灰枝の森を攻略すると解放されます",
+  "exploration.region_locked": "{region}を攻略すると解放されます",
   "exploration.ashbough_verge_situation": "灰枝の森の入口。絡み合う木々の奥で、狼の群れが縄張りを張っている。",
   "exploration.ashbough_frontal": "A. 痕跡を調べる",
   "exploration.ashbough_frontal_effect": "一部情報公開 / 通常戦闘",

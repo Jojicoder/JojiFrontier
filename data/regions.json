@@ -344,6 +344,20 @@
       "noCasualtiesBonusLoot": [{ "id": "quality_iron", "quantity": 1 }],
       "missionNameEn": "The Last Signal",
       "missionNameJa": "最後の信号"
+    },
+    {
+      "id": "ashiron_quarry_outpost",
+      "terrainProfileId": "ash_road",
+      "enemyRoster": [
+        { "id": "ashiron_quarry_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "ashiron_quarry_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "iron", "quantity": 1 },
+        { "id": "stone", "quantity": 1 }
+      ],
+      "missionNameEn": "Ashiron Quarry Outpost",
+      "missionNameJa": "灰鉄採石場の前線基地"
     }
   ]
 }

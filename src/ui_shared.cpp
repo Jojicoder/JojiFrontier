@@ -290,7 +290,8 @@ void loadAppFont() {
                       "戦闘地点シンダーウォッチ関門アイアンウォッチ物資庫最後信号塔"
                       "薬草の沢折れ木の縄張り森の経路は次の探索地点へ続いています地点到達"
                       "この地点の探索選択と戦闘内容は次の実装工程で追加します現在の未確定戦利品保存されています"
-                      "次の地点では探索から開始します荷物そのまま引き継がれます";
+                      "次の地点では探索から開始します荷物そのまま引き継がれます"
+                      "灰鉄採石場前線基地を攻略すると解放されます";
     for (const jf::FacilityNode& node : jf::facilityNodeRegistry()) charsetSource += node.nameJa + node.effectJa;
     for (const jf::SkillDefinition& skill : jf::skillRegistry()) charsetSource += skill.nameJa + skill.effectJa;
     for (jf::UnitClass uc : {jf::UnitClass::MarchCaptain, jf::UnitClass::VeteranGuard,

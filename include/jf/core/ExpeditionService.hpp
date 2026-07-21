@@ -60,6 +60,12 @@ struct RegionSummary {
     std::string displayNameEn;
     std::string displayNameJa;
     bool unlocked;
+    // Empty when `unlocked` or when the region has no single unlocking
+    // predecessor (AshboughForest). Otherwise names the region whose
+    // completion (per regionUnlocked()) still needs clearing - used for the
+    // locked-region tooltip instead of a region-specific locale key.
+    std::string lockedByDisplayNameEn;
+    std::string lockedByDisplayNameJa;
 };
 std::vector<RegionSummary> computeRegionSummaries(const GameData& data, const BaseState& baseState);
 

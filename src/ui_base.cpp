@@ -150,7 +150,8 @@ void drawBaseRegionList(jf::GameApp& app, Vector2 mouse, bool clicked, std::vect
             if (CheckCollisionPointRec(mouse, rowRect)) {
                 hoverLines = {
                     {pick(summary.displayNameEn, summary.displayNameJa), kColorAccentGold, 16},
-                    {tr("exploration.region_locked_ashbough_forest"), kColorTextMuted, 13},
+                    {tr("exploration.region_locked", {{"region", pick(summary.lockedByDisplayNameEn, summary.lockedByDisplayNameJa)}}),
+                     kColorTextMuted, 13},
                 };
             }
         }

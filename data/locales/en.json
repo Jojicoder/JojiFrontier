@@ -307,7 +307,7 @@
   "ui.facilities.unequip_trait": "Unequip Tuning Trait",
   "ui.facilities.trait_locked": "Tuning Trait (locked)",
   "exploration.region_section": "Expedition Region",
-  "exploration.region_locked_ashbough_forest": "Unlocks after clearing Ashbough Forest",
+  "exploration.region_locked": "Unlocks after clearing {region}",
   "exploration.ashbough_verge_situation": "The entrance to Ashbough Forest. Deep among the tangled trees, a wolf pack holds its territory.",
   "exploration.ashbough_frontal": "A. Examine the Tracks",
   "exploration.ashbough_frontal_effect": "Partial intel / Standard battle",

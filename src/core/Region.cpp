@@ -167,12 +167,31 @@ RegionDescriptor ashboughForestRegion(const GameData& data) {
     return region;
 }
 
+// docs/implementation_roadmap.md M6-D: minimal placeholder for the 3rd
+// region, unlocked once CinderwatchGate completes (docs/regions/
+// cinderwatch_gate.md「地域攻略結果」/「安全帰還時」の「灰鉄採石場を遠征先へ
+// 追加」). Same role M6-A's original `cinderwatch_outpost` played before
+// M6-A/B/C fleshed Cinderwatch out - a single stage just enough to make the
+// region selectable and completable. The real 5-site content is M9's scope
+// (docs/implementation_status.md「次地域(灰鉄採石場、5地点)」).
+RegionDescriptor ashironQuarryRegion(const GameData& data) {
+    RegionDescriptor region;
+    region.id = RegionId::AshironQuarry;
+    region.displayNameEn = "Ashiron Quarry";
+    region.displayNameJa = "灰鉄採石場";
+
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("ashiron_quarry_outpost")));
+
+    return region;
+}
+
 } // namespace
 
 RegionDescriptor regionDescriptor(RegionId id, const GameData& data) {
     switch (id) {
         case RegionId::CinderwatchGate: return cinderwatchGateRegion(data);
         case RegionId::AshboughForest: return ashboughForestRegion(data);
+        case RegionId::AshironQuarry: return ashironQuarryRegion(data);
     }
     return cinderwatchGateRegion(data);
 }
@@ -181,18 +200,21 @@ std::string toString(RegionId id) {
     switch (id) {
         case RegionId::CinderwatchGate: return "cinderwatch_gate";
         case RegionId::AshboughForest: return "ashbough_forest";
+        case RegionId::AshironQuarry: return "ashiron_quarry";
     }
     return "cinderwatch_gate";
 }
 
 RegionId regionIdFromString(const std::string& id) {
     if (id == "ashbough_forest") return RegionId::AshboughForest;
+    if (id == "ashiron_quarry") return RegionId::AshironQuarry;
     return RegionId::CinderwatchGate;
 }
 
 std::optional<RegionId> regionIdFromStringStrict(const std::string& id) {
     if (id == "ashbough_forest") return RegionId::AshboughForest;
     if (id == "cinderwatch_gate") return RegionId::CinderwatchGate;
+    if (id == "ashiron_quarry") return RegionId::AshironQuarry;
     return std::nullopt;
 }
 
@@ -253,6 +275,7 @@ bool regionUnlocked(RegionId regionId, const BaseState& base, const GameData& /*
     switch (regionId) {
         case RegionId::AshboughForest: return true;
         case RegionId::CinderwatchGate: return base.completedRegionIds.count(RegionId::AshboughForest) > 0;
+        case RegionId::AshironQuarry: return base.completedRegionIds.count(RegionId::CinderwatchGate) > 0;
     }
     return true;
 }

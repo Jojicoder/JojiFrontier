@@ -30,6 +30,7 @@ enum class SiteAccessState {
 enum class RegionId {
     CinderwatchGate,
     AshboughForest,
+    AshironQuarry,
 };
 
 using LootId = std::string;
@@ -143,6 +144,15 @@ struct BaseState {
     // 候補IDと加入済みUnit IDを別の集合として保存する」.
     std::unordered_set<std::string> joinedRecruitIds;
 
+    // docs/regions/cinderwatch_gate.md「地域の最低保証報酬」: a running tally of
+    // how much of each material this region's sites have granted across every
+    // expedition, independent of `storage` (which is spendable and can drop
+    // below the floor via crafting). Only accumulated while CinderwatchGate
+    // isn't in completedRegionIds yet; ExpeditionService.cpp's
+    // applyExpeditionReturnToBase() reads this once, at the moment the region
+    // completes, to top up any shortfall against the floor table.
+    std::unordered_map<std::string, int> cinderwatchMaterialsEarned;
+
     // docs/item_system.md "製作単位と倉庫上限": consumables owned but not
     // currently packed into an expedition bag - crafted via GameApp::
     // craftItem() (consumes storage materials), consumed into preparedBag_
@@ -232,6 +242,11 @@ inline constexpr const char* kCinderwatchReconDiscovery = "cinderwatch_recon_rec
 inline constexpr const char* kFieldMedicineDiscovery = "ironwatch_field_medicine_records";
 // Workshop's "Return Signal" branch discovery — Signal Tower restoration.
 inline constexpr const char* kReturnSignalDiscovery = "signal_tower_return_signal_records";
+// docs/regions/cinderwatch_gate.md「地域の最低保証報酬」の軍旗記録: the "2人以上
+// 撤退・降伏" trigger that would normally grant this is deferred (no roster-
+// retreat-counting subsystem exists yet), so the region-completion floor
+// top-up in ExpeditionService.cpp is currently its only grant path.
+inline constexpr const char* kBannerRecordsDiscovery = "last_signal_banner_records";
 // Infirmary's Field Infirmary build requirement (a herb-thicket location).
 inline constexpr const char* kHerbThicketDiscovery = "herb_thicket_grounds";
 // docs/region_unlocks.md: Ashbough Forest's region-level completion mark.

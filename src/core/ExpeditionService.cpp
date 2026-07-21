@@ -149,10 +149,28 @@ bool advanceExpeditionRouteToNextSite(ExpeditionState& expedition, const BaseSta
 }
 
 std::vector<RegionSummary> computeRegionSummaries(const GameData& data, const BaseState& baseState) {
+    // regionUnlocked()'s own single-predecessor gate per region, mirrored
+    // here only for the locked-tooltip's "unlocks after clearing X" text -
+    // AshboughForest has no predecessor (always unlocked).
+    auto predecessor = [](RegionId id) -> std::optional<RegionId> {
+        if (id == RegionId::CinderwatchGate) return RegionId::AshboughForest;
+        if (id == RegionId::AshironQuarry) return RegionId::CinderwatchGate;
+        return std::nullopt;
+    };
+
     std::vector<RegionSummary> summaries;
-    for (RegionId id : {RegionId::AshboughForest, RegionId::CinderwatchGate}) {
+    for (RegionId id : {RegionId::AshboughForest, RegionId::CinderwatchGate, RegionId::AshironQuarry}) {
         RegionDescriptor region = regionDescriptor(id, data);
-        summaries.push_back({id, region.displayNameEn, region.displayNameJa, regionUnlocked(id, baseState, data)});
+        bool unlocked = regionUnlocked(id, baseState, data);
+        RegionSummary summary{id, region.displayNameEn, region.displayNameJa, unlocked, "", ""};
+        if (!unlocked) {
+            if (std::optional<RegionId> prior = predecessor(id)) {
+                RegionDescriptor priorRegion = regionDescriptor(*prior, data);
+                summary.lockedByDisplayNameEn = priorRegion.displayNameEn;
+                summary.lockedByDisplayNameJa = priorRegion.displayNameJa;
+            }
+        }
+        summaries.push_back(summary);
     }
     return summaries;
 }
@@ -200,6 +218,37 @@ ReturnToBaseResult applyExpeditionReturnToBase(ExpeditionState& expedition, Base
     // storage/overflow untouched rather than partially applied.
     std::unordered_map<LootId, int> materialAdds;
     for (const LootStack& loot : expedition.pendingLoot) materialAdds[loot.id] += loot.quantity;
+
+    // docs/regions/cinderwatch_gate.md「地域の最低保証報酬」: track this run's
+    // Cinderwatch materials into the region-wide running tally (only while the
+    // region hasn't completed yet - once it has, the floor no longer applies).
+    const bool cinderwatchStillOpen =
+        expedition.regionId == RegionId::CinderwatchGate && !baseState.completedRegionIds.count(RegionId::CinderwatchGate);
+    if (cinderwatchStillOpen)
+        for (const auto& [id, quantity] : materialAdds) baseState.cinderwatchMaterialsEarned[id] += quantity;
+
+    // If this return completes CinderwatchGate, top up any shortfall against
+    // the floor table before cap/overflow is computed below, so the top-up
+    // gets the exact same capacity-safe treatment as normal loot.
+    std::vector<DiscoveryId> discoveriesThisReturn = expedition.pendingDiscoveries;
+    if (cinderwatchStillOpen && expedition.pendingRegionCompletions.count(RegionId::CinderwatchGate)) {
+        static const std::unordered_map<LootId, int> kCinderwatchMaterialFloor = {
+            {"iron", 5}, {"stone", 3}, {"old_gear", 3}, {"signal_core", 1},
+        };
+        for (const auto& [id, floor] : kCinderwatchMaterialFloor) {
+            const int earned = baseState.cinderwatchMaterialsEarned[id];
+            if (earned < floor) materialAdds[id] += floor - earned;
+        }
+        static const std::vector<DiscoveryId> kCinderwatchKeyDiscoveries = {
+            kCinderwatchReconDiscovery, kFieldMedicineDiscovery, kReturnSignalDiscovery, kBannerRecordsDiscovery,
+        };
+        for (const DiscoveryId& discovery : kCinderwatchKeyDiscoveries) {
+            const bool alreadyHave = baseState.discoveryRegistry.count(discovery) ||
+                                      std::find(discoveriesThisReturn.begin(), discoveriesThisReturn.end(), discovery) !=
+                                          discoveriesThisReturn.end();
+            if (!alreadyHave) discoveriesThisReturn.push_back(discovery);
+        }
+    }
 
     std::unordered_map<LootId, int> fitPlan;
     std::vector<std::pair<LootId, int>> overflowPlan;
@@ -249,7 +298,7 @@ ReturnToBaseResult applyExpeditionReturnToBase(ExpeditionState& expedition, Base
             baseState.rewardOverflow.stacks.push_back({grantId, id, quantity});
     }
 
-    for (const DiscoveryId& discovery : expedition.pendingDiscoveries) baseState.discoveryRegistry.insert(discovery);
+    for (const DiscoveryId& discovery : discoveriesThisReturn) baseState.discoveryRegistry.insert(discovery);
     for (const auto& [key, achieved] : expedition.pendingSiteAccessUpdates) {
         auto it = baseState.siteAccess.find(key);
         if (it == baseState.siteAccess.end() || it->second < achieved) baseState.siteAccess[key] = achieved;

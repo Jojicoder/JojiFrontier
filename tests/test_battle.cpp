@@ -5219,13 +5219,15 @@ int main() {
         assert(app.screen() == jf::Screen::Base); // rejected attempt leaves screen untouched
 
         auto summaries = app.regionSummaries();
-        assert(summaries.size() == 2);
-        bool sawAshboughUnlocked = false, sawCinderwatchLocked = false;
+        assert(summaries.size() == 3);
+        bool sawAshboughUnlocked = false, sawCinderwatchLocked = false, sawAshironLocked = false;
         for (const auto& summary : summaries) {
             if (summary.id == jf::RegionId::AshboughForest) sawAshboughUnlocked = summary.unlocked;
             if (summary.id == jf::RegionId::CinderwatchGate) sawCinderwatchLocked = !summary.unlocked;
+            if (summary.id == jf::RegionId::AshironQuarry) sawAshironLocked = !summary.unlocked;
         }
-        assert(sawAshboughUnlocked && sawCinderwatchLocked);
+        assert(sawAshboughUnlocked && sawCinderwatchLocked && sawAshironLocked);
+        assert(!app.isRegionUnlocked(jf::RegionId::AshironQuarry));
 
         assert(app.startExpedition(jf::RegionId::AshboughForest));
         assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
