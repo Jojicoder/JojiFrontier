@@ -134,6 +134,19 @@ public:
     bool equipSkillForUnit(const std::string& unitId, int slotIndex, const std::string& skillId);
     const std::unordered_map<std::string, UnitSkillLoadout>& equippedSkills() const { return equippedSkills_; }
 
+    // docs/roster_design.md「兵種加入時の付与」: confirms the gathering-place
+    // join for a "加入可能候補" (baseState().joinReadyCandidateIds) - adds the
+    // person to roster_, auto-equips their Tier-1 skill into slot 1 (slot 2
+    // stays empty), and marks them permanently joined. Fails (no state
+    // change) if `candidateId` isn't join-ready, is already joined, or the
+    // Roster is at recruitCapacity(). Only "heavy_recruit" is wired so far -
+    // the other 5 recruits' Slices will extend this. Idempotent: calling
+    // again on an already-joined id fails harmlessly.
+    bool confirmRecruitJoin(const std::string& candidateId);
+    const std::unordered_set<std::string>& joinReadyCandidateIds() const { return baseState_.joinReadyCandidateIds; }
+    const std::unordered_set<std::string>& joinedRecruitIds() const { return baseState_.joinedRecruitIds; }
+    int recruitCapacity() const { return baseState_.recruitCapacity(); }
+
     // True once the party locked in for this expedition includes a
     // Frontier Scout - gates Exploration option C (the free-deployment
     // scout route) both for the button and for chooseExplorationRoute().

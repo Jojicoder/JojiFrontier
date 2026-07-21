@@ -475,6 +475,10 @@ std::string unitDisplayNameFor(const std::string& englishName) {
         {"Former Captain", "character.former_captain"},
         {"Wolf", "class.wolf"},
         {"Ashenhorn Boar", "class.ashenhorn_boar"},
+        // docs/roster_design.md「加入段階」/docs/gathering_place.md
+        // `heavy_recruitment`: 重装兵の加入候補・加入後の表示名(Frontier提案、
+        // World Bible未登録)。
+        {"Hadric", "character.hadric"},
     };
     auto it = table.find(englishName);
     return it != table.end() ? tr(it->second) : englishName;

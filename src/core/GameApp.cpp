@@ -92,6 +92,10 @@ void GameApp::proceedToCamp() {
                 expedition_.pendingDiscoveries.push_back(discovery);
             stageDiscoveryAwarded_[stageIndex] = true;
         }
+        // docs/roster_design.md「加入段階」: 灰角大猪撃破(brokenwood_territory
+        // 勝利)で重装兵の加入候補を記録する。安全帰還まではPending
+        // (ExpeditionState::pendingRecruitCandidateIds)、敗北で失う。
+        if (stage.id == "brokenwood_territory") expedition_.pendingRecruitCandidateIds.insert("heavy_recruit");
         SiteAccessState achieved = surveySucceeded ? SiteAccessState::Secured : SiteAccessState::Surveyed;
         queueExpeditionSiteAccessPromotion(expedition_, siteAccessKey(expedition_.regionId, stage.id), achieved,
                                            baseState_);
@@ -600,6 +604,39 @@ bool GameApp::equipSkillForUnit(const std::string& unitId, int slotIndex, const 
     return true;
 }
 
+bool GameApp::confirmRecruitJoin(const std::string& candidateId) {
+    if (screen_ != Screen::Base) return false;
+    if (!baseState_.joinReadyCandidateIds.count(candidateId)) return false;
+    if (baseState_.joinedRecruitIds.count(candidateId)) return false; // already joined - idempotent no-op
+    if (static_cast<int>(roster_.size()) >= recruitCapacity()) return false; // 枠不足: 候補は消さない
+
+    // docs/roster_design.md「加入段階」: only heavy_recruit is wired so far -
+    // extend this with the next recruit's Slice (see BaseState::
+    // recruitCapacity()'s matching comment).
+    UnitClass unitClass;
+    std::string displayName;
+    if (candidateId == "heavy_recruit") {
+        unitClass = UnitClass::HeavyInfantry;
+        displayName = "Hadric";
+    } else {
+        return false;
+    }
+
+    // docs/roster_design.md「兵種加入時の付与」手順1-5: Unit IDをRosterへ追加
+    // (基本武器はUnit生成時にclassDefinition().weaponIdから解決されるため
+    // UnitTemplate自体には持たせない)、Tier1スキルを第1枠へ装備、第2枠は空のまま。
+    roster_.push_back(UnitTemplate{candidateId, displayName, unitClass});
+    for (const SkillDefinition* skill : skillsForClass(unitClass)) {
+        if (skill->unlockTier == 1) {
+            equippedSkills_[candidateId].equippedSkillIds[0] = skill->id;
+            break;
+        }
+    }
+    baseState_.joinedRecruitIds.insert(candidateId);
+    markPersistentStateChanged();
+    return true;
+}
+
 bool GameApp::unlockFacilityNode(const std::string& nodeId) {
     if (screen_ != Screen::Base) return false;
     const FacilityNode* node = findFacilityNode(nodeId);
@@ -684,6 +721,18 @@ bool GameApp::applySaveData(const SaveData& save) {
     if (screen_ != Screen::Base || save.schemaVersion < 1 || save.schemaVersion > kCurrentSaveSchemaVersion) return false;
 
     BaseState loadedBase = save.base;
+    // docs/roster_design.md「兵種加入時の付与」: roster_ only ever starts as
+    // data_.playerParty/reserveRoster (GameApp::GameApp()) - a recruit joined
+    // via confirmRecruitJoin() during a previous session must be re-added here
+    // before the roster-dependent validation below (loadedParty/weapons/
+    // traits/skills) can see them. Same single-id gate as
+    // confirmRecruitJoin() itself; unrecognized ids are silently skipped
+    // (matches how that function also just refuses them).
+    for (const std::string& candidateId : loadedBase.joinedRecruitIds) {
+        if (std::any_of(roster_.begin(), roster_.end(), [&](const UnitTemplate& u) { return u.id == candidateId; }))
+            continue;
+        if (candidateId == "heavy_recruit") roster_.push_back(UnitTemplate{candidateId, "Hadric", UnitClass::HeavyInfantry});
+    }
     // Defensive self-consistency only (docs/base_development.md: built
     // facilities never expire, so there's no capacity to violate) - a
     // constructedFacilityIds entry that isn't actually an occupiesFacilitySlot node, or
@@ -750,8 +799,15 @@ bool GameApp::applySaveData(const SaveData& save) {
             if (unit == roster_.end()) continue;
             const SkillDefinition* definition = findSkill(skillId);
             if (!definition || definition->unitClass != unit->classId) continue;
-            std::string requiredNode = requiredTrainingNodeIdFor(unit->classId);
-            if (requiredNode.empty() || !loadedBase.unlockedNodeIds.count(requiredNode)) continue;
+            // docs/roster_design.md「兵種加入時の付与」: the Tier-1 skill granted
+            // at join time (GameApp::confirmRecruitJoin()) is unconditional, not
+            // gated by requiredTrainingNodeIdFor() - a reload must not drop it
+            // just because the training facility isn't unlocked yet.
+            bool isUnconditionalJoinGrant = definition->unlockTier == 1 && loadedBase.joinedRecruitIds.count(unitId);
+            if (!isUnconditionalJoinGrant) {
+                std::string requiredNode = requiredTrainingNodeIdFor(unit->classId);
+                if (requiredNode.empty() || !loadedBase.unlockedNodeIds.count(requiredNode)) continue;
+            }
             loadedSkills[unitId].equippedSkillIds[slotIndex] = skillId;
         }
     };
@@ -801,6 +857,7 @@ bool GameApp::applySaveData(const SaveData& save) {
             expedition_.routeProgress = std::move(restoredRoute);
             expedition_.pendingSiteAccessUpdates = checkpoint.pendingSiteAccessUpdates;
             expedition_.pendingRegionCompletions = checkpoint.pendingRegionCompletions;
+            expedition_.pendingRecruitCandidateIds = checkpoint.pendingRecruitCandidateIds;
             expeditionSeed_ = checkpoint.seed;
             stageDiscoveryAwarded_ = checkpoint.stageDiscoveryAwarded;
             stageDiscoveryAwarded_.resize(checkpointRegion.stages.size(), false);
@@ -848,6 +905,7 @@ bool GameApp::applySaveData(const SaveData& save) {
             expedition_.bag = checkpoint.bag;
             expedition_.pendingSiteAccessUpdates = checkpoint.pendingSiteAccessUpdates;
             expedition_.pendingRegionCompletions = checkpoint.pendingRegionCompletions;
+            expedition_.pendingRecruitCandidateIds = checkpoint.pendingRecruitCandidateIds;
             if (usesRouteGraph(checkpoint.regionId))
                 expedition_.routeProgress = initialRouteProgress(checkpoint.regionId);
             expeditionSeed_ = checkpoint.seed;

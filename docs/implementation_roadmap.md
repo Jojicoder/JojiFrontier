@@ -1741,7 +1741,8 @@ M6以降のSlice運用:
 
 ## M7 12兵種・仲間・会話
 
-状態: **項目1(後半6兵種のClass・武器・固有能力・スキル)完了**
+状態: **項目1(後半6兵種のClass・武器・固有能力・スキル)完了、項目2は最小の縦切り
+(加入基盤+重装兵1体)まで完了**
 
 項目1は1兵種ずつ実装する方針で全6兵種を完了した。重装兵(HeavyInfantry)のClass・武器・
 固有能力「重量装甲」・スキル3種(装甲前進/衝撃防御/障害物破砕)、辺境工兵
@@ -1769,6 +1770,24 @@ M6以降のSlice運用:
 ためデータフラグ(`Unit::quarryRevealed`)のみの実装とした(プレビューUIは対象外)。
 加入経路(項目2、戦闘魔導士は希少な名前付き加入イベントが必要)は対象外のため、6兵種とも
 まだplayerParty/reserveRosterに登場しない。
+
+項目2は最小の縦切り(加入基盤を汎用的に作りつつ、実際に動く具体例は重装兵1体だけ)を
+実装した。`ExpeditionState::pendingRecruitCandidateIds`(遠征中は保留、敗北で破棄)→
+`BaseState::joinReadyCandidateIds`(安全帰還で恒久化、以後は別遠征の敗北でも失わない)→
+`GameApp::confirmRecruitJoin()`(`BaseState::joinedRecruitIds`へ恒久化しRoster追加+Tier1
+スキル自動装備)という3段階のパイプラインを、既存の`pendingDiscoveries`→
+`discoveryRegistry`パターンと`BaseState`の単調増加集合パターンをそのまま踏襲する形で
+新設した。灰角大猪(`brokenwood_territory`)撃破で重装兵(`heavy_recruit`、表示名
+「ハドリク」)の加入候補が付与される。受け入れ枠は`BaseState::recruitCapacity()`として
+共同テント6人/宿舎増築I後8人の2段階のみ実装(専門区画11人・遠征別棟12人は対応する
+Discovery/地域完了判定が未実装のため対象外)。UIは拠点画面に最小限の「加入可能:
+ハドリク」ボタンのみを追加し、`docs/gathering_place.md`が定義する本格的な会話ツリー・
+既読状態・立ち絵UIは項目4として対象外のまま。Save/Loadは`joinReadyCandidateIds`/
+`joinedRecruitIds`をシリアライズし、`GameApp::applySaveData()`に`roster_`再構築ループを
+追加(`roster_`は起動時に静的データから一度だけ構築されるため、セーブ経由で加入した
+Unitを再ロード時に個別に復元する必要があった)。残り5兵種(辺境工兵・伝令騎兵・
+辺境猟兵・旗手・戦闘魔導士)の加入条件配線は今後のSliceで`GameApp::confirmRecruitJoin()`
+のクラス分岐を1件ずつ拡張する形で追加する。
 
 正本:
 

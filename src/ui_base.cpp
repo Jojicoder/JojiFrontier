@@ -28,6 +28,33 @@ void drawBaseTopBar(jf::GameApp& app, Vector2 mouse, bool clicked) {
     if (button(warehouseRect, tr("ui.warehouse.open_button"), mouse, clicked)) gWarehouseCleanupOpen = true;
 }
 
+// docs/roster_design.md「加入処理の共通ルール」: minimal functional trigger for
+// GameApp::confirmRecruitJoin() - the real 集会所 conversation UI (choices,
+// read-state, portraits) is a separate, larger scope (docs/gathering_place.md,
+// M7項目4) not attempted here. Shows one line per join-ready-but-not-yet-
+// joined candidate; only "heavy_recruit" actually resolves to a class today
+// (see GameApp::confirmRecruitJoin()'s own comment).
+void drawBaseRecruitBanner(jf::GameApp& app, Vector2 mouse, bool clicked) {
+    for (const std::string& candidateId : app.joinReadyCandidateIds()) {
+        if (app.joinedRecruitIds().count(candidateId)) continue;
+        // Only heavy_recruit is wired to a display name/class today (mirrors
+        // GameApp::confirmRecruitJoin()'s own single-id gate).
+        if (candidateId != "heavy_recruit") continue;
+        std::string name = unitDisplayNameFor("Hadric");
+        std::string className = classNameFor(app.gameData(), jf::UnitClass::HeavyInfantry);
+        bool hasCapacity = static_cast<int>(app.roster().size()) < app.recruitCapacity();
+        Rectangle textRect{40, 66, 480, 24};
+        Rectangle buttonRect{528, 60, 140, 34};
+        if (hasCapacity) {
+            drawText(tr("ui.recruit.join_available", {{"name", name}, {"class", className}}), 40, 68, 17,
+                     kColorAccentGold);
+            if (button(buttonRect, tr("ui.recruit.join_button"), mouse, clicked)) app.confirmRecruitJoin(candidateId);
+        } else {
+            drawText(tr("ui.recruit.join_capacity_full", {{"name", name}}), 40, 68, 17, kColorTextMuted);
+        }
+    }
+}
+
 // The 4-of-roster party picker column. Split out of drawBaseScreen();
 // `hoverLines` is the single shared tooltip buffer every column of this
 // screen can write into (drawn once, at the very end) - no behavior change.
@@ -188,6 +215,7 @@ void drawBaseOutpostInfo(jf::GameApp& app, Vector2 mouse, bool clicked) {
 void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     ClearBackground(Color{18, 21, 30, 255});
     drawBaseTopBar(app, mouse, clicked);
+    drawBaseRecruitBanner(app, mouse, clicked);
     std::vector<TooltipLine> hoverLines;
     drawBasePartyRoster(app, mouse, clicked, hoverLines);
     drawBaseSupplies(app, mouse, clicked, hoverLines);

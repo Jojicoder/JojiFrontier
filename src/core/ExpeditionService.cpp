@@ -255,6 +255,9 @@ ReturnToBaseResult applyExpeditionReturnToBase(ExpeditionState& expedition, Base
         if (it == baseState.siteAccess.end() || it->second < achieved) baseState.siteAccess[key] = achieved;
     }
     for (RegionId regionId : expedition.pendingRegionCompletions) baseState.completedRegionIds.insert(regionId);
+    // docs/roster_design.md「加入処理の共通ルール」: 加入候補→加入可能候補への
+    // 恒久化。以後は別遠征の敗北でも失わない(joinReadyCandidateIdsは単調増加)。
+    for (const std::string& id : expedition.pendingRecruitCandidateIds) baseState.joinReadyCandidateIds.insert(id);
     // The bag has been committed above; GameApp::resetToBase() must not
     // return it a second time.
     expedition.bag.clear();
@@ -277,6 +280,7 @@ ExpeditionCheckpoint buildExpeditionCheckpoint(ExpeditionCheckpoint::Stage stage
     checkpoint.stageDiscoveryAwarded = stageDiscoveryAwarded;
     checkpoint.pendingSiteAccessUpdates = expedition.pendingSiteAccessUpdates;
     checkpoint.pendingRegionCompletions = expedition.pendingRegionCompletions;
+    checkpoint.pendingRecruitCandidateIds = expedition.pendingRecruitCandidateIds;
     for (const Unit& unit : partyUnits) checkpoint.partyUnits.push_back({unit.id, unit.currentHp});
     return checkpoint;
 }

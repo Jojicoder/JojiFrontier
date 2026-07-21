@@ -55,6 +55,10 @@ struct ExpeditionCheckpoint {
     // docs/region_mission_data_contract.md "PendingRegionCompletion": mirrors
     // ExpeditionState::pendingRegionCompletions.
     std::unordered_set<RegionId> pendingRegionCompletions;
+    // docs/roster_design.md「加入処理の共通ルール」: mirrors ExpeditionState::
+    // pendingRecruitCandidateIds, so a pending recruit candidate survives an
+    // app restart mid-expedition the same way pendingDiscoveries does.
+    std::unordered_set<std::string> pendingRecruitCandidateIds;
     // Populated at both resumable stages so HP/incapacitation survives a
     // site-to-site Exploration checkpoint as well as Camp.
     std::vector<UnitSnapshot> partyUnits;

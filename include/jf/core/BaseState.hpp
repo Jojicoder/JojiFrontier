@@ -132,6 +132,17 @@ struct BaseState {
     // return - never inferred from SiteAccessState, and never removed.
     std::unordered_set<RegionId> completedRegionIds;
 
+    // docs/roster_design.md「加入処理の共通ルール」: a candidate recorded here
+    // is "加入可能候補" - permanent once a safe return commits it (see
+    // ExpeditionState::pendingRecruitCandidateIds), never removed even by a
+    // later expedition's defeat. GameApp::confirmRecruitJoin() consumes an id
+    // from this set (without removing it) to grant the actual join.
+    std::unordered_set<std::string> joinReadyCandidateIds;
+    // Permanent once GameApp::confirmRecruitJoin() commits the join - kept as
+    // its own set (not inferred from roster_) per roster_design.md「加入可能
+    // 候補IDと加入済みUnit IDを別の集合として保存する」.
+    std::unordered_set<std::string> joinedRecruitIds;
+
     // docs/item_system.md "製作単位と倉庫上限": consumables owned but not
     // currently packed into an expedition bag - crafted via GameApp::
     // craftItem() (consumes storage materials), consumed into preparedBag_
@@ -198,6 +209,19 @@ struct BaseState {
         for (const char* keyId : regionKeyMaterialIds())
             if (id == keyId) return kKeyMaterialStorageCap;
         return kMaterialStorageCap;
+    }
+
+    // docs/roster_design.md「受け入れ枠」: joined-Roster capacity (not counting
+    // pending candidates). Only the first 2 stages (共同テント6人/宿舎増築I 8人)
+    // are wired so far - 専門区画(11人)/遠征別棟(12人) need Discovery/region-
+    // completion signals that don't exist in code yet; extend this switch
+    // when the next recruit's Slice adds them, same "add one more class at a
+    // time" pattern as M7項目1.
+    int recruitCapacity() const {
+        constexpr int kCommunalTentCapacity = 6;
+        constexpr int kBarracksExtensionICapacity = 8;
+        if (completedRegionIds.count(RegionId::AshboughForest)) return kBarracksExtensionICapacity;
+        return kCommunalTentCapacity;
     }
 };
 

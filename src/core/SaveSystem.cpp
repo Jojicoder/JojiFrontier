@@ -199,6 +199,7 @@ json expeditionToJson(const ExpeditionCheckpoint& checkpoint) {
             std::sort(ids.begin(), ids.end());
             return ids;
         }()},
+        {"pendingRecruitCandidateIds", checkpoint.pendingRecruitCandidateIds},
     };
     if (checkpoint.routeProgress) {
         std::vector<std::string> resolved(checkpoint.routeProgress->resolvedNodeIds.begin(),
@@ -301,6 +302,10 @@ std::optional<ExpeditionCheckpoint> expeditionFromJson(const json& value) {
                 checkpoint.pendingRegionCompletions.insert(*regionId);
         }
     }
+    if (value.contains("pendingRecruitCandidateIds") && value["pendingRecruitCandidateIds"].is_array()) {
+        for (const json& entry : value["pendingRecruitCandidateIds"])
+            if (entry.is_string()) checkpoint.pendingRecruitCandidateIds.insert(entry.get<std::string>());
+    }
     return checkpoint;
 }
 } // namespace
@@ -324,6 +329,8 @@ std::string serializeSave(const SaveData& save) {
             {"completedRegions", completedRegions},
             {"itemStorage", itemStorageToJson(save.base.itemStorage)},
             {"rewardOverflow", rewardOverflowToJson(save.base.rewardOverflow)},
+            {"joinReadyCandidateIds", save.base.joinReadyCandidateIds},
+            {"joinedRecruitIds", save.base.joinedRecruitIds},
         }},
         {"selectedPartyIds", save.selectedPartyIds},
         {"weaponOverrides", classMapToJson(save.weaponOverrides)},
@@ -380,6 +387,10 @@ std::optional<SaveData> deserializeSave(const std::string& jsonText, std::string
         if (base.contains("siteAccess")) save.base.siteAccess = siteAccessMapFromJson(base["siteAccess"]);
         if (base.contains("itemStorage")) save.base.itemStorage = itemStorageFromJson(base["itemStorage"]);
         if (base.contains("rewardOverflow")) save.base.rewardOverflow = rewardOverflowFromJson(base["rewardOverflow"]);
+        if (base.contains("joinReadyCandidateIds"))
+            save.base.joinReadyCandidateIds = base["joinReadyCandidateIds"].get<std::unordered_set<std::string>>();
+        if (base.contains("joinedRecruitIds"))
+            save.base.joinedRecruitIds = base["joinedRecruitIds"].get<std::unordered_set<std::string>>();
         if (base.contains("completedRegions")) {
             if (!base["completedRegions"].is_array()) throw std::runtime_error("Invalid completedRegions");
             for (const json& entry : base["completedRegions"]) {

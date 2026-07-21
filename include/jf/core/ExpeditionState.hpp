@@ -40,12 +40,19 @@ struct ExpeditionState {
     // run, only committed into BaseState::completedRegionIds on a safe
     // return - same Pending-until-safe-return rule as everything else here.
     std::unordered_set<RegionId> pendingRegionCompletions;
+    // docs/roster_design.md「加入処理の共通ルール」: a recruit candidate id
+    // (e.g. "heavy_recruit") earned mid-expedition (see GameApp::
+    // proceedToCamp()) - same Pending-until-safe-return/discarded-on-defeat
+    // lifecycle as pendingDiscoveries above, committed into
+    // BaseState::joinReadyCandidateIds by applyExpeditionReturnToBase().
+    std::unordered_set<std::string> pendingRecruitCandidateIds;
 
     void clearOnDefeat() {
         pendingLoot.clear();
         pendingDiscoveries.clear();
         pendingSiteAccessUpdates.clear();
         pendingRegionCompletions.clear();
+        pendingRecruitCandidateIds.clear();
     }
     bool addItem(ItemType item) {
         if (bag.size() >= kBagCapacity) return false;

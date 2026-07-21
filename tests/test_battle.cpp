@@ -7091,6 +7091,139 @@ int main() {
         assert(foundQuarantined);
     }
 
+    {
+        // docs/roster_design.md「加入処理の共通ルール」: 灰角大猪撃破
+        // (brokenwood_territory勝利)でheavy_recruitが加入候補になり、安全帰還で
+        // 加入可能候補として恒久化される。敗北すると保留分は失う。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        jf::GameApp app(*data);
+        reachBrokenwoodTerritory(app);
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(app.screen() == jf::Screen::Camp);
+        assert(app.returnToBase());
+        assert(app.screen() == jf::Screen::Base);
+        assert(app.baseState().joinReadyCandidateIds.count("heavy_recruit"));
+        assert(!app.baseState().joinedRecruitIds.count("heavy_recruit"));
+    }
+
+    {
+        // 別遠征の敗北でも、既に安全帰還済みの加入可能候補は失わない。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        jf::GameApp app(*data);
+        reachBrokenwoodTerritory(app);
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(app.returnToBase());
+        assert(app.baseState().joinReadyCandidateIds.count("heavy_recruit"));
+
+        // 次の遠征を始めて何も達成せず敗北しても、既存の加入可能候補は残る。
+        assert(app.startExpedition(jf::RegionId::AshboughForest));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        // Wait out every player unit to end Player Phase, then zero their HP
+        // and let the first Enemy Phase update() notice allPlayersDefeated().
+        for (jf::Unit& unit : app.battle().battle().units()) {
+            if (unit.team != jf::Team::Player) continue;
+            app.battle().selectUnit(unit);
+            app.battle().selectMoveTile(unit.position);
+            app.battle().chooseWait();
+        }
+        for (jf::Unit& unit : app.battle().battle().units())
+            if (unit.team == jf::Team::Player) unit.currentHp = 0;
+        app.battle().update(0.1f);
+        assert(app.battle().inputState() == jf::BattleInputState::Defeat);
+        app.acknowledgeDefeat();
+        assert(app.screen() == jf::Screen::Base);
+        assert(app.baseState().joinReadyCandidateIds.count("heavy_recruit")); // untouched by this defeat
+    }
+
+    {
+        // GameApp::confirmRecruitJoin(): rosterへ追加し、Tier1スキルを第1枠へ
+        // 装備する。二重呼び出しは何も増やさない(idempotent)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        jf::GameApp app(*data);
+        reachBrokenwoodTerritory(app);
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(app.returnToBase());
+
+        const std::size_t rosterSizeBefore = app.roster().size();
+        assert(app.confirmRecruitJoin("heavy_recruit"));
+        assert(app.roster().size() == rosterSizeBefore + 1);
+        auto joined = std::find_if(app.roster().begin(), app.roster().end(),
+                                   [](const jf::UnitTemplate& u) { return u.id == "heavy_recruit"; });
+        assert(joined != app.roster().end() && joined->classId == jf::UnitClass::HeavyInfantry);
+        assert(app.baseState().joinedRecruitIds.count("heavy_recruit"));
+        auto skillIt = app.equippedSkills().find("heavy_recruit");
+        assert(skillIt != app.equippedSkills().end());
+        const jf::SkillDefinition* tier1 = jf::findSkill(skillIt->second.equippedSkillIds[0]);
+        assert(tier1 && tier1->unitClass == jf::UnitClass::HeavyInfantry && tier1->unlockTier == 1);
+        assert(skillIt->second.equippedSkillIds[1].empty()); // slot 2 stays empty
+
+        // 二重呼び出し: 何も増えない。
+        assert(!app.confirmRecruitJoin("heavy_recruit"));
+        assert(app.roster().size() == rosterSizeBefore + 1);
+    }
+
+    {
+        // recruitCapacity(): 共同テント6人 → 灰枝の森安全帰還後8人。枠不足では
+        // confirmRecruitJoinが失敗し、候補は残り続ける。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        jf::GameApp app(*data);
+        assert(app.recruitCapacity() == 6);
+        assert(app.roster().size() == 6); // 初期6人でちょうど満員
+
+        reachBrokenwoodTerritory(app);
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(app.returnToBase());
+        // 灰枝の森は折れ木の縄張りの勝利でも地域完了する(全サイトSurveyed+)。
+        assert(app.baseState().completedRegionIds.count(jf::RegionId::AshboughForest));
+        assert(app.recruitCapacity() == 8);
+        assert(app.confirmRecruitJoin("heavy_recruit")); // 枠8、現在6人 -> 成功
+    }
+
+    {
+        // Save/Load往復でjoinReadyCandidateIds/joinedRecruitIds/加入済みUnitが
+        // 復元される。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        jf::GameApp app(*data);
+        reachBrokenwoodTerritory(app);
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(app.returnToBase());
+        assert(app.confirmRecruitJoin("heavy_recruit"));
+
+        jf::SaveData saved = app.createSaveData("en");
+        assert(saved.base.joinReadyCandidateIds.count("heavy_recruit"));
+        assert(saved.base.joinedRecruitIds.count("heavy_recruit"));
+
+        std::string json = jf::serializeSave(saved);
+        auto reloaded = jf::deserializeSave(json);
+        assert(reloaded);
+        assert(reloaded->base.joinReadyCandidateIds.count("heavy_recruit"));
+        assert(reloaded->base.joinedRecruitIds.count("heavy_recruit"));
+
+        jf::GameApp freshApp(*data); // fresh instance, roster_ has no recruit yet
+        assert(std::none_of(freshApp.roster().begin(), freshApp.roster().end(),
+                            [](const jf::UnitTemplate& u) { return u.id == "heavy_recruit"; }));
+        assert(freshApp.applySaveData(*reloaded));
+        auto restored = std::find_if(freshApp.roster().begin(), freshApp.roster().end(),
+                                     [](const jf::UnitTemplate& u) { return u.id == "heavy_recruit"; });
+        assert(restored != freshApp.roster().end() && restored->classId == jf::UnitClass::HeavyInfantry);
+        assert(freshApp.equippedSkills().count("heavy_recruit")); // Tier1スキルも復元
+    }
+
     std::cout << "Battle tests PASSED\n";
     return 0;
 }
