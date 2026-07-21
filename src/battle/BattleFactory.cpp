@@ -373,6 +373,14 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
                                                             .blocksMovement = true,
                                                             .canBeAttacked = true,
                                                             .canBeRepaired = true});
+    // 辺境猟兵「簡易罠」/`snare_trap`(docs/skill_system.md「辺境猟兵」): shared
+    // by both the innate ability and the skill (identical effect and combined
+    // 2-object cap), spawned at runtime the same way as the barricades above.
+    // canOccupy=true (敵味方とも通過可能) - EnemyAI.cpp's
+    // triggerRangerTrapIfPresent() detects an enemy's own movement landing on
+    // this tile and destroys it on first trigger.
+    battle.registerObjectDefinition(BattleObjectDefinition{
+        .definitionId = "ranger_trap", .kind = BattleObjectKind::Marker, .canOccupy = true});
 
     if (stage.primaryHoldTileAlternative) {
         // docs/regions/cinderwatch_gate.md「2. 灰道の監視所」: primary

@@ -141,6 +141,7 @@ void clearSkillBuffsAtEnemyPhaseEnd(BattleState& battle) {
         unit.zocRangeExtended = false;
         unit.braceSkillActive = false;
         unit.provokedByUnitId.clear();
+        unit.quarryRevealed = false; // 辺境猟兵`read_quarry`: "次のEnemy Phase終了まで"
     }
 }
 

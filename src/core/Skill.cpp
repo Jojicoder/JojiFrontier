@@ -103,6 +103,17 @@ const std::vector<SkillDefinition>& skillRegistry() {
         {"rescue_transfer", UnitClass::MessengerCavalry, "Rescue Transfer", "救援搬送", SkillCategory::Active,
          SkillUsageType::Cooldown2, "Moves an adjacent ally 1 tile to the empty tile directly opposite this unit.",
          "隣接する味方1人を自分の反対側の空きマスへ1マス移動させる。", 3},
+
+        // 辺境猟兵 (Frontier Ranger)
+        {"snare_trap", UnitClass::FrontierRanger, "Snare Trap", "拘束罠", SkillCategory::Active,
+         SkillUsageType::Cooldown2, "Places a trap on an empty tile within range 1; the first enemy to step on it gets Move Down and it disappears.",
+         "射程1の空きマスへ罠を設置。最初に踏んだ敵へ移動低下を付与して消滅。", 1},
+        {"read_quarry", UnitClass::FrontierRanger, "Read Quarry", "獲物を読む", SkillCategory::Active,
+         SkillUsageType::OncePerBattle, "Reveals one enemy's next action candidates, attack range, and priority target until the next Enemy Phase ends.",
+         "敵1体の次回行動候補・攻撃範囲・優先対象を次のEnemy Phase終了まで表示。", 2},
+        {"driving_shot", UnitClass::FrontierRanger, "Driving Shot", "追い込み射撃", SkillCategory::Active,
+         SkillUsageType::Cooldown2, "A normal attack (weapon range) that pushes the target 1 tile away from the user.",
+         "通常攻撃(武器射程)を行い、対象を使用者から離れる方向へ1マス押し出す。", 3},
     };
     return skills;
 }
@@ -131,6 +142,7 @@ std::string requiredTrainingNodeIdFor(UnitClass unitClass) {
         case UnitClass::WatchArcher:
         case UnitClass::FrontierScout:
         case UnitClass::MessengerCavalry:
+        case UnitClass::FrontierRanger:
             return "mobility_training";
         case UnitClass::MarchCaptain:
         case UnitClass::DawnChirurgeon:

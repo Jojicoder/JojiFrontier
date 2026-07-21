@@ -26,6 +26,9 @@ enum class BattleInputState {
     // dedicated-command shape as SelectHealTarget above, for an固有能力
     // outside the 2 equip slots.
     SelectFieldFortificationTarget,
+    // 辺境猟兵「簡易罠」(docs/class_reference.md「後半6兵種」): same
+    // dedicated-command shape as SelectFieldFortificationTarget above.
+    SelectSimpleTrapTarget,
     SelectItemTarget,
     SelectBoardTarget,
     SelectSkillTarget,
@@ -102,6 +105,7 @@ public:
     const std::vector<GridPos>& attackRangeTiles() const { return attackRangeTiles_; }
     const std::vector<GridPos>& healableTiles() const { return healableTiles_; }
     const std::vector<GridPos>& fieldFortificationTiles() const { return fieldFortificationTiles_; }
+    const std::vector<GridPos>& simpleTrapTiles() const { return simpleTrapTiles_; }
     const std::vector<GridPos>& reMoveTiles() const { return reMoveTiles_; }
     const std::vector<GridPos>& itemTargetTiles() const { return itemTargetTiles_; }
     const std::vector<GridPos>& boardTargetTiles() const { return boardTargetTiles_; }
@@ -157,6 +161,12 @@ public:
     // パターン。既に使用済み(Unit::fieldFortificationUsed)ならno-op。
     void chooseFieldFortification();
     void selectFieldFortificationTarget(GridPos pos);
+    // 辺境猟兵「簡易罠」: same shape as chooseFieldFortification()/
+    // selectFieldFortificationTarget() above. Already-used
+    // (Unit::simpleTrapUsed) or at the shared ranger_trap cap (2 total,
+    // combined with `snare_trap`) is a no-op.
+    void chooseSimpleTrap();
+    void selectSimpleTrapTarget(GridPos pos);
     // 伝令騎兵「再移動」: resolves the pending re-move deferred by
     // finishPlayerAction() (see BattleInputState::SelectReMoveTarget). No-op
     // outside that state or on an invalid target.
@@ -231,6 +241,7 @@ private:
     std::vector<GridPos> attackRangeTiles_;
     std::vector<GridPos> healableTiles_;
     std::vector<GridPos> fieldFortificationTiles_;
+    std::vector<GridPos> simpleTrapTiles_;
     std::vector<GridPos> itemTargetTiles_;
     std::vector<GridPos> boardTargetTiles_;
     std::vector<GridPos> skillTargetTiles_;

@@ -35,6 +35,22 @@ void finishEnemyAction(BattleState& battle, Unit& enemy, ActionKind actionKind) 
     handleObjectiveEvent(battle.missionState(), event);
 }
 
+// 辺境猟兵「簡易罠」/`snare_trap`(docs/skill_system.md「辺境猟兵」): 罠は
+// 敵味方とも通過可能だが、最初に踏んだ敵だけを停止させて消滅する(ダメージなし)。
+// プレイヤー側のmoveUnit()呼び出し(通常移動・再移動・救援搬送等)では発動せず、
+// 敵ユニット自身の自発移動(このファイル内の4箇所のbattle.moveUnit(enemy/boar,
+// ...)呼び出し)の直後にだけ判定する - 強制移動(ノックバック等)でのトリガーは
+// 仕様に明記が無いため対象外。
+void triggerRangerTrapIfPresent(BattleState& battle, Unit& mover) {
+    if (mover.team != Team::Enemy) return;
+    BattleObjectState* trap = battle.objectAt(mover.position);
+    if (!trap || trap->definitionId != "ranger_trap" || trap->state == BattleObjectStateKind::Destroyed) return;
+    applyMoveDown(mover);
+    trap->state = BattleObjectStateKind::Destroyed;
+    handleObjectiveEvent(battle.missionState(),
+                         BattleEvent{battle.issueEventId(), 0, ObjectDestroyedEvent{trap->id}});
+}
+
 Unit* findNearestPlayer(BattleState& battle, const Unit& enemy) {
     Unit* nearest = nullptr;
     int bestDist = INT_MAX;
@@ -373,7 +389,10 @@ Unit* takeBoarBossTurn(BattleState& battle, Unit& boar) {
                 }
             }
         }
-        if (bestTile != boar.position) battle.moveUnit(boar, bestTile);
+        if (bestTile != boar.position) {
+            battle.moveUnit(boar, bestTile);
+            triggerRangerTrapIfPresent(battle, boar);
+        }
         boar.chargeTelegraphed = true;
         boar.chargeDirection = boarChargeDirectionForTarget(battle, boar, range);
         if (boar.chargeDirection == 0) boar.chargeDirection = -1;
@@ -411,7 +430,10 @@ Unit* takeBoarBossTurn(BattleState& battle, Unit& boar) {
                 bestTile = tile;
             }
         }
-        if (bestTile != boar.position) moved = battle.moveUnit(boar, bestTile);
+        if (bestTile != boar.position) {
+            moved = battle.moveUnit(boar, bestTile);
+            if (moved) triggerRangerTrapIfPresent(battle, boar);
+        }
     }
 
     if (Unit* swept = performBoarSweep(battle, boar)) {
@@ -487,7 +509,10 @@ Unit* takeEnemyTurn(BattleState& battle, Unit& enemy, AiSquadReservations* reser
         AiCandidate candidate = chooseBestAiCandidate(
             generateAiCandidates(battle, enemy, profile, reservations ? *reservations : emptyReservations));
         target = candidate.targetUnitId.empty() ? nullptr : battle.findUnit(candidate.targetUnitId);
-        if (candidate.destination != enemy.position) battle.moveUnit(enemy, candidate.destination);
+        if (candidate.destination != enemy.position) {
+            battle.moveUnit(enemy, candidate.destination);
+            triggerRangerTrapIfPresent(battle, enemy);
+        }
         if (reservations) {
             reservations->reserve(candidate);
         }
@@ -547,6 +572,7 @@ Unit* takeEnemyTurn(BattleState& battle, Unit& enemy, AiSquadReservations* reser
         }
     }
     battle.moveUnit(enemy, bestTile);
+    triggerRangerTrapIfPresent(battle, enemy);
 
     // 監視弓兵`overwatch`: also check after movement, since moving is what
     // most often carries `enemy` newly into an armed watcher's range.

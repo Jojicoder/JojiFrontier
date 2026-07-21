@@ -155,6 +155,16 @@ struct Unit {
     // behavior/tests stay untouched. Cleared by the same
     // clearMoveUpAtPlayerPhaseEnd().
     bool urgentDispatchActive = false;
+    // 辺境猟兵「簡易罠」(docs/class_reference.md「後半6兵種」): 戦闘中1回の
+    // Active固有能力(canHeal()/canFieldFortify()と同じく2スキル枠の外)。
+    // fieldFortificationUsed同様この1フィールドで一度使用済みかを追跡する。
+    bool simpleTrapUsed = false;
+    // 辺境猟兵`read_quarry`(獲物を読む): 純粋に情報表示的なスキル(行動を強制
+    // しない) - 既存エンジンに敵AIの行動予測を保持・表示する仕組みが無いため、
+    // 今回はこのデータフラグのみ実装する(実際のプレビューUIは対象外)。
+    // overwatchActive等と同じ「次のEnemy Phase終了まで」ライフサイクルで
+    // clearSkillBuffsAtEnemyPhaseEnd()が解除する。
+    bool quarryRevealed = false;
 
     // The 2 equipped-skill slots (docs/skill_system.md). See
     // jf/battle/SkillCharges.hpp for lifecycle management.

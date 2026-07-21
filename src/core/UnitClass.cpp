@@ -13,6 +13,7 @@ std::string toString(UnitClass unitClass) {
         case UnitClass::HeavyInfantry: return "Heavy Infantry / 重装兵";
         case UnitClass::FrontierEngineer: return "Frontier Engineer / 辺境工兵";
         case UnitClass::MessengerCavalry: return "Messenger Cavalry / 伝令騎兵";
+        case UnitClass::FrontierRanger: return "Frontier Ranger / 辺境猟兵";
         case UnitClass::Bandit: return "Bandit / 盗賊";
         case UnitClass::Wolf: return "Wolf / 狼";
         case UnitClass::AshenhornBoar: return "Ashenhorn Boar / 灰角大猪";
@@ -29,5 +30,6 @@ int passiveEvasionBonus(UnitClass unitClass) { return unitClass == UnitClass::Fr
 bool hasHeavyArmor(UnitClass unitClass) { return unitClass == UnitClass::HeavyInfantry; }
 bool canFieldFortify(UnitClass unitClass) { return unitClass == UnitClass::FrontierEngineer; }
 bool canReMove(UnitClass unitClass) { return unitClass == UnitClass::MessengerCavalry; }
+bool canSetSimpleTrap(UnitClass unitClass) { return unitClass == UnitClass::FrontierRanger; }
 
 } // namespace jf

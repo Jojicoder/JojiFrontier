@@ -37,6 +37,7 @@ std::optional<UnitClass> unitClassFromString(const std::string& name) {
         {"HeavyInfantry", UnitClass::HeavyInfantry},
         {"FrontierEngineer", UnitClass::FrontierEngineer},
         {"MessengerCavalry", UnitClass::MessengerCavalry},
+        {"FrontierRanger", UnitClass::FrontierRanger},
         {"Bandit", UnitClass::Bandit},
         {"Wolf", UnitClass::Wolf},
         {"AshenhornBoar", UnitClass::AshenhornBoar},

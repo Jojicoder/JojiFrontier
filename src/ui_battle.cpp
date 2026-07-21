@@ -437,6 +437,8 @@ void drawBoardTiles(const jf::BattleController& controller, const std::vector<jf
                 DrawRectangleRec(rect, Color{220, 185, 70, 150});
             if (containsTile(controller.reMoveTiles(), pos))
                 DrawRectangleRec(rect, Color{58, 155, 255, 125});
+            if (containsTile(controller.simpleTrapTiles(), pos))
+                DrawRectangleRec(rect, Color{220, 185, 70, 150});
             if (containsTile(controller.itemTargetTiles(), pos))
                 DrawRectangleRec(rect, Color{70, 210, 145, 175});
             if (containsTile(controller.boardTargetTiles(), pos))
@@ -861,6 +863,16 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
                         }
                     }
                 }
+                if (selected && jf::canSetSimpleTrap(selected->unitClass) && !selected->simpleTrapUsed) {
+                    anySkillShown = true;
+                    if (button(Rectangle{static_cast<float>(firstActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                               tr("ui.button.simple_trap"), mouse, clicked)) {
+                        controller.chooseSimpleTrap();
+                        if (controller.inputState() != jf::BattleInputState::SelectAction) {
+                            gBattleScreen.skillMenuOpen = false;
+                        }
+                    }
+                }
                 // docs/implementation_roadmap.md M4 item 1: the 2 equipped
                 // Tier-1 skill slots, shown per docs/skill_system.md "使用
                 //不能スキルは非表示にせず、理由付きで無効表示" - an equipped
@@ -993,6 +1005,7 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
         case jf::BattleInputState::SelectTarget:
         case jf::BattleInputState::SelectHealTarget:
         case jf::BattleInputState::SelectFieldFortificationTarget:
+        case jf::BattleInputState::SelectSimpleTrapTarget:
         case jf::BattleInputState::SelectItemTarget:
         case jf::BattleInputState::SelectBoardTarget:
         case jf::BattleInputState::SelectSkillTarget:
@@ -1073,6 +1086,9 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
             break;
         case jf::BattleInputState::SelectFieldFortificationTarget:
             stepLabel = tr("ui.button.field_fortification");
+            break;
+        case jf::BattleInputState::SelectSimpleTrapTarget:
+            stepLabel = tr("ui.button.simple_trap");
             break;
         case jf::BattleInputState::SelectReMoveTarget:
             stepLabel = tr("ui.battle.choose_re_move_target");

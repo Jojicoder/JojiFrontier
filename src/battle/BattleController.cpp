@@ -106,6 +106,26 @@ constexpr int kRubbleChargeSplashDamage = 3;
 bool isRapidBarricadeShape(const std::string& skillId) { return skillId == "rapid_barricade"; }
 constexpr int kRapidBarricadeRange = 2;
 
+// 辺境猟兵「簡易罠」/`snare_trap`(拘束罠): both place the same "ranger_trap"
+// Definition and share a combined cap of 2 - counted once here rather than
+// duplicating the loop at both call sites (chooseSimpleTrap() and this
+// skill's chooseSkill() branch below).
+int countActiveRangerTraps(const BattleState& battle) {
+    int count = 0;
+    for (const BattleObjectState& object : battle.objects()) {
+        if (object.state != BattleObjectStateKind::Destroyed && object.definitionId == "ranger_trap") ++count;
+    }
+    return count;
+}
+bool isSnareTrapShape(const std::string& skillId) { return skillId == "snare_trap"; }
+constexpr int kSnareTrapRange = 1;
+
+// 辺境猟兵`read_quarry`(獲物を読む): 敵1体・射程3、Unit::quarryRevealedを
+// 立てるだけの純粋な情報表示スキル(ダメージ・行動強制なし)。実際のプレビュー
+// UIは対象外(データフラグのみ - class_reference.md実装計画で確認済み)。
+bool isReadQuarryShape(const std::string& skillId) { return skillId == "read_quarry"; }
+constexpr int kReadQuarryRange = 3;
+
 // 古参守備兵`provoke`(挑発): 敵1体・射程2、Damageなし、対象へUnit::
 // provokedByUnitIdを設定するだけ - Mark形状に似るが、書き込む値がDamageの
 // 符号付き整数ではなく「このスキルを使ったUnitのid」で、しかも設定先は
@@ -150,6 +170,7 @@ struct AttackSkillShape {
     int bonusDamage = 0;
     bool appliesMoveDown = false;
     bool requiresUnacted = false; // 未行動の敵限定 (辺境斥候「奇襲」)
+    bool appliesForcedPush = false; // 辺境猟兵`driving_shot` (applyForcedPush())
     std::vector<StatusEffectType> statuses;
 };
 const std::unordered_map<std::string, AttackSkillShape>& attackSkillShapes() {
@@ -158,8 +179,30 @@ const std::unordered_map<std::string, AttackSkillShape>& attackSkillShapes() {
         {"halting_thrust", {.appliesMoveDown = true}},
         {"ambush", {.bonusDamage = 3, .requiresUnacted = true,
                      .statuses = {StatusEffectType::DefenseDown}}},
+        {"driving_shot", {.appliesForcedPush = true}},
     };
     return table;
+}
+
+// 辺境猟兵`driving_shot`(追い込み射撃): pushes `target` 1 tile directly away
+// from `source`, same direction math as BattleState::applyKnockback(), but
+// unlike a real knockback a blocked push just does nothing extra (no
+// stagger) - "押し出せない場合も通常ダメージだけ与える". Still respects
+// hasHeavyArmor()/braceForImpactActive (forced-movement immunity), but not
+// the consumable knockbackNegatesRemaining (that's Hide-Wrapped Grip's own
+// weapon-knockback mechanic, not a general forced-movement negation).
+void applyForcedPush(const BattleState& battle, const Unit& source, Unit& target) {
+    if (hasHeavyArmor(target.unitClass) || target.braceForImpactActive) return;
+    const int rowDelta = target.position.row - source.position.row;
+    const int colDelta = target.position.col - source.position.col;
+    GridPos dest = target.position;
+    if (std::abs(colDelta) >= std::abs(rowDelta)) dest.col += (colDelta > 0) - (colDelta < 0);
+    else dest.row += (rowDelta > 0) - (rowDelta < 0);
+    if (!isInBounds(dest) || battle.unitAt(dest) || !isPassable(battle.terrainAt(dest)) ||
+        battle.objectBlocksMovementAt(dest) || battle.objectBlocksStoppingAt(dest)) {
+        return;
+    }
+    target.position = dest;
 }
 
 // 監視弓兵`mark_target`(標的指定)/行軍隊長`support_order`(援護命令): neither
@@ -614,6 +657,39 @@ void BattleController::selectFieldFortificationTarget(GridPos pos) {
     evaluateOutcome();
 }
 
+void BattleController::chooseSimpleTrap() {
+    if (inputState_ != BattleInputState::SelectAction || !selectedUnit_ ||
+        !canSetSimpleTrap(selectedUnit_->unitClass) || selectedUnit_->simpleTrapUsed) return;
+    if (countActiveRangerTraps(battle_) >= 2) return; // shared cap with `snare_trap`
+
+    simpleTrapTiles_.clear();
+    constexpr GridPos directions[] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+    for (GridPos direction : directions) {
+        GridPos pos{selectedUnit_->position.row + direction.row, selectedUnit_->position.col + direction.col};
+        if (isInBounds(pos) && isPassable(battle_.terrainAt(pos)) && !battle_.unitAt(pos) && !battle_.objectAt(pos))
+            simpleTrapTiles_.push_back(pos);
+    }
+    if (!simpleTrapTiles_.empty()) inputState_ = BattleInputState::SelectSimpleTrapTarget;
+}
+
+void BattleController::selectSimpleTrapTarget(GridPos pos) {
+    if (inputState_ != BattleInputState::SelectSimpleTrapTarget || !selectedUnit_) return;
+    if (std::find(simpleTrapTiles_.begin(), simpleTrapTiles_.end(), pos) == simpleTrapTiles_.end()) return;
+
+    BattleObjectTeam team =
+        selectedUnit_->team == Team::Player ? BattleObjectTeam::Player : BattleObjectTeam::Enemy;
+    battle_.placeObject({selectedUnit_->id + "_ranger_trap", "ranger_trap", pos, team,
+                         BattleObjectStateKind::Active, 0, 0});
+    selectedUnit_->simpleTrapUsed = true;
+    if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return;
+    selectedUnit_ = nullptr;
+    simpleTrapTiles_.clear();
+    reachableTiles_.clear();
+    attackRangeTiles_.clear();
+    inputState_ = BattleInputState::SelectUnit;
+    evaluateOutcome();
+}
+
 bool BattleController::useHealingItem(int amount) {
     if (inputState_ != BattleInputState::SelectAction || !selectedUnit_ || amount <= 0) return false;
     if (selectedUnit_->currentHp >= selectedUnit_->stats.maxHp) return false;
@@ -857,6 +933,27 @@ void BattleController::chooseSkill(int slotIndex) {
                 continue;
             skillTargetTiles_.push_back(unit.position);
         }
+    } else if (isSnareTrapShape(skillId)) {
+        // field_repair/rapid_barricade型と同じ空きタイル収集だが、cap共有
+        // (簡易罠+拘束罠で合計2個まで)チェックが先に必要。
+        if (countActiveRangerTraps(battle_) < 2) {
+            for (int row = 0; row < kGridRows; ++row) {
+                for (int col = 0; col < kGridCols; ++col) {
+                    GridPos pos{row, col};
+                    if (manhattanDistance(selectedUnit_->position, pos) > kSnareTrapRange ||
+                        pos == selectedUnit_->position || !isPassable(battle_.terrainAt(pos)) ||
+                        battle_.unitAt(pos) || battle_.objectAt(pos))
+                        continue;
+                    skillTargetTiles_.push_back(pos);
+                }
+            }
+        }
+    } else if (isReadQuarryShape(skillId)) {
+        for (Unit& unit : battle_.units()) {
+            if (unit.team == selectedUnit_->team || !unit.isAlive()) continue;
+            if (manhattanDistance(selectedUnit_->position, unit.position) <= kReadQuarryRange)
+                skillTargetTiles_.push_back(unit.position);
+        }
     }
     if (skillTargetTiles_.empty()) return;
     pendingSkillSlot_ = slotIndex;
@@ -984,6 +1081,25 @@ bool BattleController::selectSkillTarget(GridPos pos) {
         return true;
     }
 
+    // 辺境猟兵`snare_trap`(拘束罠): places the same "ranger_trap" Object as
+    // the innate 簡易罠 (shared cap, already enforced in chooseSkill() above).
+    if (isSnareTrapShape(shapeSkillId)) {
+        BattleObjectTeam team =
+            selectedUnit_->team == Team::Player ? BattleObjectTeam::Player : BattleObjectTeam::Enemy;
+        battle_.placeObject({"snare_trap_" + std::to_string(battle_.issueEventId()), "ranger_trap", pos, team,
+                             BattleObjectStateKind::Active, 0, 0});
+        consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
+        if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return true;
+        selectedUnit_ = nullptr;
+        pendingSkillSlot_ = -1;
+        skillTargetTiles_.clear();
+        reachableTiles_.clear();
+        attackRangeTiles_.clear();
+        inputState_ = BattleInputState::SelectUnit;
+        evaluateOutcome();
+        return true;
+    }
+
     // 伝令騎兵`rescue_transfer`(救援搬送): moves the target ally itself
     // (reflection across the caster), not the caster - the ally's hasActed
     // must stay untouched, so this doesn't route through the generic Unit
@@ -1040,6 +1156,8 @@ bool BattleController::selectSkillTarget(GridPos pos) {
         target->urgentDispatchActive = true;
     } else if (isProvokeShape(skillId)) {
         applyProvoke(*target, selectedUnit_->id);
+    } else if (isReadQuarryShape(skillId)) {
+        target->quarryRevealed = true;
     }
     consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
     if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return true;
@@ -1114,6 +1232,8 @@ void BattleController::confirmSkillAttack() {
     lastDamage_ = std::max(0, hpBeforeAttack - pendingTarget_->currentHp);
     lastAttackHit_ = lastDamage_ > 0;
     if (hit && attack->second.appliesMoveDown && pendingTarget_->isAlive()) applyMoveDown(*pendingTarget_);
+    if (hit && attack->second.appliesForcedPush && pendingTarget_->isAlive())
+        applyForcedPush(battle_, *selectedUnit_, *pendingTarget_);
     if (hit && pendingTarget_->isAlive())
         for (StatusEffectType effect : attack->second.statuses) applyStatusEffect(*pendingTarget_, effect);
     emitUnitDefeatedEvents(battle_, aliveBeforeAttack);

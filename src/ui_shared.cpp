@@ -297,7 +297,8 @@ void loadAppFont() {
                               jf::UnitClass::WatchArcher, jf::UnitClass::FrontierScout,
                               jf::UnitClass::Spearman, jf::UnitClass::DawnChirurgeon,
                               jf::UnitClass::HeavyInfantry, jf::UnitClass::FrontierEngineer,
-                              jf::UnitClass::MessengerCavalry, jf::UnitClass::Bandit, jf::UnitClass::Wolf,
+                              jf::UnitClass::MessengerCavalry, jf::UnitClass::FrontierRanger,
+                              jf::UnitClass::Bandit, jf::UnitClass::Wolf,
                               jf::UnitClass::AshenhornBoar}) {
         charsetSource += jf::toString(uc);
     }
@@ -505,7 +506,7 @@ std::string weaponNameFor(const std::string& weaponId, const std::string& englis
     static const std::unordered_set<std::string> known = {
         "iron_sword", "iron_lance", "iron_axe",  "watch_bow",   "scout_blade", "dawn_staff",
         "iron_spear", "long_spear", "heavy_spear", "guard_spear", "wolf_bite",   "boar_tusks",
-        "iron_greathammer", "engineer_hammer", "messenger_sword",
+        "iron_greathammer", "engineer_hammer", "messenger_sword", "hunting_bow",
     };
     return known.count(weaponId) ? tr("weapon." + weaponId) : englishName;
 }

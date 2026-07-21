@@ -62,6 +62,9 @@ void handleGridClick(jf::GameApp& app, jf::GridPos pos) {
         case jf::BattleInputState::SelectFieldFortificationTarget:
             controller.selectFieldFortificationTarget(pos);
             break;
+        case jf::BattleInputState::SelectSimpleTrapTarget:
+            controller.selectSimpleTrapTarget(pos);
+            break;
         case jf::BattleInputState::SelectReMoveTarget:
             controller.selectReMoveTarget(pos);
             break;

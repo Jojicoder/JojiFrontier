@@ -122,6 +122,13 @@ jf::GameData makeFactoryData() {
     data.weaponsById.emplace("messenger_sword", messengerSword);
     data.classesById.emplace(jf::UnitClass::MessengerCavalry,
                              jf::ClassDefinition{jf::UnitClass::MessengerCavalry, messengerCavalryStats, "messenger_sword"});
+    jf::Stats frontierRangerStats{.maxHp = 20, .strength = 6, .magic = 0, .speed = 7,
+                                  .defense = 4, .resistance = 4, .move = 4};
+    jf::Weapon huntingBow{.id = "hunting_bow", .name = "Hunting Bow", .might = 4, .minRange = 2,
+                          .maxRange = 2, .damageType = jf::DamageType::Physical};
+    data.weaponsById.emplace("hunting_bow", huntingBow);
+    data.classesById.emplace(jf::UnitClass::FrontierRanger,
+                             jf::ClassDefinition{jf::UnitClass::FrontierRanger, frontierRangerStats, "hunting_bow"});
     jf::Weapon wolfBite{.id = "wolf_bite", .name = "Bite", .might = 5, .minRange = 1,
                        .maxRange = 1, .damageType = jf::DamageType::Physical};
     data.weaponsById.emplace("wolf_bite", wolfBite);
@@ -3086,6 +3093,189 @@ int main() {
         assert(controller.inputState() == jf::BattleInputState::SelectReMoveTarget); // caster's own re-move
         controller.selectReMoveTarget(jf::GridPos{1, 3});
         assert(controller.battle().findUnit("cavalry")->hasActed);
+    }
+
+    {
+        // docs/class_reference.md「後半6兵種」/M7項目1: 辺境猟兵
+        // (FrontierRanger)のClass/武器データ整合性。
+        jf::GameData data = makeFactoryData();
+        const jf::ClassDefinition& def = data.classDefinition(jf::UnitClass::FrontierRanger);
+        assert(def.baseStats.maxHp == 20 && def.baseStats.strength == 6 && def.baseStats.magic == 0 &&
+              def.baseStats.speed == 7 && def.baseStats.defense == 4 && def.baseStats.resistance == 4 &&
+              def.baseStats.move == 4);
+        assert(def.weaponId == "hunting_bow");
+        const jf::Weapon& weapon = data.weaponFor(jf::UnitClass::FrontierRanger);
+        assert(weapon.id == "hunting_bow" && weapon.might == 4 && weapon.minRange == 2 && weapon.maxRange == 2 &&
+              weapon.damageType == jf::DamageType::Physical);
+        assert(jf::unitClassFromString("FrontierRanger") == jf::UnitClass::FrontierRanger);
+        assert(jf::skillsForClass(jf::UnitClass::FrontierRanger).size() == 3);
+        assert(jf::requiredTrainingNodeIdFor(jf::UnitClass::FrontierRanger) == "mobility_training");
+    }
+
+    {
+        // 辺境猟兵「簡易罠」/`snare_trap`(拘束罠): both place the same
+        // "ranger_trap" Object and share a combined cap of 2. Only an
+        // enemy's own movement (EnemyAI.cpp, via triggerRangerTrapIfPresent())
+        // triggers it - a player unit stepping on it does nothing.
+        // (2 separate ranger units so the 2nd placement isn't blocked by the
+        // 1st's hasActed - the cap is a battle-wide Object count, not a
+        // per-unit limit.)
+        jf::Unit ranger1 = makeUnit("ranger1", jf::Team::Player, {1, 3}, 4, jf::UnitClass::FrontierRanger);
+        jf::Unit ranger2 = makeUnit("ranger2", jf::Team::Player, {1, 0}, 4, jf::UnitClass::FrontierRanger);
+        ranger2.skillSlots[0].skillId = "snare_trap";
+        jf::Unit ranger3 = makeUnit("ranger3", jf::Team::Player, {1, 7}, 4, jf::UnitClass::FrontierRanger);
+        ranger3.skillSlots[0].skillId = "snare_trap";
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {1, 6});
+        jf::Unit distantEnemy = makeUnit("distantEnemy", jf::Team::Enemy, {0, 0});
+        jf::BattleState battle({ranger1, ranger2, ranger3, ally, distantEnemy});
+        battle.registerObjectDefinition(
+            jf::BattleObjectDefinition{.definitionId = "ranger_trap", .kind = jf::BattleObjectKind::Marker,
+                                       .canOccupy = true});
+        jf::BattleController controller(std::move(battle));
+        for (jf::Unit& u : controller.battle().units()) jf::initializeSkillCharges(u);
+
+        // 固有能力で1個目。
+        controller.selectUnit(*controller.battle().findUnit("ranger1"));
+        controller.selectMoveTile(controller.battle().findUnit("ranger1")->position);
+        controller.chooseSimpleTrap();
+        assert(controller.inputState() == jf::BattleInputState::SelectSimpleTrapTarget);
+        controller.selectSimpleTrapTarget(jf::GridPos{1, 4});
+        assert(controller.battle().objectAt(jf::GridPos{1, 4}) != nullptr);
+        assert(controller.battle().findUnit("ranger1")->simpleTrapUsed);
+
+        // スキルで2個目 - 合計2個の上限に達する。
+        controller.selectUnit(*controller.battle().findUnit("ranger2"));
+        controller.selectMoveTile(controller.battle().findUnit("ranger2")->position);
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectSkillTarget);
+        assert(controller.selectSkillTarget(jf::GridPos{1, 1}));
+        assert(controller.battle().objectAt(jf::GridPos{1, 1}) != nullptr);
+
+        // 上限到達により3個目は置けない(固有能力・スキルどちらも対象なし)。
+        controller.selectUnit(*controller.battle().findUnit("ranger3"));
+        controller.selectMoveTile(controller.battle().findUnit("ranger3")->position);
+        controller.chooseSimpleTrap();
+        assert(controller.inputState() == jf::BattleInputState::SelectAction); // cap reached, no-op
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectAction); // cap reached, no-op
+
+        // 味方が罠を踏んでも発動しない。
+        jf::Unit* allyUnit = controller.battle().findUnit("ally");
+        assert(!allyUnit->moveDownActive);
+        controller.battle().moveUnit(*allyUnit, jf::GridPos{1, 4});
+        assert(!allyUnit->moveDownActive);
+        assert(controller.battle().objectAt(jf::GridPos{1, 4})->state == jf::BattleObjectStateKind::Active);
+
+        // 敵の自発移動でのみ発動する。
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 3}, 1);
+        jf::Unit farPlayer = makeUnit("farPlayer", jf::Team::Player, {1, 5}, 1);
+        jf::BattleState trapBattle({enemy, farPlayer});
+        trapBattle.registerObjectDefinition(
+            jf::BattleObjectDefinition{.definitionId = "ranger_trap", .kind = jf::BattleObjectKind::Marker,
+                                       .canOccupy = true});
+        assert(trapBattle.placeObject({"trap1", "ranger_trap", {1, 4}, jf::BattleObjectTeam::Player,
+                                       jf::BattleObjectStateKind::Active, 0, 0}));
+        jf::takeEnemyTurn(trapBattle, trapBattle.units()[0]);
+        assert((trapBattle.findUnit("enemy")->position == jf::GridPos{1, 4})); // stepped onto the trap
+        assert(trapBattle.findUnit("enemy")->moveDownActive);
+        assert(trapBattle.findObject("trap1")->state == jf::BattleObjectStateKind::Destroyed);
+    }
+
+    {
+        // 辺境猟兵`read_quarry`(獲物を読む): 純粋なデータフラグ - 対象の
+        // quarryRevealedが立ち、次のEnemy Phase終了で解除される。
+        jf::Unit ranger = makeUnit("ranger", jf::Team::Player, {1, 0}, 4, jf::UnitClass::FrontierRanger);
+        ranger.skillSlots[0].skillId = "read_quarry";
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 3});
+        jf::BattleState battle({ranger, enemy});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectSkillTarget);
+        assert(contains(controller.skillTargetTiles(), jf::GridPos{1, 3})); // range 3
+
+        assert(controller.selectSkillTarget(jf::GridPos{1, 3}));
+        assert(controller.battle().findUnit("enemy")->quarryRevealed);
+        assert(!jf::skillSlotAvailable(*controller.battle().findUnit("ranger"), 0)); // OncePerBattle
+
+        controller.endPlayerTurn();
+        for (int i = 0; i < 10 && controller.inputState() == jf::BattleInputState::EnemyTurn; ++i)
+            controller.update(1.0f);
+        assert(!controller.battle().findUnit("enemy")->quarryRevealed); // cleared at Enemy Phase end
+    }
+
+    {
+        // 辺境猟兵`driving_shot`(追い込み射撃): 通常攻撃+命中時に対象を離れる
+        // 方向へ1マス押し出す。重装兵/brace_for_impactは無効化し、押し出し先が
+        // 塞がっている場合はよろめきを付与せず何もしない(通常ノックバックとの
+        // 違い)。
+        jf::Unit ranger = makeUnit("ranger", jf::Team::Player, {1, 0}, 4, jf::UnitClass::FrontierRanger);
+        ranger.weapon = {.id = "hunting_bow", .name = "Hunting Bow", .might = 4, .minRange = 2,
+                         .maxRange = 2, .damageType = jf::DamageType::Physical};
+        ranger.skillSlots[0].skillId = "driving_shot";
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 2});
+        enemy.stats.maxHp = 40;
+        enemy.currentHp = 40;
+        jf::BattleState battle({ranger, enemy});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectSkillTarget);
+        assert(controller.selectSkillTarget(jf::GridPos{1, 2}));
+        assert(controller.inputState() == jf::BattleInputState::ConfirmSkillAttack);
+        controller.confirmSkillAttack();
+        assert((controller.battle().findUnit("enemy")->position == jf::GridPos{1, 3})); // pushed away
+    }
+
+    {
+        // driving_shot: 重装兵は押し出しを無効化する。
+        jf::Unit ranger = makeUnit("ranger", jf::Team::Player, {1, 0}, 4, jf::UnitClass::FrontierRanger);
+        ranger.weapon = {.id = "hunting_bow", .name = "Hunting Bow", .might = 4, .minRange = 2,
+                         .maxRange = 2, .damageType = jf::DamageType::Physical};
+        ranger.skillSlots[0].skillId = "driving_shot";
+        jf::Unit heavy = makeUnit("heavy", jf::Team::Enemy, {1, 2}, 3, jf::UnitClass::HeavyInfantry);
+        heavy.stats.maxHp = 40;
+        heavy.currentHp = 40;
+        jf::BattleState battle({ranger, heavy});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.selectSkillTarget(jf::GridPos{1, 2}));
+        controller.confirmSkillAttack();
+        assert((controller.battle().findUnit("heavy")->position == jf::GridPos{1, 2})); // unmoved
+    }
+
+    {
+        // driving_shot: 押し出し先が塞がっていれば、よろめきを付与せず通常
+        // ダメージだけ与える(通常ノックバックとの違い)。
+        jf::Unit ranger = makeUnit("ranger", jf::Team::Player, {1, 0}, 4, jf::UnitClass::FrontierRanger);
+        ranger.weapon = {.id = "hunting_bow", .name = "Hunting Bow", .might = 4, .minRange = 2,
+                         .maxRange = 2, .damageType = jf::DamageType::Physical};
+        ranger.skillSlots[0].skillId = "driving_shot";
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 2});
+        enemy.stats.maxHp = 40;
+        enemy.currentHp = 40;
+        jf::Unit blocker = makeUnit("blocker", jf::Team::Enemy, {1, 3});
+        jf::BattleState battle({ranger, enemy, blocker});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.selectSkillTarget(jf::GridPos{1, 2}));
+        controller.confirmSkillAttack();
+        assert((controller.battle().findUnit("enemy")->position == jf::GridPos{1, 2})); // blocked, unmoved
+        assert(!controller.battle().findUnit("enemy")->staggerActive); // no stagger, unlike a real knockback
     }
 
     {

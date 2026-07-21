@@ -23,6 +23,10 @@ enum class UnitClass {
     // (canReMove())。加入経路(M7項目2)は未実装のため、まだ
     // playerParty/reserveRosterには登場しない - Classとしてのみ完全に有効。
     MessengerCavalry,
+    // docs/class_reference.md「後半6兵種」/M7項目1: 固有能力「簡易罠」
+    // (canSetSimpleTrap())。加入経路(M7項目2)は未実装のため、まだ
+    // playerParty/reserveRosterには登場しない - Classとしてのみ完全に有効。
+    FrontierRanger,
     Bandit,
     // docs/regions/ashbough_forest.md 灰枝の林縁: an ordinary large predator,
     // not a monster (per World Bible flora_fauna.md framing) - no special
@@ -59,5 +63,10 @@ bool hasHeavyArmor(UnitClass unitClass);
 // 最大2マス(`ride_through`使用時4マス)移動して行動終了 - BattleController::
 // finishPlayerAction()が消費し、SelectReMoveTargetへの遷移を判定する。
 bool canReMove(UnitClass unitClass);
+// docs/class_reference.md「簡易罠」: same "own dedicated command outside the
+// 2 equip slots" shape as canHeal()/canFieldFortify() above -戦闘中1回、
+// 隣接空きマスへ罠を設置(BattleController::chooseSimpleTrap())。設置物
+// Definitionは`snare_trap`スキルと共有する("ranger_trap")。
+bool canSetSimpleTrap(UnitClass unitClass);
 
 } // namespace jf
