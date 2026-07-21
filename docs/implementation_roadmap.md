@@ -1741,29 +1741,34 @@ M6以降のSlice運用:
 
 ## M7 12兵種・仲間・会話
 
-状態: **初期6兵種+重装兵・辺境工兵・伝令騎兵・辺境猟兵・旗手(Class・武器・固有能力・
-スキル)実装済み**
+状態: **項目1(後半6兵種のClass・武器・固有能力・スキル)完了**
 
-項目1(後半6兵種)は1兵種ずつ実装する方針。重装兵(HeavyInfantry)のClass・武器・固有能力
-「重量装甲」・スキル3種(装甲前進/衝撃防御/障害物破砕)、辺境工兵(FrontierEngineer)の
-Class・武器・固有能力「野戦工作」・スキル3種(野戦補修/瓦礫爆破/即席防壁、戦闘中に動的
-生成するBattle Object配置を初めて使用)、伝令騎兵(MessengerCavalry)のClass・武器・
-固有能力「再移動」・スキル3種(緊急伝令/駆け抜け/救援搬送)、辺境猟兵(FrontierRanger)
-のClass・武器・固有能力「簡易罠」・スキル3種(拘束罠/獲物を読む/追い込み射撃)、続いて
-旗手(BannerBearer)のClass・武器・固有能力「戦旗」・スキル3種(奮起の旗/行軍の律動/
-不退の合図)が完了。再移動(攻撃・スキル・アイテム行動後、生存していれば最大2マス移動して
-行動終了)は`BattleController::finishPlayerAction()`を`bool`返却化し、17箇所の呼び出し元
-すべてに委譲ガードを追加する形で実装した。簡易罠/拘束罠は「ユニットが踏んだ瞬間に自動
-発動する」新規メカニクスで、`EnemyAI.cpp`の敵自発移動4箇所へトリガー判定を追加した。
+項目1は1兵種ずつ実装する方針で全6兵種を完了した。重装兵(HeavyInfantry)のClass・武器・
+固有能力「重量装甲」・スキル3種(装甲前進/衝撃防御/障害物破砕)、辺境工兵
+(FrontierEngineer)のClass・武器・固有能力「野戦工作」・スキル3種(野戦補修/瓦礫爆破/
+即席防壁、戦闘中に動的生成するBattle Object配置を初めて使用)、伝令騎兵
+(MessengerCavalry)のClass・武器・固有能力「再移動」・スキル3種(緊急伝令/駆け抜け/
+救援搬送)、辺境猟兵(FrontierRanger)のClass・武器・固有能力「簡易罠」・スキル3種
+(拘束罠/獲物を読む/追い込み射撃)、旗手(BannerBearer)のClass・武器・固有能力「戦旗」・
+スキル3種(奮起の旗/行軍の律動/不退の合図)、そして戦闘魔導士(BattleMage)のClass・
+武器・固有能力「魔力波及」・スキル3種(連鎖魔弾/地表灼熱/魔防破砕)が完了。再移動
+(攻撃・スキル・アイテム行動後、生存していれば最大2マス移動して行動終了)は
+`BattleController::finishPlayerAction()`を`bool`返却化し、17箇所の呼び出し元すべてに
+委譲ガードを追加する形で実装した。簡易罠/拘束罠と地表灼熱は「ユニットが踏んだ/一定時間
+経過した瞬間に自動発動する」新規メカニクスで、前者は`EnemyAI.cpp`の敵自発移動4箇所へ
+トリガー判定を追加し、後者は`rapid_barricade`と同じBattle Object期限切れパターンを
+再利用した(見た目上の地形変更は新規TerrainType追加のコストに見合わないため省略)。
 戦旗(距離2以内の味方STR/MAG+1、位置に依存する常時Aura)は`computeDamage()`/
 `previewAttack()`/`resolveAttack()`へデフォルト値0付きの`attackerBonusPower`引数を追加し
 既存呼び出し元を無改修のまま保った。不退の合図(距離2以内の味方が受ける最初の移動低下/
 よろめきを無効化)は`applyMoveDown()`/`applyStagger()`/`applyStatusEffect()`/
 `applyWeaponOnHitStatuses()`/`resolveAttack()`へ`BattleState&`引数を追加する形で実装した。
+魔防破砕(次に受ける魔法攻撃限定のダメージ+3)は既存の`markedBonusDamage`と並列の
+`magicMarkedBonusDamage`フィールドを追加するだけで、シグネチャ変更なしに実装できた。
 `read_quarry`(獲物を読む)のみ、既存エンジンに敵AI行動予測を保持・表示する仕組みが無い
 ためデータフラグ(`Unit::quarryRevealed`)のみの実装とした(プレビューUIは対象外)。
-加入経路(項目2)は対象外のため、5兵種ともまだplayerParty/reserveRosterに登場しない。
-残り1兵種(戦闘魔導士)は未着手。
+加入経路(項目2、戦闘魔導士は希少な名前付き加入イベントが必要)は対象外のため、6兵種とも
+まだplayerParty/reserveRosterに登場しない。
 
 正本:
 

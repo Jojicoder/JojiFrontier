@@ -78,6 +78,13 @@
       "roleKey": "class.banner_bearer.role"
     },
     {
+      "id": "BattleMage",
+      "baseStats": { "maxHp": 16, "strength": 1, "magic": 9, "speed": 5, "defense": 2, "resistance": 7, "move": 4 },
+      "weaponId": "arcane_focus",
+      "nameKey": "class.battle_mage",
+      "roleKey": "class.battle_mage.role"
+    },
+    {
       "id": "Bandit",
       "baseStats": { "maxHp": 22, "strength": 9, "magic": 0, "speed": 4, "defense": 3, "resistance": 1, "move": 4 },
       "weaponId": "iron_axe",

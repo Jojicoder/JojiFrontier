@@ -125,6 +125,17 @@ const std::vector<SkillDefinition>& skillRegistry() {
         {"unyielding_signal", UnitClass::BannerBearer, "Unyielding Signal", "不退の合図", SkillCategory::Reactive,
          SkillUsageType::OncePerPhase, "Negates the first Move Down or Stagger an ally within range 2 would receive.",
          "距離2以内の味方が受ける最初の移動低下またはよろめきを無効化。", 3},
+
+        // 戦闘魔導士 (Battle Mage)
+        {"arc_burst", UnitClass::BattleMage, "Arc Burst", "連鎖魔弾", SkillCategory::Active,
+         SkillUsageType::Cooldown2, "A normal magic attack (weapon range) that also deals 2 fixed damage to enemies directly above and below the target.",
+         "通常魔法攻撃(武器射程)を行い、対象の上下隣接にいる敵へ固定2ダメージ。", 1},
+        {"scorch_ground", UnitClass::BattleMage, "Scorch Ground", "地表灼熱", SkillCategory::Active,
+         SkillUsageType::OncePerBattle, "Scorches one empty tile within range 3 until the next allied Phase begins; whoever is standing there when it ends gets Burn.",
+         "射程3の空きマス1つを次の自軍Phase開始まで灼熱地形にし、終了時にいるユニットへ炎上を付与。", 2},
+        {"ward_break", UnitClass::BattleMage, "Ward Break", "魔防破砕", SkillCategory::Active,
+         SkillUsageType::Cooldown2, "A normal magic attack (weapon range); the target's next magic attack taken deals +3 damage, then the mark clears.",
+         "通常魔法攻撃(武器射程)を行い、対象が次に受ける魔法攻撃のダメージ+3。その攻撃後に解除。", 3},
     };
     return skills;
 }
@@ -163,6 +174,12 @@ std::string requiredTrainingNodeIdFor(UnitClass unitClass) {
         case UnitClass::Bandit:
         case UnitClass::Wolf:
         case UnitClass::AshenhornBoar:
+            return "";
+        // docs/skill_system.md「希少技術」に対応する訓練所ノードはまだ存在しない
+        // (docs/class_reference.mdの通り、戦闘魔導士は訓練所だけで一般解放せず、
+        // 名前付き人物の加入イベントと魔法Discoveryを必要とするため) - 新ノード
+        // 追加はM7項目2(加入経路)側のスコープとし、今回はBandit等と同じ空文字列。
+        case UnitClass::BattleMage:
             return "";
     }
     return "";

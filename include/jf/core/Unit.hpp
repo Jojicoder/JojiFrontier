@@ -116,6 +116,13 @@ struct Unit {
     // resolveAttack() clears it back to 0 once a real attack actually lands,
     // "その後解除").
     int markedBonusDamage = 0;
+    // 戦闘魔導士`ward_break`(魔防破砕、docs/class_reference.md「後半6兵種」):
+    // same "read-only for previewAttack(), cleared by resolveAttack() on a
+    // real hit" lifecycle as markedBonusDamage above, but only added when
+    // `attacker.weapon.damageType == DamageType::Magical`(魔法攻撃限定) -
+    // kept as its own field rather than folding into markedBonusDamage since
+    // that one applies to any damage type.
+    int magicMarkedBonusDamage = 0;
     // 行軍隊長`advance_order` (docs/initial_skill_effects.md): MOV+1 until
     // THIS Player Phase ends (not the next Enemy Phase end, unlike every
     // other buff flag above) - see jf/battle/StatusEffects.hpp's
@@ -170,6 +177,10 @@ struct Unit {
     // (+3)とは数値が異なるため使い回さず専用フィールドにする。
     // clearSkillBuffsAtEnemyPhaseEnd()が解除する。
     bool rallyingBannerActive = false;
+    // 戦闘魔導士「魔力波及」(docs/class_reference.md「後半6兵種」): 戦闘中1回の
+    // 固有能力(canHeal()/canFieldFortify()と異なり専用コマンドではなく、通常攻撃
+    // 命中時にBattleController::confirmAttack()が自動判定する)。
+    bool arcaneOverflowUsed = false;
 
     // The 2 equipped-skill slots (docs/skill_system.md). See
     // jf/battle/SkillCharges.hpp for lifecycle management.

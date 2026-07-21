@@ -381,6 +381,14 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
     // this tile and destroys it on first trigger.
     battle.registerObjectDefinition(BattleObjectDefinition{
         .definitionId = "ranger_trap", .kind = BattleObjectKind::Marker, .canOccupy = true});
+    // 戦闘魔導士`scorch_ground`(地表灼熱、docs/skill_system.md「戦闘魔導士」):
+    // 次の自軍Phase開始まで存在する時限式マーカー(ranger_trapと同じ形)。移動
+    // コスト・防御・回避への影響は仕様に無いため通常のFloorと同じ扱いにし、
+    // 「灼熱地形」という見た目上の地形変更は新規TerrainType追加のコストに見合わない
+    // と判断して省略した - 機能(期限到達時にそのマスのユニットへ炎上を付与)は
+    // BattleController::finishEnemyPhase()の期限切れループで完全に実装する。
+    battle.registerObjectDefinition(BattleObjectDefinition{
+        .definitionId = "scorch_mark", .kind = BattleObjectKind::Marker, .canOccupy = true});
 
     if (stage.primaryHoldTileAlternative) {
         // docs/regions/cinderwatch_gate.md「2. 灰道の監視所」: primary

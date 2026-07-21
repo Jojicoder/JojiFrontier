@@ -15,6 +15,7 @@ std::string toString(UnitClass unitClass) {
         case UnitClass::MessengerCavalry: return "Messenger Cavalry / 伝令騎兵";
         case UnitClass::FrontierRanger: return "Frontier Ranger / 辺境猟兵";
         case UnitClass::BannerBearer: return "Banner Bearer / 旗手";
+        case UnitClass::BattleMage: return "Battle Mage / 戦闘魔導士";
         case UnitClass::Bandit: return "Bandit / 盗賊";
         case UnitClass::Wolf: return "Wolf / 狼";
         case UnitClass::AshenhornBoar: return "Ashenhorn Boar / 灰角大猪";
@@ -33,5 +34,6 @@ bool canFieldFortify(UnitClass unitClass) { return unitClass == UnitClass::Front
 bool canReMove(UnitClass unitClass) { return unitClass == UnitClass::MessengerCavalry; }
 bool canSetSimpleTrap(UnitClass unitClass) { return unitClass == UnitClass::FrontierRanger; }
 bool hasBannerAura(UnitClass unitClass) { return unitClass == UnitClass::BannerBearer; }
+bool hasArcaneOverflow(UnitClass unitClass) { return unitClass == UnitClass::BattleMage; }
 
 } // namespace jf

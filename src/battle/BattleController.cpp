@@ -162,6 +162,17 @@ bool isRallyingBannerShape(const std::string& skillId) { return skillId == "rall
 bool isMarchingRhythmShape(const std::string& skillId) { return skillId == "marching_rhythm"; }
 constexpr int kBannerAuraRange = 2;
 
+// 戦闘魔導士「魔力波及」(docs/class_reference.md「後半6兵種」): 戦闘中1回、
+// 通常攻撃命中後に対象の上下隣接する敵へ固定ダメージ。applyAdjacentSplashDamage()
+// (このファイル下部で定義、rubble_chargeと共有)を使う。
+constexpr int kArcaneOverflowSplashDamage = 3;
+// 戦闘魔導士`arc_burst`(連鎖魔弾): 魔力波及と同じ形状だがCD2スキルで固定2。
+constexpr int kArcBurstSplashDamage = 2;
+// 戦闘魔導士`scorch_ground`(地表灼熱): rapid_barricade型の空きタイル収集
+// (占有中・浅瀬を除く)、cap無し。
+bool isScorchGroundShape(const std::string& skillId) { return skillId == "scorch_ground"; }
+constexpr int kScorchGroundRange = 3;
+
 // 監視弓兵`overwatch`(警戒射撃): self-only, no target to choose - resolves
 // immediately like hold_formation/extended_lockdown's selfOnly buffs below,
 // but arms Unit::overwatchActive rather than a BuffKind (this isn't a stat
@@ -180,6 +191,8 @@ struct AttackSkillShape {
     bool appliesMoveDown = false;
     bool requiresUnacted = false; // 未行動の敵限定 (辺境斥候「奇襲」)
     bool appliesForcedPush = false; // 辺境猟兵`driving_shot` (applyForcedPush())
+    int splashDamage = 0; // 戦闘魔導士`arc_burst` (applyAdjacentSplashDamage())
+    bool marksMagicVulnerability = false; // 戦闘魔導士`ward_break`
     std::vector<StatusEffectType> statuses;
 };
 const std::unordered_map<std::string, AttackSkillShape>& attackSkillShapes() {
@@ -189,6 +202,8 @@ const std::unordered_map<std::string, AttackSkillShape>& attackSkillShapes() {
         {"ambush", {.bonusDamage = 3, .requiresUnacted = true,
                      .statuses = {StatusEffectType::DefenseDown}}},
         {"driving_shot", {.appliesForcedPush = true}},
+        {"arc_burst", {.splashDamage = kArcBurstSplashDamage}},
+        {"ward_break", {.marksMagicVulnerability = true}},
     };
     return table;
 }
@@ -373,6 +388,20 @@ std::vector<GridPos> computeReMoveTiles(const BattleState& battle, const Unit& m
         result.push_back(pos);
     }
     return result;
+}
+
+// 辺境工兵`rubble_charge`/戦闘魔導士「魔力波及」・`arc_burst`で共有する
+// 「対象マスの直上・直下(row±1、同col)にいる敵へ固定ダメージ、DEF/RES無視、
+// 反応攻撃なし」ロジック。直接currentHpを操作するだけで通常の攻撃解決経路
+// (resolveAttack()等)を経由しないため、反応攻撃は自然に発生しない。
+void applyAdjacentSplashDamage(BattleState& battle, GridPos center, Team attackerTeam, int damage) {
+    const AliveSnapshot aliveBeforeSplash = captureAliveSnapshot(battle);
+    for (GridPos splashPos : {GridPos{center.row - 1, center.col}, GridPos{center.row + 1, center.col}}) {
+        Unit* splashTarget = battle.unitAt(splashPos);
+        if (splashTarget && splashTarget->team != attackerTeam && splashTarget->isAlive())
+            splashTarget->currentHp = std::max(0, splashTarget->currentHp - damage);
+    }
+    emitUnitDefeatedEvents(battle, aliveBeforeSplash);
 }
 
 } // namespace
@@ -978,6 +1007,21 @@ void BattleController::chooseSkill(int slotIndex) {
             if (manhattanDistance(selectedUnit_->position, unit.position) <= kReadQuarryRange)
                 skillTargetTiles_.push_back(unit.position);
         }
+    } else if (isScorchGroundShape(skillId)) {
+        // 占有中(Unit/Object)・浅瀬を除く空きマス。cap無し。「初期配置」
+        // 「目的マス」「橋」は本作にTerrainType「橋」が無く、目的マス判定には
+        // missionState参照が必要なため対象外(break_obstacleの「防護対象」除外と
+        // 同じ判断基準)。
+        for (int row = 0; row < kGridRows; ++row) {
+            for (int col = 0; col < kGridCols; ++col) {
+                GridPos pos{row, col};
+                if (manhattanDistance(selectedUnit_->position, pos) > kScorchGroundRange ||
+                    pos == selectedUnit_->position || !isPassable(battle_.terrainAt(pos)) ||
+                    battle_.terrainAt(pos) == TerrainType::Shallows || battle_.unitAt(pos) || battle_.objectAt(pos))
+                    continue;
+                skillTargetTiles_.push_back(pos);
+            }
+        }
     }
     if (skillTargetTiles_.empty()) return;
     pendingSkillSlot_ = slotIndex;
@@ -1064,13 +1108,7 @@ bool BattleController::selectSkillTarget(GridPos pos) {
         handleObjectiveEvent(battle_.missionState(),
                              BattleEvent{battle_.issueEventId(), 0, ObjectDestroyedEvent{object->id}});
 
-        const AliveSnapshot aliveBeforeSplash = captureAliveSnapshot(battle_);
-        for (GridPos splashPos : {GridPos{pos.row - 1, pos.col}, GridPos{pos.row + 1, pos.col}}) {
-            Unit* splashTarget = battle_.unitAt(splashPos);
-            if (splashTarget && splashTarget->team != selectedUnit_->team && splashTarget->isAlive())
-                splashTarget->currentHp = std::max(0, splashTarget->currentHp - kRubbleChargeSplashDamage);
-        }
-        emitUnitDefeatedEvents(battle_, aliveBeforeSplash);
+        applyAdjacentSplashDamage(battle_, pos, selectedUnit_->team, kRubbleChargeSplashDamage);
 
         consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
         if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return true;
@@ -1136,6 +1174,26 @@ bool BattleController::selectSkillTarget(GridPos pos) {
                      ally->position.col - selectedUnit_->position.col};
         GridPos dest{selectedUnit_->position.row - delta.row, selectedUnit_->position.col - delta.col};
         if (!battle_.moveUnit(*ally, dest)) return false;
+        consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
+        if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return true;
+        selectedUnit_ = nullptr;
+        pendingSkillSlot_ = -1;
+        skillTargetTiles_.clear();
+        reachableTiles_.clear();
+        attackRangeTiles_.clear();
+        inputState_ = BattleInputState::SelectUnit;
+        evaluateOutcome();
+        return true;
+    }
+
+    // 戦闘魔導士`scorch_ground`(地表灼熱): places a temporary "scorch_mark"
+    // Object, same expiry pattern as `rapid_barricade` (BattleController::
+    // finishEnemyPhase() applies burn to whoever's on the tile at expiry).
+    if (isScorchGroundShape(shapeSkillId)) {
+        BattleObjectTeam team =
+            selectedUnit_->team == Team::Player ? BattleObjectTeam::Player : BattleObjectTeam::Enemy;
+        battle_.placeObject({"scorch_mark_" + std::to_string(battle_.issueEventId()), "scorch_mark", pos, team,
+                             BattleObjectStateKind::Active, 0, 0});
         consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
         if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return true;
         selectedUnit_ = nullptr;
@@ -1260,6 +1318,10 @@ void BattleController::confirmSkillAttack() {
     if (hit && attack->second.appliesMoveDown && pendingTarget_->isAlive()) applyMoveDown(battle_, *pendingTarget_);
     if (hit && attack->second.appliesForcedPush && pendingTarget_->isAlive())
         applyForcedPush(battle_, *selectedUnit_, *pendingTarget_);
+    if (hit && attack->second.splashDamage > 0)
+        applyAdjacentSplashDamage(battle_, pendingTarget_->position, selectedUnit_->team, attack->second.splashDamage);
+    if (hit && attack->second.marksMagicVulnerability && pendingTarget_->isAlive())
+        pendingTarget_->magicMarkedBonusDamage = 3; // 戦闘魔導士`ward_break`: next magic hit only
     if (hit && pendingTarget_->isAlive())
         for (StatusEffectType effect : attack->second.statuses) applyStatusEffect(battle_, *pendingTarget_, effect);
     emitUnitDefeatedEvents(battle_, aliveBeforeAttack);
@@ -1420,6 +1482,13 @@ void BattleController::confirmAttack() {
     lastAttackHit_ = lastDamage_ > 0;
     if (hit && selectedUnit_->weapon.causesKnockback && pendingTarget_->isAlive())
         battle_.applyKnockback(*selectedUnit_, *pendingTarget_);
+    // 戦闘魔導士「魔力波及」: 戦闘中1回、通常攻撃(常にMagical武器のため「通常魔法
+    // 攻撃」を自動的に満たす)命中後、対象の上下隣接する敵へ固定3ダメージ。
+    if (hit && hasArcaneOverflow(selectedUnit_->unitClass) && !selectedUnit_->arcaneOverflowUsed) {
+        applyAdjacentSplashDamage(battle_, pendingTarget_->position, selectedUnit_->team,
+                                  kArcaneOverflowSplashDamage);
+        selectedUnit_->arcaneOverflowUsed = true;
+    }
     emitUnitDefeatedEvents(battle_, aliveBeforeAttack);
     pendingTarget_ = nullptr;
     if (!finishPlayerAction(*selectedUnit_, ActionKind::Attack)) return;
@@ -1609,6 +1678,27 @@ void BattleController::update(float dt) {
         }
         for (const BattleObjectId& id : expiredBarricadeIds) {
             if (BattleObjectState* object = battle_.findObject(id)) {
+                object->durability = 0;
+                object->state = BattleObjectStateKind::Destroyed;
+                handleObjectiveEvent(battle_.missionState(),
+                                     BattleEvent{battle_.issueEventId(), 0, ObjectDestroyedEvent{object->id}});
+            }
+        }
+    }
+    // 戦闘魔導士`scorch_ground`(地表灼熱)「次の自軍Phase開始まで存在し、終了時に
+    // いるユニットへ炎上を付与」: same expiry timing as rapid_barricade above, but
+    // additionally applies burn to whichever unit (any team) currently occupies
+    // the tile before the marker disappears.
+    {
+        std::vector<BattleObjectId> expiredScorchMarkIds;
+        for (const BattleObjectState& object : battle_.objects()) {
+            if (object.definitionId == "scorch_mark" && object.state != BattleObjectStateKind::Destroyed)
+                expiredScorchMarkIds.push_back(object.id);
+        }
+        for (const BattleObjectId& id : expiredScorchMarkIds) {
+            if (BattleObjectState* object = battle_.findObject(id)) {
+                if (Unit* occupant = battle_.unitAt(object->position); occupant && occupant->isAlive())
+                    applyBurn(*occupant);
                 object->durability = 0;
                 object->state = BattleObjectStateKind::Destroyed;
                 handleObjectiveEvent(battle_.missionState(),

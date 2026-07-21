@@ -72,20 +72,21 @@ users now use the same Watch Archer and Spearman rules as player units.
 
 ## Planned expansion roster
 
-Heavy Infantry's, Frontier Engineer's, Messenger Cavalry's, Frontier Ranger's,
-and Banner Bearer's Class/weapon/innate ability/skills are implemented
-(M7項目1); join path (party recruitment) remains out of scope. Ranger's
-`read_quarry` is a data flag only (`Unit::quarryRevealed`) - no preview UI
-yet. Battle Mage remains planned, tied to a rare named specialist. Ranger is a
-tracker/trapper rather than a dedicated monster-hunter; wolves and large
-territorial wildlife may still be combat threats in Frontier scenarios.
+All six of Heavy Infantry, Frontier Engineer, Messenger Cavalry, Frontier
+Ranger, Banner Bearer, and Battle Mage now have their Class/weapon/innate
+ability/skills implemented (M7項目1 complete); join path (party recruitment,
+M7項目2) remains out of scope for all six. Ranger's `read_quarry` is a data
+flag only (`Unit::quarryRevealed`) - no preview UI yet. Battle Mage is tied to
+a rare named specialist and stays out of the general hire pool once M7項目2
+lands. Ranger is a tracker/trapper rather than a dedicated monster-hunter;
+wolves and large territorial wildlife may still be combat threats in Frontier
+scenarios.
 
 ## 後半6兵種の基礎仕様
 
-後半6兵種のうち重装兵・辺境工兵・伝令騎兵・辺境猟兵・旗手はClass・武器・固有能力・
-スキルを実装済み(加入経路は対象外)。残り1兵種は未実装だが、実装時の基準値と固有能力を
-次で固定する。数値は初期6兵種と同じ装備補正前の基礎値であり、通常レベルによって
-上昇しない。
+後半6兵種は全6兵種(重装兵・辺境工兵・伝令騎兵・辺境猟兵・旗手・戦闘魔導士)とも
+Class・武器・固有能力・スキルを実装済み(加入経路は対象外)。数値は初期6兵種と同じ
+装備補正前の基礎値であり、通常レベルによって上昇しない。
 
 | 兵種 | HP | STR | MAG | SPD | DEF | RES | MOV | 兵種固有能力 |
 |---|---:|---:|---:|---:|---:|---:|---:|---|

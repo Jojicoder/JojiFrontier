@@ -136,6 +136,13 @@ jf::GameData makeFactoryData() {
     data.weaponsById.emplace("banner_spear", bannerSpear);
     data.classesById.emplace(jf::UnitClass::BannerBearer,
                              jf::ClassDefinition{jf::UnitClass::BannerBearer, bannerBearerStats, "banner_spear"});
+    jf::Stats battleMageStats{.maxHp = 16, .strength = 1, .magic = 9, .speed = 5,
+                              .defense = 2, .resistance = 7, .move = 4};
+    jf::Weapon arcaneFocus{.id = "arcane_focus", .name = "Arcane Focus", .might = 6, .minRange = 1,
+                           .maxRange = 2, .damageType = jf::DamageType::Magical};
+    data.weaponsById.emplace("arcane_focus", arcaneFocus);
+    data.classesById.emplace(jf::UnitClass::BattleMage,
+                             jf::ClassDefinition{jf::UnitClass::BattleMage, battleMageStats, "arcane_focus"});
     jf::Weapon wolfBite{.id = "wolf_bite", .name = "Bite", .might = 5, .minRange = 1,
                        .maxRange = 1, .damageType = jf::DamageType::Physical};
     data.weaponsById.emplace("wolf_bite", wolfBite);
@@ -3415,6 +3422,196 @@ int main() {
         // 毒は対象外(consumeUnyieldingSignalIfAvailableを経由しない)。
         jf::applyPoison(*battle2.findUnit("ally2"));
         assert(battle2.findUnit("ally2")->poisonRemainingProcs > 0);
+    }
+
+    {
+        // docs/class_reference.md「後半6兵種」/M7項目1: 戦闘魔導士(BattleMage)の
+        // Class/武器データ整合性。希少な名前付き加入クラスのため通常訓練ゲート無し。
+        jf::GameData data = makeFactoryData();
+        const jf::ClassDefinition& def = data.classDefinition(jf::UnitClass::BattleMage);
+        assert(def.baseStats.maxHp == 16 && def.baseStats.strength == 1 && def.baseStats.magic == 9 &&
+              def.baseStats.speed == 5 && def.baseStats.defense == 2 && def.baseStats.resistance == 7 &&
+              def.baseStats.move == 4);
+        assert(def.weaponId == "arcane_focus");
+        const jf::Weapon& weapon = data.weaponFor(jf::UnitClass::BattleMage);
+        assert(weapon.id == "arcane_focus" && weapon.might == 6 && weapon.minRange == 1 && weapon.maxRange == 2 &&
+              weapon.damageType == jf::DamageType::Magical);
+        assert(jf::unitClassFromString("BattleMage") == jf::UnitClass::BattleMage);
+        assert(jf::skillsForClass(jf::UnitClass::BattleMage).size() == 3);
+        assert(jf::requiredTrainingNodeIdFor(jf::UnitClass::BattleMage) == "");
+    }
+
+    {
+        // 戦闘魔導士「魔力波及」: 戦闘中1回、通常攻撃(常にMagical武器)命中後、
+        // 対象の上下隣接する敵へ固定3ダメージ。味方には影響せず、2回目は発動しない。
+        jf::Unit mage = makeUnit("mage", jf::Team::Player, {1, 3}, 4, jf::UnitClass::BattleMage);
+        mage.weapon = {.id = "arcane_focus", .name = "Arcane Focus", .might = 6, .minRange = 1,
+                      .maxRange = 2, .damageType = jf::DamageType::Magical};
+        jf::Unit target = makeUnit("target", jf::Team::Enemy, {1, 5});
+        target.stats.maxHp = 40;
+        target.currentHp = 40;
+        jf::Unit enemyAbove = makeUnit("enemyAbove", jf::Team::Enemy, {0, 5});
+        jf::Unit allyBelow = makeUnit("allyBelow", jf::Team::Player, {2, 5});
+        jf::BattleState battle({mage, target, enemyAbove, allyBelow});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseAttack();
+        assert(controller.inputState() == jf::BattleInputState::SelectTarget);
+        controller.selectTargetTile(jf::GridPos{1, 5});
+        assert(controller.inputState() == jf::BattleInputState::ConfirmAttack);
+        const int hpBeforeAbove = controller.battle().findUnit("enemyAbove")->currentHp;
+        const int hpBeforeAllyBelow = controller.battle().findUnit("allyBelow")->currentHp;
+        controller.confirmAttack();
+        assert(controller.battle().findUnit("enemyAbove")->currentHp == hpBeforeAbove - 3);
+        assert(controller.battle().findUnit("allyBelow")->currentHp == hpBeforeAllyBelow); // ally untouched
+        assert(controller.battle().findUnit("mage")->arcaneOverflowUsed);
+
+        // 戦闘中1回のため2回目は発動しない。
+        jf::Unit* mageUnit = controller.battle().findUnit("mage");
+        mageUnit->hasActed = false;
+        controller.selectUnit(*mageUnit);
+        controller.selectMoveTile(mageUnit->position);
+        controller.chooseAttack();
+        controller.selectTargetTile(jf::GridPos{1, 5});
+        const int hpBeforeAbove2 = controller.battle().findUnit("enemyAbove")->currentHp;
+        controller.confirmAttack();
+        assert(controller.battle().findUnit("enemyAbove")->currentHp == hpBeforeAbove2); // no more splash
+    }
+
+    {
+        // 戦闘魔導士`arc_burst`(連鎖魔弾): スキル攻撃命中後、対象の上下隣接の敵へ
+        // 固定2ダメージ。
+        jf::Unit mage = makeUnit("mage", jf::Team::Player, {1, 3}, 4, jf::UnitClass::BattleMage);
+        mage.weapon = {.id = "arcane_focus", .name = "Arcane Focus", .might = 6, .minRange = 1,
+                      .maxRange = 2, .damageType = jf::DamageType::Magical};
+        mage.skillSlots[0].skillId = "arc_burst";
+        jf::Unit target = makeUnit("target", jf::Team::Enemy, {1, 5});
+        target.stats.maxHp = 40;
+        target.currentHp = 40;
+        jf::Unit enemyAbove = makeUnit("enemyAbove", jf::Team::Enemy, {0, 5});
+        jf::BattleState battle({mage, target, enemyAbove});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectSkillTarget);
+        assert(controller.selectSkillTarget(jf::GridPos{1, 5}));
+        assert(controller.inputState() == jf::BattleInputState::ConfirmSkillAttack);
+        const int hpBeforeAbove = controller.battle().findUnit("enemyAbove")->currentHp;
+        controller.confirmSkillAttack();
+        assert(controller.battle().findUnit("enemyAbove")->currentHp == hpBeforeAbove - 2);
+    }
+
+    {
+        // 戦闘魔導士`ward_break`(魔防破砕): 命中後、対象のmagicMarkedBonusDamageが
+        // 3になり、次の魔法攻撃でのみ消費される(物理攻撃では消費されない)。
+        jf::Unit mage = makeUnit("mage", jf::Team::Player, {1, 0}, 4, jf::UnitClass::BattleMage);
+        mage.weapon = {.id = "arcane_focus", .name = "Arcane Focus", .might = 6, .minRange = 1,
+                      .maxRange = 2, .damageType = jf::DamageType::Magical};
+        mage.skillSlots[0].skillId = "ward_break";
+        jf::Unit target = makeUnit("target", jf::Team::Enemy, {1, 2});
+        target.stats.maxHp = 40;
+        target.currentHp = 40;
+        jf::BattleState battle({mage, target});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.selectSkillTarget(jf::GridPos{1, 2}));
+        assert(controller.inputState() == jf::BattleInputState::ConfirmSkillAttack);
+        controller.confirmSkillAttack();
+        jf::Unit marked = *controller.battle().findUnit("target");
+        assert(marked.magicMarkedBonusDamage == 3);
+
+        // 物理攻撃では消費されない。
+        jf::Unit physAttacker = makeUnit("physAttacker", jf::Team::Player, {1, 3});
+        jf::BattleState physBattle({physAttacker, marked});
+        jf::resolveAttack(physBattle, physBattle.units()[0], physBattle.units()[1], 0, true);
+        assert(physBattle.units()[1].magicMarkedBonusDamage == 3); // untouched by the physical hit
+
+        // 魔法攻撃でのみ消費される。
+        jf::Unit magicAttacker = makeUnit("magicAttacker", jf::Team::Player, {1, 3});
+        magicAttacker.weapon.damageType = jf::DamageType::Magical;
+        jf::Unit unmarked = physBattle.units()[1];
+        unmarked.magicMarkedBonusDamage = 0;
+        const int withoutBonus = jf::computeDamage(magicAttacker, unmarked, 0);
+        const int withBonus = jf::computeDamage(magicAttacker, physBattle.units()[1], 0);
+        assert(withBonus == withoutBonus + 3);
+
+        jf::BattleState magicBattle({magicAttacker, physBattle.units()[1]});
+        jf::resolveAttack(magicBattle, magicBattle.units()[0], magicBattle.units()[1], 0, true);
+        assert(magicBattle.units()[1].magicMarkedBonusDamage == 0); // consumed by the magic hit
+    }
+
+    {
+        // 戦闘魔導士`scorch_ground`(地表灼熱): 射程3の空きマスへ設置でき、浅瀬は
+        // 対象にならない。次の自軍Phase開始時にそのマスにいるユニットへ炎上が
+        // 付与され設置物がDestroyedになる。
+        jf::Unit mage = makeUnit("mage", jf::Team::Player, {1, 3}, 4, jf::UnitClass::BattleMage);
+        mage.skillSlots[0].skillId = "scorch_ground";
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {2, 7});
+        jf::BattleState battle({mage, enemy});
+        battle.registerObjectDefinition(
+            jf::BattleObjectDefinition{.definitionId = "scorch_mark", .kind = jf::BattleObjectKind::Marker,
+                                       .canOccupy = true});
+        battle.setTerrain(jf::GridPos{1, 6}, jf::TerrainType::Shallows); // within range 3
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectSkillTarget);
+        assert(contains(controller.skillTargetTiles(), jf::GridPos{1, 5})); // range 3, empty
+        assert(!contains(controller.skillTargetTiles(), jf::GridPos{1, 6})); // Shallows excluded
+
+        assert(controller.selectSkillTarget(jf::GridPos{1, 5}));
+        const jf::BattleObjectState* mark = controller.battle().objectAt(jf::GridPos{1, 5});
+        assert(mark && mark->definitionId == "scorch_mark" && mark->state == jf::BattleObjectStateKind::Active);
+
+        // そのマスにいるユニットへPhase開始時に炎上が付与され、設置物が消滅する。
+        jf::Unit* enemyUnit = controller.battle().findUnit("enemy");
+        enemyUnit->position = jf::GridPos{1, 5};
+        enemyUnit->hasActed = true; // avoid AI moving it away from the marked tile
+        controller.endPlayerTurn();
+        for (int i = 0; i < 10 && controller.inputState() == jf::BattleInputState::EnemyTurn; ++i)
+            controller.update(1.0f);
+        assert(controller.battle().findUnit("enemy")->burnRemainingProcs > 0);
+        const jf::BattleObjectState* markAfter = controller.battle().objectAt(jf::GridPos{1, 5});
+        assert(markAfter && markAfter->state == jf::BattleObjectStateKind::Destroyed);
+    }
+
+    {
+        // 戦闘魔導士`scorch_ground`: 誰もいなければ炎上せず、設置物は消滅だけする。
+        jf::Unit mage = makeUnit("mage", jf::Team::Player, {1, 3}, 4, jf::UnitClass::BattleMage);
+        mage.skillSlots[0].skillId = "scorch_ground";
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {2, 0}, 0); // MOV 0, stays put
+        jf::BattleState battle({mage, enemy});
+        battle.registerObjectDefinition(
+            jf::BattleObjectDefinition{.definitionId = "scorch_mark", .kind = jf::BattleObjectKind::Marker,
+                                       .canOccupy = true});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.selectSkillTarget(jf::GridPos{1, 5}));
+
+        controller.battle().findUnit("enemy")->hasActed = true;
+        controller.endPlayerTurn();
+        for (int i = 0; i < 10 && controller.inputState() == jf::BattleInputState::EnemyTurn; ++i)
+            controller.update(1.0f);
+        assert(!controller.battle().findUnit("enemy")->burnRemainingProcs); // nobody was there
+        const jf::BattleObjectState* markAfter = controller.battle().objectAt(jf::GridPos{1, 5});
+        assert(markAfter && markAfter->state == jf::BattleObjectStateKind::Destroyed); // still expires
     }
 
     {

@@ -11,6 +11,7 @@
     { "id": "messenger_sword", "name": "Messenger Sword", "might": 5, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
     { "id": "hunting_bow", "name": "Hunting Bow", "might": 4, "minRange": 2, "maxRange": 2, "damageType": "Physical" },
     { "id": "banner_spear", "name": "Banner Spear", "might": 4, "minRange": 1, "maxRange": 2, "damageType": "Physical" },
+    { "id": "arcane_focus", "name": "Arcane Focus", "might": 6, "minRange": 1, "maxRange": 2, "damageType": "Magical" },
     { "id": "iron_spear", "name": "Iron Spear", "might": 6, "minRange": 1, "maxRange": 2, "damageType": "Physical" },
     { "id": "long_spear", "name": "Long Spear", "might": 4, "minRange": 1, "maxRange": 3, "damageType": "Physical" },
     { "id": "heavy_spear", "name": "Heavy Spear", "might": 8, "minRange": 1, "maxRange": 2, "damageType": "Physical",

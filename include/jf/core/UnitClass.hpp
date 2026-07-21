@@ -31,6 +31,11 @@ enum class UnitClass {
     // (hasBannerAura())。加入経路(M7項目2)は未実装のため、まだ
     // playerParty/reserveRosterには登場しない - Classとしてのみ完全に有効。
     BannerBearer,
+    // docs/class_reference.md「後半6兵種」/M7項目1: 固有能力「魔力波及」
+    // (hasArcaneOverflow())。加入経路(M7項目2、希少な名前付き加入イベント)は
+    // 未実装のため、まだplayerParty/reserveRosterには登場しない -
+    // Classとしてのみ完全に有効。
+    BattleMage,
     Bandit,
     // docs/regions/ashbough_forest.md 灰枝の林縁: an ordinary large predator,
     // not a monster (per World Bible flora_fauna.md framing) - no special
@@ -77,5 +82,9 @@ bool canSetSimpleTrap(UnitClass unitClass);
 // bannerAuraBonus()とStatusEffects.cppのconsumeUnyieldingSignalIfAvailable()
 // (`unyielding_signal`)が参照する。
 bool hasBannerAura(UnitClass unitClass);
+// docs/class_reference.md「魔力波及」: 戦闘中1回、通常魔法攻撃後に対象と上下隣接
+// する敵へ固定ダメージ(DEF/RES無視、反応攻撃なし) - BattleController::
+// confirmAttack()がUnit::arcaneOverflowUsedと合わせて判定する。
+bool hasArcaneOverflow(UnitClass unitClass);
 
 } // namespace jf
