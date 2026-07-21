@@ -21,6 +21,7 @@
 #include "jf/core/BaseState.hpp"
 #include "jf/core/Exploration.hpp"
 #include "jf/core/GameApp.hpp"
+#include "jf/core/RouteGraph.hpp"
 #include "jf/core/Skill.hpp"
 
 namespace {
@@ -156,6 +157,8 @@ jf::GameData makeFactoryData() {
                        .defense = 5, .resistance = 1, .move = 2};
     data.classesById.emplace(jf::UnitClass::AshenhornBoar,
                              jf::ClassDefinition{jf::UnitClass::AshenhornBoar, boarStats, "boar_tusks"});
+    data.recruitDefinitionsById.emplace("heavy_recruit",
+                                        jf::UnitTemplate{"heavy_recruit", "Hadric", jf::UnitClass::HeavyInfantry});
     for (int i = 0; i < 4; ++i)
         data.playerParty.push_back({"player" + std::to_string(i), "Player", jf::UnitClass::MarchCaptain});
     for (int i = 0; i < 4; ++i)
@@ -318,6 +321,15 @@ void reachBrokenwoodTerritory(jf::GameApp& app) {
 } // namespace
 
 int main() {
+    {
+        const auto loaded = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(loaded);
+        const jf::UnitTemplate* heavyRecruit = loaded->recruitDefinition("heavy_recruit");
+        assert(heavyRecruit);
+        assert(heavyRecruit->name == "Hadric");
+        assert(heavyRecruit->classId == jf::UnitClass::HeavyInfantry);
+    }
+
     {
         assert(jf::healingAmount(jf::ItemType::FirstAidKit) == 20);
         assert(jf::healingAmount(jf::ItemType::FieldTreatmentKit) == 10);
@@ -1298,6 +1310,140 @@ int main() {
         assert(!app.baseState().completedRegionIds.count(jf::RegionId::CinderwatchGate));
         app.returnToBase();
         assert(app.baseState().completedRegionIds.count(jf::RegionId::CinderwatchGate) == 1);
+    }
+
+    {
+        // docs/regions/cinderwatch_gate.md「地域の最低保証報酬」: a missed
+        // Discovery (ironwatch_stores' 野戦医療記録, only granted via the
+        // FrontalAdvance route) is caught up at region completion.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(startCinderwatchExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // site1 outer_gate
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> site2 ashroad_watch
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> branch, ironwatch_stores first
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::CollapsedSidePath)); // skips 野戦医療記録
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(!app.baseState().discoveryRegistry.count(jf::kFieldMedicineDiscovery));
+        app.continueExpedition(); // -> branch, old_barracks
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // both resolved -> Camp II -> signal_tower
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> last_signal
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(!app.baseState().discoveryRegistry.count(jf::kFieldMedicineDiscovery)); // still missing pre-return
+        assert(app.returnToBase());
+        assert(app.baseState().completedRegionIds.count(jf::RegionId::CinderwatchGate));
+        // Region completion's floor top-up caught the missed Discovery.
+        assert(app.baseState().discoveryRegistry.count(jf::kFieldMedicineDiscovery));
+        assert(app.baseState().discoveryRegistry.count(jf::kCinderwatchReconDiscovery));
+        assert(app.baseState().discoveryRegistry.count(jf::kReturnSignalDiscovery));
+        assert(app.baseState().discoveryRegistry.count(jf::kBannerRecordsDiscovery)); // no normal grant path exists yet
+        // Material floor: 鉄材5、石材3、旧軍備3、信号機の中核部品1.
+        assert(app.baseState().storageCount("iron") >= 5);
+        assert(app.baseState().storageCount("stone") >= 3);
+        assert(app.baseState().storageCount("old_gear") >= 3);
+        assert(app.baseState().storageCount("signal_core") >= 1);
+    }
+
+    {
+        // Floor accumulation must span multiple expeditions (safe returns)
+        // without double-granting once the region completes.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(startCinderwatchExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // site1: iron+... this partial run
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(app.returnToBase()); // safe return after only 1 of 6 sites
+        assert(!app.baseState().completedRegionIds.count(jf::RegionId::CinderwatchGate));
+        const int earnedIronAfterFirstReturn = app.baseState().cinderwatchMaterialsEarned.count("iron")
+                                                    ? app.baseState().cinderwatchMaterialsEarned.at("iron")
+                                                    : 0;
+        assert(earnedIronAfterFirstReturn > 0); // outer_gate's own baseVictoryLoot includes iron
+
+        // Second expedition: replay the full 6-site route (site1 is already
+        // permanently Secured, so this just re-earns its loot on top of the
+        // first expedition's tally) through to region completion. AshboughForest
+        // is still marked completed from the first startCinderwatchExpedition()
+        // call, so a direct startExpedition() suffices here.
+        assert(app.startExpedition(jf::RegionId::CinderwatchGate));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        for (int stage = 0; stage < 6; ++stage) {
+            winCurrentBattle(app);
+            app.proceedToCamp();
+            if (stage < 5) {
+                app.continueExpedition();
+                assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+            }
+        }
+        assert(app.returnToBase());
+        assert(app.baseState().completedRegionIds.count(jf::RegionId::CinderwatchGate));
+        const int ironAfterCompletion = app.baseState().storageCount("iron");
+        assert(ironAfterCompletion >= 5);
+
+        // Re-clearing the (already-completed) region a 3rd time must not
+        // reapply the floor top-up a second time.
+        assert(app.startExpedition(jf::RegionId::CinderwatchGate));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(app.returnToBase());
+        assert(app.baseState().storageCount("iron") == ironAfterCompletion + 1); // just this stage's own base loot
+    }
+
+    {
+        // docs/implementation_roadmap.md M6-D: 灰鉄採石場 stays locked until
+        // CinderwatchGate completes, then becomes selectable/startable.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(startCinderwatchExpedition(app));
+        assert(!app.isRegionUnlocked(jf::RegionId::AshironQuarry));
+        assert(!app.startExpedition(jf::RegionId::AshironQuarry));
+        for (int stage = 0; stage < 6; ++stage) {
+            assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+            winCurrentBattle(app);
+            app.proceedToCamp();
+            if (stage < 5) app.continueExpedition();
+        }
+        assert(app.returnToBase());
+        assert(app.baseState().completedRegionIds.count(jf::RegionId::CinderwatchGate));
+        assert(app.isRegionUnlocked(jf::RegionId::AshironQuarry));
+        assert(app.startExpedition(jf::RegionId::AshironQuarry));
+        assert(app.screen() == jf::Screen::Exploration);
+    }
+
+    {
+        // Save/Load round-trip for cinderwatchMaterialsEarned.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(startCinderwatchExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(app.returnToBase());
+        assert(app.baseState().cinderwatchMaterialsEarned.count("iron"));
+
+        jf::SaveData saved = app.createSaveData("en");
+        assert(saved.base.cinderwatchMaterialsEarned.count("iron"));
+        std::string json = jf::serializeSave(saved);
+        auto reloaded = jf::deserializeSave(json);
+        assert(reloaded);
+        assert(reloaded->base.cinderwatchMaterialsEarned.count("iron"));
+        assert(reloaded->base.cinderwatchMaterialsEarned.at("iron") ==
+               saved.base.cinderwatchMaterialsEarned.at("iron"));
     }
 
     {
@@ -5780,6 +5926,20 @@ int main() {
         assert(branch && branch->kind == jf::RouteNodeKind::BranchGroup &&
               branch->branchCompletion == jf::BranchCompletion::AllMembers && branch->branchMembers.size() == 2);
         assert(jf::validateRouteGraph(cinderwatchRoute, nullptr));
+        const jf::RegionRouteGraph& ashironRoute = jf::regionRouteGraph(jf::RegionId::AshironQuarry);
+        assert(jf::usesRouteGraph(jf::RegionId::AshironQuarry));
+        assert(jf::validateRouteGraph(ashironRoute, nullptr));
+        assert(jf::findRouteNode(ashironRoute, "ashiron_quarry_outpost"));
+
+        jf::RegionRouteGraph disconnectedExit = cinderwatchRoute;
+        disconnectedExit.edges.erase(std::remove_if(disconnectedExit.edges.begin(), disconnectedExit.edges.end(),
+                                                    [](const jf::RouteEdgeDefinition& edge) {
+                                                        return edge.to == "cinderwatch_exit";
+                                                    }),
+                                     disconnectedExit.edges.end());
+        std::string routeError;
+        assert(!jf::validateRouteGraph(disconnectedExit, &routeError));
+        assert(routeError == "route exit is not reachable from entrance");
 
         // Invalid regions.json (a stage referencing an unknown terrain
         // profile) must fail the whole Load, never silently drop the stage -

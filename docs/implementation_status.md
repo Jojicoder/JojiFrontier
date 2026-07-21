@@ -958,6 +958,66 @@ Interactionを宣言する経路が無かったため新規追加。`validateBat
 直接検証するテストで確認。意図的に保留: ボスの固有行動3種、主信号機の耐久/破壊敗北条件、
 「元守備兵2人以上撤退」副目標、軍旗記録discoveryは未実装(理由は各対応する地点3A/5と同型)。
 
+## M6-D 地域締め 実装詳細(2026-07)
+
+### 地域の最低保証報酬
+
+`docs/regions/cinderwatch_gate.md`「地域の最低保証報酬」の表(鉄材5、石材3、旧軍備3、
+信号機の中核部品1、偵察資料1、野戦医療記録1、信号技術資料1、軍旗記録1)を実装。
+`BaseState::cinderwatchMaterialsEarned`(`unordered_map<string,int>`)が、地域が
+`completedRegionIds`へ入るまでの間、Cinderwatchの各サイトが安全帰還のたびに実際に
+持ち帰った素材を延べで積算する(消費可能な`storage`とは別カウンタ - `storage`は工房消費で
+減るため代用できない)。`ExpeditionService.cpp`の`applyExpeditionReturnToBase()`で、
+今回の帰還が地域を完了させる場合(`pendingRegionCompletions`にCinderwatchGateを含む)、
+不足分をfloorとの差分だけ`materialAdds`へ上乗せしてから既存のcap/overflow計算
+(`fitPlan`/`overflowPlan`)へ合流させ、新しい適用経路を作らずに済ませた。同じタイミングで、
+未取得のキーDiscovery4種(`kCinderwatchReconDiscovery`/`kFieldMedicineDiscovery`/
+`kReturnSignalDiscovery`/新設`kBannerRecordsDiscovery`)を`discoveryRegistry`へ直接
+補充する。軍旗記録(`last_signal_banner_records`)は「2人以上撤退・降伏」トリガー自体が
+M6-C項目3で意図的保留のままのため、この最低保証の直接付与が唯一の取得経路になる
+(仕様の「最低保証だけで次地域解放と基礎施設解放が可能」と整合)。
+
+### 灰鉄採石場(最小プレースホルダー地域)の解放
+
+`RegionId::AshironQuarry`を追加し、`regionUnlocked()`へ
+`completedRegionIds.count(CinderwatchGate) > 0`の1ケースを追加。中身は
+`ashironQuarryRegion(data)`(`ashboughForestRegion()`と同型の組み立て関数)が
+`data/regions.json`の新規プレースホルダー1地点(`ashiron_quarry_outpost`、
+`ash_road`地形プロファイル流用、Bandit2体、鉄材1・石材1のみ)を返すだけの最小構成 -
+M6-A着手前の旧`cinderwatch_outpost`と同じ役割。本格的な5地点コンテンツは引き続きM9
+(残り8地域)の担当。`regionSummaries()`(拠点画面の地域選択)がRouteGraph未使用の単一
+地点region.stagesをそのまま扱えたため、Route Graph登録は不要だった。
+
+**副次修正**: 3地域目の追加で、拠点画面の「未解放」ツールチップが常に固定文言
+「灰枝の森を攻略すると解放されます」(`exploration.region_locked_ashbough_forest`
+キー)を出していたことが判明 - CinderwatchGateにしか正しくない文言だった。
+`RegionSummary`へ`lockedByDisplayNameEn`/`lockedByDisplayNameJa`(ロック解除に必要な
+直前地域名、`computeRegionSummaries()`内の`predecessor()`が算出)を追加し、
+`exploration.region_locked`(`{region}を攻略すると解放されます`のプレースホルダー付き
+キー)へ置き換えて地域ごとに正しい文言を出すよう修正した。
+
+### 4〜6周の実戦計測
+
+`tools/forest_balance.cpp`をAshboughForest専用のハードコードから`--region=<id>`引数
+対応へ最小拡張(`regionIdFromStringStrict()`を利用、未指定時は従来どおり
+AshboughForestで出力形式も不変)。「fresh party per site」ループはstage数に依存しない
+既存ロジックのため無改修で動作。「3-site expedition」の連続周回ループは
+`std::array<int,3>`だった`reached`集計を`std::vector<int>`化し、AshboughForest固有の
+「Territory入場時HP%」計測は`regionId == AshboughForest`の時だけ行うようガードした。
+
+実測結果(Cinderwatch、30 Seed、初期4人パーティ、消耗品・手動配置・Camp撤退なしの
+worst case): fresh-party単体win率はOuter Gate 40%、Ashroad Watch 100%、
+Ironwatch Stores 16.7%、Old Barracks 3.3%、Signal Tower/Last Signal 0%
+(Direct policy)。6-site通し周回のwin率は0%。[[jf_forest_balance worst-case numbers]]
+と同じ理由で、これは「消耗品・撤退・戦術的HP管理を一切行わない」worst caseであり、
+加えてSignal Tower/Last Signalの0%は本ツールのDirect/Tactical AIがDevice操作
+(`OperateObject`)を一切扱えないという計測ツール側の既知の欠落も混じっている
+可能性が高い(このツールにDevice/Interact操作のAIロジックは存在しない)。Ashbough
+Forestの同条件でのwin率(fresh party 80-100%、3-site通し0-50%)と比べてCinderwatchが
+明確に厳しい傾向にあることは記録するが、[[jf_forest_balance worst-case numbers]]の
+教訓どおり、実際のバランス調整は行わず、実測結果として記録するに留めた。実際のプレイ
+(消耗品・Camp撤退あり)での確認は今後の課題として残す。
+
 ## M7 12兵種・仲間・会話 実装詳細(2026-07)
 
 ### 項目1 後半6兵種のClass・武器・固有能力・スキル
@@ -1002,8 +1062,10 @@ Interactionを宣言する経路が無かったため新規追加。`validateBat
 あった)。同じ理由で、Tier1スキルの自動装備は`requiredTrainingNodeIdFor()`の施設解放
 チェックを経由しない無条件付与のため、`applySaveData()`のスキル復元ロジックも
 `joinedRecruitIds`に含まれるUnitのTier1スキルだけそのチェックを迂回するよう分岐を
-追加した。残り5兵種(辺境工兵・伝令騎兵・辺境猟兵・旗手・戦闘魔導士)の加入条件配線は
-今後のSliceで`confirmRecruitJoin()`のクラス分岐を1件ずつ拡張する形で追加する。
+追加した。加入候補の表示名・兵種は`data/units.json`の`recruits`配列へ移し、
+`confirmRecruitJoin()`、拠点UI、Save復元が同じ定義を参照する。残り5兵種
+(辺境工兵・伝令騎兵・辺境猟兵・旗手・戦闘魔導士)の加入条件配線は今後のSliceで
+`recruits`定義と加入候補付与条件を追加する形で拡張する。
 
 ## 検証状況
 

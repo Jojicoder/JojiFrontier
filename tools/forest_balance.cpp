@@ -452,9 +452,27 @@ UnitClass classFromArg(const std::string& name) {
     return UnitClass::MarchCaptain;
 }
 
+// docs/implementation_roadmap.md M6-D「4〜6周の実戦計測」: this tool was
+// AshboughForest-only until M6-D needed the same measurement for
+// Cinderwatch. `--region=<id>` (any stable RegionId string, e.g.
+// "cinderwatch_gate") picks the target; omitted keeps the original default
+// so existing AshboughForest usage/output is unchanged.
+RegionId regionFromArgOrDefault(int argc, char** argv) {
+    const std::string prefix = "--region=";
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg.rfind(prefix, 0) == 0) {
+            const std::string id = arg.substr(prefix.size());
+            if (auto region = regionIdFromStringStrict(id)) return *region;
+            std::cerr << "Unknown --region '" << id << "', using AshboughForest.\n";
+        }
+    }
+    return RegionId::AshboughForest;
+}
+
 int main(int argc, char** argv) {
     int runs = 500;
-    if (argc > 1) runs = std::max(std::stoi(argv[1]), 1);
+    if (argc > 1 && std::string(argv[1]).rfind("--region=", 0) != 0) runs = std::max(std::stoi(argv[1]), 1);
     auto data = loadGameData("data");
     if (!data) data = loadGameData("../data");
     if (!data) {
@@ -462,7 +480,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    if (argc > 2) {
+    if (argc > 2 && std::string(argv[2]).rfind("--region=", 0) != 0) {
         const UnitClass excluded = classFromArg(argv[2]);
         auto& party = data->playerParty;
         party.erase(std::remove_if(party.begin(), party.end(),
@@ -471,8 +489,9 @@ int main(int argc, char** argv) {
         std::cout << "Excluding " << argv[2] << " from the party (" << party.size() << " remain).\n";
     }
 
-    const RegionDescriptor forest = regionDescriptor(RegionId::AshboughForest, *data);
-    std::cout << "Ashbough Forest headless balance simulation (" << runs << " seeds)\n"
+    const RegionId regionId = regionFromArgOrDefault(argc, argv);
+    const RegionDescriptor forest = regionDescriptor(regionId, *data);
+    std::cout << toString(regionId) << " headless balance simulation (" << runs << " seeds)\n"
               << "No consumables, no manual deployment, no log-lure planning.\n\n";
 
     for (Policy policy : {Policy::Direct, Policy::Tactical}) {
@@ -490,12 +509,15 @@ int main(int argc, char** argv) {
         }
 
         Aggregate expedition;
-        std::array<int, 3> reached{};
-        // Snapshot of the party's condition the instant before Territory
-        // (Brokenwood) starts - the survivors/HP carried over from Hollow,
-        // to check whether "fewer allies/lower HP arriving" is actually as
-        // severe as the Territory-alone win-rate drop (96.8% fresh vs the
-        // much lower chained win rate) would suggest.
+        std::vector<int> reached(forest.stages.size(), 0);
+        // Snapshot of the party's condition the instant before the
+        // second-to-last-plus-one site starts (AshboughForest's Territory
+        // boss entry, stageIndex 2) - the survivors/HP carried over from the
+        // prior site, to check whether "fewer allies/lower HP arriving" is
+        // actually as severe as the boss-alone win-rate drop would suggest.
+        // Only meaningful for AshboughForest's specific 3-site shape; other
+        // regions skip this snapshot (territoryEntrySamples stays 0).
+        const bool trackTerritoryEntry = regionId == RegionId::AshboughForest && forest.stages.size() > 2;
         long long territoryEntrySurvivors = 0;
         long long territoryEntryHpSum = 0;
         long long territoryEntryMaxHpSum = 0;
@@ -508,7 +530,7 @@ int main(int argc, char** argv) {
             int expeditionMaxHp = 0;
             for (std::size_t stageIndex = 0; stageIndex < forest.stages.size(); ++stageIndex) {
                 ++reached[stageIndex];
-                if (stageIndex == 2) {
+                if (trackTerritoryEntry && stageIndex == 2) {
                     ++territoryEntrySamples;
                     for (const Unit& player : survivors) {
                         if (!player.isAlive()) continue;
@@ -543,18 +565,22 @@ int main(int argc, char** argv) {
             finalResult.incapacitated = static_cast<int>(data->playerParty.size()) - livingPlayers;
             expedition.add(finalResult);
         }
-        std::cout << '[' << policyName << "] three-site expedition\n";
-        printAggregate("Forest clear", expedition);
-        std::cout << "Reach: verge " << reached[0] << "/" << runs
-                  << ", hollow " << reached[1] << "/" << runs
-                  << ", territory " << reached[2] << "/" << runs << "\n";
-        std::cout << std::fixed << std::setprecision(2)
-                  << "Territory entry: avg survivors "
-                  << static_cast<double>(territoryEntrySurvivors) / territoryEntrySamples << "/4"
-                  << "  avg HP% "
-                  << (territoryEntryMaxHpSum > 0
-                          ? 100.0 * static_cast<double>(territoryEntryHpSum) / territoryEntryMaxHpSum
-                          : 0.0)
-                  << "\n\n";
+        std::cout << '[' << policyName << "] " << forest.stages.size() << "-site expedition\n";
+        printAggregate("Region clear", expedition);
+        std::cout << "Reach:";
+        for (std::size_t stageIndex = 0; stageIndex < forest.stages.size(); ++stageIndex)
+            std::cout << ' ' << forest.stages[stageIndex].missionNameEn << ' ' << reached[stageIndex] << "/" << runs
+                       << (stageIndex + 1 < forest.stages.size() ? "," : "\n");
+        if (trackTerritoryEntry && territoryEntrySamples > 0) {
+            std::cout << std::fixed << std::setprecision(2)
+                      << "Territory entry: avg survivors "
+                      << static_cast<double>(territoryEntrySurvivors) / territoryEntrySamples << "/4"
+                      << "  avg HP% "
+                      << (territoryEntryMaxHpSum > 0
+                              ? 100.0 * static_cast<double>(territoryEntryHpSum) / territoryEntryMaxHpSum
+                              : 0.0)
+                      << "\n";
+        }
+        std::cout << "\n";
     }
 }
