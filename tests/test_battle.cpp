@@ -115,6 +115,13 @@ jf::GameData makeFactoryData() {
     data.weaponsById.emplace("engineer_hammer", engineerHammer);
     data.classesById.emplace(jf::UnitClass::FrontierEngineer,
                              jf::ClassDefinition{jf::UnitClass::FrontierEngineer, frontierEngineerStats, "engineer_hammer"});
+    jf::Stats messengerCavalryStats{.maxHp = 22, .strength = 7, .magic = 0, .speed = 9,
+                                    .defense = 4, .resistance = 3, .move = 6};
+    jf::Weapon messengerSword{.id = "messenger_sword", .name = "Messenger Sword", .might = 5, .minRange = 1,
+                              .maxRange = 1, .damageType = jf::DamageType::Physical};
+    data.weaponsById.emplace("messenger_sword", messengerSword);
+    data.classesById.emplace(jf::UnitClass::MessengerCavalry,
+                             jf::ClassDefinition{jf::UnitClass::MessengerCavalry, messengerCavalryStats, "messenger_sword"});
     jf::Weapon wolfBite{.id = "wolf_bite", .name = "Bite", .might = 5, .minRange = 1,
                        .maxRange = 1, .damageType = jf::DamageType::Physical};
     data.weaponsById.emplace("wolf_bite", wolfBite);
@@ -2950,6 +2957,135 @@ int main() {
         assert(controller.inputState() == jf::BattleInputState::SelectUnit); // next Player Phase started
         const jf::BattleObjectState* afterExpiry = controller.battle().objectAt(jf::GridPos{1, 5});
         assert(afterExpiry && afterExpiry->state == jf::BattleObjectStateKind::Destroyed); // auto-expired
+    }
+
+    {
+        // docs/class_reference.md「後半6兵種」/M7項目1: 伝令騎兵
+        // (MessengerCavalry)のClass/武器データ整合性。
+        jf::GameData data = makeFactoryData();
+        const jf::ClassDefinition& def = data.classDefinition(jf::UnitClass::MessengerCavalry);
+        assert(def.baseStats.maxHp == 22 && def.baseStats.strength == 7 && def.baseStats.magic == 0 &&
+              def.baseStats.speed == 9 && def.baseStats.defense == 4 && def.baseStats.resistance == 3 &&
+              def.baseStats.move == 6);
+        assert(def.weaponId == "messenger_sword");
+        const jf::Weapon& weapon = data.weaponFor(jf::UnitClass::MessengerCavalry);
+        assert(weapon.id == "messenger_sword" && weapon.might == 5 && weapon.minRange == 1 && weapon.maxRange == 1 &&
+              weapon.damageType == jf::DamageType::Physical);
+        assert(jf::unitClassFromString("MessengerCavalry") == jf::UnitClass::MessengerCavalry);
+        assert(jf::skillsForClass(jf::UnitClass::MessengerCavalry).size() == 3);
+        assert(jf::requiredTrainingNodeIdFor(jf::UnitClass::MessengerCavalry) == "mobility_training");
+    }
+
+    {
+        // 伝令騎兵「再移動」: after a normal Attack, if still alive, defers into
+        // SelectReMoveTarget (budget 2) instead of finishing immediately -
+        // the current tile (=stay) is always a valid choice.
+        jf::Unit cavalry = makeUnit("cavalry", jf::Team::Player, {1, 3}, 6, jf::UnitClass::MessengerCavalry);
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 4});
+        enemy.stats.maxHp = 40;
+        enemy.currentHp = 40; // survives the hit
+        jf::BattleState battle({cavalry, enemy});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseAttack();
+        assert(controller.inputState() == jf::BattleInputState::SelectTarget);
+        controller.selectTargetTile(jf::GridPos{1, 4});
+        assert(controller.inputState() == jf::BattleInputState::ConfirmAttack);
+        controller.confirmAttack();
+        assert(controller.inputState() == jf::BattleInputState::SelectReMoveTarget);
+        assert(contains(controller.reMoveTiles(), jf::GridPos{1, 3})); // staying is always valid
+        assert(contains(controller.reMoveTiles(), jf::GridPos{1, 1})); // 2 tiles away, unobstructed
+        assert(!controller.battle().findUnit("cavalry")->hasActed); // not yet - still pending re-move
+
+        controller.selectReMoveTarget(jf::GridPos{1, 3}); // choose to stay
+        assert(controller.inputState() != jf::BattleInputState::SelectReMoveTarget);
+        assert(controller.battle().findUnit("cavalry")->hasActed);
+        assert((controller.battle().findUnit("cavalry")->position == jf::GridPos{1, 3}));
+    }
+
+    {
+        // 伝令騎兵`urgent_dispatch`(緊急伝令): 射程2の味方1人にMOV+2を付与。
+        // 使用後も再移動が発生し(スキル行動も対象)、その再移動は敵
+        // 古参守備兵のZone of Controlに従う - 装甲前進(ZoC無視)とは異なる点を
+        // HeavyInfantry armor_advanceテストと同じ座標({1,0}起点、Guardが
+        // {0,1})で確認する({1,2}へは budget2でも届かない)。
+        jf::Unit cavalry = makeUnit("cavalry", jf::Team::Player, {1, 0}, 6, jf::UnitClass::MessengerCavalry);
+        cavalry.skillSlots[0].skillId = "urgent_dispatch";
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {2, 0});
+        jf::Unit guard = makeUnit("guard", jf::Team::Enemy, {0, 1}, 3, jf::UnitClass::VeteranGuard);
+        jf::BattleState battle({cavalry, ally, guard});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectSkillTarget);
+        assert(contains(controller.skillTargetTiles(), jf::GridPos{2, 0})); // range 2
+        assert(!contains(controller.skillTargetTiles(), jf::GridPos{1, 0})); // can't target self
+
+        assert(controller.selectSkillTarget(jf::GridPos{2, 0}));
+        assert(controller.battle().findUnit("ally")->urgentDispatchActive);
+        assert(controller.battle().findUnit("ally")->effectiveMove() == 4 + 2); // MarchCaptain base 4
+
+        assert(controller.inputState() == jf::BattleInputState::SelectReMoveTarget); // skill action also re-moves
+        assert(contains(controller.reMoveTiles(), jf::GridPos{1, 0})); // self
+        assert(!contains(controller.reMoveTiles(), jf::GridPos{1, 2})); // ZoC-blocked, unlike armor_advance
+        controller.selectReMoveTarget(jf::GridPos{1, 0});
+        assert(!jf::skillSlotAvailable(*controller.battle().findUnit("cavalry"), 0)); // Cooldown2, just used
+    }
+
+    {
+        // 伝令騎兵`ride_through`(駆け抜け): self-only, 戦闘1回。使用直後の
+        // 再移動予算が2ではなく4マスへ増加する。
+        jf::Unit cavalry = makeUnit("cavalry", jf::Team::Player, {1, 0}, 6, jf::UnitClass::MessengerCavalry);
+        cavalry.skillSlots[0].skillId = "ride_through";
+        jf::BattleState battle({cavalry});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectReMoveTarget); // self-only, resolves at once
+        assert(contains(controller.reMoveTiles(), jf::GridPos{1, 4})); // budget 4
+        assert(!contains(controller.reMoveTiles(), jf::GridPos{1, 5})); // beyond budget 4
+
+        controller.selectReMoveTarget(jf::GridPos{1, 4});
+        assert(!jf::skillSlotAvailable(*controller.battle().findUnit("cavalry"), 0)); // OncePerBattle, just used
+    }
+
+    {
+        // 伝令騎兵`rescue_transfer`(救援搬送): 隣接味方1人を反対側の空きマスへ
+        // 1マス移動させる。対象のhasActedは変化しない。重装兵・ボス・敵は
+        // 対象にならない。
+        jf::Unit cavalry = makeUnit("cavalry", jf::Team::Player, {1, 3}, 6, jf::UnitClass::MessengerCavalry);
+        cavalry.skillSlots[0].skillId = "rescue_transfer";
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {1, 4}); // adjacent, opposite tile {1,2} is empty
+        jf::Unit heavy = makeUnit("heavy", jf::Team::Player, {0, 3}, 3, jf::UnitClass::HeavyInfantry);
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {2, 3});
+        jf::BattleState battle({cavalry, ally, heavy, enemy});
+        jf::BattleController controller(std::move(battle));
+        jf::initializeSkillCharges(controller.battle().units()[0]);
+
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseSkill(0);
+        assert(controller.inputState() == jf::BattleInputState::SelectSkillTarget);
+        assert(contains(controller.skillTargetTiles(), jf::GridPos{1, 4})); // ally
+        assert(!contains(controller.skillTargetTiles(), jf::GridPos{0, 3})); // 重装兵
+        assert(!contains(controller.skillTargetTiles(), jf::GridPos{2, 3})); // enemy
+
+        assert(controller.selectSkillTarget(jf::GridPos{1, 4}));
+        assert((controller.battle().findUnit("ally")->position == jf::GridPos{1, 2})); // reflected
+        assert(!controller.battle().findUnit("ally")->hasActed); // ally's own action state untouched
+
+        assert(controller.inputState() == jf::BattleInputState::SelectReMoveTarget); // caster's own re-move
+        controller.selectReMoveTarget(jf::GridPos{1, 3});
+        assert(controller.battle().findUnit("cavalry")->hasActed);
     }
 
     {

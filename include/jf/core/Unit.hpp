@@ -143,6 +143,18 @@ struct Unit {
     // フィールドで一度使用済みかを追跡する(clearAllStatusEffectsでは戻さない
     // -戦闘スコープの1回きり)。
     bool fieldFortificationUsed = false;
+    // 伝令騎兵「再移動」(docs/class_reference.md「後半6兵種」): consumed by
+    // BattleController::finishPlayerAction() the moment it computes this
+    // action's re-move budget (2, or 4 if this flag is set) - always cleared
+    // there regardless of whether a re-move tile ends up chosen, since
+    // `ride_through`'s boost is spent on "this action" either way.
+    bool rideThroughBudgetActive = false;
+    // 伝令騎兵`urgent_dispatch`(緊急伝令): same "until THIS Player Phase ends"
+    // lifecycle as moveUpActive above (行軍隊長`advance_order`), but +2
+    // instead of +1 - kept as its own flag so advance_order's existing
+    // behavior/tests stay untouched. Cleared by the same
+    // clearMoveUpAtPlayerPhaseEnd().
+    bool urgentDispatchActive = false;
 
     // The 2 equipped-skill slots (docs/skill_system.md). See
     // jf/battle/SkillCharges.hpp for lifecycle management.
@@ -199,6 +211,7 @@ struct Unit {
         if (staggerActive && !isBoss) return 0;
         int mov = stats.move;
         if (moveUpActive) mov += 1; // 行軍隊長`advance_order`
+        if (urgentDispatchActive) mov += 2; // 伝令騎兵`urgent_dispatch`
         if (staggerActive) mov = std::max(mov - 1, 0);
         if (moveDownActive) mov = std::max(mov - statusMoveDownAmount(isBoss), 1);
         return mov;

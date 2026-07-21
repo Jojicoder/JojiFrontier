@@ -92,6 +92,17 @@ const std::vector<SkillDefinition>& skillRegistry() {
         {"rapid_barricade", UnitClass::FrontierEngineer, "Rapid Barricade", "即席防壁", SkillCategory::Active,
          SkillUsageType::Cooldown2, "Places a durability-6 barricade on an empty tile within range 2; it disappears at the start of the next allied Phase.",
          "射程2の空きマスへ耐久6の防護板を設置。次の自軍Phase開始時に消滅。", 3},
+
+        // 伝令騎兵 (Messenger Cavalry)
+        {"urgent_dispatch", UnitClass::MessengerCavalry, "Urgent Dispatch", "緊急伝令", SkillCategory::Active,
+         SkillUsageType::Cooldown2, "An ally within range 2 gets MOV+2 until this Player Phase ends.",
+         "射程2以内の味方1人のMOV+2。このPlayer Phase終了まで。", 1},
+        {"ride_through", UnitClass::MessengerCavalry, "Ride Through", "駆け抜け", SkillCategory::Active,
+         SkillUsageType::OncePerBattle, "Increases this action's re-move to up to 4 tiles.",
+         "この行動の再移動を最大4マスへ増加。", 2},
+        {"rescue_transfer", UnitClass::MessengerCavalry, "Rescue Transfer", "救援搬送", SkillCategory::Active,
+         SkillUsageType::Cooldown2, "Moves an adjacent ally 1 tile to the empty tile directly opposite this unit.",
+         "隣接する味方1人を自分の反対側の空きマスへ1マス移動させる。", 3},
     };
     return skills;
 }
@@ -119,6 +130,7 @@ std::string requiredTrainingNodeIdFor(UnitClass unitClass) {
             return "vanguard_training";
         case UnitClass::WatchArcher:
         case UnitClass::FrontierScout:
+        case UnitClass::MessengerCavalry:
             return "mobility_training";
         case UnitClass::MarchCaptain:
         case UnitClass::DawnChirurgeon:

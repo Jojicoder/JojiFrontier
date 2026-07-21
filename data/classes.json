@@ -57,6 +57,13 @@
       "roleKey": "class.frontier_engineer.role"
     },
     {
+      "id": "MessengerCavalry",
+      "baseStats": { "maxHp": 22, "strength": 7, "magic": 0, "speed": 9, "defense": 4, "resistance": 3, "move": 6 },
+      "weaponId": "messenger_sword",
+      "nameKey": "class.messenger_cavalry",
+      "roleKey": "class.messenger_cavalry.role"
+    },
+    {
       "id": "Bandit",
       "baseStats": { "maxHp": 22, "strength": 9, "magic": 0, "speed": 4, "defense": 3, "resistance": 1, "move": 4 },
       "weaponId": "iron_axe",

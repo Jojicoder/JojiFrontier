@@ -435,6 +435,8 @@ void drawBoardTiles(const jf::BattleController& controller, const std::vector<jf
                 DrawRectangleRec(rect, Color{55, 205, 115, 155});
             if (containsTile(controller.fieldFortificationTiles(), pos))
                 DrawRectangleRec(rect, Color{220, 185, 70, 150});
+            if (containsTile(controller.reMoveTiles(), pos))
+                DrawRectangleRec(rect, Color{58, 155, 255, 125});
             if (containsTile(controller.itemTargetTiles(), pos))
                 DrawRectangleRec(rect, Color{70, 210, 145, 175});
             if (containsTile(controller.boardTargetTiles(), pos))
@@ -1071,6 +1073,9 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
             break;
         case jf::BattleInputState::SelectFieldFortificationTarget:
             stepLabel = tr("ui.button.field_fortification");
+            break;
+        case jf::BattleInputState::SelectReMoveTarget:
+            stepLabel = tr("ui.battle.choose_re_move_target");
             break;
         case jf::BattleInputState::SelectBoardTarget:
             stepLabel = tr("ui.button.place_barrier");

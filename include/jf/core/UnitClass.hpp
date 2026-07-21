@@ -19,6 +19,10 @@ enum class UnitClass {
     // (canFieldFortify())。加入経路(M7項目2)は未実装のため、まだ
     // playerParty/reserveRosterには登場しない - Classとしてのみ完全に有効。
     FrontierEngineer,
+    // docs/class_reference.md「後半6兵種」/M7項目1: 固有能力「再移動」
+    // (canReMove())。加入経路(M7項目2)は未実装のため、まだ
+    // playerParty/reserveRosterには登場しない - Classとしてのみ完全に有効。
+    MessengerCavalry,
     Bandit,
     // docs/regions/ashbough_forest.md 灰枝の林縁: an ordinary large predator,
     // not a monster (per World Bible flora_fauna.md framing) - no special
@@ -51,5 +55,9 @@ int passiveEvasionBonus(UnitClass unitClass);
 // floor 0" collapses to "never gets knocked back" - consulted directly
 // there, unconditionally (unlike the consumable knockbackNegatesRemaining).
 bool hasHeavyArmor(UnitClass unitClass);
+// docs/class_reference.md「再移動」: 攻撃・スキル・アイテム行動後、生存していれば
+// 最大2マス(`ride_through`使用時4マス)移動して行動終了 - BattleController::
+// finishPlayerAction()が消費し、SelectReMoveTargetへの遷移を判定する。
+bool canReMove(UnitClass unitClass);
 
 } // namespace jf

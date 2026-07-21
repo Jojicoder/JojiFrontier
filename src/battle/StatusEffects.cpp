@@ -145,7 +145,10 @@ void clearSkillBuffsAtEnemyPhaseEnd(BattleState& battle) {
 }
 
 void clearMoveUpAtPlayerPhaseEnd(BattleState& battle) {
-    for (Unit& unit : battle.units()) unit.moveUpActive = false;
+    for (Unit& unit : battle.units()) {
+        unit.moveUpActive = false;
+        unit.urgentDispatchActive = false; // 伝令騎兵`urgent_dispatch`: same lifecycle
+    }
 }
 
 } // namespace jf

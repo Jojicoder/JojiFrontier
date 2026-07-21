@@ -47,6 +47,11 @@ enum class BattleInputState {
     // 選択(selectInteractTarget())の時点でresolveObjectInteraction()まで
     // 即座に解決する(chooseHeal()/selectHealTarget()と同じ即時解決パターン)。
     SelectInteractTarget,
+    // 伝令騎兵「再移動」(docs/class_reference.md「後半6兵種」): Attack/Skill/
+    // Item行動の直後、finishPlayerAction()がここへ委譲する(その行動自体は
+    // まだmarkActed/ActionResolvedEvent未発行) - selectReMoveTarget()が
+    // 移動先(現在地=移動しない、も含む)を確定させて初めて行動が終了する。
+    SelectReMoveTarget,
     EnemyTurn,
     Victory,
     Defeat
@@ -97,6 +102,7 @@ public:
     const std::vector<GridPos>& attackRangeTiles() const { return attackRangeTiles_; }
     const std::vector<GridPos>& healableTiles() const { return healableTiles_; }
     const std::vector<GridPos>& fieldFortificationTiles() const { return fieldFortificationTiles_; }
+    const std::vector<GridPos>& reMoveTiles() const { return reMoveTiles_; }
     const std::vector<GridPos>& itemTargetTiles() const { return itemTargetTiles_; }
     const std::vector<GridPos>& boardTargetTiles() const { return boardTargetTiles_; }
     const std::vector<GridPos>& skillTargetTiles() const { return skillTargetTiles_; }
@@ -151,6 +157,10 @@ public:
     // パターン。既に使用済み(Unit::fieldFortificationUsed)ならno-op。
     void chooseFieldFortification();
     void selectFieldFortificationTarget(GridPos pos);
+    // 伝令騎兵「再移動」: resolves the pending re-move deferred by
+    // finishPlayerAction() (see BattleInputState::SelectReMoveTarget). No-op
+    // outside that state or on an invalid target.
+    void selectReMoveTarget(GridPos pos);
     bool useHealingItem(int amount);
     bool chooseHealingItemTarget(int amount);
     bool selectHealingItemTarget(GridPos pos);
@@ -187,11 +197,17 @@ public:
 
 private:
     void evaluateOutcome();
-    // Runs the docs/status_effects.md action-end pipeline, marks `unit`
-    // acted, and feeds an ActionResolvedEvent to the mission's Objective
-    // tracking (docs/mission_objectives.md) so kinds like SecureTile can
-    // credit it.
-    void finishPlayerAction(Unit& unit, ActionKind actionKind);
+    // Runs the docs/status_effects.md action-end pipeline, then either
+    // concludes `unit`'s action (markActed + ActionResolvedEvent, returning
+    // true) or - for 伝令騎兵「再移動」only - defers that conclusion into
+    // BattleInputState::SelectReMoveTarget and returns false. Every call
+    // site must skip its own post-action cleanup when this returns false
+    // (selectReMoveTarget() runs the deferred tail once resolved).
+    bool finishPlayerAction(Unit& unit, ActionKind actionKind);
+    // markActed + ActionResolvedEvent construction/dispatch, shared by
+    // finishPlayerAction()'s immediate path and selectReMoveTarget()'s
+    // deferred-tail path.
+    void markActionResolved(Unit& unit, ActionKind actionKind);
     Unit* nextUnactedEnemy();
 
     BattleState battle_;
@@ -219,6 +235,12 @@ private:
     std::vector<GridPos> boardTargetTiles_;
     std::vector<GridPos> skillTargetTiles_;
     int pendingSkillSlot_ = -1;
+    // 伝令騎兵「再移動」: candidate destinations (always includes the mover's
+    // current position, so "don't move" is a valid choice) and which
+    // ActionKind finishPlayerAction() deferred - consumed by
+    // selectReMoveTarget().
+    std::vector<GridPos> reMoveTiles_;
+    ActionKind pendingReMoveActionKind_ = ActionKind::Wait;
 
     float enemyActionTimer_ = 0.0f;
     AiSquadReservations enemyReservations_;

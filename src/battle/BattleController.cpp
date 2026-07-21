@@ -114,6 +114,25 @@ constexpr int kRapidBarricadeRange = 2;
 bool isProvokeShape(const std::string& skillId) { return skillId == "provoke"; }
 constexpr int kProvokeRange = 2;
 
+// 伝令騎兵`urgent_dispatch`(緊急伝令): 行軍隊長`advance_order`と似た
+// applyMoveUp()型のバフだが、(1)対象が隣接1ではなく射程2、(2)+1ではなく+2
+// (`Unit::urgentDispatchActive`という別フィールド)、(3)自分自身は対象外だが
+// 「未行動限定」ではない、という3点が異なるため専用分岐にした。
+bool isUrgentDispatchShape(const std::string& skillId) { return skillId == "urgent_dispatch"; }
+constexpr int kUrgentDispatchRange = 2;
+
+// 伝令騎兵`ride_through`(駆け抜け): overwatch/trailblazeと同じself-only即時
+// 解決型。実際の効果(このactionの再移動予算を4に)はUnit::
+// rideThroughBudgetActiveを立てるだけで、消費・適用はfinishPlayerAction()側。
+bool isRideThroughShape(const std::string& skillId) { return skillId == "ride_through"; }
+
+// 伝令騎兵`rescue_transfer`(救援搬送): 隣接する味方1人を、使用者から見て
+// 反対側の空きマスへ1マス移動させる(reflection)。対象はUnitだが移動させる
+// 対象自体は行動状態を変えない(finishPlayerAction()を呼ばない)ため、
+// break_obstacle等のObject専用分岐とも既存のUnit対象分岐とも別の専用形状。
+bool isRescueTransferShape(const std::string& skillId) { return skillId == "rescue_transfer"; }
+constexpr int kRescueTransferRange = 1;
+
 // 監視弓兵`overwatch`(警戒射撃): self-only, no target to choose - resolves
 // immediately like hold_formation/extended_lockdown's selfOnly buffs below,
 // but arms Unit::overwatchActive rather than a BuffKind (this isn't a stat
@@ -250,6 +269,60 @@ std::vector<GridPos> computeArmorAdvanceTiles(const BattleState& battle, const U
     return computeSelfMovementTiles(battle, mover, kArmorAdvanceRange);
 }
 
+// 伝令騎兵「再移動」用のZone of Control判定。Movement.cpp's
+// isStoppedByZoneOfControl()と同一ロジックだが、その関数はexportされていない
+// ため(computeReachableTilesImpl()内の無名namespace専用)、ここへ複製した。
+bool reMoveStoppedByZoneOfControl(const BattleState& battle, const Unit& mover, GridPos pos) {
+    for (const Unit& unit : battle.units()) {
+        if (!unit.isPresent() || unit.team == mover.team || !hasZoneOfControl(unit.unitClass)) continue;
+        const int range = unit.zocRangeExtended ? 2 : 1;
+        if (manhattanDistance(unit.position, pos) <= range) return true;
+    }
+    return false;
+}
+
+// 伝令騎兵「再移動」: computeSelfMovementTilesと似た固定予算BFSだが、(1)通常の
+// 自己移動スキル(armor_advance等)と異なりZone of Controlを尊重する、(2)
+// 「移動しない」を明示的な選択肢として常に含む(結果に現在地を必ず含める)点が
+// 異なるため専用関数にした。
+std::vector<GridPos> computeReMoveTiles(const BattleState& battle, const Unit& mover, int budget) {
+    std::vector<GridPos> result{mover.position};
+    std::unordered_map<int, int> bestCost;
+    const auto key = [](GridPos pos) { return pos.row * kGridCols + pos.col; };
+    std::vector<GridPos> frontier{mover.position};
+    bestCost[key(mover.position)] = 0;
+    while (!frontier.empty()) {
+        std::vector<GridPos> next;
+        for (GridPos current : frontier) {
+            int cost = bestCost[key(current)];
+            if (cost >= budget) continue;
+            if (current != mover.position && reMoveStoppedByZoneOfControl(battle, mover, current)) continue;
+            static const GridPos kDirections[] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+            for (GridPos dir : kDirections) {
+                GridPos candidate{current.row + dir.row, current.col + dir.col};
+                if (!isInBounds(candidate) || !isPassable(battle.terrainAt(candidate))) continue;
+                if (battle.objectBlocksMovementAt(candidate)) continue;
+                const Unit* occupant = battle.unitAt(candidate);
+                if (occupant && occupant->team != mover.team) continue;
+                auto it = bestCost.find(key(candidate));
+                if (it != bestCost.end() && it->second <= cost + 1) continue;
+                bestCost[key(candidate)] = cost + 1;
+                next.push_back(candidate);
+            }
+        }
+        frontier = std::move(next);
+    }
+    for (const auto& [tileKey, cost] : bestCost) {
+        GridPos pos{tileKey / kGridCols, tileKey % kGridCols};
+        if (pos == mover.position) continue; // already in result
+        const Unit* occupant = battle.unitAt(pos);
+        if (occupant && occupant != &mover) continue;
+        if (battle.objectBlocksStoppingAt(pos)) continue;
+        result.push_back(pos);
+    }
+    return result;
+}
+
 } // namespace
 
 BattleController::BattleController(BattleState battle) : battle_(std::move(battle)) {
@@ -267,7 +340,21 @@ std::optional<CombatPreview> BattleController::pendingPreview() const {
                              battle_.combatHitChance(*pendingTarget_));
 }
 
-void BattleController::finishPlayerAction(Unit& unit, ActionKind actionKind) {
+void BattleController::markActionResolved(Unit& unit, ActionKind actionKind) {
+    battle_.markActed(unit);
+    const ActionId actionId = nextActionId_++;
+    BattleEvent event{battle_.issueEventId(), actionId,
+                      ActionResolvedEvent{actionId, unit.id, unit.team, actionKind, unit.position}};
+    handleObjectiveEvent(battle_.missionState(), event);
+}
+
+// Returns true once `unit`'s action is fully concluded (every existing call
+// site's behavior, unchanged). Returns false when 伝令騎兵「再移動」defers the
+// conclusion into BattleInputState::SelectReMoveTarget instead - the caller
+// must skip its own post-action cleanup in that case (see
+// selectReMoveTarget(), which runs the deferred tail once a re-move Tile is
+// chosen) rather than tearing down selectedUnit_/caches out from under it.
+bool BattleController::finishPlayerAction(Unit& unit, ActionKind actionKind) {
     // Snapshot before the terrain/status resolution below so a self-defeat
     // from burn fires UnitDefeatedEvent exactly once (any combat-caused
     // defeat was already captured and emitted by the caller, e.g.
@@ -292,13 +379,52 @@ void BattleController::finishPlayerAction(Unit& unit, ActionKind actionKind) {
         if (unit.braceForImpactJustGranted) unit.braceForImpactJustGranted = false;
         else unit.braceForImpactActive = false;
     }
-    battle_.markActed(unit);
-    emitUnitDefeatedEvents(battle_, aliveBefore);
 
-    const ActionId actionId = nextActionId_++;
-    BattleEvent event{battle_.issueEventId(), actionId,
-                      ActionResolvedEvent{actionId, unit.id, unit.team, actionKind, unit.position}};
-    handleObjectiveEvent(battle_.missionState(), event);
+    // 伝令騎兵「再移動」: Attack/Skill/Item行動後、生存していれば最大2マス
+    // (`ride_through`使用時4マス)移動して行動終了。まだmarkActed/
+    // ActionResolvedEventを発行せず、SelectReMoveTargetへ委譲する。
+    if (canReMove(unit.unitClass) && unit.isAlive() &&
+        (actionKind == ActionKind::Attack || actionKind == ActionKind::Skill || actionKind == ActionKind::Item)) {
+        const int budget = unit.rideThroughBudgetActive ? 4 : 2;
+        unit.rideThroughBudgetActive = false; // spent on this action either way
+        reMoveTiles_ = computeReMoveTiles(battle_, unit, budget);
+        if (!reMoveTiles_.empty()) {
+            emitUnitDefeatedEvents(battle_, aliveBefore);
+            selectedUnit_ = &unit;
+            pendingReMoveActionKind_ = actionKind;
+            reachableTiles_.clear();
+            targetableTiles_.clear();
+            objectTargetableTiles_.clear();
+            objectInteractableTiles_.clear();
+            attackRangeTiles_.clear();
+            healableTiles_.clear();
+            fieldFortificationTiles_.clear();
+            itemTargetTiles_.clear();
+            boardTargetTiles_.clear();
+            skillTargetTiles_.clear();
+            inputState_ = BattleInputState::SelectReMoveTarget;
+            return false;
+        }
+    }
+
+    emitUnitDefeatedEvents(battle_, aliveBefore);
+    markActionResolved(unit, actionKind);
+    return true;
+}
+
+void BattleController::selectReMoveTarget(GridPos pos) {
+    if (inputState_ != BattleInputState::SelectReMoveTarget || !selectedUnit_) return;
+    if (std::find(reMoveTiles_.begin(), reMoveTiles_.end(), pos) == reMoveTiles_.end()) return;
+
+    if (pos != selectedUnit_->position) battle_.moveUnit(*selectedUnit_, pos);
+    markActionResolved(*selectedUnit_, pendingReMoveActionKind_);
+
+    selectedUnit_ = nullptr;
+    reMoveTiles_.clear();
+    reachableTiles_.clear();
+    attackRangeTiles_.clear();
+    inputState_ = BattleInputState::SelectUnit;
+    evaluateOutcome();
 }
 
 void BattleController::selectUnit(Unit& unit) {
@@ -416,7 +542,7 @@ void BattleController::selectInteractTarget(GridPos pos) {
                                         ObjectStateChangedEvent{target->id, def->interactionResultState}});
     }
 
-    finishPlayerAction(*selectedUnit_, ActionKind::Interact);
+    if (!finishPlayerAction(*selectedUnit_, ActionKind::Interact)) return;
     selectedUnit_ = nullptr;
     objectInteractableTiles_.clear();
     reachableTiles_.clear();
@@ -446,7 +572,7 @@ void BattleController::selectHealTarget(GridPos pos) {
     Unit* target = battle_.unitAt(pos);
     if (!target || target->team != selectedUnit_->team) return;
     target->currentHp = std::min(target->currentHp + 8, target->stats.maxHp);
-    finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+    if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return;
     selectedUnit_ = nullptr;
     healableTiles_.clear();
     reachableTiles_.clear();
@@ -479,7 +605,7 @@ void BattleController::selectFieldFortificationTarget(GridPos pos) {
     battle_.placeObject({selectedUnit_->id + "_field_barricade", "field_barricade", pos, team,
                          BattleObjectStateKind::Active, 10, 0});
     selectedUnit_->fieldFortificationUsed = true;
-    finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+    if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return;
     selectedUnit_ = nullptr;
     fieldFortificationTiles_.clear();
     reachableTiles_.clear();
@@ -493,7 +619,7 @@ bool BattleController::useHealingItem(int amount) {
     if (selectedUnit_->currentHp >= selectedUnit_->stats.maxHp) return false;
 
     selectedUnit_->currentHp = std::min(selectedUnit_->currentHp + amount, selectedUnit_->stats.maxHp);
-    finishPlayerAction(*selectedUnit_, ActionKind::Item);
+    if (!finishPlayerAction(*selectedUnit_, ActionKind::Item)) return true;
     selectedUnit_ = nullptr;
     reachableTiles_.clear();
     targetableTiles_.clear();
@@ -524,7 +650,7 @@ bool BattleController::selectHealingItemTarget(GridPos pos) {
     Unit* target = battle_.unitAt(pos);
     if (!target || target->team != Team::Player || target->hasActed) return false;
     target->currentHp = std::min(target->currentHp + pendingHealingItemAmount_, target->stats.maxHp);
-    finishPlayerAction(*target, ActionKind::Item);
+    if (!finishPlayerAction(*target, ActionKind::Item)) return true;
     itemTargetTiles_.clear();
     pendingHealingItemAmount_ = 0;
     inputState_ = BattleInputState::SelectUnit;
@@ -550,8 +676,9 @@ void BattleController::chooseSkill(int slotIndex) {
     // immediately.
     const bool overwatch = isOverwatchShape(skillId);
     const bool trailblaze = isTrailblazeShape(skillId);
+    const bool rideThrough = isRideThroughShape(skillId);
     if (auto buff = buffSkillShapes().find(skillId);
-        overwatch || trailblaze ||
+        overwatch || trailblaze || rideThrough ||
         (buff != buffSkillShapes().end() && (buff->second.selfAndAllAdjacent || buff->second.selfOnly))) {
         if (overwatch) {
             selectedUnit_->overwatchActive = true;
@@ -560,6 +687,8 @@ void BattleController::chooseSkill(int slotIndex) {
                 TerrainType terrain = battle_.terrainAt(pos);
                 if (terrain == TerrainType::Ash || terrain == TerrainType::Shallows) battle_.markTrailblazed(pos);
             }
+        } else if (rideThrough) {
+            selectedUnit_->rideThroughBudgetActive = true;
         } else if (buff->second.selfOnly) {
             applyBuff(buff->second.kind, *selectedUnit_);
         } else {
@@ -570,7 +699,7 @@ void BattleController::chooseSkill(int slotIndex) {
             }
         }
         consumeSkillCharge(*selectedUnit_, slotIndex);
-        finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+        if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return;
         selectedUnit_ = nullptr;
         reachableTiles_.clear();
         attackRangeTiles_.clear();
@@ -706,6 +835,28 @@ void BattleController::chooseSkill(int slotIndex) {
                 }
             }
         }
+    } else if (isUrgentDispatchShape(skillId)) {
+        for (Unit& unit : battle_.units()) {
+            if (&unit == selectedUnit_ || unit.team != selectedUnit_->team || !unit.isAlive()) continue;
+            if (manhattanDistance(selectedUnit_->position, unit.position) <= kUrgentDispatchRange)
+                skillTargetTiles_.push_back(unit.position);
+        }
+    } else if (isRescueTransferShape(skillId)) {
+        // 隣接する味方1人を選ぶ - 実際の移動先(反対側のマス)はselectSkillTarget()
+        // 側でreflectionにより計算するが、そのマスが空き・通行可能でなければ
+        // ここで対象から除外する。
+        for (Unit& unit : battle_.units()) {
+            if (&unit == selectedUnit_ || unit.team != selectedUnit_->team || !unit.isAlive()) continue;
+            if (hasHeavyArmor(unit.unitClass) || unit.isBoss) continue;
+            if (manhattanDistance(selectedUnit_->position, unit.position) != 1) continue; // must be adjacent
+            GridPos delta{unit.position.row - selectedUnit_->position.row,
+                         unit.position.col - selectedUnit_->position.col};
+            GridPos dest{selectedUnit_->position.row - delta.row, selectedUnit_->position.col - delta.col};
+            if (!isInBounds(dest) || !isPassable(battle_.terrainAt(dest)) || battle_.unitAt(dest) ||
+                battle_.objectBlocksMovementAt(dest) || battle_.objectBlocksStoppingAt(dest))
+                continue;
+            skillTargetTiles_.push_back(unit.position);
+        }
     }
     if (skillTargetTiles_.empty()) return;
     pendingSkillSlot_ = slotIndex;
@@ -725,7 +876,7 @@ bool BattleController::selectSkillTarget(GridPos pos) {
     if (isEmergencyWithdrawalShape(shapeSkillId) || isArmorAdvanceShape(shapeSkillId)) {
         if (!battle_.moveUnit(*selectedUnit_, pos)) return false;
         consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
-        finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+        if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return true;
         selectedUnit_ = nullptr;
         pendingSkillSlot_ = -1;
         skillTargetTiles_.clear();
@@ -748,7 +899,7 @@ bool BattleController::selectSkillTarget(GridPos pos) {
         handleObjectiveEvent(battle_.missionState(),
                              BattleEvent{battle_.issueEventId(), 0, ObjectDestroyedEvent{object->id}});
         consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
-        finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+        if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return true;
         selectedUnit_ = nullptr;
         pendingSkillSlot_ = -1;
         skillTargetTiles_.clear();
@@ -768,7 +919,7 @@ bool BattleController::selectSkillTarget(GridPos pos) {
         if (!object || !def) return false;
         object->durability = std::min(object->durability + kFieldRepairAmount, def->maxDurability);
         consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
-        finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+        if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return true;
         selectedUnit_ = nullptr;
         pendingSkillSlot_ = -1;
         skillTargetTiles_.clear();
@@ -801,7 +952,7 @@ bool BattleController::selectSkillTarget(GridPos pos) {
         emitUnitDefeatedEvents(battle_, aliveBeforeSplash);
 
         consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
-        finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+        if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return true;
         selectedUnit_ = nullptr;
         pendingSkillSlot_ = -1;
         skillTargetTiles_.clear();
@@ -822,7 +973,31 @@ bool BattleController::selectSkillTarget(GridPos pos) {
         battle_.placeObject({"rapid_barricade_" + std::to_string(battle_.issueEventId()), "rapid_barricade", pos,
                              team, BattleObjectStateKind::Active, 6, 0});
         consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
-        finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+        if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return true;
+        selectedUnit_ = nullptr;
+        pendingSkillSlot_ = -1;
+        skillTargetTiles_.clear();
+        reachableTiles_.clear();
+        attackRangeTiles_.clear();
+        inputState_ = BattleInputState::SelectUnit;
+        evaluateOutcome();
+        return true;
+    }
+
+    // 伝令騎兵`rescue_transfer`(救援搬送): moves the target ally itself
+    // (reflection across the caster), not the caster - the ally's hasActed
+    // must stay untouched, so this doesn't route through the generic Unit
+    // fallback below (which always treats `pos` as an attack/buff/mark
+    // target of the caster, never as "move this other unit").
+    if (isRescueTransferShape(shapeSkillId)) {
+        Unit* ally = battle_.unitAt(pos);
+        if (!ally) return false;
+        GridPos delta{ally->position.row - selectedUnit_->position.row,
+                     ally->position.col - selectedUnit_->position.col};
+        GridPos dest{selectedUnit_->position.row - delta.row, selectedUnit_->position.col - delta.col};
+        if (!battle_.moveUnit(*ally, dest)) return false;
+        consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
+        if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return true;
         selectedUnit_ = nullptr;
         pendingSkillSlot_ = -1;
         skillTargetTiles_.clear();
@@ -861,11 +1036,13 @@ bool BattleController::selectSkillTarget(GridPos pos) {
         target->markedBonusDamage = mark->second.bonusDamage;
     } else if (isAdvanceOrderShape(skillId)) {
         applyMoveUp(*target);
+    } else if (isUrgentDispatchShape(skillId)) {
+        target->urgentDispatchActive = true;
     } else if (isProvokeShape(skillId)) {
         applyProvoke(*target, selectedUnit_->id);
     }
     consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
-    finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+    if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return true;
     selectedUnit_ = nullptr;
     pendingSkillSlot_ = -1;
     skillTargetTiles_.clear();
@@ -942,7 +1119,7 @@ void BattleController::confirmSkillAttack() {
     emitUnitDefeatedEvents(battle_, aliveBeforeAttack);
 
     consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
-    finishPlayerAction(*selectedUnit_, ActionKind::Skill);
+    if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return;
     selectedUnit_ = nullptr;
     pendingTarget_ = nullptr;
     pendingSkillSlot_ = -1;
@@ -969,7 +1146,7 @@ bool BattleController::selectBoardTarget(GridPos pos) {
     if (inputState_ != BattleInputState::SelectBoardTarget || !selectedUnit_ ||
         std::find(boardTargetTiles_.begin(), boardTargetTiles_.end(), pos) == boardTargetTiles_.end()) return false;
     battle_.setTerrain(pos, TerrainType::Barrier);
-    finishPlayerAction(*selectedUnit_, ActionKind::Item);
+    if (!finishPlayerAction(*selectedUnit_, ActionKind::Item)) return true;
     selectedUnit_ = nullptr;
     boardTargetTiles_.clear();
     attackRangeTiles_.clear();
@@ -1000,7 +1177,7 @@ void BattleController::chooseWait() {
             break;
         }
     }
-    finishPlayerAction(*selectedUnit_, ActionKind::Wait);
+    if (!finishPlayerAction(*selectedUnit_, ActionKind::Wait)) return;
     selectedUnit_ = nullptr;
     reachableTiles_.clear();
     attackRangeTiles_.clear();
@@ -1097,10 +1274,10 @@ void BattleController::confirmAttack() {
     if (hit && selectedUnit_->weapon.causesKnockback && pendingTarget_->isAlive())
         battle_.applyKnockback(*selectedUnit_, *pendingTarget_);
     emitUnitDefeatedEvents(battle_, aliveBeforeAttack);
-    finishPlayerAction(*selectedUnit_, ActionKind::Attack);
+    pendingTarget_ = nullptr;
+    if (!finishPlayerAction(*selectedUnit_, ActionKind::Attack)) return;
 
     selectedUnit_ = nullptr;
-    pendingTarget_ = nullptr;
     reachableTiles_.clear();
     targetableTiles_.clear();
     objectTargetableTiles_.clear();
@@ -1126,10 +1303,10 @@ void BattleController::confirmObjectAttack() {
                              BattleEvent{battle_.issueEventId(), 0,
                                         ObjectDestroyedEvent{pendingObjectTarget_->id}});
     }
-    finishPlayerAction(*selectedUnit_, ActionKind::Attack);
+    pendingObjectTarget_ = nullptr;
+    if (!finishPlayerAction(*selectedUnit_, ActionKind::Attack)) return;
 
     selectedUnit_ = nullptr;
-    pendingObjectTarget_ = nullptr;
     reachableTiles_.clear();
     targetableTiles_.clear();
     objectTargetableTiles_.clear();
