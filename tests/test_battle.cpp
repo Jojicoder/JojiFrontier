@@ -165,6 +165,8 @@ jf::GameData makeFactoryData() {
         "cavalry_recruit", jf::UnitTemplate{"cavalry_recruit", "Kael", jf::UnitClass::MessengerCavalry});
     data.recruitDefinitionsById.emplace(
         "banner_recruit", jf::UnitTemplate{"banner_recruit", "Lessa", jf::UnitClass::BannerBearer});
+    data.recruitDefinitionsById.emplace(
+        "ranger_recruit", jf::UnitTemplate{"ranger_recruit", "Vayla", jf::UnitClass::FrontierRanger});
     for (int i = 0; i < 4; ++i)
         data.playerParty.push_back({"player" + std::to_string(i), "Player", jf::UnitClass::MarchCaptain});
     for (int i = 0; i < 4; ++i)
@@ -1552,6 +1554,27 @@ int main() {
         assert(skillIt != app.equippedSkills().end() && !skillIt->second.equippedSkillIds[0].empty());
         const jf::SkillDefinition* skill = jf::findSkill(skillIt->second.equippedSkillIds[0]);
         assert(skill && skill->unitClass == jf::UnitClass::FrontierEngineer && skill->unlockTier == 1);
+        assert(skillIt->second.equippedSkillIds[1].empty());
+    }
+
+    {
+        // Same as above, for ranger_recruit (FrontierRanger).
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        testBase.joinReadyCandidateIds.insert("ranger_recruit");
+        testBase.completedRegionIds.insert(jf::RegionId::AshboughForest); // room in the roster (capacity 8)
+        const std::size_t rosterSizeBefore = app.roster().size();
+        assert(app.confirmRecruitJoin("ranger_recruit"));
+        assert(app.roster().size() == rosterSizeBefore + 1);
+        auto joined = std::find_if(app.roster().begin(), app.roster().end(),
+                                   [](const jf::UnitTemplate& u) { return u.id == "ranger_recruit"; });
+        assert(joined != app.roster().end() && joined->classId == jf::UnitClass::FrontierRanger);
+        assert(app.baseState().joinedRecruitIds.count("ranger_recruit"));
+        auto skillIt = app.equippedSkills().find("ranger_recruit");
+        assert(skillIt != app.equippedSkills().end() && !skillIt->second.equippedSkillIds[0].empty());
+        const jf::SkillDefinition* skill = jf::findSkill(skillIt->second.equippedSkillIds[0]);
+        assert(skill && skill->unitClass == jf::UnitClass::FrontierRanger && skill->unlockTier == 1);
         assert(skillIt->second.equippedSkillIds[1].empty());
     }
 
@@ -6499,6 +6522,9 @@ int main() {
         assert(app.baseState().discoveryRegistry.count(jf::kAshboughForestSurveyCompleteDiscovery) == 1);
         assert(app.baseState().completedRegionIds.count(jf::RegionId::AshboughForest) == 1);
         assert(app.isRegionUnlocked(jf::RegionId::CinderwatchGate));
+        // docs/roster_design.md「加入タイミング」: 辺境猟兵の加入候補は森の踏査記録
+        // (=AshboughForest地域完了)そのものが条件。
+        assert(app.baseState().joinReadyCandidateIds.count("ranger_recruit"));
         assert(app.startExpedition(jf::RegionId::CinderwatchGate));
         app.retireExpedition();
 
@@ -6542,6 +6568,7 @@ int main() {
         assert(app.baseState().completedRegionIds.count(jf::RegionId::AshboughForest) == 0);
         assert(app.baseState().discoveryRegistry.count(jf::kAshboughForestSurveyCompleteDiscovery) == 0);
         assert(!app.isRegionUnlocked(jf::RegionId::CinderwatchGate));
+        assert(!app.baseState().joinReadyCandidateIds.count("ranger_recruit"));
     }
 
     {

@@ -13,7 +13,8 @@
     { "id": "heavy_recruit", "name": "Hadric", "classId": "HeavyInfantry" },
     { "id": "engineer_recruit", "name": "Oren", "classId": "FrontierEngineer" },
     { "id": "cavalry_recruit", "name": "Kael", "classId": "MessengerCavalry" },
-    { "id": "banner_recruit", "name": "Lessa", "classId": "BannerBearer" }
+    { "id": "banner_recruit", "name": "Lessa", "classId": "BannerBearer" },
+    { "id": "ranger_recruit", "name": "Vayla", "classId": "FrontierRanger" }
   ],
   "enemyRoster": [
     { "id": "bandit1", "name": "Raider", "classId": "Bandit" },

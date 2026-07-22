@@ -117,8 +117,13 @@ void GameApp::proceedToCamp() {
             !expedition_.pendingRegionCompletions.count(expedition_.regionId) &&
             computeWouldRegionBeCleared(expedition_.regionId, expedition_, baseState_, data_)) {
             expedition_.pendingRegionCompletions.insert(expedition_.regionId);
-            if (expedition_.regionId == RegionId::AshboughForest)
+            if (expedition_.regionId == RegionId::AshboughForest) {
                 expedition_.pendingDiscoveries.push_back(kAshboughForestSurveyCompleteDiscovery);
+                // docs/roster_design.md「加入タイミング」: 辺境猟兵の加入候補条件は
+                // 「森の踏査記録(=このDiscoveryそのもの)、安全帰還」- 地域完了と
+                // 同時にPendingへ記録する(banner_recruitのCinderwatch完了時と同型)。
+                expedition_.pendingRecruitCandidateIds.insert("ranger_recruit");
+            }
         }
     }
     expedition_.battlesWon += 1;

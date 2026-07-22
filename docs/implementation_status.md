@@ -1097,6 +1097,20 @@ Transaction内で直接恒久化)。
 banner_recruitの組み合わせが宿舎増築I止まりの8人枠にすぐ収まらなくなり、正本の想定
 タイミングで実際に加入できなくなるため、M7-2の範囲に含めた。
 
+### 項目2続き 加入経路(辺境猟兵)
+
+`ranger_recruit`(ヴェイラ、FrontierRanger)を`recruits`配列へ追加。正本
+(`docs/roster_design.md`「加入タイミング」)の候補条件「森の踏査記録、安全帰還」は、
+既存の`kAshboughForestSurveyCompleteDiscovery`(灰枝の森地域完了時にPendingへ積まれ
+安全帰還で恒久化される既存Discovery)そのものだったため、護衛NPCのような未実装
+ギャップが無く、`banner_recruit`と同型の「地域完了そのものが条件」パターンで実装
+できた。`GameApp::proceedToCamp()`のAshboughForest地域完了判定ブロック(この
+Discoveryを`pendingDiscoveries`へPushしている箇所)へ、同じ`if`内で
+`expedition_.pendingRecruitCandidateIds.insert("ranger_recruit")`を1行追加するだけ
+(banner_recruitとは異なりPending経由 - 安全帰還まで確定させず、敗北/中断で失う
+`heavy_recruit`と同じ扱い)。受け入れ枠は既存の宿舎増築I(8人、AshboughForest完了と
+同一条件)がそのまま適用され、新しい段階は不要だった。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功
