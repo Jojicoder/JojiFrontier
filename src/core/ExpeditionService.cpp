@@ -248,6 +248,10 @@ ReturnToBaseResult applyExpeditionReturnToBase(ExpeditionState& expedition, Base
                                           discoveriesThisReturn.end();
             if (!alreadyHave) discoveriesThisReturn.push_back(discovery);
         }
+        // docs/roster_design.md「加入タイミング」: 旗手の加入候補は「軍旗記録
+        // registered」= 地域攻略後の安全帰還が条件そのものなので、Pending経由
+        // せずこの完了Transaction内で直接恒久化する。
+        baseState.joinReadyCandidateIds.insert("banner_recruit");
     }
 
     std::unordered_map<LootId, int> fitPlan;

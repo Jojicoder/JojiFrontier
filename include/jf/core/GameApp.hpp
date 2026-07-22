@@ -138,10 +138,9 @@ public:
     // join for a "加入可能候補" (baseState().joinReadyCandidateIds) - adds the
     // person to roster_, auto-equips their Tier-1 skill into slot 1 (slot 2
     // stays empty), and marks them permanently joined. Fails (no state
-    // change) if `candidateId` isn't join-ready, is already joined, or the
-    // Roster is at recruitCapacity(). Only "heavy_recruit" is wired so far -
-    // the other 5 recruits' Slices will extend this. Idempotent: calling
-    // again on an already-joined id fails harmlessly.
+    // change) if `candidateId` isn't join-ready, has no data definition, is
+    // already joined, or the Roster is at recruitCapacity(). Idempotent:
+    // calling again on an already-joined id fails harmlessly.
     bool confirmRecruitJoin(const std::string& candidateId);
     const std::unordered_set<std::string>& joinReadyCandidateIds() const { return baseState_.joinReadyCandidateIds; }
     const std::unordered_set<std::string>& joinedRecruitIds() const { return baseState_.joinedRecruitIds; }

@@ -32,16 +32,15 @@ void drawBaseTopBar(jf::GameApp& app, Vector2 mouse, bool clicked) {
 // GameApp::confirmRecruitJoin() - the real 集会所 conversation UI (choices,
 // read-state, portraits) is a separate, larger scope (docs/gathering_place.md,
 // M7項目4) not attempted here. Shows one line per join-ready-but-not-yet-
-// joined candidate; only "heavy_recruit" actually resolves to a class today
-// (see GameApp::confirmRecruitJoin()'s own comment).
+// joined candidate. Candidate display/class data comes from GameData's
+// recruit definitions, matching GameApp::confirmRecruitJoin().
 void drawBaseRecruitBanner(jf::GameApp& app, Vector2 mouse, bool clicked) {
     for (const std::string& candidateId : app.joinReadyCandidateIds()) {
         if (app.joinedRecruitIds().count(candidateId)) continue;
-        // Only heavy_recruit is wired to a display name/class today (mirrors
-        // GameApp::confirmRecruitJoin()'s own single-id gate).
-        if (candidateId != "heavy_recruit") continue;
-        std::string name = unitDisplayNameFor("Hadric");
-        std::string className = classNameFor(app.gameData(), jf::UnitClass::HeavyInfantry);
+        const jf::UnitTemplate* recruit = app.gameData().recruitDefinition(candidateId);
+        if (!recruit) continue;
+        std::string name = unitDisplayNameFor(recruit->name);
+        std::string className = classNameFor(app.gameData(), recruit->classId);
         bool hasCapacity = static_cast<int>(app.roster().size()) < app.recruitCapacity();
         Rectangle textRect{40, 66, 480, 24};
         Rectangle buttonRect{528, 60, 140, 34};

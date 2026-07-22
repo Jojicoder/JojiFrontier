@@ -1063,9 +1063,39 @@ Forestの同条件でのwin率(fresh party 80-100%、3-site通し0-50%)と比べ
 チェックを経由しない無条件付与のため、`applySaveData()`のスキル復元ロジックも
 `joinedRecruitIds`に含まれるUnitのTier1スキルだけそのチェックを迂回するよう分岐を
 追加した。加入候補の表示名・兵種は`data/units.json`の`recruits`配列へ移し、
-`confirmRecruitJoin()`、拠点UI、Save復元が同じ定義を参照する。残り5兵種
-(辺境工兵・伝令騎兵・辺境猟兵・旗手・戦闘魔導士)の加入条件配線は今後のSliceで
-`recruits`定義と加入候補付与条件を追加する形で拡張する。
+`confirmRecruitJoin()`、拠点UI、Save復元が同じ定義を参照する。残り2兵種
+(辺境猟兵・戦闘魔導士)の加入条件配線は今後のSliceで`recruits`定義と加入候補付与条件を
+追加する形で拡張する。
+
+### 項目2続き 加入経路(辺境工兵・伝令騎兵・旗手、M7-2)
+
+`data/units.json`の`recruits`配列へ`engineer_recruit`(オレン、FrontierEngineer)・
+`cavalry_recruit`(カエル、MessengerCavalry)・`banner_recruit`(レッサ、BannerBearer)を
+追加しただけで、既にデータ駆動化済みの`confirmRecruitJoin()`/拠点UI/Save復元がそのまま
+機能した(新規コード不要)。残るは各候補の「付与条件」の配線だけ。
+
+正本(`docs/regions/cinderwatch_gate.md`「報酬と加入」)では辺境工兵・伝令騎兵の候補
+条件は「工作兵生存」「伝令兵脱出」という護衛NPCの生存だが、この護衛NPCを一時的に
+プレイヤー操作/AI保護する仕組み(ProtectUnit・脱出護衛)はM6-B/Cで意図的に未実装のまま
+保留されたサブシステムのため、今回も実装しなかった。相談の結果、`ironwatch_stores`/
+`old_barracks`の通常勝利をそれぞれの候補付与条件として近似した
+(`GameApp::proceedToCamp()`、`heavy_recruit`が`brokenwood_territory`勝利をそのまま
+トリガーにしたのと同じ簡略化パターン)。旗手(`banner_recruit`)は正本どおり「軍旗記録
+registered」= 地域攻略後の安全帰還そのものが条件で、これはM6-Dの最低保証報酬コミットで
+既に保証済みのため護衛NPCのようなギャップがなく、`ExpeditionService.cpp`の
+CinderwatchGate完了top-upブロック内へ`baseState.joinReadyCandidateIds.insert(
+"banner_recruit")`を1行追加するだけで実装した(Pendingを経由せず、同じ安全帰還
+Transaction内で直接恒久化)。
+
+副次的に見つかったギャップも埋めた: `docs/roster_design.md`「受け入れ枠」の専門区画
+(11人)は「野戦工作記録を安全帰還」が条件だが、この`野戦工作記録`Discovery自体が
+コード上どこにも存在しなかった(`ironwatch_stores`の`工具庫`ルート/`CollapsedSidePath`は
+戦闘効果のみ実装済みで、医療区画ルート側の`ironwatch_field_medicine_records`と非対称
+だった)。新規安定ID`ironwatch_field_construction_records`を`CollapsedSidePath`の
+`routeDiscoveries`へ追加し、`BaseState::recruitCapacity()`へ専門区画(11人)の第3段階を
+実装した。これが無いと初期6人+heavy_recruit+engineer_recruit+cavalry_recruit+
+banner_recruitの組み合わせが宿舎増築I止まりの8人枠にすぐ収まらなくなり、正本の想定
+タイミングで実際に加入できなくなるため、M7-2の範囲に含めた。
 
 ## 検証状況
 

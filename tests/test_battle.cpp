@@ -159,6 +159,12 @@ jf::GameData makeFactoryData() {
                              jf::ClassDefinition{jf::UnitClass::AshenhornBoar, boarStats, "boar_tusks"});
     data.recruitDefinitionsById.emplace("heavy_recruit",
                                         jf::UnitTemplate{"heavy_recruit", "Hadric", jf::UnitClass::HeavyInfantry});
+    data.recruitDefinitionsById.emplace(
+        "engineer_recruit", jf::UnitTemplate{"engineer_recruit", "Oren", jf::UnitClass::FrontierEngineer});
+    data.recruitDefinitionsById.emplace(
+        "cavalry_recruit", jf::UnitTemplate{"cavalry_recruit", "Kael", jf::UnitClass::MessengerCavalry});
+    data.recruitDefinitionsById.emplace(
+        "banner_recruit", jf::UnitTemplate{"banner_recruit", "Lessa", jf::UnitClass::BannerBearer});
     for (int i = 0; i < 4; ++i)
         data.playerParty.push_back({"player" + std::to_string(i), "Player", jf::UnitClass::MarchCaptain});
     for (int i = 0; i < 4; ++i)
@@ -1444,6 +1450,109 @@ int main() {
         assert(reloaded->base.cinderwatchMaterialsEarned.count("iron"));
         assert(reloaded->base.cinderwatchMaterialsEarned.at("iron") ==
                saved.base.cinderwatchMaterialsEarned.at("iron"));
+    }
+
+    {
+        // docs/regions/cinderwatch_gate.md「報酬と加入」(approximated per M7-2's
+        // plan): ironwatch_stores' ordinary victory grants engineer_recruit's
+        // candidate, and the CollapsedSidePath route also registers 野戦工作記録
+        // (ironwatch_field_construction_records).
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(advanceToAshroadWatch(app)); // -> Exploration for site2 (ashroad_watch)
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> branch, ironwatch_stores first
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::CollapsedSidePath));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(app.returnToBase());
+        assert(app.baseState().joinReadyCandidateIds.count("engineer_recruit"));
+        assert(app.baseState().discoveryRegistry.count("ironwatch_field_construction_records"));
+        assert(app.recruitCapacity() == 11); // 野戦工作記録あり
+    }
+
+    {
+        // old_barracks' ordinary victory grants cavalry_recruit's candidate.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(advanceToAshroadWatch(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> branch, ironwatch_stores first
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // skip CollapsedSidePath here
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> branch, old_barracks
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(app.returnToBase());
+        assert(app.baseState().joinReadyCandidateIds.count("cavalry_recruit"));
+        // ironwatch_stores was cleared via FrontalAdvance this time, so no
+        // 野戦工作記録 - capacity stays at the AshboughForest-only tier.
+        assert(!app.baseState().discoveryRegistry.count("ironwatch_field_construction_records"));
+        assert(app.recruitCapacity() == 8);
+    }
+
+    {
+        // Full 6-site clear + safe return grants banner_recruit's candidate
+        // (docs/roster_design.md「加入タイミング」: 軍旗記録registeredそのものが
+        // 条件、Pendingを経由せず地域完了Transaction内で直接付与される).
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(startCinderwatchExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        for (int stage = 0; stage < 6; ++stage) {
+            winCurrentBattle(app);
+            app.proceedToCamp();
+            if (stage < 5) {
+                app.continueExpedition();
+                assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+            }
+        }
+        assert(app.returnToBase());
+        assert(app.baseState().completedRegionIds.count(jf::RegionId::CinderwatchGate));
+        assert(app.baseState().joinReadyCandidateIds.count("banner_recruit"));
+    }
+
+    {
+        // recruitCapacity(): 3rd tier (専門区画11人) requires
+        // ironwatch_field_construction_records specifically, independent of
+        // AshboughForest completion.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(app.recruitCapacity() == 6);
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        testBase.discoveryRegistry.insert("ironwatch_field_construction_records");
+        assert(app.recruitCapacity() == 11);
+        testBase.completedRegionIds.insert(jf::RegionId::AshboughForest);
+        assert(app.recruitCapacity() == 11); // still 11, not superseded by the lower tier
+    }
+
+    {
+        // GameApp::confirmRecruitJoin(): the now-data-driven path (GameData::
+        // recruitDefinition()) works identically for a non-heavy_recruit id -
+        // adds FrontierEngineer to the roster and auto-equips its Tier1 skill.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        testBase.joinReadyCandidateIds.insert("engineer_recruit");
+        testBase.completedRegionIds.insert(jf::RegionId::AshboughForest); // room in the roster (capacity 8)
+        const std::size_t rosterSizeBefore = app.roster().size();
+        assert(app.confirmRecruitJoin("engineer_recruit"));
+        assert(app.roster().size() == rosterSizeBefore + 1);
+        auto joined = std::find_if(app.roster().begin(), app.roster().end(),
+                                   [](const jf::UnitTemplate& u) { return u.id == "engineer_recruit"; });
+        assert(joined != app.roster().end() && joined->classId == jf::UnitClass::FrontierEngineer);
+        assert(app.baseState().joinedRecruitIds.count("engineer_recruit"));
+        auto skillIt = app.equippedSkills().find("engineer_recruit");
+        assert(skillIt != app.equippedSkills().end() && !skillIt->second.equippedSkillIds[0].empty());
+        const jf::SkillDefinition* skill = jf::findSkill(skillIt->second.equippedSkillIds[0]);
+        assert(skill && skill->unitClass == jf::UnitClass::FrontierEngineer && skill->unlockTier == 1);
+        assert(skillIt->second.equippedSkillIds[1].empty());
     }
 
     {
@@ -5890,7 +5999,7 @@ int main() {
         // 2-tile "物資箱確保" survey objective via the new surveyTileCount.
         assert(cinderwatch.stages[2].id == "ironwatch_stores" && cinderwatch.stages[2].enemyRoster.size() == 4 &&
               cinderwatch.stages[2].scoutRouteDisabled && cinderwatch.stages[2].surveyTileCount &&
-              *cinderwatch.stages[2].surveyTileCount == 2 && cinderwatch.stages[2].routeDiscoveries.size() == 1);
+              *cinderwatch.stages[2].surveyTileCount == 2 && cinderwatch.stages[2].routeDiscoveries.size() == 2);
         assert(cinderwatch.stages[3].id == "old_barracks" && cinderwatch.stages[3].enemyRoster.size() == 4);
         // docs/implementation_roadmap.md M6-C item2: signal_tower (site 5)
         // is real content now - its own roster (古参守備兵・監視弓兵2・槍兵2),

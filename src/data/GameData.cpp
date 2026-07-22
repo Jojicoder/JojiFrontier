@@ -26,6 +26,11 @@ const StageContentData& GameData::stageContent(const std::string& id) const {
     return stageContentById.at(id);
 }
 
+const UnitTemplate* GameData::recruitDefinition(const std::string& id) const {
+    auto it = recruitDefinitionsById.find(id);
+    return it == recruitDefinitionsById.end() ? nullptr : &it->second;
+}
+
 std::optional<UnitClass> unitClassFromString(const std::string& name) {
     static const std::unordered_map<std::string, UnitClass> lookup = {
         {"MarchCaptain", UnitClass::MarchCaptain},
@@ -235,6 +240,18 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
     if (unitsJson->contains("reserveRoster"))
         data.reserveRoster = readTemplates((*unitsJson)["reserveRoster"]);
     data.enemyRoster = readTemplates((*unitsJson)["enemyRoster"]);
+    if (unitsJson->contains("recruits")) {
+        for (UnitTemplate recruit : readTemplates((*unitsJson)["recruits"])) {
+            if (!data.classesById.contains(recruit.classId)) {
+                std::cerr << "Recruit " << recruit.id << " references a class with no definition" << std::endl;
+                return std::nullopt;
+            }
+            if (!data.recruitDefinitionsById.emplace(recruit.id, std::move(recruit)).second) {
+                std::cerr << "Duplicate recruit id" << std::endl;
+                return std::nullopt;
+            }
+        }
+    }
 
     auto readLootStacks = [](const json& arr) {
         std::vector<LootStack> result;

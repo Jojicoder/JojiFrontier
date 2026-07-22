@@ -222,14 +222,19 @@ struct BaseState {
     }
 
     // docs/roster_design.md「受け入れ枠」: joined-Roster capacity (not counting
-    // pending candidates). Only the first 2 stages (共同テント6人/宿舎増築I 8人)
-    // are wired so far - 専門区画(11人)/遠征別棟(12人) need Discovery/region-
-    // completion signals that don't exist in code yet; extend this switch
-    // when the next recruit's Slice adds them, same "add one more class at a
-    // time" pattern as M7項目1.
+    // pending candidates). First 3 stages (共同テント6人/宿舎増築I 8人/専門区画
+    // 11人) are wired - 遠征別棟(12人)needs 灰鉄採石場の本格攻略+異常鉱脈記録
+    // (a Discovery that doesn't exist in code yet, since M9's real Ashiron
+    // Quarry content is still a placeholder); extend this switch when that
+    // Slice adds them, same "add one more class at a time" pattern as M7項目1.
+    // kFieldConstructionDiscovery's literal is duplicated here (rather than
+    // referencing the named constant declared below) because that constant is
+    // declared after this struct in the same header.
     int recruitCapacity() const {
         constexpr int kCommunalTentCapacity = 6;
         constexpr int kBarracksExtensionICapacity = 8;
+        constexpr int kSpecialistWingCapacity = 11;
+        if (discoveryRegistry.count("ironwatch_field_construction_records")) return kSpecialistWingCapacity;
         if (completedRegionIds.count(RegionId::AshboughForest)) return kBarracksExtensionICapacity;
         return kCommunalTentCapacity;
     }
@@ -247,6 +252,10 @@ inline constexpr const char* kReturnSignalDiscovery = "signal_tower_return_signa
 // retreat-counting subsystem exists yet), so the region-completion floor
 // top-up in ExpeditionService.cpp is currently its only grant path.
 inline constexpr const char* kBannerRecordsDiscovery = "last_signal_banner_records";
+// docs/roster_design.md「受け入れ枠」の専門区画(11人)条件、および
+// docs/regions/cinderwatch_gate.md「3. アイアンウォッチ物資庫」工具庫確保の野戦工作記録
+// (`CollapsedSidePath`ルート限定 - `ironwatch_stores`のroute Discoveries)。
+inline constexpr const char* kFieldConstructionDiscovery = "ironwatch_field_construction_records";
 // Infirmary's Field Infirmary build requirement (a herb-thicket location).
 inline constexpr const char* kHerbThicketDiscovery = "herb_thicket_grounds";
 // docs/region_unlocks.md: Ashbough Forest's region-level completion mark.

@@ -76,15 +76,36 @@ const RegionRouteGraph& cinderwatchGraph() {
     return graph;
 }
 
+const RegionRouteGraph& ashironQuarryGraph() {
+    static const RegionRouteGraph graph{
+        RegionId::AshironQuarry,
+        "ashiron_quarry_main_route",
+        "ashiron_quarry_entrance",
+        "ashiron_quarry_exit",
+        {
+            {"ashiron_quarry_entrance", RouteNodeKind::Entrance, std::nullopt},
+            {"ashiron_quarry_outpost", RouteNodeKind::Site, "ashiron_quarry_outpost"},
+            {"ashiron_quarry_exit", RouteNodeKind::Exit, std::nullopt},
+        },
+        {
+            {"ashiron_quarry_entrance", "ashiron_quarry_outpost"},
+            {"ashiron_quarry_outpost", "ashiron_quarry_exit"},
+        },
+    };
+    return graph;
+}
+
 } // namespace
 
 bool usesRouteGraph(RegionId regionId) {
-    return regionId == RegionId::AshboughForest || regionId == RegionId::CinderwatchGate;
+    return regionId == RegionId::AshboughForest || regionId == RegionId::CinderwatchGate ||
+           regionId == RegionId::AshironQuarry;
 }
 
 const RegionRouteGraph& regionRouteGraph(RegionId regionId) {
     if (regionId == RegionId::AshboughForest) return ashboughGraph();
     if (regionId == RegionId::CinderwatchGate) return cinderwatchGraph();
+    if (regionId == RegionId::AshironQuarry) return ashironQuarryGraph();
     throw std::invalid_argument("region has no route graph");
 }
 
@@ -125,6 +146,23 @@ bool validateRouteGraph(const RegionRouteGraph& graph, std::string* error) {
     for (const RouteEdgeDefinition& edge : graph.edges)
         if (!findRouteNode(graph, edge.from) || !findRouteNode(graph, edge.to))
             return fail("route edge references an unknown node");
+    std::unordered_set<std::string> reachable;
+    std::vector<std::string> stack{graph.entranceNodeId};
+    while (!stack.empty()) {
+        std::string current = stack.back();
+        stack.pop_back();
+        if (!reachable.insert(current).second) continue;
+        if (const RouteNodeDefinition* node = findRouteNode(graph, current);
+            node && node->kind == RouteNodeKind::BranchGroup) {
+            for (const std::string& memberId : node->branchMembers) stack.push_back(memberId);
+        }
+        for (const RouteEdgeDefinition& edge : graph.edges)
+            if (edge.from == current) stack.push_back(edge.to);
+    }
+    if (!reachable.count(graph.exitNodeId)) return fail("route exit is not reachable from entrance");
+    for (const RouteNodeDefinition& node : graph.nodes)
+        if (node.kind == RouteNodeKind::Site && !reachable.count(node.id))
+            return fail("site node is not reachable from entrance");
     return true;
 }
 

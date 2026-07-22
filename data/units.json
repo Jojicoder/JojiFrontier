@@ -9,6 +9,12 @@
     { "id": "scout_reserve", "name": "Nessa", "classId": "FrontierScout" },
     { "id": "spear_reserve", "name": "Rowan", "classId": "Spearman" }
   ],
+  "recruits": [
+    { "id": "heavy_recruit", "name": "Hadric", "classId": "HeavyInfantry" },
+    { "id": "engineer_recruit", "name": "Oren", "classId": "FrontierEngineer" },
+    { "id": "cavalry_recruit", "name": "Kael", "classId": "MessengerCavalry" },
+    { "id": "banner_recruit", "name": "Lessa", "classId": "BannerBearer" }
+  ],
   "enemyRoster": [
     { "id": "bandit1", "name": "Raider", "classId": "Bandit" },
     { "id": "bandit2", "name": "Raider", "classId": "Bandit" },

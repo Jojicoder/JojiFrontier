@@ -186,7 +186,8 @@
         { "choice": "CollapsedSidePath", "enemiesRemoved": 1, "extraBarrierCount": 2 }
       ],
       "routeDiscoveries": [
-        { "choice": "FrontalAdvance", "discoveries": ["ironwatch_field_medicine_records"] }
+        { "choice": "FrontalAdvance", "discoveries": ["ironwatch_field_medicine_records"] },
+        { "choice": "CollapsedSidePath", "discoveries": ["ironwatch_field_construction_records"] }
       ],
       "discoveries": ["herb_thicket_grounds"],
       "scoutRouteDisabled": true,

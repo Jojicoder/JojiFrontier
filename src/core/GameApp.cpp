@@ -96,6 +96,14 @@ void GameApp::proceedToCamp() {
         // 勝利)で重装兵の加入候補を記録する。安全帰還まではPending
         // (ExpeditionState::pendingRecruitCandidateIds)、敗北で失う。
         if (stage.id == "brokenwood_territory") expedition_.pendingRecruitCandidateIds.insert("heavy_recruit");
+        // docs/regions/cinderwatch_gate.md「報酬と加入」: the real trigger is
+        // the escort NPC surviving (工作兵生存/伝令兵脱出), which needs a
+        // temporary player-controlled/protected-ally subsystem that doesn't
+        // exist (M6-B/C's own deferred scope). Approximated here as the site's
+        // ordinary victory, same simplification pattern as brokenwood_territory
+        // above.
+        if (stage.id == "ironwatch_stores") expedition_.pendingRecruitCandidateIds.insert("engineer_recruit");
+        if (stage.id == "old_barracks") expedition_.pendingRecruitCandidateIds.insert("cavalry_recruit");
         SiteAccessState achieved = surveySucceeded ? SiteAccessState::Secured : SiteAccessState::Surveyed;
         queueExpeditionSiteAccessPromotion(expedition_, siteAccessKey(expedition_.regionId, stage.id), achieved,
                                            baseState_);
@@ -610,23 +618,14 @@ bool GameApp::confirmRecruitJoin(const std::string& candidateId) {
     if (baseState_.joinedRecruitIds.count(candidateId)) return false; // already joined - idempotent no-op
     if (static_cast<int>(roster_.size()) >= recruitCapacity()) return false; // 枠不足: 候補は消さない
 
-    // docs/roster_design.md「加入段階」: only heavy_recruit is wired so far -
-    // extend this with the next recruit's Slice (see BaseState::
-    // recruitCapacity()'s matching comment).
-    UnitClass unitClass;
-    std::string displayName;
-    if (candidateId == "heavy_recruit") {
-        unitClass = UnitClass::HeavyInfantry;
-        displayName = "Hadric";
-    } else {
-        return false;
-    }
+    const UnitTemplate* recruit = data_.recruitDefinition(candidateId);
+    if (!recruit) return false;
 
     // docs/roster_design.md「兵種加入時の付与」手順1-5: Unit IDをRosterへ追加
     // (基本武器はUnit生成時にclassDefinition().weaponIdから解決されるため
     // UnitTemplate自体には持たせない)、Tier1スキルを第1枠へ装備、第2枠は空のまま。
-    roster_.push_back(UnitTemplate{candidateId, displayName, unitClass});
-    for (const SkillDefinition* skill : skillsForClass(unitClass)) {
+    roster_.push_back(*recruit);
+    for (const SkillDefinition* skill : skillsForClass(recruit->classId)) {
         if (skill->unlockTier == 1) {
             equippedSkills_[candidateId].equippedSkillIds[0] = skill->id;
             break;
@@ -725,13 +724,12 @@ bool GameApp::applySaveData(const SaveData& save) {
     // data_.playerParty/reserveRoster (GameApp::GameApp()) - a recruit joined
     // via confirmRecruitJoin() during a previous session must be re-added here
     // before the roster-dependent validation below (loadedParty/weapons/
-    // traits/skills) can see them. Same single-id gate as
-    // confirmRecruitJoin() itself; unrecognized ids are silently skipped
-    // (matches how that function also just refuses them).
+    // traits/skills) can see them. Unknown ids are skipped the same way
+    // confirmRecruitJoin() refuses candidates with no data definition.
     for (const std::string& candidateId : loadedBase.joinedRecruitIds) {
         if (std::any_of(roster_.begin(), roster_.end(), [&](const UnitTemplate& u) { return u.id == candidateId; }))
             continue;
-        if (candidateId == "heavy_recruit") roster_.push_back(UnitTemplate{candidateId, "Hadric", UnitClass::HeavyInfantry});
+        if (const UnitTemplate* recruit = data_.recruitDefinition(candidateId)) roster_.push_back(*recruit);
     }
     // Defensive self-consistency only (docs/base_development.md: built
     // facilities never expire, so there's no capacity to violate) - a

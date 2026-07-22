@@ -142,6 +142,7 @@ struct GameData {
     std::unordered_map<std::string, TerrainProfile> terrainProfilesById;
     std::unordered_map<UnitClass, ClassDefinition> classesById;
     std::unordered_map<std::string, StageContentData> stageContentById;
+    std::unordered_map<std::string, UnitTemplate> recruitDefinitionsById;
     std::vector<UnitTemplate> playerParty;
     std::vector<UnitTemplate> reserveRoster;
     std::vector<UnitTemplate> enemyRoster;
@@ -150,6 +151,7 @@ struct GameData {
     const ClassDefinition& classDefinition(UnitClass unitClass) const;
     const TerrainProfile& terrainProfile(const std::string& id) const;
     const StageContentData& stageContent(const std::string& id) const;
+    const UnitTemplate* recruitDefinition(const std::string& id) const;
 };
 
 std::optional<UnitClass> unitClassFromString(const std::string& name);
