@@ -4272,6 +4272,25 @@ int main() {
     }
 
     {
+        // docs/implementation_roadmap.md M7項目3: equipSkillForUnit() is
+        // class-generic, not Spearman-only - confirm it works the same way
+        // for one of the M7項目1 classes (FrontierEngineer). Every tier
+        // (including Tier1) requires the training branch here - only the
+        // auto-equip-at-join path (confirmRecruitJoin()) bypasses that gate.
+        jf::GameData data = makeFactoryData();
+        data.playerParty[0].classId = jf::UnitClass::FrontierEngineer;
+        jf::GameApp app(data);
+
+        assert(!app.equipSkillForUnit("player0", 0, "field_repair")); // specialist_training not built
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        testBase.unlockedNodeIds.insert("specialist_training");
+        assert(app.equipSkillForUnit("player0", 0, "field_repair"));
+        assert(app.equippedSkills().at("player0").equippedSkillIds[0] == "field_repair");
+        assert(app.equipSkillForUnit("player0", 1, "rubble_charge"));
+        assert(app.equippedSkills().at("player0").equippedSkillIds[1] == "rubble_charge");
+    }
+
+    {
         // Skill equip round-trips through SaveData (docs/skill_system.md
         // "保存データ"): survives export/import and requires the training
         // branch to still be unlocked on the receiving side.

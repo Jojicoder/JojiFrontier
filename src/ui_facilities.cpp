@@ -4,6 +4,7 @@
 #include <raylib.h>
 
 #include <algorithm>
+#include <array>
 #include <string>
 #include <vector>
 
@@ -261,6 +262,59 @@ void drawForgeEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, flo
     }
 }
 
+// docs/character_progression.md「ユニットページ」詳細5「装備スキル2枠」: unlike the
+// weapon/trait panel above, this works for any class - GameApp::equipSkillForUnit()
+// was already class-generic (only Spearman's *UI* was missing). The diff/preview
+// panel, cooperation tactics, and exploration-ability sections from the full spec
+// are out of scope for this Slice; only the 2 skill slots are wired here.
+void drawSkillEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, float x, float y, float width,
+                             Vector2 mouse, bool clicked) {
+    drawSectionHeading(tr("ui.unit_screen.skills_heading"), static_cast<int>(x), static_cast<int>(y), 18);
+    const jf::BaseState& base = app.baseState();
+    const std::vector<const jf::SkillDefinition*> classSkills = jf::skillsForClass(unit.classId);
+    const std::string requiredNode = jf::requiredTrainingNodeIdFor(unit.classId);
+    const bool trainingUnlocked = !requiredNode.empty() && base.unlockedNodeIds.count(requiredNode) > 0;
+
+    auto slotIt = app.equippedSkills().find(unit.id);
+    std::array<std::string, 2> equipped{"", ""};
+    if (slotIt != app.equippedSkills().end()) equipped = slotIt->second.equippedSkillIds;
+
+    const float candidateWidth = (width - 3 * 10.0f) / 4.0f;
+    for (int slot = 0; slot < 2; ++slot) {
+        float slotY = y + 30 + static_cast<float>(slot) * 70.0f;
+        const jf::SkillDefinition* currentDef = equipped[slot].empty() ? nullptr : jf::findSkill(equipped[slot]);
+        std::string currentLabel = currentDef ? pick(currentDef->nameEn, currentDef->nameJa) : tr("ui.unit_screen.skill_slot_empty");
+        drawText(tr("ui.unit_screen.skill_slot_prefix") + std::to_string(slot + 1) + ": " + currentLabel,
+                 static_cast<int>(x), static_cast<int>(slotY), 14, kColorTextMuted);
+
+        for (std::size_t index = 0; index < classSkills.size() && index < 3; ++index) {
+            const jf::SkillDefinition* skill = classSkills[index];
+            // equipSkillForUnit() requires the training branch for every
+            // tier, including Tier1 - only the auto-equip-at-join path
+            // (confirmRecruitJoin()/roster init) bypasses it.
+            bool available = trainingUnlocked;
+            // A skill already equipped in the other slot can't also go here -
+            // equipSkillForUnit() only checks per-slot validity, so the UI
+            // enforces no-duplicate-across-slots itself (see plan Context).
+            bool equippedElsewhere = equipped[1 - slot] == skill->id;
+            Rectangle rect{x + static_cast<float>(index) * (candidateWidth + 10.0f), slotY + 24, candidateWidth, 34};
+            std::string labelEn = skill->nameEn;
+            std::string labelJa = skill->nameJa;
+            if (available && !equippedElsewhere) {
+                if (button(rect, labelEn, labelJa, mouse, clicked)) app.equipSkillForUnit(unit.id, slot, skill->id);
+            } else {
+                disabledButton(rect, pick(labelEn, labelJa));
+            }
+        }
+        Rectangle clearRect{x + 3 * (candidateWidth + 10.0f), slotY + 24, candidateWidth, 34};
+        if (equipped[slot].empty()) {
+            disabledButton(clearRect, tr("ui.unit_screen.skill_slot_clear"));
+        } else if (button(clearRect, tr("ui.unit_screen.skill_slot_clear"), mouse, clicked)) {
+            app.equipSkillForUnit(unit.id, slot, "");
+        }
+    }
+}
+
 void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     auto unit = std::find_if(app.roster().begin(), app.roster().end(), [&](const jf::UnitTemplate& candidate) {
         return gBaseScreen.viewedUnitId && candidate.id == *gBaseScreen.viewedUnitId;
@@ -306,6 +360,8 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         drawText(tr("ui.unit_screen.no_alt_equipment"),
                  580, 246, 14, kColorTextMuted);
     }
+
+    drawSkillEquipmentPanel(app, *unit, 580, 420, 626, mouse, clicked);
 }
 
 // The facility card grid (list view, shown when no facility is visited

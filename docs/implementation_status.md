@@ -1111,7 +1111,7 @@ Discoveryを`pendingDiscoveries`へPushしている箇所)へ、同じ`if`内で
 `heavy_recruit`と同じ扱い)。受け入れ枠は既存の宿舎増築I(8人、AshboughForest完了と
 同一条件)がそのまま適用され、新しい段階は不要だった。
 
-### 項目3 ユニットページと装備共有(武器重複装備の防止のみ)
+### 項目3 ユニットページと装備共有(武器重複装備の防止・装備スキル2枠UI)
 
 正本(`docs/character_progression.md`)が定めるユニットページ本体(一覧・詳細・
 比較パネル・クールダウン表示・連携戦術・探索能力表示)は依然未着手 - 現在の
@@ -1139,6 +1139,26 @@ Save内容を復元していたため、同じ制約を追加(手編集や旧Sav
 `src/ui_facilities.cpp`)側は戻り値を見ておらず、他ユニットが既に持っている武器の
 ボタンが押せてしまう(クリックしても状態が変わらないだけ)見た目の改善は、
 ユニットページ本体のSliceへ送った。
+
+### 項目3続き 装備スキル2枠UI(全兵種)
+
+`GameApp::equipSkillForUnit(unitId, slotIndex, skillId)`(`src/core/GameApp.cpp:598`)は
+元々クラス非依存の汎用実装(スキル側の`unitClass`一致と`requiredTrainingNodeIdFor()`の
+解放チェックのみ)だったが、これを呼ぶUIがコード全体でどこにも存在せず、スキルは
+加入時のTier1自動装備のまま変更不可能だった。`drawUnitScreen()`
+(`src/ui_facilities.cpp`)へ`drawSkillEquipmentPanel()`を新設し、武器/特性カードの
+Spearman専用`if`分岐の外側(両分岐共通)へ配置 - 初めて全兵種共通の装備UIになった。
+`skillsForClass(unit.classId)`でクラスの3スキル(Tier1〜3)を取得し、2枠それぞれへ
+選択ボタン+解除ボタンを表示する。
+
+実装中に判明した誤認: 当初「Tier1は加入時に無条件付与されるため、再装備時も
+`requiredTrainingNodeIdFor()`の解放チェックを経由しない」と想定していたが、実際の
+`equipSkillForUnit()`はTier1を含む全Tierで訓練所解放を要求する(無条件付与は
+`confirmRecruitJoin()`の加入直後の1回だけで、`equippedSkills_`へ直接書き込む別経路)。
+UIのボタン有効化条件をTierに関わらず`trainingUnlocked`一本に修正して対応した。
+2枠間の重複防止(同じスキルを両枠に同時装備できないようにする)は`equipSkillForUnit()`
+自体を変更せず、UI側でボタンを無効化するだけの対応にとどめた(装備UIが1つしか
+存在しない現状ではUI側のガードで十分と判断)。
 
 ## 検証状況
 
