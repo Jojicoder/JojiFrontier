@@ -1192,6 +1192,16 @@ UIのボタン有効化条件をTierに関わらず`trainingUnlocked`一本に�
   単純な1回走査へ書き換え、`stageDescriptorFromContent()`のフィールドコピーも3行から
   1行になった。`jf_forest_balance`(AshboughForest、200 Seed)の実測は移行前後で
   完全に同一(Byte-identical)。
+- M1-E「M9前ブロッカー」項目1(Encounter生成ロジック自体のDefinition駆動化)は
+  意図的に見送り(2026-07、調査済み): `BattleFactory.cpp`の`assembleScenario()`が持つ
+  14ステップの生成手順は既に地域名・地点名による分岐を一切持たず、全て`stage.xxx`の
+  有無チェックだけで分岐している。出荷済み7 Stage(灰枝の森3・沈黙した監視所群6・
+  灰鉄採石場プレースホルダー)は全て同じ手順で問題なく生成できており、「この手順では
+  表現できないStage」は現状一つも存在しない。正本(`docs/region_mission_data_contract.md`
+  等)にも具体的なStep Schemaは無く、ロードマップの1行の目標記述に留まっていた。
+  実装原則9「未実装の将来拡張を先に一般化しすぎない」との衝突を理由に、M9で実際に
+  現行手順では表現できないStageが出た時点で着手する判断とした。M1-E「M9前ブロッカー」
+  4項目はこれで全て対応済み(3項目完了・1項目意図的見送り)。
 
 ## 次の優先候補
 

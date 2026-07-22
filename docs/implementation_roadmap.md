@@ -25,10 +25,11 @@ Milestone進行(M0〜M6は完了/概ね完了、M8-Aは未実装、詳細は各�
 
 1. M7項目3(残り) ユニットページ本体(一覧/詳細/比較パネル、スキル・特性UIの
    全兵種一般化)
-2. M1-E/M9前基盤整理(残り): 残りRegion/Site/Encounter完全定義化(Encounter生成の
-   動的合成)。Route Graph到達検査・Objective参照ID検証・RewardRule置換は完了
-3. 灰鉄採石場の本格コンテンツ化(M9、現状は最小プレースホルダー1地点のみ、
+2. 灰鉄採石場の本格コンテンツ化(M9、現状は最小プレースホルダー1地点のみ、
    戦闘魔導士(mage_recruit)の加入経路はこれに依存)
+
+M1-E「M9前ブロッカー」4項目は全て対応済み(3項目完了・1項目は現状ニーズ無しと判断し
+意図的に見送り)のため、M9(残り8地域)へいつでも着手できる状態。
 
 現在のコードが正式仕様へ未追従している詳細は`implementation_status.md`だけへ記録する。
 
@@ -330,10 +331,10 @@ Exit(ExitPoint、データモデルのみ)、Interact検証(射程・兵種・�
 状態: **地形Profile Slice完了。既存6 Stage(灰枝の森3地点+沈黙した監視所群3地点)すべてを
 `data/regions.json`駆動へ移行済み(`StageDescriptor`の一部フィールド)、`BattleFactory.cpp`から
 地域名・地点名による分岐を除去済み、CTest登録済みのコンテンツ構造検証(`jf_content_tests`)を
-新設済み。`UnitClass` switch分散のうち表示名2箇所を解消(2026-07)。M9前ブロッカーの
-Route Graph到達可能性検査・Objective静的参照ID検証・`RewardRule`置換は完了(2026-07)。
-Encounter生成ロジック自体のDefinition駆動化、AI・Boss状態のデータ化、兵種パッシブの
-能力ID化は未着手。M9着手前の必須基盤**
+新設済み。`UnitClass` switch分散のうち表示名2箇所を解消(2026-07)。M9前ブロッカー
+4項目すべて対応完了(2026-07、うちEncounter生成ロジック自体のDefinition駆動化は
+調査の結果、現状ニーズが無いと判断し意図的に見送り)。AI・Boss状態のデータ化、
+兵種パッシブの能力ID化は未着手。M9着手前の必須基盤は完了**
 
 目的: 新しい兵種、一般敵、地形構成、地点、地域を、既存Mechanicの組み合わせであれば
 C++の列挙・分岐追加なしにDefinitionだけで追加できるようにする。独自Boss行動や新しい地形効果など、
@@ -341,8 +342,15 @@ C++の列挙・分岐追加なしにDefinitionだけで追加できるように�
 
 **M9前ブロッカー**(M9着手前に必ず解消する項目、他は未着手のままでもM9へ進める):
 
-1. 残りRegion/Site/Encounterの完全定義化(実装Slice1、現状は値の置き場所がJSON化されただけで
-   Encounter生成ロジック自体は未移行) - 未着手
+1. 残りRegion/Site/Encounterの完全定義化(実装Slice1、Encounter生成ロジック自体の
+   Definition駆動化) - **調査済み・意図的に見送り(2026-07)**。`BattleFactory.cpp`の
+   `assembleScenario()`が持つ14ステップの生成手順は既に地域名・地点名による分岐を
+   一切持たず、全て`stage.xxx`の有無チェックだけで分岐している。出荷済み7 Stage
+   (灰枝の森3・沈黙した監視所群6・灰鉄採石場プレースホルダー)は全て同じ手順で問題なく
+   生成できており、「この手順では表現できないStage」は現状一つも存在しない。正本
+   (`docs/region_mission_data_contract.md`等)にも具体的なStep Schemaは無く、この項目は
+   実装原則9「未実装の将来拡張を先に一般化しすぎない」と衝突する予防的設計と判断し、
+   M9で実際にこの手順で表現できないStageが出た時点で着手する
 2. `RewardRule`への置換(実装Slice4) - **完了(2026-07)**。`StageDescriptor`/
    `StageContentData`の`baseVictoryLoot`/`routeVictoryLootDelta`/`surveyBonusLoot`
    3フィールドを`std::vector<RewardRule>`(Always/RouteChoice/SurveySuccessの3条件)
@@ -1778,7 +1786,7 @@ recruitDefinition()`によって完全にデータ駆動化された - 新しい
 
 ## 直近の実装順
 
-次の3 Sliceだけに集中する。
+次の2 Sliceだけに集中する(M1-E「M9前ブロッカー」は全項目対応済み)。
 
 1. **M7項目3(残り) ユニットページ本体**
    - 一覧(加入候補の非表示ロジック)・比較パネル・差分プレビュー
@@ -1786,10 +1794,7 @@ recruitDefinition()`によって完全にデータ駆動化された - 新しい
    - 探索能力表示
    - 調整特性・武器分岐の他11兵種への拡張(現状Spearmanのみ実装)
    - 武器重複装備の防止・装備スキル2枠UI(全兵種)は完了(このSliceで実装済み)
-2. **M1-E/M9前基盤整理(残り)**
-   - 残りRegion/Site/Encounterの完全定義化(Encounter生成ロジック自体のDefinition
-     駆動化)。Route Graph到達検査・Objective静的参照ID検証・RewardRuleは完了
-3. **灰鉄採石場の本格コンテンツ化(M9)**
+2. **灰鉄採石場の本格コンテンツ化(M9)**
    - 最小プレースホルダー(1地点)を正式な5地点構成へ置き換え
    - 戦闘魔導士(`mage_recruit`)の加入経路もこれに依存するため同時に配線
 
