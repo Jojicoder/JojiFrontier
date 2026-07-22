@@ -345,6 +345,12 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     drawText("DEF " + std::to_string(stats.defense) + "    RES " + std::to_string(stats.resistance) +
                  "    MOV " + std::to_string(stats.move), 72, 418, 16, kColorTextPrimary);
 
+    const std::string explorationAbility = explorationAbilityFor(unit->classId);
+    if (!explorationAbility.empty()) {
+        drawSectionHeading(tr("ui.unit_screen.exploration_ability_heading"), 72, 460, 18);
+        drawText(wrapTextToWidth(explorationAbility, 14, 400), 72, 494, 14, kColorTextMuted);
+    }
+
     Rectangle equipment{548, 104, 690, 500};
     drawCard(equipment, kColorCard, kColorBorderSoft, 0.04f);
     if (unit->classId == jf::UnitClass::Spearman) {

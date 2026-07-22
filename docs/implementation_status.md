@@ -1160,6 +1160,22 @@ UIのボタン有効化条件をTierに関わらず`trainingUnlocked`一本に�
 自体を変更せず、UI側でボタンを無効化するだけの対応にとどめた(装備UIが1つしか
 存在しない現状ではUI側のガードで十分と判断)。
 
+### 項目3続き 探索能力表示
+
+正本(`docs/exploration_system.md`「兵種による探索能力」)を確認したところ、探索能力が
+明記されているのは12兵種中5兵種(辺境斥候・辺境工兵・辺境猟兵・暁の衛生兵・重装兵)
+だけで、残り7兵種(戦闘特化兵種)には記述が無いと判明。既存の「Spearmanだけ武器分岐を
+持つ」と同じ「正本に無いものは作らない」方針に従い、`explorationAbilityFor(UnitClass)`
+(`src/ui_shared.cpp`)を新設し、該当5兵種は対応Locale Keyを返し、残り7兵種は空文字列を
+返すswitchとして実装。`drawUnitScreen()`(`src/ui_facilities.cpp`)のidentityカードへ、
+空でない場合だけ「探索能力」セクションを追加する(該当しない兵種はセクション自体を
+出さない)。新規Locale Keyは`tr()`経由の通常Keyのため`allJapaneseGlyphText()`が自動収集し、
+手動Glyph登録は不要だった。`explorationAbilityFor()`は`ui_shared.cpp`にあり
+(`CMakeLists.txt`の`jf_lib`ソース一覧から意図的に除外されている、raylib型に依存する
+UI層のファイル)、`jf_battle_tests`からはリンクされないため専用の単体テストは追加せず、
+既存の`jf_locale_tests`/`check_localization`によるLocale Key整合性検証とビルド成功を
+検証手段とした(同ファイルの他のUI Helperと同じ既存の検証パターン)。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功

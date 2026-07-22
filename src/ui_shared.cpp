@@ -527,6 +527,22 @@ std::string classRoleFor(const jf::GameData& data, jf::UnitClass unitClass) {
     return tr(it->second.roleKey);
 }
 
+// docs/exploration_system.md「兵種による探索能力」: only 5 of 12 classes have a
+// documented exploration ability (the rest are combat-only per that doc) -
+// returns "" for the other 7 rather than inventing flavor text for them,
+// same "don't build what the spec doesn't define" stance as Spearman being
+// the only class with weapon branches today.
+std::string explorationAbilityFor(jf::UnitClass unitClass) {
+    switch (unitClass) {
+        case jf::UnitClass::FrontierScout: return tr("ui.unit_screen.exploration_ability.frontier_scout");
+        case jf::UnitClass::FrontierEngineer: return tr("ui.unit_screen.exploration_ability.frontier_engineer");
+        case jf::UnitClass::FrontierRanger: return tr("ui.unit_screen.exploration_ability.frontier_ranger");
+        case jf::UnitClass::DawnChirurgeon: return tr("ui.unit_screen.exploration_ability.dawn_chirurgeon");
+        case jf::UnitClass::HeavyInfantry: return tr("ui.unit_screen.exploration_ability.heavy_infantry");
+        default: return "";
+    }
+}
+
 // Locale counterpart to jf::kItemCatalog's (English-only) descriptions.
 std::string itemDescriptionFor(jf::ItemType type) {
     switch (type) {

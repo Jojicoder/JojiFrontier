@@ -100,6 +100,7 @@ Color teamColor(jf::Team team);
 
 std::string classNameFor(const jf::GameData& data, jf::UnitClass unitClass);
 std::string classRoleFor(const jf::GameData& data, jf::UnitClass unitClass);
+std::string explorationAbilityFor(jf::UnitClass unitClass);
 std::string itemFullNameFor(jf::ItemType type);
 std::string itemDescriptionFor(jf::ItemType type);
 std::string materialNameFor(const std::string& id);
