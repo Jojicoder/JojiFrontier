@@ -4,7 +4,7 @@
 仕様索引: [`README.md`](README.md)
 この文書は現行コードとの差を記録し、正本を上書きしない。
 
-更新日: 2026-07-13
+更新日: 2026-07-22
 
 この文書は、企画上の確定仕様ではなく、現在のコードに入っている機能と残作業を記録する。
 詳細な設計判断は各仕様書を正とする。
@@ -1110,6 +1110,12 @@ banner_recruitの組み合わせが宿舎増築I止まりの8人枠にすぐ収�
   既存テスト4件の不具合も合わせて修正した
 - `tests/test_battle.cpp`は`NDEBUG`が残っていればCompile errorにし、CMakeはClang/GCCの
   `-UNDEBUG`とMSVCの`/UNDEBUG`を切り替える。修正前のTest成功記録は回帰保証に使用しない
+- M1-E「M9前ブロッカー」項目3・4(静的部分)完了(2026-07): `loadGameData()`が起動時に
+  全Route Graphの到達可能性(`validateRouteGraph()`)を検証するようになり、
+  `jf_content_tests`が全Stage×`FrontalAdvance`/`CollapsedSidePath`/`ScoutRoute`の
+  3ルートで`validateBattleMission()`のエラーが空であることをアサートするようになった
+  (従来は戦闘組み立てのたびに呼ばれていたが結果を`stderr`へ出すだけでCTestを
+  落とさなかった)。詳細: [`implementation_roadmap.md`](implementation_roadmap.md#m1-e-コンテンツ追加基盤)
 
 ## 次の優先候補
 

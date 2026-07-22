@@ -6,6 +6,9 @@
 
 #include <nlohmann/json.hpp>
 
+#include "jf/core/Region.hpp"
+#include "jf/core/RouteGraph.hpp"
+
 namespace jf {
 
 using json = nlohmann::json;
@@ -536,6 +539,19 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
         }
         if (!data.stageContentById.emplace(stage.id, std::move(stage)).second) {
             std::cerr << "Duplicate stage id in regions.json: " << s.at("id").get<std::string>() << std::endl;
+            return std::nullopt;
+        }
+    }
+
+    // docs/implementation_roadmap.md M1-E「M9前ブロッカー」項目3: Route Graphは
+    // regions.jsonではなくハードコードされたC++定義(RouteGraph.cpp)だが、他の全
+    // Loader検証と同じ「起動時に拒否する」扱いに揃える。validateRouteGraph()自体は
+    // 既存実装(entrance→exit到達性・全SiteNode到達性)をそのまま使う。
+    for (RegionId regionId : {RegionId::AshboughForest, RegionId::CinderwatchGate, RegionId::AshironQuarry}) {
+        if (!usesRouteGraph(regionId)) continue;
+        std::string routeError;
+        if (!validateRouteGraph(regionRouteGraph(regionId), &routeError)) {
+            std::cerr << "Invalid route graph for region " << toString(regionId) << ": " << routeError << std::endl;
             return std::nullopt;
         }
     }

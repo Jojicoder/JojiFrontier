@@ -12,6 +12,7 @@
 
 #include "jf/battle/BattleFactory.hpp"
 #include "jf/battle/Movement.hpp"
+#include "jf/battle/ObjectiveTracker.hpp"
 #include "jf/core/Region.hpp"
 
 // docs/implementation_roadmap.md M1-E slice7 "コンテンツ検査ツール": for every
@@ -68,9 +69,10 @@ bool hasRouteAcrossBoard(const jf::BattleState& battle) {
     return false;
 }
 
-void checkStage(const jf::GameData& data, const jf::StageDescriptor& stage) {
-    for (std::uint32_t seed = 0; seed < kSeedCount; ++seed) {
-        const jf::BattleState battle = jf::createScenarioBattle(data, stage, seed);
+void checkStageWithOutcome(const jf::GameData& data, const jf::StageDescriptor& stage,
+                           const jf::ExplorationOutcome& outcome, std::uint32_t seedCount) {
+    for (std::uint32_t seed = 0; seed < seedCount; ++seed) {
+        const jf::BattleState battle = jf::createScenarioBattle(data, stage, seed, outcome);
 
         std::set<std::pair<int, int>> occupied;
         int playerCount = 0, enemyCount = 0;
@@ -87,7 +89,11 @@ void checkStage(const jf::GameData& data, const jf::StageDescriptor& stage) {
         assert(playerCount > 0);
         const std::vector<jf::UnitTemplate>& roster =
             stage.enemyRoster.empty() ? data.enemyRoster : stage.enemyRoster;
-        const std::size_t expectedEnemies = std::min(stage.enemyCountOverride.value_or(roster.size()), roster.size());
+        std::size_t expectedEnemies = std::min(stage.enemyCountOverride.value_or(roster.size()), roster.size());
+        // BattleFactory.cpp's buildEnemies(): the chosen route can remove a
+        // fixed count of enemies (e.g. ironwatch_stores' CollapsedSidePath
+        // dropping the archer) on top of the base roster/override.
+        expectedEnemies -= std::min(expectedEnemies, static_cast<std::size_t>(std::max(0, outcome.enemiesRemoved)));
         assert(static_cast<std::size_t>(enemyCount) == expectedEnemies);
 
         assert(hasRouteAcrossBoard(battle) && "no left-to-right route across the generated board");
@@ -100,7 +106,9 @@ void checkStage(const jf::GameData& data, const jf::StageDescriptor& stage) {
                 assert(object.position.col >= rule.zoneMinCol && object.position.col <= rule.zoneMaxCol);
                 assert(!battle.unitAt(object.position) && "Object placed on an occupied Tile");
             }
-            assert(placed == rule.count); // default ExplorationOutcome: extraBarrierCount == 0
+            const int expectedCount =
+                rule.count + (rule.scalesWithExtraBarrierOutcome ? outcome.extraBarrierCount : 0);
+            assert(placed == expectedCount);
         }
 
         if (stage.herbPatchGeneration) {
@@ -113,11 +121,21 @@ void checkStage(const jf::GameData& data, const jf::StageDescriptor& stage) {
             assert(herbTiles == stage.herbPatchGeneration->count);
         }
 
+        // docs/implementation_roadmap.md M1-E「M9前ブロッカー」項目4(静的部分):
+        // BattleFactory.cpp's createScenarioBattle() already runs
+        // validateBattleMission() on every assembled battle, but a failure
+        // there only prints to stderr - it doesn't fail the build. Assert it
+        // here instead, so a broken Objective/BattleObject configuration
+        // (missing primary group, dangling references, etc.) fails CTest.
+        const std::vector<std::string> missionErrors =
+            jf::validateBattleMission(battle.missionState(), battle);
+        assert(missionErrors.empty() && "validateBattleMission() reported errors for this stage/route/seed");
+
         // Determinism: the same seed must reproduce the same battle exactly
         // (docs/battle_objects.md "ランダム生成"'s Snapshot-ability depends on
         // this - Save re-derives from Seed + Definition rather than storing
         // the full board).
-        const jf::BattleState replay = jf::createScenarioBattle(data, stage, seed);
+        const jf::BattleState replay = jf::createScenarioBattle(data, stage, seed, outcome);
         assert(replay.units().size() == battle.units().size());
         for (std::size_t i = 0; i < battle.units().size(); ++i) {
             assert(replay.units()[i].position == battle.units()[i].position);
@@ -131,13 +149,36 @@ void checkStage(const jf::GameData& data, const jf::StageDescriptor& stage) {
     }
 }
 
+// docs/implementation_roadmap.md M1-E「M9前ブロッカー」項目4(静的部分): the
+// default-outcome-only loop above used to be the entire check, leaving every
+// route's routeOutcomes override (e.g. signal_tower's OperateObject primary,
+// last_signal's DefeatUnit primary) untested by CTest. Route Variants get a
+// lighter Seed count than the default route to keep runtime reasonable -
+// this is a structural check, not a balance measurement, so fewer Seeds are
+// enough to catch a data-authoring mistake in a route-specific override.
+constexpr std::uint32_t kRouteVariantSeedCount = 20;
+
+void checkStage(const jf::GameData& data, const jf::StageDescriptor& stage) {
+    // FrontalAdvance is each stage's default/primary route (some stages, e.g.
+    // signal_tower/last_signal, still attach a non-default ExplorationOutcome
+    // to it via routeOutcomes - never assume it equals ExplorationOutcome{}),
+    // so it keeps the full Seed count; the other 2 choices are lighter checks.
+    checkStageWithOutcome(data, stage, jf::stageRouteOutcome(stage, jf::ExplorationChoice::FrontalAdvance),
+                         kSeedCount);
+    for (jf::ExplorationChoice choice :
+        {jf::ExplorationChoice::CollapsedSidePath, jf::ExplorationChoice::ScoutRoute}) {
+        checkStageWithOutcome(data, stage, jf::stageRouteOutcome(stage, choice), kRouteVariantSeedCount);
+    }
+}
+
 } // namespace
 
 int main() {
     auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
     assert(data);
 
-    for (jf::RegionId regionId : {jf::RegionId::CinderwatchGate, jf::RegionId::AshboughForest}) {
+    for (jf::RegionId regionId :
+        {jf::RegionId::CinderwatchGate, jf::RegionId::AshboughForest, jf::RegionId::AshironQuarry}) {
         const jf::RegionDescriptor region = jf::regionDescriptor(regionId, *data);
         assert(!region.stages.empty());
         for (const jf::StageDescriptor& stage : region.stages) {

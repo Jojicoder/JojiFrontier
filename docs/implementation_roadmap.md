@@ -4,7 +4,7 @@
 
 仕様索引: [`README.md`](README.md)
 
-更新日: 2026-07-21
+更新日: 2026-07-22
 
 この文書は実装順、依存関係、品質Gateだけを管理する。ゲーム仕様、数値、安定IDを新規定義しない。
 仕様変更は[`README.md`](README.md)で指定された正本へ行い、現在の実装詳細は
@@ -21,8 +21,8 @@ Milestone進行(M0〜M6は完了/概ね完了、M8-Aは未実装、詳細は各�
 
 直近の未完了(優先度順):
 
-1. M1-E/M9前基盤整理: 残りRegion/Site/Encounter定義化、RewardRule、Route Graph到達検査、
-   Objective達成可能性検査
+1. M1-E/M9前基盤整理: 残りRegion/Site/Encounter完全定義化、RewardRule置換(Route Graph
+   到達検査とObjective参照ID検証は完了)
 2. M7項目3 ユニットページと装備共有
 3. 灰鉄採石場の本格コンテンツ化(M9、現状は最小プレースホルダー1地点のみ)
 
@@ -326,8 +326,10 @@ Exit(ExitPoint、データモデルのみ)、Interact検証(射程・兵種・�
 状態: **地形Profile Slice完了。既存6 Stage(灰枝の森3地点+沈黙した監視所群3地点)すべてを
 `data/regions.json`駆動へ移行済み(`StageDescriptor`の一部フィールド)、`BattleFactory.cpp`から
 地域名・地点名による分岐を除去済み、CTest登録済みのコンテンツ構造検証(`jf_content_tests`)を
-新設済み。`UnitClass` switch分散のうち表示名2箇所を解消(2026-07)。Encounter生成ロジック自体・
-AI・Boss状態のデータ化、兵種パッシブの能力ID化は未着手。M9着手前の必須基盤**
+新設済み。`UnitClass` switch分散のうち表示名2箇所を解消(2026-07)。M9前ブロッカーの
+Route Graph到達可能性検査・Objective静的参照ID検証は完了(2026-07)。Encounter生成ロジック
+自体のDefinition駆動化・`RewardRule`置換・AI・Boss状態のデータ化、兵種パッシブの能力ID化は
+未着手。M9着手前の必須基盤**
 
 目的: 新しい兵種、一般敵、地形構成、地点、地域を、既存Mechanicの組み合わせであれば
 C++の列挙・分岐追加なしにDefinitionだけで追加できるようにする。独自Boss行動や新しい地形効果など、
@@ -336,10 +338,13 @@ C++の列挙・分岐追加なしにDefinitionだけで追加できるように�
 **M9前ブロッカー**(M9着手前に必ず解消する項目、他は未着手のままでもM9へ進める):
 
 1. 残りRegion/Site/Encounterの完全定義化(実装Slice1、現状は値の置き場所がJSON化されただけで
-   Encounter生成ロジック自体は未移行)
-2. `RewardRule`への置換(実装Slice4)
-3. Route Graph到達可能性検査(実装Slice7、現状は灰枝の森の一直線経路のみで未着手)
-4. Objective達成可能性検査(実装Slice7、Battle Object配置と絡むため未着手)
+   Encounter生成ロジック自体は未移行) - 未着手
+2. `RewardRule`への置換(実装Slice4) - 未着手
+3. Route Graph到達可能性検査(実装Slice7) - **完了(2026-07)**。`loadGameData()`が起動時に
+   全Route Graphへ`validateRouteGraph()`を適用する
+4. Objective達成可能性検査(実装Slice7) - **静的な参照ID検証は完了(2026-07)**。
+   `validateBattleMission()`を`jf_content_tests`が全Stage×全ExplorationChoiceで
+   アサートするようになった。「実際に達成可能か」のMonte Carloシミュレーションは未着手のまま
 
 残る移行対象:
 
@@ -473,10 +478,23 @@ C++の列挙・分岐追加なしにDefinitionだけで追加できるように�
      blocksMovementなObjectのみを見る無制限BFS」を`test_content.cpp`側に再実装したもの -
      実装当初`computeReachableTiles()`(MOV値で制限される、Unit占有も見る)で代用しようとして
      即座に失敗(8列の盤で移動力4のUnitが1手で右端へ届かないのは経路不備ではなく正常な仕様)し、
-     モードの違いを確認した上で無制限BFSへ書き直した。全6 Stage×100 Seedで現状パス。
-     「Route Graph到達可能性」「Objective達成可能性」の静的検査はまだ対象外(Route Graphは
-     灰枝の森の一直線経路のみで分岐が無く、Objective達成可能性はBattle Object配置と絡む
-     より踏み込んだ検査が必要なため、M9で分岐Route/Objective種別が増えてから着手する判断)
+     モードの違いを確認した上で無制限BFSへ書き直した。全7 Stage(灰枝の森3+沈黙した監視所群6の
+     一部が既に完了済みでAshironQuarryのプレースホルダー1を含む)×100 Seedで現状パス。
+   - **Route Graph到達可能性・Objective静的参照ID検証完了(2026-07)**: 「Route Graphは
+     灰枝の森の一直線経路のみで分岐が無く」という上記の見送り理由は、M6-BでCinderwatchが
+     `BranchGroup`付き分岐Route Graphを獲得した時点で既に古くなっていた。`validateRouteGraph()`
+     (entrance→exit到達性、全SiteNode到達性、`src/core/RouteGraph.cpp`に既存実装済みだが
+     どこからも呼ばれていなかった)を`GameData.cpp`の`loadGameData()`終端へ配線し、他の全
+     Loader検証と同じ「起動時に拒否する」扱いにした。Objective側は、`BattleFactory.cpp`が
+     戦闘組み立てのたびに呼んでいた`validateBattleMission()`の戻り値が`stderr`出力のみで
+     ビルドを落とさなかった点を修正: `test_content.cpp`の`checkStage()`がこの戻り値を
+     `assert(errors.empty())`するようになった。合わせて`checkStage()`は`FrontalAdvance`
+     (従来どおり100 Seed)に加え`CollapsedSidePath`/`ScoutRoute`(各20 Seed、`routeOutcomes`で
+     主目的自体が差し替わる地点の検証漏れを塞ぐための軽量チェック)も検証するようになり、
+     敵数・Object配置数のassertionも`ExplorationOutcome`の`enemiesRemoved`/
+     `extraBarrierCount`を考慮する式へ一般化した。「実際に達成可能か」のMonte Carlo的な
+     実達成可能性検査(現在の板面・敵AIで本当に勝てるか)は依然未着手で、これはM9で
+     必要になった時点で着手する判断のまま
 
 M1-E完了Gate:
 
@@ -1748,11 +1766,10 @@ recruitDefinition()`によって完全にデータ駆動化された - 新しい
 
 次の3 Sliceだけに集中する。
 
-1. **M1-E/M9前基盤整理**
-   - 残りRegion/Site/Encounterの定義化
+1. **M1-E/M9前基盤整理(残り)**
+   - 残りRegion/Site/Encounterの完全定義化(Route Graph到達検査・Objective静的参照ID
+     検証は完了)
    - RewardRule
-   - Route Graph到達検査
-   - Objective達成可能性検査
 2. **M7項目3 ユニットページと装備共有**
    - M7-2(4/6兵種)の次のM7 Slice(ロードマップのM7実装Slice順どおり)
 3. **残り2兵種(辺境猟兵・戦闘魔導士)の加入経路**
