@@ -678,6 +678,13 @@ bool GameApp::equipWeaponForUnit(const std::string& unitId, const std::string& w
     if (weaponId != "iron_spear") {
         auto recipe = requiredRecipes.find(weaponId);
         if (recipe == requiredRecipes.end() || !baseState_.unlockedNodeIds.count(recipe->second)) return false;
+        // docs/item_system.md「武器と特性の共有」: a crafted branch weapon is a single
+        // shared-warehouse copy - reject if another unit already has it equipped.
+        // iron_spear is exempt (every Spearman is issued their own copy at join,
+        // per docs/roster_design.md「加入人物には対応する基本武器を1本支給する」).
+        for (const auto& [otherUnitId, otherWeaponId] : weaponOverrides_) {
+            if (otherUnitId != unitId && otherWeaponId == weaponId) return false;
+        }
     }
     weaponOverrides_[unitId] = weaponId;
     markPersistentStateChanged();
@@ -761,19 +768,35 @@ bool GameApp::applySaveData(const SaveData& save) {
                 if (unit.classId == unitClass) requestedWeapons[unit.id] = weaponId;
     }
     std::unordered_map<std::string, std::string> loadedWeapons;
-    for (const auto& [unitId, weaponId] : requestedWeapons) {
-        auto unit = std::find_if(roster_.begin(), roster_.end(), [&](const UnitTemplate& candidate) {
-            return candidate.id == unitId;
-        });
-        if (unit == roster_.end() || unit->classId != UnitClass::Spearman || !data_.weaponsById.count(weaponId)) continue;
+    {
+        // docs/item_system.md「武器と特性の共有」: a crafted branch weapon is a
+        // single shared-warehouse copy - a Save (hand-edited or from an older
+        // schema) claiming it for 2+ units must only restore it to one of them.
+        // Sort by unitId first so the winner is deterministic rather than
+        // depending on unordered_map's iteration order.
+        std::vector<std::pair<std::string, std::string>> sortedRequests(requestedWeapons.begin(),
+                                                                         requestedWeapons.end());
+        std::sort(sortedRequests.begin(), sortedRequests.end());
+        std::unordered_set<std::string> claimedBranchWeapons;
         const std::unordered_map<std::string, std::string> recipes = {
             {"long_spear", "craft_long_spear"}, {"heavy_spear", "craft_heavy_spear"},
             {"guard_spear", "craft_guard_spear"},
         };
-        if (weaponId == "iron_spear") loadedWeapons[unitId] = weaponId;
-        else if (auto recipe = recipes.find(weaponId);
-                 recipe != recipes.end() && loadedBase.unlockedNodeIds.count(recipe->second))
+        for (const auto& [unitId, weaponId] : sortedRequests) {
+            auto unit = std::find_if(roster_.begin(), roster_.end(), [&](const UnitTemplate& candidate) {
+                return candidate.id == unitId;
+            });
+            if (unit == roster_.end() || unit->classId != UnitClass::Spearman || !data_.weaponsById.count(weaponId))
+                continue;
+            if (weaponId == "iron_spear") {
+                loadedWeapons[unitId] = weaponId;
+                continue;
+            }
+            auto recipe = recipes.find(weaponId);
+            if (recipe == recipes.end() || !loadedBase.unlockedNodeIds.count(recipe->second)) continue;
+            if (!claimedBranchWeapons.insert(weaponId).second) continue; // already claimed by an earlier unitId
             loadedWeapons[unitId] = weaponId;
+        }
     }
     std::unordered_map<std::string, std::string> requestedTraits = save.unitEquippedTraits;
     if (save.schemaVersion == 1) {

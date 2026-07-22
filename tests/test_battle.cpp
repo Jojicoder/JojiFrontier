@@ -68,8 +68,11 @@ jf::GameData makeFactoryData() {
                          .maxRange = 2, .damageType = jf::DamageType::Physical};
     jf::Weapon heavySpear{.id = "heavy_spear", .name = "Heavy Spear", .might = 8, .minRange = 1, .maxRange = 2,
                           .damageType = jf::DamageType::Physical, .moveModifier = -1, .causesKnockback = true};
+    jf::Weapon longSpear{.id = "long_spear", .name = "Long Spear", .might = 4, .minRange = 1, .maxRange = 3,
+                         .damageType = jf::DamageType::Physical};
     data.weaponsById.emplace("iron_spear", ironSpear);
     data.weaponsById.emplace("heavy_spear", heavySpear);
+    data.weaponsById.emplace("long_spear", longSpear);
     data.classesById.emplace(jf::UnitClass::MarchCaptain,
                              jf::ClassDefinition{jf::UnitClass::MarchCaptain, stats, "sword"});
     data.classesById.emplace(jf::UnitClass::FrontierScout,
@@ -1626,6 +1629,62 @@ int main() {
         jf::Unit base = jf::instantiateUnit(data, spearTemplate, jf::Team::Player, {0, 0});
         assert(base.weapon.id == "iron_spear");
         assert(base.stats.move == data.classDefinition(jf::UnitClass::Spearman).baseStats.move);
+    }
+
+    {
+        // docs/item_system.md「武器と特性の共有」: a crafted branch weapon is a
+        // single shared-warehouse copy - equipWeaponForUnit() must reject
+        // assigning it to a second unit while a first still holds it.
+        jf::GameData data = makeFactoryData();
+        data.playerParty[0].classId = jf::UnitClass::Spearman; // "player0"
+        data.playerParty[1].classId = jf::UnitClass::Spearman; // "player1"
+        jf::GameApp app(data);
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        testBase.outpostStage = jf::OutpostStage::PioneerOutpost;
+        testBase.unlockedNodeIds.insert("simple_forge");
+        testBase.constructedFacilityIds.insert("simple_forge");
+        testBase.unlockedNodeIds.insert("craft_long_spear");
+        testBase.unlockedNodeIds.insert("craft_heavy_spear");
+
+        assert(app.equipWeaponForUnit("player0", "long_spear"));
+        assert(!app.equipWeaponForUnit("player1", "long_spear")); // already held by player0
+        assert(!app.weaponOverrides().count("player1"));
+
+        assert(app.equipWeaponForUnit("player1", "heavy_spear")); // a different weapon is fine
+        assert(app.weaponOverrides().at("player1") == "heavy_spear");
+
+        // iron_spear (the base weapon, not a crafted branch) is exempt - both
+        // units may hold it "simultaneously" since each is issued their own.
+        assert(app.equipWeaponForUnit("player0", "iron_spear"));
+        assert(app.equipWeaponForUnit("player1", "iron_spear"));
+
+        // Freeing player0's long_spear (by switching away from it) lets
+        // player1 claim it.
+        assert(app.equipWeaponForUnit("player0", "long_spear"));
+        assert(app.equipWeaponForUnit("player0", "")); // revert to default, releasing long_spear
+        assert(app.equipWeaponForUnit("player1", "long_spear"));
+    }
+
+    {
+        // Save/Load: a Save claiming the same crafted weapon for 2 units
+        // (hand-edited or from an older schema) must only restore it to one -
+        // the lexicographically-first unitId wins deterministically.
+        jf::GameData data = makeFactoryData();
+        data.playerParty[0].classId = jf::UnitClass::Spearman; // "player0"
+        data.playerParty[1].classId = jf::UnitClass::Spearman; // "player1"
+        jf::GameApp app(data);
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        testBase.unlockedNodeIds.insert("simple_forge");
+        testBase.constructedFacilityIds.insert("simple_forge");
+        testBase.unlockedNodeIds.insert("craft_long_spear");
+
+        jf::SaveData save = app.createSaveData("en");
+        save.unitWeaponOverrides["player1"] = "long_spear";
+        save.unitWeaponOverrides["player0"] = "long_spear";
+        assert(app.applySaveData(save));
+        // "player0" < "player1" lexicographically, so it wins the claim.
+        assert(app.weaponOverrides().at("player0") == "long_spear");
+        assert(!app.weaponOverrides().count("player1"));
     }
 
     {

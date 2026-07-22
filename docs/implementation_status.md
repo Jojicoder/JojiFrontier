@@ -1111,6 +1111,35 @@ Discoveryを`pendingDiscoveries`へPushしている箇所)へ、同じ`if`内で
 `heavy_recruit`と同じ扱い)。受け入れ枠は既存の宿舎増築I(8人、AshboughForest完了と
 同一条件)がそのまま適用され、新しい段階は不要だった。
 
+### 項目3 ユニットページと装備共有(武器重複装備の防止のみ)
+
+正本(`docs/character_progression.md`)が定めるユニットページ本体(一覧・詳細・
+比較パネル・クールダウン表示・連携戦術・探索能力表示)は依然未着手 - 現在の
+`drawUnitScreen()`(`src/ui_facilities.cpp`)は名前・クラス・ステータス表示のみで、
+装備切替UIもSpearman専用のまま、スキル・特性はUIに全く露出されていない。今回は
+M7完了Gateが明記する正確性要件「同じ武器1本を複数人へ同時装備できない」だけを
+実装した。
+
+正本(`docs/item_system.md`「武器と特性の共有」)は武器を共有倉庫の実物本数で管理し、
+`craft_long_spear`等の製作のたびに1本生産される想定だが、現在の`craft_long_spear`等は
+`FacilityNode`の一回限りレシピ解除(`unlockFacilityNode()`)として実装されており、
+解除後は無制限に装備可能(所有本数という概念がコード上どこにも存在しない)。本格仕様
+どおりの実装には新しい製作アクションと武器在庫フィールドの新設が要る大きめの作業に
+なるため、相談の結果、新しい在庫モデルは作らず**軽量近似**(`weaponOverrides_`内で
+同じ`weaponId`を別ユニットへ重複割当てすることだけ拒否する)で実装した。基本武器
+`iron_spear`(全Spearmanの既定武器、正本上も加入時に各自1本支給される)はこの
+重複チェックの対象外。
+
+`GameApp::equipWeaponForUnit()`(`src/core/GameApp.cpp`)の非`iron_spear`分岐へ、
+`weaponOverrides_`を走査して他ユニットが同じ`weaponId`を既に持っていれば拒否する
+チェックを追加。`GameApp::applySaveData()`の武器復元ループも同様に無条件で
+Save内容を復元していたため、同じ制約を追加(手編集や旧Save由来の壊れた重複状態を
+弾く) - `unordered_map`の走査順は非決定的なため、`unitId`でソートしてから先着順に
+確定させ、どのSaveを読んでも同じ結果になるようにした。UI(`drawForgeEquipmentPanel()`、
+`src/ui_facilities.cpp`)側は戻り値を見ておらず、他ユニットが既に持っている武器の
+ボタンが押せてしまう(クリックしても状態が変わらないだけ)見た目の改善は、
+ユニットページ本体のSliceへ送った。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功
