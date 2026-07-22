@@ -6000,11 +6000,23 @@ int main() {
         assert(verge.terrainProfileId == jf::kAshboughVergeTerrain);
         assert(verge.enemyRoster.size() == 4);
         for (const jf::UnitTemplate& t : verge.enemyRoster) assert(t.classId == jf::UnitClass::Wolf);
-        assert(verge.baseVictoryLoot.size() == 2);
-        assert(verge.routeVictoryLootDelta.size() == 2);
+        // docs/implementation_roadmap.md M1-E「M9前ブロッカー」項目2: reward fields
+        // are now unified into victoryRewardRules (RewardRule list) - filter by
+        // Condition instead of reading the old parallel fields directly.
+        auto ruleLoot = [](const std::vector<jf::RewardRule>& rules, jf::RewardRule::Condition condition) {
+            std::vector<const jf::RewardRule*> matches;
+            for (const jf::RewardRule& rule : rules)
+                if (rule.condition == condition) matches.push_back(&rule);
+            return matches;
+        };
+        auto alwaysRules = ruleLoot(verge.victoryRewardRules, jf::RewardRule::Condition::Always);
+        assert(alwaysRules.size() == 1 && alwaysRules[0]->loot.size() == 2);
+        auto routeRules = ruleLoot(verge.victoryRewardRules, jf::RewardRule::Condition::RouteChoice);
+        assert(routeRules.size() == 2);
         assert(verge.surveyObjectiveId == "ashbough_verge_surveyed");
-        assert(verge.surveyBonusLoot.size() == 1 && verge.surveyBonusLoot[0].id == "wood" &&
-              verge.surveyBonusLoot[0].quantity == 1);
+        auto surveyRules = ruleLoot(verge.victoryRewardRules, jf::RewardRule::Condition::SurveySuccess);
+        assert(surveyRules.size() == 1 && surveyRules[0]->loot.size() == 1 &&
+              surveyRules[0]->loot[0].id == "wood" && surveyRules[0]->loot[0].quantity == 1);
         assert(verge.missionNameEn == "Ashbough Verge" && verge.missionNameJa == "灰枝の林縁");
 
         // The real regionDescriptor() output built from this Loader must
@@ -6014,14 +6026,16 @@ int main() {
         const jf::RegionDescriptor region = jf::regionDescriptor(jf::RegionId::AshboughForest, *loaded);
         const jf::StageDescriptor& vergeStage = region.stages[0];
         assert(vergeStage.id == "ashbough_verge");
-        assert(vergeStage.baseVictoryLoot.size() == 2);
+        auto vergeAlwaysRules = ruleLoot(vergeStage.victoryRewardRules, jf::RewardRule::Condition::Always);
+        assert(vergeAlwaysRules.size() == 1 && vergeAlwaysRules[0]->loot.size() == 2);
         bool sawWoodMinus2 = false, sawHidePlus1 = false;
-        for (const auto& [choice, loot] : vergeStage.routeVictoryLootDelta) {
-            if (choice == jf::ExplorationChoice::CollapsedSidePath) {
-                assert(loot.size() == 1 && loot[0].id == "wood" && loot[0].quantity == -2);
+        for (const jf::RewardRule& rule : vergeStage.victoryRewardRules) {
+            if (rule.condition != jf::RewardRule::Condition::RouteChoice) continue;
+            if (rule.routeChoice == jf::ExplorationChoice::CollapsedSidePath) {
+                assert(rule.loot.size() == 1 && rule.loot[0].id == "wood" && rule.loot[0].quantity == -2);
                 sawWoodMinus2 = true;
-            } else if (choice == jf::ExplorationChoice::ScoutRoute) {
-                assert(loot.size() == 1 && loot[0].id == "hide" && loot[0].quantity == 1);
+            } else if (rule.routeChoice == jf::ExplorationChoice::ScoutRoute) {
+                assert(rule.loot.size() == 1 && rule.loot[0].id == "hide" && rule.loot[0].quantity == 1);
                 sawHidePlus1 = true;
             }
         }

@@ -65,21 +65,21 @@ struct StageDescriptor {
     };
     std::optional<TimedReinforcement> timedReinforcement;
 
-    std::vector<LootStack> baseVictoryLoot;
-    // Additive (possibly negative) deltas on top of baseVictoryLoot for a
-    // specific exploration route (docs/regions/ashbough_forest.md's
-    // per-route reward table). Empty for stages whose reward doesn't vary
-    // by route - true today of all 3 existing Cinderwatch stages.
-    std::vector<std::pair<ExplorationChoice, std::vector<LootStack>>> routeVictoryLootDelta;
-    // Same idea as routeVictoryLootDelta, for stage.discoveries
+    // docs/implementation_roadmap.md M1-E「M9前ブロッカー」項目2: unified reward
+    // rule list (jf/data/GameData.hpp's RewardRule) - replaces the old parallel
+    // baseVictoryLoot/routeVictoryLootDelta/surveyBonusLoot fields.
+    // computeStageVictoryLoot() (Region.cpp) is still the sole consumer.
+    std::vector<RewardRule> victoryRewardRules;
+    // Same idea as victoryRewardRules' RouteChoice rules, but for stage.discoveries
     // (docs/regions/cinderwatch_gate.md "3. アイアンウォッチ物資庫"'s
     // per-route records: 医療区画確保→野戦医療記録, 工具庫確保→野戦工作記録).
     // Additive on top of the unconditional `discoveries` list, not a
     // replacement - see computeStageDiscoveries().
     std::vector<std::pair<ExplorationChoice, std::vector<DiscoveryId>>> routeDiscoveries;
     // If set, this stage has a SecureTile objective with this id; on
-    // success, surveyBonusLoot is added on top of the route-adjusted total.
-    // BattleFactory decides how many tiles/objectives to generate for it:
+    // success, victoryRewardRules' SurveySuccess rule(s) are added on top of
+    // the route-adjusted total. BattleFactory decides how many tiles/objectives
+    // to generate for it:
     // one per HerbPatch tile the stage's terrain generation placed
     // (docs/regions/ashbough_forest.md "薬草の沢"'s 2-tile "薬草地点確保") if
     // any were placed; otherwise `surveyTileCount` plain (no-terrain-change)
@@ -90,7 +90,6 @@ struct StageDescriptor {
     // `surveyTileCount` is unset - grouped as Any either way, see
     // BattleFactory.cpp's assembleScenario().
     std::optional<std::string> surveyObjectiveId;
-    std::vector<LootStack> surveyBonusLoot;
     std::optional<int> surveyTileCount;
     // If set alongside surveyTileCount, a non-blocking BattleObjectKind::
     // Container is placed at each survey tile (docs/regions/

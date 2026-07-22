@@ -278,7 +278,13 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
                 return std::nullopt;
             }
             if (s.contains("enemyRoster")) stage.enemyRoster = readTemplates(s.at("enemyRoster"));
-            if (s.contains("baseVictoryLoot")) stage.baseVictoryLoot = readLootStacks(s.at("baseVictoryLoot"));
+            // docs/implementation_roadmap.md M1-E「M9前ブロッカー」項目2: the JSON
+            // key names/shapes below are unchanged (data/regions.json itself isn't
+            // touched by this Slice) - only the in-memory representation unifies
+            // into RewardRule.
+            if (s.contains("baseVictoryLoot"))
+                stage.victoryRewardRules.push_back(
+                    {RewardRule::Condition::Always, {}, readLootStacks(s.at("baseVictoryLoot"))});
             if (s.contains("routeVictoryLootDelta")) {
                 for (const auto& d : s.at("routeVictoryLootDelta")) {
                     auto choice = explorationChoiceFromString(d.at("choice").get<std::string>());
@@ -286,7 +292,8 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
                         std::cerr << "Stage " << stage.id << " has an unknown ExplorationChoice" << std::endl;
                         return std::nullopt;
                     }
-                    stage.routeVictoryLootDelta.emplace_back(*choice, readLootStacks(d.at("loot")));
+                    stage.victoryRewardRules.push_back(
+                        {RewardRule::Condition::RouteChoice, *choice, readLootStacks(d.at("loot"))});
                 }
             }
             if (s.contains("routeDiscoveries")) {
@@ -301,7 +308,9 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
                 }
             }
             if (s.contains("surveyObjectiveId")) stage.surveyObjectiveId = s.at("surveyObjectiveId").get<std::string>();
-            if (s.contains("surveyBonusLoot")) stage.surveyBonusLoot = readLootStacks(s.at("surveyBonusLoot"));
+            if (s.contains("surveyBonusLoot"))
+                stage.victoryRewardRules.push_back(
+                    {RewardRule::Condition::SurveySuccess, {}, readLootStacks(s.at("surveyBonusLoot"))});
             if (s.contains("surveyTileCount")) stage.surveyTileCount = s.at("surveyTileCount").get<int>();
             if (s.contains("surveyTileObjectDefinitionId"))
                 stage.surveyTileObjectDefinitionId = s.at("surveyTileObjectDefinitionId").get<std::string>();
@@ -511,11 +520,11 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
                 return std::nullopt;
             }
             {
-                // Same-choice entries in routeOutcomes/routeVictoryLootDelta/
-                // routeDiscoveries would silently pick "whichever the loop
-                // sees last" (routeOutcomes) or double-apply (the two additive
-                // lists) rather than the author's intent - almost certainly a
-                // copy-paste mistake, so reject it outright.
+                // Same-choice entries in routeOutcomes/victoryRewardRules'
+                // RouteChoice rules/routeDiscoveries would silently pick
+                // "whichever the loop sees last" (routeOutcomes) or double-apply
+                // (the two additive lists) rather than the author's intent -
+                // almost certainly a copy-paste mistake, so reject it outright.
                 auto hasDuplicateChoice = [](const auto& entries) {
                     for (std::size_t i = 0; i < entries.size(); ++i) {
                         for (std::size_t j = i + 1; j < entries.size(); ++j) {
@@ -524,7 +533,19 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
                     }
                     return false;
                 };
-                if (hasDuplicateChoice(stage.routeOutcomes) || hasDuplicateChoice(stage.routeVictoryLootDelta) ||
+                std::vector<ExplorationChoice> routeLootChoices;
+                for (const RewardRule& rule : stage.victoryRewardRules)
+                    if (rule.condition == RewardRule::Condition::RouteChoice)
+                        routeLootChoices.push_back(rule.routeChoice);
+                auto hasDuplicateElement = [](const std::vector<ExplorationChoice>& entries) {
+                    for (std::size_t i = 0; i < entries.size(); ++i) {
+                        for (std::size_t j = i + 1; j < entries.size(); ++j) {
+                            if (entries[i] == entries[j]) return true;
+                        }
+                    }
+                    return false;
+                };
+                if (hasDuplicateChoice(stage.routeOutcomes) || hasDuplicateElement(routeLootChoices) ||
                     hasDuplicateChoice(stage.routeDiscoveries)) {
                     std::cerr << "Stage " << stage.id
                               << " has a duplicate ExplorationChoice in routeOutcomes/routeVictoryLootDelta/"

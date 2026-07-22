@@ -17,11 +17,9 @@ StageDescriptor stageDescriptorFromContent(const StageContentData& content) {
     stage.id = content.id;
     stage.terrainProfileId = content.terrainProfileId;
     stage.enemyRoster = content.enemyRoster;
-    stage.baseVictoryLoot = content.baseVictoryLoot;
-    stage.routeVictoryLootDelta = content.routeVictoryLootDelta;
+    stage.victoryRewardRules = content.victoryRewardRules;
     stage.routeDiscoveries = content.routeDiscoveries;
     stage.surveyObjectiveId = content.surveyObjectiveId;
-    stage.surveyBonusLoot = content.surveyBonusLoot;
     stage.surveyTileCount = content.surveyTileCount;
     stage.surveyTileObjectDefinitionId = content.surveyTileObjectDefinitionId;
     stage.discoveries = content.discoveries;
@@ -230,11 +228,13 @@ std::vector<LootStack> computeStageVictoryLoot(const StageDescriptor& stage, Exp
         }
     };
 
-    add(stage.baseVictoryLoot);
-    for (const auto& [routeChoice, delta] : stage.routeVictoryLootDelta) {
-        if (routeChoice == choice) add(delta);
+    for (const RewardRule& rule : stage.victoryRewardRules) {
+        bool applies = rule.condition == RewardRule::Condition::Always ||
+                      (rule.condition == RewardRule::Condition::RouteChoice && rule.routeChoice == choice) ||
+                      (rule.condition == RewardRule::Condition::SurveySuccess && surveyObjectiveSucceeded &&
+                       stage.surveyObjectiveId);
+        if (applies) add(rule.loot);
     }
-    if (surveyObjectiveSucceeded && stage.surveyObjectiveId) add(stage.surveyBonusLoot);
 
     std::vector<LootStack> result;
     for (const auto& [id, quantity] : totals) {

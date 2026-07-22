@@ -25,9 +25,8 @@ Milestone進行(M0〜M6は完了/概ね完了、M8-Aは未実装、詳細は各�
 
 1. M7項目3(残り) ユニットページ本体(一覧/詳細/比較パネル、スキル・特性UIの
    全兵種一般化)
-2. M1-E/M9前基盤整理: 残りRegion/Site/Encounter完全定義化、RewardRule置換(Route Graph
-   到達検査とObjective参照ID検証は完了。RewardRule置換は本格報酬台帳ではなく既存3
-   フィールドのデータ形状統一のみで、価値に対しリグレッションリスクが大きいため後回し)
+2. M1-E/M9前基盤整理(残り): 残りRegion/Site/Encounter完全定義化(Encounter生成の
+   動的合成)。Route Graph到達検査・Objective参照ID検証・RewardRule置換は完了
 3. 灰鉄採石場の本格コンテンツ化(M9、現状は最小プレースホルダー1地点のみ、
    戦闘魔導士(mage_recruit)の加入経路はこれに依存)
 
@@ -332,9 +331,9 @@ Exit(ExitPoint、データモデルのみ)、Interact検証(射程・兵種・�
 `data/regions.json`駆動へ移行済み(`StageDescriptor`の一部フィールド)、`BattleFactory.cpp`から
 地域名・地点名による分岐を除去済み、CTest登録済みのコンテンツ構造検証(`jf_content_tests`)を
 新設済み。`UnitClass` switch分散のうち表示名2箇所を解消(2026-07)。M9前ブロッカーの
-Route Graph到達可能性検査・Objective静的参照ID検証は完了(2026-07)。Encounter生成ロジック
-自体のDefinition駆動化・`RewardRule`置換・AI・Boss状態のデータ化、兵種パッシブの能力ID化は
-未着手。M9着手前の必須基盤**
+Route Graph到達可能性検査・Objective静的参照ID検証・`RewardRule`置換は完了(2026-07)。
+Encounter生成ロジック自体のDefinition駆動化、AI・Boss状態のデータ化、兵種パッシブの
+能力ID化は未着手。M9着手前の必須基盤**
 
 目的: 新しい兵種、一般敵、地形構成、地点、地域を、既存Mechanicの組み合わせであれば
 C++の列挙・分岐追加なしにDefinitionだけで追加できるようにする。独自Boss行動や新しい地形効果など、
@@ -344,7 +343,12 @@ C++の列挙・分岐追加なしにDefinitionだけで追加できるように�
 
 1. 残りRegion/Site/Encounterの完全定義化(実装Slice1、現状は値の置き場所がJSON化されただけで
    Encounter生成ロジック自体は未移行) - 未着手
-2. `RewardRule`への置換(実装Slice4) - 未着手
+2. `RewardRule`への置換(実装Slice4) - **完了(2026-07)**。`StageDescriptor`/
+   `StageContentData`の`baseVictoryLoot`/`routeVictoryLootDelta`/`surveyBonusLoot`
+   3フィールドを`std::vector<RewardRule>`(Always/RouteChoice/SurveySuccessの3条件)
+   1本へ統一。`data/regions.json`のJSON key名・構造は無改修、`jf_forest_balance`実測は
+   完全に同一(Byte-identical)。本格報酬台帳(`RewardGrantId`二重付与防止等)はM9まで
+   持ち越しのまま
 3. Route Graph到達可能性検査(実装Slice7) - **完了(2026-07)**。`loadGameData()`が起動時に
    全Route Graphへ`validateRouteGraph()`を適用する
 4. Objective達成可能性検査(実装Slice7) - **静的な参照ID検証は完了(2026-07)**。
@@ -441,8 +445,9 @@ C++の列挙・分岐追加なしにDefinitionだけで追加できるように�
      `data.terrainProfile(stage.terrainProfileId)`を引くためのKeyとしてのみ使う)。
      `jf_forest_balance`実測は完全に同一。項目1(敵数・編成等を「共通Factoryで解決」、
      つまりEncounter生成ロジック自体をC++コードとしてもDefinitionから動的合成する高階の
-     汎用化)と項目2(`RewardRule`置換)はまだ未着手 - 現状は「値の置き場所がJSONになった」
-     段階で、生成の手順自体はBattleFactory.cppのC++のまま
+     汎用化)はまだ未着手 - 現状は「値の置き場所がJSONになった」段階で、生成の手順自体は
+     BattleFactory.cppのC++のまま。項目2(`RewardRule`置換)は**完了(2026-07)**、
+     詳細は上記M9前ブロッカー項目2を参照
 5. **ユニットとAIの追加契約を分離**
    - 通常追撃、低HP優先、射程維持、防衛、撤退を再利用可能な`AIProfile`として定義
    - 兵種パッシブは能力IDの一覧から解決し、既存兵種追加で`switch`を増やさない
@@ -1782,10 +1787,8 @@ recruitDefinition()`によって完全にデータ駆動化された - 新しい
    - 調整特性・武器分岐の他11兵種への拡張(現状Spearmanのみ実装)
    - 武器重複装備の防止・装備スキル2枠UI(全兵種)は完了(このSliceで実装済み)
 2. **M1-E/M9前基盤整理(残り)**
-   - 残りRegion/Site/Encounterの完全定義化(Route Graph到達検査・Objective静的参照ID
-     検証は完了)
-   - RewardRule(本格報酬台帳ではなく既存3フィールドのデータ形状統一のみ、価値対
-     リグレッションリスクの検討要)
+   - 残りRegion/Site/Encounterの完全定義化(Encounter生成ロジック自体のDefinition
+     駆動化)。Route Graph到達検査・Objective静的参照ID検証・RewardRuleは完了
 3. **灰鉄採石場の本格コンテンツ化(M9)**
    - 最小プレースホルダー(1地点)を正式な5地点構成へ置き換え
    - 戦闘魔導士(`mage_recruit`)の加入経路もこれに依存するため同時に配線

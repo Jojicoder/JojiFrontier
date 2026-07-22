@@ -67,15 +67,33 @@ struct TimedReinforcementData {
     std::vector<GridPos> orderedSpawnCandidates;
 };
 
+// docs/implementation_roadmap.md M1-E「M9前ブロッカー」項目2: unifies what used to
+// be StageDescriptor/StageContentData's 3 parallel reward fields
+// (baseVictoryLoot/routeVictoryLootDelta/surveyBonusLoot) into one rule list.
+// Not the full reward-ledger contract from docs/region_mission_data_contract.md
+// (RewardGrantId dedup, first-clear vs recon tables) - that stays deferred to
+// M9 per implementation_roadmap.md's own M1-E slice1 note. Lives here (rather
+// than Region.hpp) because both LootStack (BaseState.hpp) and ExplorationChoice
+// (Exploration.hpp) are already visible in this header, and Region.hpp already
+// includes this one (the reverse would cycle).
+struct RewardRule {
+    enum class Condition {
+        Always,        // unconditional (old baseVictoryLoot)
+        RouteChoice,   // only when the chosen ExplorationChoice matches routeChoice (old routeVictoryLootDelta)
+        SurveySuccess, // only when the stage's surveyObjectiveId succeeded (old surveyBonusLoot)
+    };
+    Condition condition = Condition::Always;
+    ExplorationChoice routeChoice = ExplorationChoice::FrontalAdvance; // meaningful only for RouteChoice
+    std::vector<LootStack> loot;
+};
+
 struct StageContentData {
     std::string id;
     std::string terrainProfileId;
     std::vector<UnitTemplate> enemyRoster;
-    std::vector<LootStack> baseVictoryLoot;
-    std::vector<std::pair<ExplorationChoice, std::vector<LootStack>>> routeVictoryLootDelta;
+    std::vector<RewardRule> victoryRewardRules;
     std::vector<std::pair<ExplorationChoice, std::vector<DiscoveryId>>> routeDiscoveries;
     std::optional<std::string> surveyObjectiveId;
-    std::vector<LootStack> surveyBonusLoot;
     std::optional<int> surveyTileCount;
     std::optional<std::string> surveyTileObjectDefinitionId;
     std::vector<DiscoveryId> discoveries;

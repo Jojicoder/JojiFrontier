@@ -1179,6 +1179,19 @@ UIのボタン有効化条件をTierに関わらず`trainingUnlocked`一本に�
   3ルートで`validateBattleMission()`のエラーが空であることをアサートするようになった
   (従来は戦闘組み立てのたびに呼ばれていたが結果を`stderr`へ出すだけでCTestを
   落とさなかった)。詳細: [`implementation_roadmap.md`](implementation_roadmap.md#m1-e-コンテンツ追加基盤)
+- M1-E「M9前ブロッカー」項目2(RewardRule置換)完了(2026-07): `StageDescriptor`/
+  `StageContentData`が並行して持っていた`baseVictoryLoot`/`routeVictoryLootDelta`/
+  `surveyBonusLoot`の3フィールドを`std::vector<RewardRule>`(`jf/data/GameData.hpp`、
+  `Condition::Always`/`RouteChoice`/`SurveySuccess`の3種)1本へ統一した。正本
+  (`docs/region_mission_data_contract.md`)が定める本格的な報酬台帳
+  (`RewardGrantId`二重付与防止、初回勝利/再調査の別表化)とは別物で、それはM9まで
+  持ち越したまま(`implementation_roadmap.md`のM1-E Slice1コメントに明記済み)。
+  `data/regions.json`のJSON key名・構造は無改修 - `GameData.cpp`のLoaderが同じ3つの
+  JSON配列を読んで統一後の1配列へ詰め直すだけなので、既存コンテンツの数値には一切
+  触れていない。`computeStageVictoryLoot()`(`src/core/Region.cpp`)を統一後リストの
+  単純な1回走査へ書き換え、`stageDescriptorFromContent()`のフィールドコピーも3行から
+  1行になった。`jf_forest_balance`(AshboughForest、200 Seed)の実測は移行前後で
+  完全に同一(Byte-identical)。
 
 ## 次の優先候補
 
