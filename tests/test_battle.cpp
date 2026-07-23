@@ -6650,7 +6650,7 @@ int main() {
         app.proceedToCamp();
         app.continueExpedition(); // AllMembers: only 1 of 2 resolved -> branch again, other member
         assert(app.screen() == jf::Screen::Exploration);
-        assert(app.currentMissionNameJa() == "樹脂林(仮実装)");
+        assert(app.currentMissionNameJa() == "樹脂林");
         assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
         winCurrentBattle(app);
         app.proceedToCamp();
@@ -6817,6 +6817,57 @@ int main() {
         jf::ExplorationOutcome standard = jf::stageRouteOutcome(herbStage, jf::ExplorationChoice::FrontalAdvance);
         jf::BattleState withoutWave = jf::createScenarioBattle(*data, herbStage, 42, standard);
         assert(withoutWave.reinforcementWaves().empty());
+    }
+
+    {
+        // docs/regions/blackwater_lowlands.md「4. 樹脂林」: 3探索ルートの
+        // 敵数・報酬差分。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor blackwaterRegion = jf::regionDescriptor(jf::RegionId::BlackwaterLowlands, *data);
+        const jf::StageDescriptor& resinStage = blackwaterRegion.stages[3];
+        assert(resinStage.id == "resin_grove" && resinStage.enemyRoster.size() == 4);
+        assert(resinStage.scoutRouteRequiredClass == jf::UnitClass::MarchCaptain);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(resinStage, choice, false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "wetland_resin") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "wetland_resin") == 3); // 2 + 1
+        assert(findLoot(lootFor(jf::ExplorationChoice::ScoutRoute), "quality_herb") == 1);
+
+        jf::GameData mutableData = *data;
+        mutableData.playerParty[0].classId = jf::UnitClass::MarchCaptain; // ScoutRoute gate
+        jf::GameApp app(mutableData);
+        assert(startBlackwaterExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // sunken_path
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> reedway_fork
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> Camp I -> branch, herb_islet first
+        assert(app.currentMissionNameJa() == "薬草洲");
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> branch again, resin_grove
+        assert(app.currentMissionNameJa() == "樹脂林");
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::ScoutRoute));
+        int enemyCount = 0;
+        for (const jf::Unit& unit : app.battle().battle().units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 3); // base 4 - enemiesRemoved:1
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // both branch members resolved -> Camp II -> blackwater_crossing
+        assert(app.currentMissionNameJa() == "黒水渡し(仮実装)");
     }
 
     {

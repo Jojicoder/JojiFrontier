@@ -1510,6 +1510,40 @@ EliminateTeamどちらの経路でも単純なDirect/Tactical方策が機能す�
 [[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録のみで数値調整は
 行わない。
 
+### M9-H 黒水低湿地: 地点4(樹脂林)
+
+`docs/regions/blackwater_lowlands.md`「4. 樹脂林」を確認したところ、主目的「樹脂箱
+2個のうち1個以上を確保」自体は`surveyObjectiveId`+`surveyTileCount:2`が既に
+`ObjectiveGroupRule::Any`(N個のうち1個で成功、`BattleFactory.cpp:554`、
+`GameApp.cpp`の`surveySucceeded`判定コメントに明記)として実装済みと判明したが、
+これは常に「勝利後のボーナス報酬」経路として配線されており、`EliminateTeam`なしでも
+勝利できる主目的そのもの(OR代替)として使うには`groupId`を`"primary"`へ向ける新しい
+配線が必要だった。正本の報酬表を確認したところ、「勝利: 湿地樹脂2、毒素材1」は
+主目的達成時の通常報酬であり、クレート確保だけに紐づく追加報酬は無い(「罠2個処理」
+「共同退路」の2つだけが個別報酬)。クレートのOR代替という主目的の形を実際に実装しても
+報酬面での違いが無いと判断し、今回は標準`EliminateTeam`のみで近似し、この
+OR性質(全滅なしでも1個確保だけで勝利できる)は見送った。
+
+副目標「毒罠2個を解除または破壊」も、対応する「N個破壊で報酬」を汎用的に判定する
+機構が無く(`logCollisionBonusLoot`/`noCasualtiesBonusLoot`はいずれも特定boss/状態
+専用のチェック)、1地点のためだけに新しい報酬計算Hookを作るのは過剰実装と判断して
+見送った(機能しないObjectを置くだけの意味がないため、罠Object自体も配置していない)。
+副目標「採取者を撤退させない」+`[行軍隊長]`ルートの「回収者が中立護衛対象」は、M9-G
+(地点3)で確認済みのゲストユニット系ギャップと同じ理由で見送り。敗北条件「樹脂箱を
+両方失う」もObject破壊による敗北条件自体が既存に無い(M6-C/M9-C/M9-Dと同じ既知の
+ギャップ)ため見送った。探索3択の敵編成差(「野生生物」vs「樹脂回収者」という敵種別の
+差し替え)もルートごとに全く別の敵編成へ差し替える機構が無いため、地点1〜3と同じ湿地の
+毒蜘蛛/沼蛇の使い回しで統一し、頭数差だけを`enemiesRemoved`で表現した。
+
+結果として、このSliceは`data/regions.json`のコンテンツ追加のみで完結し
+(M9-Fと同じ規模)、コード変更は一切無い。地点3「薬草洲」・地点4「樹脂林」の両方が
+確保されたことで`AllMembers`分岐が解決し、Camp II以降へ進行可能になった。
+
+`jf_forest_balance --region=blackwater_lowlands`(500 Seed)の実測: 地点4
+(樹脂林)のfresh-party win率はDirect 98.6%/Tactical 93.6%。
+[[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録のみで数値調整は
+行わない。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功

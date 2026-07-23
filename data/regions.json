@@ -588,12 +588,24 @@
       "id": "resin_grove",
       "terrainProfileId": "ash_road",
       "enemyRoster": [
-        { "id": "resin_grove_bandit1", "name": "Raider", "classId": "Bandit" },
-        { "id": "resin_grove_bandit2", "name": "Raider", "classId": "Bandit" }
+        { "id": "resin_grove_spider1", "name": "Marsh Poison Spider", "classId": "Wolf" },
+        { "id": "resin_grove_spider2", "name": "Marsh Poison Spider", "classId": "Wolf" },
+        { "id": "resin_grove_viper1", "name": "Marsh Viper", "classId": "Bandit" },
+        { "id": "resin_grove_viper2", "name": "Marsh Viper", "classId": "Bandit" }
       ],
-      "baseVictoryLoot": [{ "id": "wetland_resin", "quantity": 2 }],
-      "missionNameEn": "Resin Grove (placeholder)",
-      "missionNameJa": "樹脂林(仮実装)"
+      "baseVictoryLoot": [{ "id": "wetland_resin", "quantity": 2 }, { "id": "poison_material", "quantity": 1 }],
+      "routeVictoryLootDelta": [
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "wetland_resin", "quantity": 1 }] },
+        { "choice": "ScoutRoute", "loot": [{ "id": "quality_herb", "quantity": 1 }] }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath" },
+        { "choice": "ScoutRoute", "enemiesRemoved": 1 }
+      ],
+      "scoutRouteRequiredClass": "MarchCaptain",
+      "missionNameEn": "Resin Grove",
+      "missionNameJa": "樹脂林"
     },
     {
       "id": "blackwater_crossing",
