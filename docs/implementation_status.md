@@ -1176,6 +1176,25 @@ UI層のファイル)、`jf_battle_tests`からはリンクされないため専
 既存の`jf_locale_tests`/`check_localization`によるLocale Key整合性検証とビルド成功を
 検証手段とした(同ファイルの他のUI Helperと同じ既存の検証パターン)。
 
+### 項目3続き 比較パネル・一覧の加入候補非表示ロジック確認
+
+正本(`docs/character_progression.md`「ユニットページ」一覧)の「比較対象を1人固定
+できる」を実装。`ui_shared.hpp`の`BaseScreenState`(`viewedUnitId`と同じ置き場所)へ
+`comparisonUnitId`(Save対象外、画面遷移で消えて構わない一時的な選択状態)を追加し、
+`drawBasePartyRoster()`(`src/ui_base.cpp`)の各行へ既存の「詳細」ボタンと並べて
+「比較」ボタン(トグル式)を追加、`drawUnitScreen()`(`src/ui_facilities.cpp`)の
+identityカード下部へ、選択中と異なるUnitが比較対象に設定されていれば名前・兵種・
+能力値を並べて表示する小さなカードを追加した。正本の「能力値差を緑赤だけで表現
+しない」を満たすため、色分けはせず「HP 20 (比較: 24)」のように数値を並べるだけに
+とどめた。比較対象のUnitが後から`roster()`から消えた場合(通常は起きないが、防御的に)
+静かに`comparisonUnitId`を解除する。`GameApp`/Saveの変更は一切不要だった。
+
+「一覧の加入候補非表示ロジック」(正本: 未加入者の名前・兵種を表示せず「加入候補
+あり」とだけ表示)は調査の結果、対応不要と判明した - `drawBasePartyRoster()`は
+`app.roster()`のみを列挙しており、`roster()`は加入済みUnitのみを含む(未加入の
+加入候補は`joinReadyCandidateIds`にあるだけでrosterには入らない)。見せる名前自体が
+まだ存在しないため、正本の要件はすでに満たされている。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功

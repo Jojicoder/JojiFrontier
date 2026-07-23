@@ -64,10 +64,18 @@ void drawBasePartyRoster(jf::GameApp& app, Vector2 mouse, bool clicked, std::vec
         bool selected = std::find(app.selectedPartyIds().begin(), app.selectedPartyIds().end(), unit.id) != app.selectedPartyIds().end();
         std::string label = std::string(selected ? "[✓] " : "[ ] ") + unitDisplayNameFor(unit.name) + " - " +
                             classNameFor(app.gameData(), unit.classId);
-        Rectangle rowRect{40, static_cast<float>(y), 300, 40};
-        Rectangle detailRect{348, static_cast<float>(y), 82, 40};
+        Rectangle rowRect{40, static_cast<float>(y), 260, 40};
+        Rectangle detailRect{308, static_cast<float>(y), 80, 40};
+        Rectangle compareRect{392, static_cast<float>(y), 80, 40};
         if (button(rowRect, label, "", mouse, clicked)) app.togglePartyMember(unit.id);
         if (button(detailRect, "Details", "詳細", mouse, clicked)) gBaseScreen.viewedUnitId = unit.id;
+        // docs/character_progression.md「ユニットページ」一覧「比較対象を1人固定できる」:
+        // toggling the same Unit again clears the pin.
+        bool isComparisonTarget = gBaseScreen.comparisonUnitId == unit.id;
+        if (button(compareRect, isComparisonTarget ? "[✓] Compare" : "Compare",
+                  isComparisonTarget ? "[✓] 比較" : "比較", mouse, clicked)) {
+            gBaseScreen.comparisonUnitId = isComparisonTarget ? std::nullopt : std::optional(unit.id);
+        }
         if (CheckCollisionPointRec(mouse, rowRect)) {
             const jf::Stats& stats = app.gameData().classDefinition(unit.classId).baseStats;
             hoverLines = {

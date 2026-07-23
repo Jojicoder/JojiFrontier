@@ -362,6 +362,8 @@
   "ui.unit_screen.no_alt_equipment": "このユニットには、まだ変更可能な装備がありません。",
   "ui.unit_screen.skills_heading": "装備スキル",
   "ui.unit_screen.exploration_ability_heading": "探索能力",
+  "ui.unit_screen.comparison_heading": "比較対象",
+  "ui.unit_screen.comparison_prefix": "比較: ",
   "ui.unit_screen.exploration_ability.frontier_scout": "偵察、隠し道、高所からの観測",
   "ui.unit_screen.exploration_ability.frontier_engineer": "障害物、機械、橋、遺跡装置",
   "ui.unit_screen.exploration_ability.frontier_ranger": "追跡、狩猟、野生生物への対応",

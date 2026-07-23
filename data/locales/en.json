@@ -362,6 +362,8 @@
   "ui.unit_screen.no_alt_equipment": "No alternate equipment is available for this unit yet.",
   "ui.unit_screen.skills_heading": "Equipped Skills",
   "ui.unit_screen.exploration_ability_heading": "Exploration Ability",
+  "ui.unit_screen.comparison_heading": "Comparing With",
+  "ui.unit_screen.comparison_prefix": "compare: ",
   "ui.unit_screen.exploration_ability.frontier_scout": "Reconnaissance, hidden paths, observation from high ground",
   "ui.unit_screen.exploration_ability.frontier_engineer": "Obstacles, machinery, bridges, ruin devices",
   "ui.unit_screen.exploration_ability.frontier_ranger": "Tracking, hunting, handling wildlife",

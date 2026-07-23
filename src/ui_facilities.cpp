@@ -351,6 +351,38 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         drawText(wrapTextToWidth(explorationAbility, 14, 400), 72, 494, 14, kColorTextMuted);
     }
 
+    // docs/character_progression.md「ユニットページ」一覧「比較対象を1人固定できる」:
+    // side-by-side numbers only, no green/red-only diff coloring (spec's own
+    // "能力値差を緑赤だけで表現しない"). Silently drops a stale pin (e.g. the
+    // pinned Unit is no longer in roster()) instead of showing a broken row.
+    if (gBaseScreen.comparisonUnitId && *gBaseScreen.comparisonUnitId != unit->id) {
+        auto comparisonUnit = std::find_if(app.roster().begin(), app.roster().end(),
+                                           [&](const jf::UnitTemplate& candidate) {
+                                               return candidate.id == *gBaseScreen.comparisonUnitId;
+                                           });
+        if (comparisonUnit == app.roster().end()) {
+            gBaseScreen.comparisonUnitId.reset();
+        } else {
+            Rectangle comparisonCard{42, 620, 1196, 150};
+            drawCard(comparisonCard, kColorCard, kColorBorderSoft, 0.04f);
+            drawSectionHeading(tr("ui.unit_screen.comparison_heading"), 72, 636, 18);
+            drawText(unitDisplayNameFor(comparisonUnit->name) + "  " +
+                         classNameFor(app.gameData(), comparisonUnit->classId),
+                     72, 670, 18, kColorAccentGold);
+            const jf::Stats& comparisonStats = app.gameData().classDefinition(comparisonUnit->classId).baseStats;
+            drawText("HP " + std::to_string(stats.maxHp) + " (" + tr("ui.unit_screen.comparison_prefix") +
+                         std::to_string(comparisonStats.maxHp) + ")    STR " + std::to_string(stats.strength) +
+                         " (" + std::to_string(comparisonStats.strength) + ")    MAG " +
+                         std::to_string(stats.magic) + " (" + std::to_string(comparisonStats.magic) + ")",
+                     72, 710, 15, kColorTextPrimary);
+            drawText("DEF " + std::to_string(stats.defense) + " (" + std::to_string(comparisonStats.defense) +
+                         ")    RES " + std::to_string(stats.resistance) + " (" +
+                         std::to_string(comparisonStats.resistance) + ")    MOV " + std::to_string(stats.move) +
+                         " (" + std::to_string(comparisonStats.move) + ")",
+                     72, 742, 15, kColorTextPrimary);
+        }
+    }
+
     Rectangle equipment{548, 104, 690, 500};
     drawCard(equipment, kColorCard, kColorBorderSoft, 0.04f);
     if (unit->classId == jf::UnitClass::Spearman) {
