@@ -167,11 +167,13 @@ std::vector<RegionSummary> computeRegionSummaries(const GameData& data, const Ba
     auto predecessor = [](RegionId id) -> std::optional<RegionId> {
         if (id == RegionId::CinderwatchGate) return RegionId::AshboughForest;
         if (id == RegionId::AshironQuarry) return RegionId::CinderwatchGate;
+        if (id == RegionId::BlackwaterLowlands) return RegionId::AshironQuarry;
         return std::nullopt;
     };
 
     std::vector<RegionSummary> summaries;
-    for (RegionId id : {RegionId::AshboughForest, RegionId::CinderwatchGate, RegionId::AshironQuarry}) {
+    for (RegionId id : {RegionId::AshboughForest, RegionId::CinderwatchGate, RegionId::AshironQuarry,
+                        RegionId::BlackwaterLowlands}) {
         RegionDescriptor region = regionDescriptor(id, data);
         bool unlocked = regionUnlocked(id, baseState, data);
         RegionSummary summary{id, region.displayNameEn, region.displayNameJa, unlocked, "", ""};

@@ -31,6 +31,7 @@ enum class RegionId {
     CinderwatchGate,
     AshboughForest,
     AshironQuarry,
+    BlackwaterLowlands,
 };
 
 using LootId = std::string;

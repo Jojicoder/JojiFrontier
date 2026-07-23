@@ -291,7 +291,8 @@ void loadAppFont() {
                       "薬草の沢折れ木の縄張り森の経路は次の探索地点へ続いています地点到達"
                       "この地点の探索選択と戦闘内容は次の実装工程で追加します現在の未確定戦利品保存されています"
                       "次の地点では探索から開始します荷物そのまま引き継がれます"
-                      "灰鉄採石場前線基地を攻略すると解放されます";
+                      "灰鉄採石場前線基地を攻略すると解放されます"
+                      "黒水低湿地灰水の沈み道葦原の分岐薬草洲樹脂林黒水渡し沈没水門深泥の水源(仮実装)";
     for (const jf::FacilityNode& node : jf::facilityNodeRegistry()) charsetSource += node.nameJa + node.effectJa;
     for (const jf::SkillDefinition& skill : jf::skillRegistry()) charsetSource += skill.nameJa + skill.effectJa;
     for (jf::UnitClass uc : {jf::UnitClass::MarchCaptain, jf::UnitClass::VeteranGuard,
@@ -478,6 +479,7 @@ std::string unitDisplayNameFor(const std::string& englishName) {
         {"Ashenhorn Boar", "class.ashenhorn_boar"},
         {"Ashiron Grubworm", "class.ashiron_grubworm"},
         {"Rock Borer", "character.rock_borer"},
+        {"Marsh Poison Spider", "character.marsh_poison_spider"},
         // docs/roster_design.md「加入段階」/docs/gathering_place.md
         // `heavy_recruitment`: 重装兵の加入候補・加入後の表示名(Frontier提案、
         // World Bible未登録)。
@@ -492,6 +494,7 @@ std::string materialNameFor(const std::string& id) {
         "wood", "hide", "herb", "gate_tools", "ash_road_map", "field_medicine", "watch_ledger",
         "captains_seal", jf::kAshveilFangMaterial, jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment",
         "iron", "stone", "old_gear", "signal_core", "quality_iron", "combustion_oil", "ashiron_shell",
+        "wetland_resin",
     };
     return known.count(id) ? tr("material." + id) : id;
 }

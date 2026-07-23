@@ -121,17 +121,64 @@ const RegionRouteGraph& ashironQuarryGraph() {
     return graph;
 }
 
+// docs/regions/blackwater_lowlands.md「地点構成」: 7-site skeleton +
+// 3 camps. Site 3 (herb_islet)/4 (resin_grove) are order-flexible but BOTH
+// required (BranchCompletion::AllMembers, same shape as Cinderwatch's
+// ironwatch_stores/old_barracks branch) before continuing. Only site 1
+// (sunken_path) is real content this Slice; sites 2/3/4/5/6/7 stay pre-spec
+// placeholders until later Slices replace them one at a time.
+const RegionRouteGraph& blackwaterLowlandsGraph() {
+    static const RegionRouteGraph graph{
+        RegionId::BlackwaterLowlands,
+        "blackwater_lowlands_main_route",
+        "blackwater_lowlands_entrance",
+        "blackwater_lowlands_exit",
+        {
+            {"blackwater_lowlands_entrance", RouteNodeKind::Entrance, std::nullopt},
+            {"sunken_path", RouteNodeKind::Site, "sunken_path"},
+            {"reedway_fork", RouteNodeKind::Site, "reedway_fork"},
+            {"blackwater_camp1", RouteNodeKind::Camp, std::nullopt},
+            {"herb_resin_branch", RouteNodeKind::BranchGroup, std::nullopt,
+             {"herb_islet", "resin_grove"}, BranchCompletion::AllMembers},
+            {"herb_islet", RouteNodeKind::Site, "herb_islet"},
+            {"resin_grove", RouteNodeKind::Site, "resin_grove"},
+            {"blackwater_camp2", RouteNodeKind::Camp, std::nullopt},
+            {"blackwater_crossing", RouteNodeKind::Site, "blackwater_crossing"},
+            {"sunken_sluice", RouteNodeKind::Site, "sunken_sluice"},
+            {"blackwater_camp3", RouteNodeKind::Camp, std::nullopt},
+            {"deep_mire", RouteNodeKind::Site, "deep_mire"},
+            {"blackwater_lowlands_exit", RouteNodeKind::Exit, std::nullopt},
+        },
+        {
+            {"blackwater_lowlands_entrance", "sunken_path"},
+            {"sunken_path", "reedway_fork"},
+            {"reedway_fork", "blackwater_camp1"},
+            {"blackwater_camp1", "herb_resin_branch"},
+            {"herb_islet", "herb_resin_branch"},
+            {"resin_grove", "herb_resin_branch"},
+            {"herb_resin_branch", "blackwater_camp2"},
+            {"blackwater_camp2", "blackwater_crossing"},
+            {"blackwater_crossing", "sunken_sluice"},
+            {"sunken_sluice", "blackwater_camp3"},
+            {"blackwater_camp3", "deep_mire"},
+            {"deep_mire", "blackwater_lowlands_exit"},
+        },
+    };
+    return graph;
+}
+
 } // namespace
 
 bool usesRouteGraph(RegionId regionId) {
     return regionId == RegionId::AshboughForest || regionId == RegionId::CinderwatchGate ||
-           regionId == RegionId::AshironQuarry;
+           regionId == RegionId::AshironQuarry || regionId == RegionId::BlackwaterLowlands;
 }
 
 const RegionRouteGraph& regionRouteGraph(RegionId regionId) {
     if (regionId == RegionId::AshboughForest) return ashboughGraph();
     if (regionId == RegionId::CinderwatchGate) return cinderwatchGraph();
     if (regionId == RegionId::AshironQuarry) return ashironQuarryGraph();
+    if (regionId == RegionId::BlackwaterLowlands) return blackwaterLowlandsGraph();
     throw std::invalid_argument("region has no route graph");
 }
 

@@ -273,6 +273,17 @@ bool startAshironQuarryExpedition(jf::GameApp& app) {
     return app.startExpedition(jf::RegionId::AshironQuarry);
 }
 
+// Same idea, one region further: BlackwaterLowlands unlocks on AshironQuarry
+// completion (docs/region_unlocks.md).
+bool startBlackwaterExpedition(jf::GameApp& app) {
+    jf::SaveData save = app.createSaveData("en");
+    save.base.completedRegionIds.insert(jf::RegionId::AshboughForest);
+    save.base.completedRegionIds.insert(jf::RegionId::CinderwatchGate);
+    save.base.completedRegionIds.insert(jf::RegionId::AshironQuarry);
+    if (!app.applySaveData(save)) return false;
+    return app.startExpedition(jf::RegionId::BlackwaterLowlands);
+}
+
 // docs/regions/cinderwatch_gate.md「1. シンダーウォッチ外門」disables ScoutRoute
 // (its class-gated 3rd choice needs 重装兵/HeavyInfantry, not implemented yet
 // - docs/implementation_roadmap.md M6-A). Tests that exercise the generic
@@ -5593,7 +5604,7 @@ int main() {
         assert(app.screen() == jf::Screen::Base); // rejected attempt leaves screen untouched
 
         auto summaries = app.regionSummaries();
-        assert(summaries.size() == 3);
+        assert(summaries.size() == 4);
         bool sawAshboughUnlocked = false, sawCinderwatchLocked = false, sawAshironLocked = false;
         for (const auto& summary : summaries) {
             if (summary.id == jf::RegionId::AshboughForest) sawAshboughUnlocked = summary.unlocked;
@@ -6178,6 +6189,20 @@ int main() {
               ashironBranch->branchCompletion == jf::BranchCompletion::AnyMember &&
               ashironBranch->branchMembers.size() == 2);
 
+        // docs/regions/blackwater_lowlands.md「地点構成」: 7-site skeleton +
+        // 3 camps, herb_islet/resin_grove branch requires BOTH members
+        // (AllMembers, same shape as Cinderwatch's ironwatch_stores/
+        // old_barracks branch).
+        const jf::RegionRouteGraph& blackwaterRoute = jf::regionRouteGraph(jf::RegionId::BlackwaterLowlands);
+        assert(jf::usesRouteGraph(jf::RegionId::BlackwaterLowlands));
+        assert(jf::validateRouteGraph(blackwaterRoute, nullptr));
+        assert(jf::findRouteNode(blackwaterRoute, "sunken_path"));
+        assert(jf::findRouteNode(blackwaterRoute, "deep_mire"));
+        const jf::RouteNodeDefinition* blackwaterBranch = jf::findRouteNode(blackwaterRoute, "herb_resin_branch");
+        assert(blackwaterBranch && blackwaterBranch->kind == jf::RouteNodeKind::BranchGroup &&
+              blackwaterBranch->branchCompletion == jf::BranchCompletion::AllMembers &&
+              blackwaterBranch->branchMembers.size() == 2);
+
         jf::RegionRouteGraph disconnectedExit = cinderwatchRoute;
         disconnectedExit.edges.erase(std::remove_if(disconnectedExit.edges.begin(), disconnectedExit.edges.end(),
                                                     [](const jf::RouteEdgeDefinition& edge) {
@@ -6565,6 +6590,72 @@ int main() {
         assert(findLoot(lootFor(false), "quality_iron") == 0);
         assert(findLoot(lootFor(true), "quality_iron") == 1); // stakes secured
         assert(findLoot(lootFor(false), "ashiron_shell") == 1);
+    }
+
+    {
+        // docs/regions/blackwater_lowlands.md「1. 灰水の沈み道」: 3探索ルートの
+        // 敵数・報酬差分。ルート効果はCinderwatch/Ashbough共通の
+        // cinderwatchOutcome()デフォルト(rush=partyDamage2+enemiesRemoved1、
+        // scout=自由配置左3列)とそのまま一致するため、routeOutcomesの上書きは
+        // 無く、routeVictoryLootDelta(薬草報酬なし/湿地樹脂+1)だけで表現している。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor blackwaterRegion = jf::regionDescriptor(jf::RegionId::BlackwaterLowlands, *data);
+        const jf::StageDescriptor& sunkenPathStage = blackwaterRegion.stages[0];
+        assert(sunkenPathStage.id == "sunken_path" && sunkenPathStage.enemyRoster.size() == 4);
+
+        auto lootFor = [&](jf::ExplorationChoice choice, bool surveySucceeded) {
+            return jf::computeStageVictoryLoot(sunkenPathStage, choice, surveySucceeded);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance, false), "herb") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance, true), "herb") == 3); // +marker bonus
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath, false), "herb") == 0); // no herb reward
+        assert(findLoot(lootFor(jf::ExplorationChoice::ScoutRoute, false), "wetland_resin") == 1);
+
+        jf::GameApp app(*data);
+        assert(startBlackwaterExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::CollapsedSidePath));
+        int enemyCount = 0;
+        for (const jf::Unit& unit : app.battle().battle().units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 3); // base 4 - enemiesRemoved:1 (cinderwatchOutcome default)
+    }
+
+    {
+        // docs/regions/blackwater_lowlands.md「地点構成」: herb_islet/
+        // resin_grove branch requires BOTH members (AllMembers) - winning
+        // only one and returning to the branch must present the OTHER
+        // member next, not skip ahead to Camp II (mirrors Cinderwatch's
+        // ironwatch_stores/old_barracks AllMembers test).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        jf::GameApp app(*data);
+        assert(startBlackwaterExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // sunken_path
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> reedway_fork
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> Camp I -> branch, first unresolved member
+        assert(app.currentMissionNameJa() == "薬草洲(仮実装)");
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // AllMembers: only 1 of 2 resolved -> branch again, other member
+        assert(app.screen() == jf::Screen::Exploration);
+        assert(app.currentMissionNameJa() == "樹脂林(仮実装)");
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // both resolved -> Camp II -> blackwater_crossing
+        assert(app.currentMissionNameJa() == "黒水渡し(仮実装)");
     }
 
     {

@@ -1384,6 +1384,56 @@ territory`/`cinderwatch_outer_gate`と同じ前例)。第2ルート「古い火�
 ボスAI自体は両ポリシーで機能することを確認できた。[[jf_forest_balance worst-case
 numbers]]の教訓どおり、実測記録のみで数値調整は行わない。
 
+### M9-E 黒水低湿地(第4地域): 地域骨格 + 地点1(灰水の沈み道)
+
+灰鉄採石場は地点5(ボス)まで実コンテンツ化済みとなったため、次の地域「黒水低湿地」
+(第4地域、`docs/regions/blackwater_lowlands.md`)へ着手した。M6/M9の確立済み
+パターン(地域骨格を1度作り、以後1地点ずつ本格化する)を踏襲し、今回のSliceは
+RouteGraph骨格(7地点+3キャンプ)+地点1「灰水の沈み道」の実コンテンツだけに絞った。
+
+事前調査の結果、地点1に必要な要素はほぼ全て既存機構で賄えた:
+
+- **毒状態異常**(`StatusEffectType::Poison`)・**浅瀬地形**(`TerrainType::
+  Shallows`、Ashbough Forestの薬草の沢由来)はいずれも既にフル実装済みで、
+  今回は一切コード変更なし。地点1自身の敵(湿地の毒蜘蛛)は正本の行動記述に毒攻撃が
+  無く(沼蛇の「毒噛み」は地点2以降)、`Weapon::onHitStatuses`(これも既存)も
+  今回は未使用。深泥地形は地点1では表示演出としてのみ言及され機能要件ではないため、
+  新規`TerrainType`の追加を見送り、必要になった地点のSliceへ先送りした。
+- **副目標「右側の標識地点で行動終了」**は`ashroad_watch_fixture`と同型の
+  `surveyObjectiveId`(`surveyTileCount`/`surveyTileObjectDefinitionId`は未設定、
+  素のタイルのみ)で実装。
+- **地点3「薬草洲」/4「樹脂林」の「両方必須・順不同」分岐**はCinderwatchの
+  `ironwatch_stores`/`old_barracks`が使う`BranchCompletion::AllMembers`をそのまま
+  流用(`src/core/RouteGraph.cpp`)。
+- **湿地の毒蜘蛛**は新規`UnitClass`を作らず、Wolf相当のステータスを`enemyRoster`の
+  `name`だけ差し替えて再利用した(Ashiron Quarryの「Rock Borer」がBanditを再利用
+  した前例と同じパターン)。
+
+新規`RegionId::BlackwaterLowlands`を追加し、`Region.cpp`(`regionDescriptor()`/
+`toString()`/`regionIdFromString[Strict]()`/`regionCleared()`)・`RouteGraph.cpp`
+(`blackwaterLowlandsGraph()`、`usesRouteGraph()`/`regionRouteGraph()`ディスパッチ)・
+`ExpeditionService.cpp`(地域リスト・前地域マップ)を`AshironQuarry`と同じ形で配線
+した。`jf_forest_balance --region=`は既に文字列ベースの汎用ルックアップ
+(`regionIdFromStringStrict()`)のためコード変更不要だった。地点1「灰水の沈み道」の
+探索3択は、既存の`cinderwatchOutcome()`デフォルト(rush=`partyDamage`2+
+`enemiesRemoved`1、scout=自由配置左3列)が正本の数値とそのまま一致したため
+`routeOutcomes`の上書きは不要で、`routeVictoryLootDelta`(薬草報酬なし/湿地樹脂+1)
+だけで表現した。新素材`wetland_resin`(湿地樹脂)を`materialNameFor()`の`known`
+セット+Localeへ追加。
+
+地域/地点の日本語表示名(`RegionDescriptor::displayNameJa`/`StageDescriptor`の
+`missionNameJa`)は`tr()`を経由しない直接埋め込み文字列のため、[[JA glyph coverage /
+no ID-collision on JA text]]の慣習どおり`loadAppFont()`のcharsetSourceへ手動登録した
+(`src/ui_shared.cpp`)。
+
+地点2〜7はプレースホルダー(汎用Bandit/WatchArcher編成)のまま、M6-B/C方式で
+1地点ずつ本格化する。
+
+`jf_forest_balance --region=blackwater_lowlands`(500 Seed)の実測: 地点1
+(灰水の沈み道)のfresh-party win率はDirect 100%/Tactical 100%。
+[[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録のみで数値調整は
+行わない。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功

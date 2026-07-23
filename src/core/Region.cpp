@@ -193,6 +193,26 @@ RegionDescriptor ashironQuarryRegion(const GameData& data) {
     return region;
 }
 
+// docs/regions/blackwater_lowlands.md「地点構成」: region skeleton, same role
+// M9-A's ashironQuarryRegion() played for Ashiron Quarry - only site 1
+// (sunken_path) is real content this Slice, the rest are placeholders.
+RegionDescriptor blackwaterLowlandsRegion(const GameData& data) {
+    RegionDescriptor region;
+    region.id = RegionId::BlackwaterLowlands;
+    region.displayNameEn = "Blackwater Lowlands";
+    region.displayNameJa = "黒水低湿地";
+
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("sunken_path")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("reedway_fork")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("herb_islet")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("resin_grove")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("blackwater_crossing")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("sunken_sluice")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("deep_mire")));
+
+    return region;
+}
+
 } // namespace
 
 RegionDescriptor regionDescriptor(RegionId id, const GameData& data) {
@@ -200,6 +220,7 @@ RegionDescriptor regionDescriptor(RegionId id, const GameData& data) {
         case RegionId::CinderwatchGate: return cinderwatchGateRegion(data);
         case RegionId::AshboughForest: return ashboughForestRegion(data);
         case RegionId::AshironQuarry: return ashironQuarryRegion(data);
+        case RegionId::BlackwaterLowlands: return blackwaterLowlandsRegion(data);
     }
     return cinderwatchGateRegion(data);
 }
@@ -209,6 +230,7 @@ std::string toString(RegionId id) {
         case RegionId::CinderwatchGate: return "cinderwatch_gate";
         case RegionId::AshboughForest: return "ashbough_forest";
         case RegionId::AshironQuarry: return "ashiron_quarry";
+        case RegionId::BlackwaterLowlands: return "blackwater_lowlands";
     }
     return "cinderwatch_gate";
 }
@@ -216,6 +238,7 @@ std::string toString(RegionId id) {
 RegionId regionIdFromString(const std::string& id) {
     if (id == "ashbough_forest") return RegionId::AshboughForest;
     if (id == "ashiron_quarry") return RegionId::AshironQuarry;
+    if (id == "blackwater_lowlands") return RegionId::BlackwaterLowlands;
     return RegionId::CinderwatchGate;
 }
 
@@ -223,6 +246,7 @@ std::optional<RegionId> regionIdFromStringStrict(const std::string& id) {
     if (id == "ashbough_forest") return RegionId::AshboughForest;
     if (id == "cinderwatch_gate") return RegionId::CinderwatchGate;
     if (id == "ashiron_quarry") return RegionId::AshironQuarry;
+    if (id == "blackwater_lowlands") return RegionId::BlackwaterLowlands;
     return std::nullopt;
 }
 
@@ -286,6 +310,7 @@ bool regionUnlocked(RegionId regionId, const BaseState& base, const GameData& /*
         case RegionId::AshboughForest: return true;
         case RegionId::CinderwatchGate: return base.completedRegionIds.count(RegionId::AshboughForest) > 0;
         case RegionId::AshironQuarry: return base.completedRegionIds.count(RegionId::CinderwatchGate) > 0;
+        case RegionId::BlackwaterLowlands: return base.completedRegionIds.count(RegionId::AshironQuarry) > 0;
     }
     return true;
 }

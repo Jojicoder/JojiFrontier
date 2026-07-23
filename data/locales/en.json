@@ -104,6 +104,7 @@
   "material.quality_iron": "Quality Iron",
   "material.combustion_oil": "Combustion Oil",
   "material.ashiron_shell": "Borer Shell",
+  "material.wetland_resin": "Wetland Resin",
 
   "weapon.iron_sword": "Iron Sword",
   "weapon.iron_lance": "Iron Lance",
@@ -135,6 +136,7 @@
   "character.march_spearman": "March Spearman",
   "character.raider": "Raider",
   "character.rock_borer": "Rock Borer",
+  "character.marsh_poison_spider": "Marsh Poison Spider",
   "character.deserter_spearman": "Deserter Spearman",
   "character.former_captain": "Former Captain",
 
