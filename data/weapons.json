@@ -19,6 +19,7 @@
     { "id": "guard_spear", "name": "Guard Spear", "might": 5, "minRange": 1, "maxRange": 2, "damageType": "Physical",
       "braceBoost": true },
     { "id": "wolf_bite", "name": "Bite", "might": 5, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
-    { "id": "boar_tusks", "name": "Tusks", "might": 0, "minRange": 1, "maxRange": 1, "damageType": "Physical" }
+    { "id": "boar_tusks", "name": "Tusks", "might": 0, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
+    { "id": "grubworm_mandibles", "name": "Mandibles", "might": 0, "minRange": 1, "maxRange": 1, "damageType": "Physical" }
   ]
 }

@@ -160,6 +160,14 @@ jf::GameData makeFactoryData() {
                        .defense = 5, .resistance = 1, .move = 2};
     data.classesById.emplace(jf::UnitClass::AshenhornBoar,
                              jf::ClassDefinition{jf::UnitClass::AshenhornBoar, boarStats, "boar_tusks"});
+    jf::Weapon grubwormMandibles{.id = "grubworm_mandibles", .name = "Mandibles", .might = 0, .minRange = 1,
+                                .maxRange = 1, .damageType = jf::DamageType::Physical};
+    data.weaponsById.emplace("grubworm_mandibles", grubwormMandibles);
+    jf::Stats grubwormStats{.maxHp = 56, .strength = 9, .magic = 0, .speed = 4,
+                           .defense = 8, .resistance = 2, .move = 3};
+    data.classesById.emplace(
+        jf::UnitClass::AshironGrubworm,
+        jf::ClassDefinition{jf::UnitClass::AshironGrubworm, grubwormStats, "grubworm_mandibles"});
     data.recruitDefinitionsById.emplace("heavy_recruit",
                                         jf::UnitTemplate{"heavy_recruit", "Hadric", jf::UnitClass::HeavyInfantry});
     data.recruitDefinitionsById.emplace(
@@ -6432,6 +6440,131 @@ int main() {
         for (const jf::Unit& unit : battle.units())
             if (unit.team == jf::Team::Enemy) ++enemyCount;
         assert(enemyCount == 4); // base 5 - enemiesRemoved:1
+    }
+
+    {
+        // docs/regions/ashiron_quarry.md「灰殻穿岩虫」「潜行突進」: telegraphs
+        // one turn, executes the next - traveling along the boss's own row,
+        // damaging any ally it passes (STR+3), covering the full range (3)
+        // when unblocked. Mirrors the AshenhornBoar charge tests above.
+        jf::Unit grubworm = makeUnit("grubworm", jf::Team::Enemy, {1, 5}, 3, jf::UnitClass::AshironGrubworm);
+        grubworm.stats.strength = 9;
+        grubworm.stats.defense = 8;
+        grubworm.stats.resistance = 2;
+        grubworm.stats.maxHp = 56;
+        grubworm.currentHp = 56;
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {1, 2}); // same row, distance 3
+        jf::BattleState battle({ally, grubworm});
+
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(battle.units()[1].chargeTelegraphed);
+        assert(battle.units()[1].position == (jf::GridPos{1, 5})); // hasn't moved yet
+        assert(battle.units()[0].currentHp == battle.units()[0].stats.maxHp); // untouched
+        assert((battle.units()[1].bossRuntime.telegraph.lockedTiles ==
+               std::vector<jf::GridPos>{{1, 4}, {1, 3}, {1, 2}}));
+        // 岩殻防御: DEF+2 by default (no charge yet to recover from).
+        assert(battle.units()[1].stats.defense == 10);
+
+        battle.units()[1].hasActed = false; // simulate the next turn
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(!battle.units()[1].chargeTelegraphed);
+        assert(battle.units()[1].position == (jf::GridPos{1, 2})); // covered the full range-3
+        assert(battle.units()[0].currentHp < battle.units()[0].stats.maxHp);
+        // The DEF+2 bonus is still in effect for this action (it was already
+        // applied before the charge executed); the drop is queued for the
+        // action right after.
+        assert(battle.units()[1].stats.defense == 10);
+        assert(battle.units()[1].bossChargeRecoveryPending);
+
+        battle.units()[1].hasActed = false; // one more action: DEF+2 drops
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(battle.units()[1].stats.defense == 8);
+        assert(!battle.units()[1].bossChargeRecoveryPending);
+    }
+
+    {
+        // docs/regions/ashiron_quarry.md「灰殻穿岩虫」「崩落誘発」: HP<=50%で
+        // 1回だけ発火し、盤面の空きマス2つがRubble(通行不可)へ変わる。
+        jf::Unit grubworm = makeUnit("grubworm", jf::Team::Enemy, {1, 5}, 3, jf::UnitClass::AshironGrubworm);
+        grubworm.stats.strength = 9;
+        grubworm.stats.defense = 8;
+        grubworm.stats.resistance = 2;
+        grubworm.stats.maxHp = 56;
+        grubworm.currentHp = 28; // exactly 50%
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {1, 0}); // out of charge range (distance 5)
+        jf::BattleState battle({ally, grubworm});
+
+        auto countRubble = [&]() {
+            int count = 0;
+            for (int row = 0; row < jf::kGridRows; ++row)
+                for (int col = 0; col < jf::kGridCols; ++col)
+                    if (battle.terrainAt({row, col}) == jf::TerrainType::Rubble) ++count;
+            return count;
+        };
+
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(battle.units()[1].bossCollapseUsed);
+        assert(countRubble() == 2);
+
+        battle.units()[1].hasActed = false; // doesn't fire a second time
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(countRubble() == 2);
+    }
+
+    {
+        // docs/regions/ashiron_quarry.md「崩落核」: defeating the boss (HP0,
+        // ScriptedWithdrawal like the AshenhornBoar) wins the standard
+        // EliminateTeam battle - the "封鎖杭2箇所" AND-requirement is
+        // approximated to a survey bonus instead (see M9-D plan), so no
+        // Device interaction is needed to win.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor ashironRegion = jf::regionDescriptor(jf::RegionId::AshironQuarry, *data);
+        const jf::StageDescriptor* coreStage = nullptr;
+        for (const jf::StageDescriptor& stage : ashironRegion.stages)
+            if (stage.id == "quarry_collapse_core") coreStage = &stage;
+        assert(coreStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *coreStage, /*seed=*/13);
+        const jf::AliveSnapshot before = jf::captureAliveSnapshot(battle);
+        for (jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+        jf::emitUnitDefeatedEvents(battle, before);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+
+        const jf::Unit* boss = nullptr;
+        for (const jf::Unit& unit : battle.units())
+            if (unit.unitClass == jf::UnitClass::AshironGrubworm) boss = &unit;
+        assert(boss && boss->exitReason == jf::UnitExitReason::ScriptedWithdrawal);
+    }
+
+    {
+        // docs/regions/ashiron_quarry.md「崩落核」: 封鎖杭2箇所確保のボーナス、
+        // scoutRouteDisabled(戦闘魔導士候補確定ルートは未配線のため無効化)、
+        // 敵編成(ボス+雑魚2)を確認。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor ashironRegion = jf::regionDescriptor(jf::RegionId::AshironQuarry, *data);
+        const jf::StageDescriptor* coreStage = nullptr;
+        for (const jf::StageDescriptor& stage : ashironRegion.stages)
+            if (stage.id == "quarry_collapse_core") coreStage = &stage;
+        assert(coreStage && coreStage->enemyRoster.size() == 3);
+        assert(coreStage->scoutRouteDisabled);
+        assert(coreStage->surveyObjectiveId == "quarry_collapse_core_stakes");
+        assert(coreStage->surveyTileCount && *coreStage->surveyTileCount == 2);
+
+        auto lootFor = [&](bool surveySucceeded) {
+            return jf::computeStageVictoryLoot(*coreStage, jf::ExplorationChoice::FrontalAdvance, surveySucceeded);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(false), "quality_iron") == 0);
+        assert(findLoot(lootFor(true), "quality_iron") == 1); // stakes secured
+        assert(findLoot(lootFor(false), "ashiron_shell") == 1);
     }
 
     {

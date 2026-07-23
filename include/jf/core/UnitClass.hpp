@@ -45,6 +45,10 @@ enum class UnitClass {
     // individual name "折れ木の主"). Own AI (jf/battle/EnemyAI.hpp's
     // takeBoarBossTurn()) and boss-only transient Unit fields.
     AshenhornBoar,
+    // docs/regions/ashiron_quarry.md "灰殻穿岩虫" (崩落核's boss). Own AI
+    // (jf/battle/EnemyAI.hpp's takeGrubwormBossTurn()), reuses AshenhornBoar's
+    // generic boss-runtime Unit fields (bossEnraged/chargeTelegraphed/etc).
+    AshironGrubworm,
 };
 
 enum class Team {

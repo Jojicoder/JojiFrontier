@@ -465,11 +465,202 @@ Unit* takeBoarBossTurn(BattleState& battle, Unit& boar) {
     return nullptr;
 }
 
+// docs/regions/ashiron_quarry.md "灰殻穿岩虫"/"行動". Scoped-down relative to
+// the doc's full 6-step priority list (see M9-D plan's approximation notes):
+// no scripted retreat-from-stake-operator targeting, no telegraphed warning
+// for 崩落誘発 (it's a one-time board-state change, not a repeating attack
+// telegraph like 潜行突進, so it fires immediately instead of being
+// announced a round ahead).
+constexpr int kGrubwormChargeRange = 3;
+constexpr int kGrubwormChargePowerBonus = 3;
+constexpr int kGrubwormBaseDefense = 8;
+constexpr int kGrubwormShellDefenseBonus = 2;
+
+// Mirrors computeBoarChargeTiles(): side-effect-free preview of
+// executeGrubwormCharge()'s walk, for BossTelegraph::lockedTiles.
+std::vector<GridPos> computeGrubwormChargeTiles(const BattleState& battle, const Unit& grubworm, int direction,
+                                                int range) {
+    std::vector<GridPos> tiles;
+    const int row = grubworm.position.row;
+    for (int step = 1; step <= range; ++step) {
+        int col = grubworm.position.col + direction * step;
+        if (col < 0 || col >= kGridCols) break;
+        GridPos pos{row, col};
+        tiles.push_back(pos);
+        const BattleObjectState* object = battle.objectAt(pos);
+        if (object && object->state != BattleObjectStateKind::Destroyed) {
+            const BattleObjectDefinition* def = battle.objectDefinition(object->definitionId);
+            if (def && def->blocksMovement) break;
+        }
+    }
+    return tiles;
+}
+
+// Mirrors boarChargeDirectionForTarget(): lowest HP, then nearest, then ID.
+int grubwormChargeDirectionForTarget(BattleState& battle, const Unit& grubworm, int range) {
+    const Unit* best = nullptr;
+    int bestDistance = range + 1;
+    for (const Unit& unit : battle.units()) {
+        if (unit.team != Team::Player || !unit.isAlive() || unit.position.row != grubworm.position.row) continue;
+        const int distance = std::abs(unit.position.col - grubworm.position.col);
+        if (distance == 0 || distance > range) continue;
+        if (!best || unit.currentHp < best->currentHp ||
+            (unit.currentHp == best->currentHp && distance < bestDistance) ||
+            (unit.currentHp == best->currentHp && distance == bestDistance && unit.id < best->id)) {
+            best = &unit;
+            bestDistance = distance;
+        }
+    }
+    if (!best) return 0;
+    return best->position.col < grubworm.position.col ? -1 : 1;
+}
+
+// 潜行突進: advances up to kGrubwormChargeRange tiles along the current row,
+// damaging (STR+3, per the doc) every player unit passed over, stopping at
+// the board edge or a movement-blocking Battle Object. Sets
+// bossChargeRecoveryPending so 岩殻防御's DEF+2 drops for exactly the next
+// action (docs: "潜行から出た直後以外はDEF+2").
+void executeGrubwormCharge(BattleState& battle, Unit& grubworm) {
+    const int power = grubworm.stats.strength + kGrubwormChargePowerBonus;
+    const int row = grubworm.position.row;
+    const int direction = grubworm.bossRuntime.telegraph.direction < 0 ? -1 : 1;
+    int endCol = grubworm.position.col;
+
+    for (int step = 1; step <= kGrubwormChargeRange; ++step) {
+        int col = grubworm.position.col + direction * step;
+        if (col < 0 || col >= kGridCols) break;
+        GridPos pos{row, col};
+        endCol = col;
+
+        Unit* occupant = battle.unitAt(pos);
+        if (occupant && occupant->team == Team::Player && occupant->isAlive()) {
+            int damage = std::max(power - occupant->effectiveDefense(), 1);
+            occupant->currentHp = std::max(occupant->currentHp - damage, 0);
+        }
+
+        const BattleObjectState* object = battle.objectAt(pos);
+        if (object && object->state != BattleObjectStateKind::Destroyed) {
+            const BattleObjectDefinition* def = battle.objectDefinition(object->definitionId);
+            if (def && def->blocksMovement) break;
+        }
+    }
+
+    grubworm.position = GridPos{row, endCol};
+    grubworm.chargeTelegraphed = false;
+    grubworm.bossRuntime.telegraph.state = TelegraphState::Executed;
+    handleObjectiveEvent(battle.missionState(),
+                         {battle.issueEventId(), 0,
+                          BossTelegraphChangedEvent{grubworm.id, grubworm.bossRuntime.telegraph.actionId, false}});
+    grubworm.bossRuntime.telegraph.clear();
+    grubworm.chargeCooldownActions = 1;
+    grubworm.chargesExecuted += 1;
+    grubworm.bossChargeRecoveryPending = true;
+}
+
+// 崩落誘発: HP<=50%, once, immediately converts up to 2 currently-empty,
+// unoccupied Floor tiles (excluding the boss's own tile) to Rubble
+// (impassable - docs/regions/ashiron_quarry.md "崩落した床"). Scan order is
+// fixed (row-major) for determinism; no RNG plumbing is threaded into
+// EnemyAI.cpp elsewhere, so this doesn't introduce one just for 2 tiles.
+void triggerGrubwormCollapse(BattleState& battle, Unit& grubworm) {
+    int converted = 0;
+    for (int row = 0; row < kGridRows && converted < 2; ++row) {
+        for (int col = 0; col < kGridCols && converted < 2; ++col) {
+            GridPos pos{row, col};
+            if (pos == grubworm.position) continue;
+            if (battle.terrainAt(pos) != TerrainType::Floor) continue;
+            if (battle.unitAt(pos)) continue;
+            if (battle.objectAt(pos)) continue;
+            battle.setTerrain(pos, TerrainType::Rubble);
+            ++converted;
+        }
+    }
+}
+
+Unit* takeGrubwormBossTurn(BattleState& battle, Unit& grubworm) {
+    // 岩殻防御: DEF+2 by default, drops for exactly the action right after
+    // emerging from a charge.
+    if (grubworm.bossChargeRecoveryPending) {
+        grubworm.bossChargeRecoveryPending = false;
+        grubworm.stats.defense = kGrubwormBaseDefense;
+    } else {
+        grubworm.stats.defense = kGrubwormBaseDefense + kGrubwormShellDefenseBonus;
+    }
+
+    // 崩落誘発: instant, non-turn-consuming state update, checked before this
+    // turn's action decision (mirrors the boar's enrage check).
+    if (!grubworm.bossCollapseUsed && grubworm.currentHp * 2 <= grubworm.stats.maxHp) {
+        grubworm.bossCollapseUsed = true;
+        triggerGrubwormCollapse(battle, grubworm);
+        grubworm.bossRuntime.stageIndex = 1;
+        handleObjectiveEvent(battle.missionState(),
+                             BattleEvent{battle.issueEventId(), 0,
+                                         BossStageChangedEvent{grubworm.id, grubworm.bossRuntime.stageIndex}});
+    }
+
+    // A telegraphed charge always executes now, before anything else.
+    if (grubworm.bossRuntime.telegraph.pending()) {
+        executeGrubwormCharge(battle, grubworm);
+        finishEnemyAction(battle, grubworm, ActionKind::Attack);
+        return nullptr;
+    }
+
+    const bool chargeOnCooldown = grubworm.chargeCooldownActions > 0;
+    if (chargeOnCooldown) --grubworm.chargeCooldownActions;
+
+    // Telegraph a charge if a target is reachable along the current row.
+    if (!chargeOnCooldown) {
+        const int direction = grubwormChargeDirectionForTarget(battle, grubworm, kGrubwormChargeRange);
+        if (direction != 0) {
+            grubworm.chargeTelegraphed = true;
+            grubworm.chargeDirection = direction;
+            grubworm.bossRuntime.telegraph = {"grubworm_dash", TelegraphShape::Line, TelegraphState::Announced,
+                                              battle.round(), battle.round() + 1, {},
+                                              computeGrubwormChargeTiles(battle, grubworm, direction,
+                                                                        kGrubwormChargeRange),
+                                              direction};
+            handleObjectiveEvent(battle.missionState(),
+                                 {battle.issueEventId(), 0,
+                                  BossTelegraphChangedEvent{grubworm.id, "grubworm_dash", true}});
+            finishEnemyAction(battle, grubworm, ActionKind::Skill);
+            return nullptr;
+        }
+    }
+
+    // Otherwise, close the distance, then attack normally (generic fallback,
+    // no bespoke logic beyond what every other enemy already uses).
+    Unit* target = findNearestPlayer(battle, grubworm);
+    bool moved = false;
+    if (target) {
+        std::vector<GridPos> reachable = computeReachableTiles(battle, grubworm);
+        GridPos bestTile = grubworm.position;
+        int bestDist = manhattanDistance(grubworm.position, target->position);
+        for (const GridPos& tile : reachable) {
+            int dist = manhattanDistance(tile, target->position);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestTile = tile;
+            }
+        }
+        if (bestTile != grubworm.position) moved = battle.moveUnit(grubworm, bestTile);
+    }
+
+    const AliveSnapshot aliveBeforeAttack = captureAliveSnapshot(battle);
+    if (Unit* attacked = attackIfPossible(battle, grubworm, target)) {
+        emitUnitDefeatedEvents(battle, aliveBeforeAttack);
+        finishEnemyAction(battle, grubworm, ActionKind::Attack);
+        return attacked;
+    }
+    finishEnemyAction(battle, grubworm, moved ? ActionKind::Move : ActionKind::Wait);
+    return nullptr;
+}
+
 } // namespace
 
 Unit* takeEnemyTurn(BattleState& battle, Unit& enemy, AiSquadReservations* reservations) {
     if (!enemy.isPresent() || enemy.hasActed) return nullptr;
     if (enemy.unitClass == UnitClass::AshenhornBoar) return takeBoarBossTurn(battle, enemy);
+    if (enemy.unitClass == UnitClass::AshironGrubworm) return takeGrubwormBossTurn(battle, enemy);
 
     // Captured once, before anything below (including 監視弓兵`overwatch`'s
     // ambush), so a defeat from any of it fires UnitDefeatedEvent exactly

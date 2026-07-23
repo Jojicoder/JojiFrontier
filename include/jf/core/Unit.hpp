@@ -203,6 +203,13 @@ struct Unit {
     bool bossWeakenedFromStun = false;      // DEF/RES overridden low while true
     BossRuntimeState bossRuntime;
 
+    // 灰殻穿岩虫 (docs/regions/ashiron_quarry.md "灰殻穿岩虫") boss-only: HP<=50%
+    // one-time "崩落誘発" trigger, mirrors bossEnraged's role for a different boss.
+    bool bossCollapseUsed = false;
+    // 灰殻穿岩虫「岩殻防御」: true for exactly the action right after a charge,
+    // during which the ability's DEF+2 bonus is lost.
+    bool bossChargeRecoveryPending = false;
+
     // docs/boss_common_rules.md "Bossの退場理由": set once, the moment this
     // unit's HP first reaches 0 (see ObjectiveTracker.cpp's
     // emitUnitDefeatedEvents(), the one place that currently sets it -

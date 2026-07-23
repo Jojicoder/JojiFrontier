@@ -1323,6 +1323,67 @@ worst-case numbers]]参照) - によるもので、実際のプレイでの挙�
 [[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録のみで数値調整は
 行わない。
 
+### M9-D 灰鉄採石場: 地点5(崩落核)/ 地域ボス「灰殻穿岩虫」
+
+地点4「灰鉄鉱脈」は正本上、地点3A(旧採掘坑)と同じ「操作可能なゲストユニット」
+(戦闘魔導士イリエン、HP0で死亡せず撤退)を主目的の前提としており、現行エンジンに
+未実装と判明(相談の結果確認済み)。3A同様に保留し、地点5「崩落核」(地域ボス
+「灰殻穿岩虫」)を先に実装した。
+
+ボス戦の実装前例として、Ashbough Forestの「灰角大猪」(`UnitClass::AshenhornBoar`、
+`EnemyAI.cpp`の`takeBoarBossTurn()`)が既に存在し、テレグラフ攻撃(`BossTelegraph`/
+`TelegraphState`、`BossRuntime.hpp`)・HP50%閾値での状態変化・退場理由の分岐
+(`UnitExitReason::ScriptedWithdrawal`、`ObjectiveTracker.cpp`)はいずれもUnit/
+BattleState上の汎用フィールドとして実装済みだった。新規`UnitClass::AshironGrubworm`
+(`data/classes.json`、正本の基本値どおりHP56/STR9/DEF8/RES2/MOV3)を追加し、
+`takeGrubwormBossTurn()`を`takeBoarBossTurn()`と同じ構造で新規実装:
+
+- **潜行突進**: `BossTelegraph`/`chargeTelegraphed`/`chargeDirection`/
+  `chargeCooldownActions`/`bossRuntime`(いずれもボア専用ではない、Unit上の汎用
+  フィールド)をそのまま流用し、`executeBoarCharge()`と同型の
+  `executeGrubwormCharge()`(直線移動、通過ユニットへSTR+3ダメージ、Barrier系
+  Objectへ衝突で停止)を実装。
+- **岩殻防御**: 新規`bool bossChargeRecoveryPending`フィールドで「潜行から出た
+  直後の1アクションだけDEF+2ボーナスを失う」を表現(既定はDEF+2=10、直後の1
+  アクションだけDEF8)。
+- **崩落誘発**: 新規`bool bossCollapseUsed`フィールド(灰角大猪の`bossEnraged`と
+  同じ役割の1回限りフラグ)。HP50%以下になった最初のターンで、`BattleState::
+  setTerrain()`(プレイヤーSkillの地形変更で既に実行時利用実績あり)を使い、盤面の
+  空きマス(自身の位置・ユニット占有・他Object占有を除く、行優先の決定的走査で先頭
+  2マス)を`TerrainType::Rubble`(通行不可)へ即座に変換する。正本の「1ラウンド前に
+  予告」は、潜行突進のような繰り返し発生する攻撃テレグラフとは性質が異なる1回限りの
+  盤面変化のため、即時発動へ近似した(予告表示は実装していない)。
+
+正本の主目的「灰殻穿岩虫のHPを0にして撤退させる AND 封鎖杭2箇所を設置し AND
+耐久1以上で守り抜く」というAND合成を単一Battleの主目的として組む機構は現行に無い
+(`primaryHoldTileAlternative`/`primarySecureTileAlternative`はOR代替のみ、
+`operateObjectiveId`は既定Primaryを丸ごと置き換える動作でAND合成ではない)。新しい
+AND合成の汎用機構を1地点のためだけに作るのは過剰実装と判断し、主目的は標準の
+`EliminateTeam`(ボス含む敵全滅)のみとし、「封鎖杭2箇所」は`ironwatch_stores`/
+`quarry_terrace`が使う既存の`surveyObjectiveId`+`surveyTileCount:2`+
+`surveyTileObjectDefinitionId`(2箇所確保でボーナス報酬)パターンへ近似した
+(`quality_iron`1個)。「支柱2本」「封鎖杭の耐久を保つ」「両杭永久崩落で敗北」は、
+Objectの破壊が敗北条件をトリガーする機構が既存に無い(M6-C主信号機・M9-C巻上機と
+同じ既知のギャップ)ため見送った。探索3択の第3(`[戦闘魔導士]`、イリエン加入候補
+確定が条件)は、`BattleMage`クラス自体は実装済みだが「加入候補確定」フラグが未配線
+(既存の既定方針どおり)のため`scoutRouteDisabled: true`で無効化(`brokenwood_
+territory`/`cinderwatch_outer_gate`と同じ前例)。第2ルート「古い火割り溝」の
+「燃焼油1消費でボスHP-6」は、アイテム消費によるルート選択ゲート機構もルート別の
+敵初期HP減算機構も存在しないため、`partyDamage:1`+木材+1という単純な報酬差分のみで
+近似した。
+
+`ObjectiveTracker.cpp`のScriptedWithdrawal分岐へ`AshironGrubworm`を追加。新素材
+`ashiron_shell`(穿岩殻、勝利報酬)を`materialNameFor()`の`known`セット+Localeへ
+追加。敵編成は灰殻穿岩虫1体+雑魚2体(`brokenwood_territory`のボス+Wolf1体という
+規模に倣った)。
+
+`jf_forest_balance --region=ashiron_quarry`(500 Seed)の実測: Collapse Core
+(崩落核)のfresh-party win率はDirect 98.8%/Tactical 89.8%(平均11ラウンド前後)。
+主目的が標準`EliminateTeam`のみ(Device操作不要)のため、Hoist Works/Signal Tower
+のような「本ツールのAIがDevice操作を扱えない」ことによる0%張り付きが発生せず、
+ボスAI自体は両ポリシーで機能することを確認できた。[[jf_forest_balance worst-case
+numbers]]の教訓どおり、実測記録のみで数値調整は行わない。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功

@@ -466,13 +466,31 @@
       "id": "quarry_collapse_core",
       "terrainProfileId": "ash_road",
       "enemyRoster": [
-        { "id": "quarry_collapse_core_bandit1", "name": "Raider", "classId": "Bandit" },
-        { "id": "quarry_collapse_core_bandit2", "name": "Raider", "classId": "Bandit" },
-        { "id": "quarry_collapse_core_spearman1", "name": "Spearman", "classId": "Spearman" }
+        { "id": "quarry_collapse_core_grubworm", "name": "Ashiron Grubworm", "classId": "AshironGrubworm" },
+        { "id": "quarry_collapse_core_borer1", "name": "Rock Borer", "classId": "Bandit" },
+        { "id": "quarry_collapse_core_borer2", "name": "Rock Borer", "classId": "Bandit" }
       ],
-      "baseVictoryLoot": [{ "id": "iron", "quantity": 2 }, { "id": "stone", "quantity": 2 }],
-      "missionNameEn": "Collapse Core (placeholder boss)",
-      "missionNameJa": "崩落核(仮実装)"
+      "baseVictoryLoot": [
+        { "id": "iron", "quantity": 2 },
+        { "id": "stone", "quantity": 2 },
+        { "id": "wood", "quantity": 1 },
+        { "id": "ashiron_shell", "quantity": 1 }
+      ],
+      "routeVictoryLootDelta": [
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "wood", "quantity": 1 }] }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath", "partyDamage": 1 }
+      ],
+      "scoutRouteDisabled": true,
+      "surveyObjectiveId": "quarry_collapse_core_stakes",
+      "surveyTileCount": 2,
+      "surveyTileObjectDefinitionId": "quarry_stake",
+      "surveyBonusLoot": [{ "id": "quality_iron", "quantity": 1 }],
+      "noCasualtiesBonusLoot": [{ "id": "quality_iron", "quantity": 1 }],
+      "missionNameEn": "Collapse Core",
+      "missionNameJa": "崩落核"
     }
   ]
 }

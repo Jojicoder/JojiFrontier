@@ -104,6 +104,13 @@
       "weaponId": "boar_tusks",
       "nameKey": "class.ashenhorn_boar",
       "roleKey": "class.ashenhorn_boar.role"
+    },
+    {
+      "id": "AshironGrubworm",
+      "baseStats": { "maxHp": 56, "strength": 9, "magic": 0, "speed": 4, "defense": 8, "resistance": 2, "move": 3 },
+      "weaponId": "grubworm_mandibles",
+      "nameKey": "class.ashiron_grubworm",
+      "roleKey": "class.ashiron_grubworm.role"
     }
   ]
 }

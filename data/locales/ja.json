@@ -53,6 +53,7 @@
   "class.bandit": "盗賊",
   "class.wolf": "狼",
   "class.ashenhorn_boar": "灰角大猪",
+  "class.ashiron_grubworm": "灰殻穿岩虫",
   "class.unknown": "不明",
   "class.march_captain.role": "隣接する味方の防御を上昇させる。",
   "class.veteran_guard.role": "隣接するマスを敵が通過するのを妨害する。",
@@ -69,6 +70,7 @@
   "class.bandit.role": "特殊能力を持たない、攻撃重視の盗賊。",
   "class.wolf.role": "群れで狩る。単独では迂闊に近づかない。",
   "class.ashenhorn_boar.role": "ボス。予告突進と薙ぎ払いを使う。HPが半分以下で激昂する。",
+  "class.ashiron_grubworm.role": "ボス。予告潜行突進と岩殻防御を使う。HPが半分以下で崩落を誘発する。",
 
   "item.first_aid_kit.name": "救急セット",
   "item.field_treatment_kit.name": "野戦治療キット",
@@ -101,6 +103,7 @@
   "material.signal_core": "信号機の中核部品",
   "material.quality_iron": "高品質鉄材",
   "material.combustion_oil": "燃焼油",
+  "material.ashiron_shell": "穿岩殻",
 
   "weapon.iron_sword": "鉄の剣",
   "weapon.iron_lance": "鉄のランス",
@@ -120,6 +123,7 @@
   "weapon.guard_spear": "迎撃槍",
   "weapon.wolf_bite": "牙",
   "weapon.boar_tusks": "牙(大猪)",
+  "weapon.grubworm_mandibles": "顎(穿岩虫)",
 
   "character.leon": "レオン",
   "character.gareth": "ガレス",
@@ -130,6 +134,7 @@
   "character.rowan": "ローワン",
   "character.march_spearman": "行軍槍兵",
   "character.raider": "野盗",
+  "character.rock_borer": "穿岩獣",
   "character.deserter_spearman": "脱走槍兵",
   "character.former_captain": "元隊長",
 

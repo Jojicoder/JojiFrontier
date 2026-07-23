@@ -366,11 +366,13 @@ void emitUnitDefeatedEvents(BattleState& battle, const AliveSnapshot& before) {
         auto it = before.find(unit.id);
         if (it == before.end() || !it->second) continue; // wasn't alive before, nothing to report
         if (!unit.isAlive()) {
-            // docs/boss_common_rules.md "Bossの退場理由": 灰角大猪はHP0後を
-            // ScriptedWithdrawalとして扱う(撃破相当) - every other unit's
-            // defeat is the plain Defeated case.
-            unit.exitReason =
-                unit.unitClass == UnitClass::AshenhornBoar ? UnitExitReason::ScriptedWithdrawal : UnitExitReason::Defeated;
+            // docs/boss_common_rules.md "Bossの退場理由": 灰角大猪・灰殻穿岩虫は
+            // HP0後をScriptedWithdrawalとして扱う(撃破相当) - every other
+            // unit's defeat is the plain Defeated case.
+            unit.exitReason = (unit.unitClass == UnitClass::AshenhornBoar ||
+                               unit.unitClass == UnitClass::AshironGrubworm)
+                                  ? UnitExitReason::ScriptedWithdrawal
+                                  : UnitExitReason::Defeated;
             BattleEvent event{battle.issueEventId(), 0,
                               UnitDefeatedEvent{unit.id, unit.team, unit.exitReason}};
             handleObjectiveEvent(battle.missionState(), event);

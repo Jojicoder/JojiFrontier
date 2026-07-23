@@ -301,7 +301,7 @@ void loadAppFont() {
                               jf::UnitClass::MessengerCavalry, jf::UnitClass::FrontierRanger,
                               jf::UnitClass::BannerBearer, jf::UnitClass::BattleMage,
                               jf::UnitClass::Bandit, jf::UnitClass::Wolf,
-                              jf::UnitClass::AshenhornBoar}) {
+                              jf::UnitClass::AshenhornBoar, jf::UnitClass::AshironGrubworm}) {
         charsetSource += jf::toString(uc);
     }
     // classNameFor()/classRoleFor()'s Japanese text is already covered by
@@ -317,7 +317,7 @@ void loadAppFont() {
                            jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment", "iron", "stone",
                            "old_gear", "signal_core", "quality_iron"})
         charsetSource += materialNameFor(id);
-    for (const char* weaponId : {"wolf_bite", "boar_tusks"}) charsetSource += weaponNameFor(weaponId, "");
+    for (const char* weaponId : {"wolf_bite", "boar_tusks", "grubworm_mandibles"}) charsetSource += weaponNameFor(weaponId, "");
     gLanguage = previousLanguage;
 
     static const char* kCandidatePaths[] = {
@@ -476,6 +476,8 @@ std::string unitDisplayNameFor(const std::string& englishName) {
         {"Former Captain", "character.former_captain"},
         {"Wolf", "class.wolf"},
         {"Ashenhorn Boar", "class.ashenhorn_boar"},
+        {"Ashiron Grubworm", "class.ashiron_grubworm"},
+        {"Rock Borer", "character.rock_borer"},
         // docs/roster_design.md「加入段階」/docs/gathering_place.md
         // `heavy_recruitment`: 重装兵の加入候補・加入後の表示名(Frontier提案、
         // World Bible未登録)。
@@ -489,7 +491,7 @@ std::string materialNameFor(const std::string& id) {
     static const std::unordered_set<std::string> known = {
         "wood", "hide", "herb", "gate_tools", "ash_road_map", "field_medicine", "watch_ledger",
         "captains_seal", jf::kAshveilFangMaterial, jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment",
-        "iron", "stone", "old_gear", "signal_core", "quality_iron", "combustion_oil",
+        "iron", "stone", "old_gear", "signal_core", "quality_iron", "combustion_oil", "ashiron_shell",
     };
     return known.count(id) ? tr("material." + id) : id;
 }
@@ -513,7 +515,7 @@ std::string weaponNameFor(const std::string& weaponId, const std::string& englis
         "iron_sword", "iron_lance", "iron_axe",  "watch_bow",   "scout_blade", "dawn_staff",
         "iron_spear", "long_spear", "heavy_spear", "guard_spear", "wolf_bite",   "boar_tusks",
         "iron_greathammer", "engineer_hammer", "messenger_sword", "hunting_bow", "banner_spear",
-        "arcane_focus",
+        "arcane_focus", "grubworm_mandibles",
     };
     return known.count(weaponId) ? tr("weapon." + weaponId) : englishName;
 }
