@@ -60,6 +60,11 @@ StageDescriptor stageDescriptorFromContent(const StageContentData& content) {
         stage.primaryHoldTileAlternative =
             StageDescriptor::HoldTileMissionRule{r.id, r.requiredHoldRounds, r.zoneMinCol, r.zoneMaxCol};
     }
+    if (content.primarySecureTileAlternative) {
+        const auto& r = *content.primarySecureTileAlternative;
+        stage.primarySecureTileAlternative =
+            StageDescriptor::HoldTileMissionRule{r.id, r.requiredHoldRounds, r.zoneMinCol, r.zoneMaxCol};
+    }
     stage.primaryDefeatUnitId = content.primaryDefeatUnitId;
     return stage;
 }

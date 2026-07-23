@@ -489,7 +489,7 @@ std::string materialNameFor(const std::string& id) {
     static const std::unordered_set<std::string> known = {
         "wood", "hide", "herb", "gate_tools", "ash_road_map", "field_medicine", "watch_ledger",
         "captains_seal", jf::kAshveilFangMaterial, jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment",
-        "iron", "stone", "old_gear", "signal_core", "quality_iron",
+        "iron", "stone", "old_gear", "signal_core", "quality_iron", "combustion_oil",
     };
     return known.count(id) ? tr("material." + id) : id;
 }

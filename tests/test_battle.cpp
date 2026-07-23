@@ -6251,6 +6251,97 @@ int main() {
     }
 
     {
+        // docs/regions/ashiron_quarry.md「2. 砕石段丘」: StageDescriptor::
+        // primarySecureTileAlternative (new, mirrors primaryHoldTileAlternative
+        // above but with ObjectiveKind::SecureTile - a single touch, not a
+        // multi-round hold). BattleFactory widens the default single-member
+        // "primary" group to Any and adds the SecureTile objective, alongside
+        // the untouched default EliminateTeam member - both must remain valid
+        // win paths.
+        jf::GameData data = makeFactoryData();
+        jf::StageDescriptor stage = testStage0();
+        stage.primarySecureTileAlternative =
+            jf::StageDescriptor::HoldTileMissionRule{"haul_marker", 0, 5, 7};
+
+        jf::BattleState battle = jf::createScenarioBattle(data, stage, /*seed=*/7);
+
+        const jf::ObjectiveGroupDefinition* primaryGroup = nullptr;
+        for (const auto& group : battle.missionState().groups)
+            if (group.id == "primary") primaryGroup = &group;
+        assert(primaryGroup && primaryGroup->rule == jf::ObjectiveGroupRule::Any);
+
+        const jf::ObjectiveDefinition* secureDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.kind == jf::ObjectiveKind::SecureTile && def.id == "haul_marker") secureDef = &def;
+        assert(secureDef && secureDef->primary);
+        assert(secureDef->target.securingTeam == jf::Team::Player);
+        assert(jf::isInBounds(secureDef->target.tile));
+        assert(secureDef->target.tile.col >= 5 && secureDef->target.tile.col <= 7);
+
+        // EliminateTeam remains an independent win path even with the SecureTile
+        // alternative present: defeating every enemy wins without touching the tile.
+        jf::AliveSnapshot before = jf::captureAliveSnapshot(battle);
+        for (jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+        jf::emitUnitDefeatedEvents(battle, before);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // Same setup, but win via the SecureTile path instead: a player unit
+        // ends its turn on the marker tile without any enemy being defeated.
+        jf::GameData data = makeFactoryData();
+        jf::StageDescriptor stage = testStage0();
+        stage.primarySecureTileAlternative =
+            jf::StageDescriptor::HoldTileMissionRule{"haul_marker", 0, 5, 7};
+        jf::BattleState battle = jf::createScenarioBattle(data, stage, /*seed=*/7);
+        const jf::ObjectiveDefinition* secureDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.kind == jf::ObjectiveKind::SecureTile && def.id == "haul_marker") secureDef = &def;
+        assert(secureDef);
+        jf::Unit* mover = nullptr;
+        for (jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Player) { mover = &unit; break; }
+        assert(mover);
+        mover->position = secureDef->target.tile;
+        // SecureTile only completes on an ActionResolvedEvent ending there
+        // (plain position sync doesn't fire one) - see the dedicated
+        // SecureTile unit test above this one for the same reasoning.
+        jf::handleObjectiveEvent(battle.missionState(),
+                                 jf::BattleEvent{1, 1,
+                                                 jf::ActionResolvedEvent{1, mover->id, jf::Team::Player,
+                                                                        jf::ActionKind::Wait, secureDef->target.tile}});
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/ashiron_quarry.md「2. 砕石段丘」: enemy roster/loot per
+        // route, and the ore-crate secondary bonus.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor ashironRegion = jf::regionDescriptor(jf::RegionId::AshironQuarry, *data);
+        const jf::StageDescriptor& terraceStage = ashironRegion.stages[1];
+        assert(terraceStage.id == "quarry_terrace" && terraceStage.enemyRoster.size() == 5);
+        assert(terraceStage.scoutRouteRequiredClass == jf::UnitClass::FrontierEngineer);
+        assert(terraceStage.primarySecureTileAlternative &&
+              terraceStage.primarySecureTileAlternative->id == "quarry_terrace_haul_marker");
+
+        auto lootFor = [&](jf::ExplorationChoice choice, bool surveySucceeded) {
+            return jf::computeStageVictoryLoot(terraceStage, choice, surveySucceeded);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance, false), "iron") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance, true), "iron") == 3); // +ore crate bonus
+        assert(findLoot(lootFor(jf::ExplorationChoice::ScoutRoute, false), "combustion_oil") == 1);
+    }
+
+    {
         // 薬草の沢, そのまま通過: all-wolf roster (exact headcount is a
         // tunable balance value, checked against the live region data
         // instead of a hardcoded number), no attrition, base reward 木材1.

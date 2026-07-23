@@ -134,6 +134,15 @@ struct StageDescriptor {
     };
     std::optional<HoldTileMissionRule> primaryHoldTileAlternative;
 
+    // docs/regions/ashiron_quarry.md「2. 砕石段丘」: primary objective is
+    // EliminateTeam OR reaching+ending-turn-on a marker tile (a single touch,
+    // not a multi-round hold) - same "widen the default primary group to Any"
+    // pattern as primaryHoldTileAlternative above, just with ObjectiveKind::
+    // SecureTile instead of HoldTile. Reuses HoldTileMissionRule's shape
+    // (requiredHoldRounds is simply unused for this field) rather than adding
+    // a near-identical struct.
+    std::optional<HoldTileMissionRule> primarySecureTileAlternative;
+
     // docs/regions/cinderwatch_gate.md「地域ボス 元守備隊長」's "主目的: 元守備隊長を
     // 戦闘不能にして撤退させる": if set (to a `enemyRoster` unit's id),
     // BattleFactory replaces the default EliminateTeam primary member with a

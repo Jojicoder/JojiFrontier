@@ -152,6 +152,8 @@ struct StageContentData {
         int zoneMaxCol = kGridCols - 1;
     };
     std::optional<HoldTileMissionRuleData> primaryHoldTileAlternative;
+    // Mirrors StageDescriptor::primarySecureTileAlternative.
+    std::optional<HoldTileMissionRuleData> primarySecureTileAlternative;
     std::optional<std::string> primaryDefeatUnitId;
 };
 

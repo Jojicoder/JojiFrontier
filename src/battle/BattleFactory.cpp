@@ -413,6 +413,28 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
         battle.missionState().progress[hold.id] = ObjectiveProgress{hold.id};
     }
 
+    if (stage.primarySecureTileAlternative) {
+        // docs/regions/ashiron_quarry.md「2. 砕石段丘」: primary objective is
+        // EliminateTeam OR reaching+ending-turn-on a marker tile (a single
+        // touch, not primaryHoldTileAlternative's multi-round hold) - same
+        // "widen the default primary group to Any" pattern, just with
+        // ObjectiveKind::SecureTile. chooseHoldTile() is Kind-agnostic (just
+        // "pick a tile in this zone"), so it's reused as-is.
+        const auto& rule = *stage.primarySecureTileAlternative;
+        for (ObjectiveGroupDefinition& group : battle.missionState().groups) {
+            if (group.id == "primary") group.rule = ObjectiveGroupRule::Any;
+        }
+        ObjectiveDefinition secure;
+        secure.id = rule.id;
+        secure.kind = ObjectiveKind::SecureTile;
+        secure.primary = true;
+        secure.groupId = "primary";
+        secure.target.tile = chooseHoldTile(battle, seed, rule.zoneMinCol, rule.zoneMaxCol);
+        secure.target.securingTeam = Team::Player;
+        battle.missionState().definitions.push_back(secure);
+        battle.missionState().progress[secure.id] = ObjectiveProgress{secure.id};
+    }
+
     std::vector<GridPos> herbTiles;
     if (stage.herbPatchGeneration) {
         // docs/regions/ashbough_forest.md "薬草の沢": "盤面中央に浅瀬と薬草地点

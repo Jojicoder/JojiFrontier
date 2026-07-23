@@ -1238,6 +1238,41 @@ win率はDirect 37%/Tactical 35%で、Cinderwatchの外門(40%前後)と近い�
 (地点2-5が実コンテンツ化され、`ashiron_quarry_secured`の複合完了条件を実装する段階)
 まで持ち越す。
 
+### M9-B 灰鉄採石場: 地点2(砕石段丘)
+
+正本(`docs/regions/ashiron_quarry.md`「2. 砕石段丘」)を確認したところ、2つの新規
+サブシステム(遅延地形ハザードの「落石予告2列」、オブジェクト喪失による新しい敗北
+条件「鉱石箱2個を両方失うと敗北」)を要求すると判明。どちらも現行エンジンに一切
+存在せず、相談の結果、今回はこの2つを見送り、地形・報酬の差分だけで近似する方針で
+実装した。
+
+主目的のOR条件(敵全滅、または搬出標識で行動終了)は、Cinderwatchの`ashroad_watch`
+(灰道の監視所)が導入した`primaryHoldTileAlternative`(既定`primary`グループを
+`Any`へ広げ、`HoldTile`Objectiveを追加するパターン)と全く同じ形の
+`primarySecureTileAlternative`(`ObjectiveKind::SecureTile`版)を新設して実装した。
+タイル選定は既存の`chooseHoldTile()`(Kind非依存の汎用ゾーン内タイル選定、
+`src/battle/BattleFactory.cpp`)をそのまま流用でき、新しいアルゴリズムは不要だった。
+`StageDescriptor`/`StageContentData`は`HoldTileMissionRule`型を再利用し
+(`requiredHoldRounds`フィールドはSecureTileでは単に無視される)、専用型は増やして
+いない。
+
+「荷車固定ルートで槍兵1追加」は新しい「ルートで敵を増やす」機能を作らず、
+`enemyRoster`へ最初から槍兵を含めておき(4体+槍兵=5体を基本形)、他の2ルート
+(回避/工兵)側で既存の`enemiesRemoved:1`により槍兵だけを除いて4体にする、という
+既存フィールドの向きを逆手に取った実装で対応した。「鉱石箱2個のうち一部確保で
+ボーナス」は`ironwatch_stores`(アイアンウォッチ物資庫)の「物資箱2個確保」と全く
+同じ形(`surveyObjectiveId`+`surveyTileCount:2`+`surveyTileObjectDefinitionId`)で
+実装(「持ち去られると失う」の敗北条件部分だけを省略した近似)。新素材
+`combustion_oil`(燃焼油、工兵ルート報酬)を`materialNameFor()`の`known`セット+
+Localeへ追加。
+
+`jf_forest_balance --region=ashiron_quarry`(100 Seed)の実測: 地点2
+(砕石段丘)のfresh-party win率はDirect 82%で、地点1(崩落した搬入口)の37%より
+大幅に高い - SecureTile代替経路が単純なDirect/Tactical方策でも「タイルへ辿り着く
+だけ」で勝てる分、敵全滅要求より易しいことを反映していると見られる。
+[[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録のみで数値調整は
+行わない。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功
