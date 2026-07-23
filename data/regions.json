@@ -416,11 +416,39 @@
       "terrainProfileId": "ash_road",
       "enemyRoster": [
         { "id": "quarry_hoist_works_bandit1", "name": "Raider", "classId": "Bandit" },
-        { "id": "quarry_hoist_works_bandit2", "name": "Raider", "classId": "Bandit" }
+        { "id": "quarry_hoist_works_bandit2", "name": "Raider", "classId": "Bandit" },
+        { "id": "quarry_hoist_works_spearman1", "name": "Spearman", "classId": "Spearman" },
+        { "id": "quarry_hoist_works_archer1", "name": "Watch Archer", "classId": "WatchArcher" },
+        { "id": "quarry_hoist_works_archer2", "name": "Watch Archer", "classId": "WatchArcher" }
       ],
-      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }, { "id": "stone", "quantity": 1 }],
-      "missionNameEn": "Hoist Works (placeholder)",
-      "missionNameJa": "巻上機区画(仮実装)"
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 2 }, { "id": "wood", "quantity": 1 }],
+      "routeVictoryLootDelta": [
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "iron", "quantity": -1 }] },
+        { "choice": "ScoutRoute", "loot": [{ "id": "combustion_oil", "quantity": 1 }] }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath", "enemiesRemoved": 1 },
+        { "choice": "ScoutRoute" }
+      ],
+      "scoutRouteRequiredClass": "FrontierEngineer",
+      "objectPlacementRules": [
+        {
+          "definition": {
+            "definitionId": "quarry_hoist",
+            "kind": "Device",
+            "interaction": { "interactionId": "operate_hoist", "range": 1, "maxUses": 1 },
+            "interactionResultState": "Opened"
+          },
+          "idPrefix": "quarry_hoist",
+          "count": 1,
+          "zoneMinCol": 5,
+          "zoneMaxCol": 7,
+          "operateObjectiveId": "operate_quarry_hoist"
+        }
+      ],
+      "missionNameEn": "Hoist Works",
+      "missionNameJa": "巻上機区画"
     },
     {
       "id": "ashiron_vein",

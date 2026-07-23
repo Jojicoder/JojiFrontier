@@ -6342,6 +6342,99 @@ int main() {
     }
 
     {
+        // docs/regions/ashiron_quarry.md「地点構成」: AnyMember branch, mirror
+        // of the quarry_old_mine-only test above - resolving just
+        // quarry_hoist_works (without touching quarry_old_mine) must also be
+        // enough to advance past the branch to ashiron_vein. The branch
+        // always presents quarry_old_mine first (branchMembers order), so
+        // resolution is forced directly via siteAccess rather than through
+        // chooseExplorationRoute (which has no way to reach the 2nd member).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        jf::GameApp app(*data);
+        jf::SaveData save = app.createSaveData("en");
+        save.base.completedRegionIds.insert(jf::RegionId::AshboughForest);
+        save.base.completedRegionIds.insert(jf::RegionId::CinderwatchGate);
+        save.base.siteAccess[jf::siteAccessKey(jf::RegionId::AshironQuarry, "quarry_hoist_works")] =
+            jf::SiteAccessState::Secured;
+        assert(app.applySaveData(save));
+        assert(app.startExpedition(jf::RegionId::AshironQuarry));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // quarry_entrance
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> quarry_terrace
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // AnyMember: quarry_hoist_works already resolved -> ashiron_vein
+        assert(app.currentMissionNameJa() == "灰鉄鉱脈(仮実装)");
+    }
+
+    {
+        // docs/regions/ashiron_quarry.md「3B. 巻上機区画」: operating the
+        // hoist Device wins the battle. Built directly via createScenarioBattle
+        // (the RouteGraph's branch always routes normal play to
+        // quarry_old_mine first, so quarry_hoist_works's own battle content
+        // is exercised standalone here, the same way the SecureTile tests
+        // above test primarySecureTileAlternative content directly).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor ashironRegion = jf::regionDescriptor(jf::RegionId::AshironQuarry, *data);
+        const jf::StageDescriptor* hoistStage = nullptr;
+        for (const jf::StageDescriptor& stage : ashironRegion.stages)
+            if (stage.id == "quarry_hoist_works") hoistStage = &stage;
+        assert(hoistStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(
+            *data, *hoistStage, /*seed=*/11,
+            jf::stageRouteOutcome(*hoistStage, jf::ExplorationChoice::FrontalAdvance));
+        for (const jf::BattleObjectState& object : battle.objects()) {
+            const jf::BattleObjectDefinition* definition = battle.objectDefinition(object.definitionId);
+            if (definition && definition->interaction) {
+                if (jf::BattleObjectState* mutableObject = battle.findObject(object.id))
+                    mutableObject->interactionCount = std::max(mutableObject->interactionCount, 1);
+            }
+        }
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/ashiron_quarry.md「3B. 巻上機区画」: enemy roster/loot
+        // per route (斧兵2・槍兵1・弓兵2, mirroring quarry_terrace's shape).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor ashironRegion = jf::regionDescriptor(jf::RegionId::AshironQuarry, *data);
+        const jf::StageDescriptor* hoistStage = nullptr;
+        for (const jf::StageDescriptor& stage : ashironRegion.stages)
+            if (stage.id == "quarry_hoist_works") hoistStage = &stage;
+        assert(hoistStage && hoistStage->enemyRoster.size() == 5);
+        assert(hoistStage->scoutRouteRequiredClass == jf::UnitClass::FrontierEngineer);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*hoistStage, choice, false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "iron") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "iron") == 1); // 2 - 1
+        assert(findLoot(lootFor(jf::ExplorationChoice::ScoutRoute), "combustion_oil") == 1);
+
+        // The CollapsedSidePath route ("鉱石箱を先に落とす") removes 1 enemy,
+        // exercised via createScenarioBattle directly (see above).
+        jf::BattleState battle = jf::createScenarioBattle(
+            *data, *hoistStage, /*seed=*/11,
+            jf::stageRouteOutcome(*hoistStage, jf::ExplorationChoice::CollapsedSidePath));
+        int enemyCount = 0;
+        for (const jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 4); // base 5 - enemiesRemoved:1
+    }
+
+    {
         // 薬草の沢, そのまま通過: all-wolf roster (exact headcount is a
         // tunable balance value, checked against the live region data
         // instead of a hardcoded number), no attrition, base reward 木材1.

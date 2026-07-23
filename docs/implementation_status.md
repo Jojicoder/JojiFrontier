@@ -1273,6 +1273,56 @@ Localeへ追加。
 [[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録のみで数値調整は
 行わない。
 
+### M9-C 灰鉄採石場: 地点3B(巻上機区画)
+
+地点3分岐(旧採掘坑/巻上機区画、`AnyMember`)のうち、3A(旧採掘坑)は主目的自体が
+「作業員を護衛して脱出させる」というプレイヤー操作可能な一時的ゲストユニットを前提とし、
+このサブシステムは現行エンジンに一切存在しない(Cinderwatchの`old_barracks`
+「伝令兵脱出」も同じ理由で未実装のまま)。相談の結果、3Bを先に実装し3Aは保留する
+方針とした。
+
+3B(`docs/regions/ashiron_quarry.md`「3B. 巻上機区画」)の主目的はOperateObjectで、
+Cinderwatchの`signal_tower`(信号塔下層)が導入した「`objectPlacementRules`で
+`operateObjectiveId`を設定したDeviceを配置すると、`BattleFactory.cpp`の
+`assembleScenario()`が既定の`eliminate_enemies` primaryを1回だけ取り除き、配置された
+Object各1体につき`ObjectiveKind::OperateObject`を追加する」既存パターンをそのまま
+1台のDevice版として流用した。このロジックは配置数に依存しない汎用実装(コードを
+読んで確認済み)なので、Device1台の3Bと2台のsignal_towerで全く同じコードパスが動作し、
+**コード変更は一切不要**、`data/regions.json`へのコンテンツ追加のみで実装した。
+
+調査の結果、`ObjectiveKind::OperateObject`の完了判定(`ObjectiveTracker.cpp`)は
+`interactionCount > 0`(1回操作)で即完了する実装で、「N回操作」という閾値判定は
+存在しない。正本の「巻上機を2回操作して停止」「敵全滅後は1回操作で可」は、この
+既存の1回操作判定へ近似した(新しい閾値カウント機構は作らない)。同様に「巻上機耐久
+6以上残す」副目標ボーナスと「巻上機破壊で敗北」は、Object破壊による敗北条件自体が
+既存に無い(M6-Cの主信号機と同じギャップ)ため見送った。工兵ルートの「操作回数2から
+1」「耐久+3」ボーナスも、操作回数の閾値自体が上記近似で1回固定になるため意味が
+薄れ、実装していない。
+
+敵編成は斧兵2・槍兵1・弓兵2(5体、`signal_tower`と近い規模)。探索3択は
+`quarry_terrace`(M9-B)と同型の`routeOutcomes`/`routeVictoryLootDelta`で実装:
+標準ルート「巻上機を奪還する」、`enemiesRemoved:1`+鉄鉱石-1の「鉱石箱を先に落とす」、
+`scoutRouteRequiredClass: FrontierEngineer`+燃焼油+1の「補助動力をつなぐ」。報酬は
+勝利で鉄鉱石2・木材1。恒久成果(`quarry_hoist_restored`相当)は既存の一般機構
+(勝利+`siteAccess`昇格)がそのまま処理する。
+
+テストは`tests/test_battle.cpp`へ3件追加: (1) `AnyMember`分岐が`quarry_hoist_works`
+単独の解決でも先へ進める(M9-Aで追加した`quarry_old_mine`単独版と対のテスト)。
+RouteGraphの`branchMembers`順序上、`chooseExplorationRoute()`による通常の探索フローは
+常に先頭メンバー(`quarry_old_mine`)から提示されるため、`quarry_hoist_works`の解決は
+`siteAccess`を直接`Secured`にして再現した。(2) Device操作で勝利すること、
+(3) 3ルートの敵数・報酬差分。(2)(3)はいずれも同じ理由(分岐が常に`quarry_old_mine`を
+先に提示する)で、`createScenarioBattle()`を`quarry_hoist_works`のStageDescriptorへ
+直接渡す形で検証した(`primarySecureTileAlternative`の低レベルテストと同じ手法)。
+
+`jf_forest_balance --region=ashiron_quarry`(500 Seed)の実測: Hoist Works
+(巻上機区画)のfresh-party win率はDirect/Tactical双方0%(timeoutあり)。これは
+Signal Tower/Last Signalで既に記録済みの既知の欠落と同じ理由 - 本ツールのDirect/
+Tactical AIはDevice操作(`OperateObject`)を一切扱えない([[jf_forest_balance
+worst-case numbers]]参照) - によるもので、実際のプレイでの挙動を表す数値ではない。
+[[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録のみで数値調整は
+行わない。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功
