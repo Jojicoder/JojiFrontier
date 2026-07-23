@@ -105,6 +105,7 @@
   "material.combustion_oil": "燃焼油",
   "material.ashiron_shell": "穿岩殻",
   "material.wetland_resin": "湿地樹脂",
+  "material.poison_material": "毒素材",
 
   "weapon.iron_sword": "鉄の剣",
   "weapon.iron_lance": "鉄のランス",
@@ -137,6 +138,7 @@
   "character.raider": "野盗",
   "character.rock_borer": "穿岩獣",
   "character.marsh_poison_spider": "湿地の毒蜘蛛",
+  "character.marsh_viper": "沼蛇",
   "character.deserter_spearman": "脱走槍兵",
   "character.former_captain": "元隊長",
 

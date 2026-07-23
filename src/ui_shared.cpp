@@ -480,6 +480,7 @@ std::string unitDisplayNameFor(const std::string& englishName) {
         {"Ashiron Grubworm", "class.ashiron_grubworm"},
         {"Rock Borer", "character.rock_borer"},
         {"Marsh Poison Spider", "character.marsh_poison_spider"},
+        {"Marsh Viper", "character.marsh_viper"},
         // docs/roster_design.md「加入段階」/docs/gathering_place.md
         // `heavy_recruitment`: 重装兵の加入候補・加入後の表示名(Frontier提案、
         // World Bible未登録)。
@@ -494,7 +495,7 @@ std::string materialNameFor(const std::string& id) {
         "wood", "hide", "herb", "gate_tools", "ash_road_map", "field_medicine", "watch_ledger",
         "captains_seal", jf::kAshveilFangMaterial, jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment",
         "iron", "stone", "old_gear", "signal_core", "quality_iron", "combustion_oil", "ashiron_shell",
-        "wetland_resin",
+        "wetland_resin", "poison_material",
     };
     return known.count(id) ? tr("material." + id) : id;
 }

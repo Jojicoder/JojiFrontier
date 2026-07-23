@@ -6659,6 +6659,75 @@ int main() {
     }
 
     {
+        // docs/regions/blackwater_lowlands.md「2. 葦原の分岐」: 3探索ルートの
+        // 敵数・報酬差分。基本編成5体(「葦を刈って見通す」相当)へ
+        // enemiesRemoved(1/2)を適用する反転トリック(M9-Bで確立済み)で表現。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor blackwaterRegion = jf::regionDescriptor(jf::RegionId::BlackwaterLowlands, *data);
+        const jf::StageDescriptor& reedwayStage = blackwaterRegion.stages[1];
+        assert(reedwayStage.id == "reedway_fork" && reedwayStage.enemyRoster.size() == 5);
+        assert(reedwayStage.scoutRouteRequiredClass == jf::UnitClass::FrontierRanger);
+        assert(reedwayStage.primarySecureTileAlternative &&
+              reedwayStage.primarySecureTileAlternative->id == "reedway_fork_exit");
+        assert(reedwayStage.surveyObjectiveId == "reedway_fork_markers");
+
+        auto lootFor = [&](jf::ExplorationChoice choice, bool surveySucceeded) {
+            return jf::computeStageVictoryLoot(reedwayStage, choice, surveySucceeded);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance, false), "herb") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance, true), "herb") == 2); // +marker bonus
+        assert(findLoot(lootFor(jf::ExplorationChoice::ScoutRoute, false), "poison_material") == 1);
+
+        data->playerParty[0].classId = jf::UnitClass::FrontierRanger; // ScoutRoute gate
+        jf::GameApp app(*data);
+        assert(startBlackwaterExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // sunken_path
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> reedway_fork
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::ScoutRoute));
+        int enemyCount = 0;
+        for (const jf::Unit& unit : app.battle().battle().units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 3); // base 5 - enemiesRemoved:2
+    }
+
+    {
+        // docs/regions/blackwater_lowlands.md「2. 葦原の分岐」:
+        // primarySecureTileAlternative - EliminateTeamと独立にSecureTileでも
+        // 勝利できること(ashroad_watch/quarry_terraceの低レベルテストと同型)。
+        jf::GameData data = makeFactoryData();
+        jf::StageDescriptor stage = testStage0();
+        stage.primarySecureTileAlternative =
+            jf::StageDescriptor::HoldTileMissionRule{"reedway_fork_exit", 0, 5, 7};
+        jf::BattleState battle = jf::createScenarioBattle(data, stage, /*seed=*/7);
+
+        const jf::ObjectiveDefinition* secureDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.kind == jf::ObjectiveKind::SecureTile && def.id == "reedway_fork_exit") secureDef = &def;
+        assert(secureDef && secureDef->primary);
+        assert(secureDef->target.tile.col >= 5 && secureDef->target.tile.col <= 7);
+
+        jf::Unit* mover = nullptr;
+        for (jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Player) { mover = &unit; break; }
+        assert(mover);
+        mover->position = secureDef->target.tile;
+        jf::handleObjectiveEvent(battle.missionState(),
+                                 jf::BattleEvent{1, 1,
+                                                 jf::ActionResolvedEvent{1, mover->id, jf::Team::Player,
+                                                                        jf::ActionKind::Wait, secureDef->target.tile}});
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
         // 薬草の沢, そのまま通過: all-wolf roster (exact headcount is a
         // tunable balance value, checked against the live region data
         // instead of a hardcoded number), no attrition, base reward 木材1.

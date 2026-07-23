@@ -515,13 +515,28 @@
       "id": "reedway_fork",
       "terrainProfileId": "ash_road",
       "enemyRoster": [
-        { "id": "reedway_fork_bandit1", "name": "Raider", "classId": "Bandit" },
-        { "id": "reedway_fork_bandit2", "name": "Raider", "classId": "Bandit" },
-        { "id": "reedway_fork_archer1", "name": "Watch Archer", "classId": "WatchArcher" }
+        { "id": "reedway_fork_spider1", "name": "Marsh Poison Spider", "classId": "Wolf" },
+        { "id": "reedway_fork_spider2", "name": "Marsh Poison Spider", "classId": "Wolf" },
+        { "id": "reedway_fork_spider3", "name": "Marsh Poison Spider", "classId": "Wolf" },
+        { "id": "reedway_fork_spider4", "name": "Marsh Poison Spider", "classId": "Wolf" },
+        { "id": "reedway_fork_viper1", "name": "Marsh Viper", "classId": "Bandit" }
       ],
       "baseVictoryLoot": [{ "id": "herb", "quantity": 1 }, { "id": "wetland_resin", "quantity": 1 }],
-      "missionNameEn": "Reedway Fork (placeholder)",
-      "missionNameJa": "葦原の分岐(仮実装)"
+      "routeVictoryLootDelta": [
+        { "choice": "ScoutRoute", "loot": [{ "id": "poison_material", "quantity": 1 }] }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath", "enemiesRemoved": 1 },
+        { "choice": "ScoutRoute", "enemiesRemoved": 2 }
+      ],
+      "scoutRouteRequiredClass": "FrontierRanger",
+      "primarySecureTileAlternative": { "id": "reedway_fork_exit", "zoneMinCol": 5, "zoneMaxCol": 7 },
+      "surveyObjectiveId": "reedway_fork_markers",
+      "surveyTileCount": 2,
+      "surveyBonusLoot": [{ "id": "herb", "quantity": 1 }],
+      "missionNameEn": "Reedway Fork",
+      "missionNameJa": "葦原の分岐"
     },
     {
       "id": "herb_islet",

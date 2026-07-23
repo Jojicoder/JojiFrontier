@@ -105,6 +105,7 @@
   "material.combustion_oil": "Combustion Oil",
   "material.ashiron_shell": "Borer Shell",
   "material.wetland_resin": "Wetland Resin",
+  "material.poison_material": "Venom Sac",
 
   "weapon.iron_sword": "Iron Sword",
   "weapon.iron_lance": "Iron Lance",
@@ -137,6 +138,7 @@
   "character.raider": "Raider",
   "character.rock_borer": "Rock Borer",
   "character.marsh_poison_spider": "Marsh Poison Spider",
+  "character.marsh_viper": "Marsh Viper",
   "character.deserter_spearman": "Deserter Spearman",
   "character.former_captain": "Former Captain",
 

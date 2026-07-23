@@ -1434,6 +1434,41 @@ no ID-collision on JA text]]の慣習どおり`loadAppFont()`のcharsetSourceへ
 [[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録のみで数値調整は
 行わない。
 
+### M9-F 黒水低湿地: 地点2(葦原の分岐)
+
+`docs/regions/blackwater_lowlands.md`「2. 葦原の分岐」を確認したところ、2つの
+新規サブシステム(ルートごとの地形上書き「茂み4マスを通常床化」、敵配置の視認性
+制御「敵配置非公開」)を要求すると判明。いずれも現行エンジンに存在せず、1地点の
+ためだけに新設するのは過剰実装と判断し、相談の結果、敵数・報酬差分だけで近似する
+方針で実装した(M9-Bが「落石予告」「鉱石箱喪失敗北」を見送ったのと同じ判断)。
+
+主目的のOR条件(葦原出口を確保、または敵全滅後に出口で行動終了)は、Ashroad Watch/
+Rubble Terraceが確立した`primarySecureTileAlternative`(既定`primary`グループを
+`Any`へ広げ`SecureTile`を追加するパターン)をそのまま流用した。「敵全滅後」という
+順序条件は、この既存パターン自体が元々厳密な順序を強制しない(ashroad_watchも同様)
+ため、その近似を踏襲している。
+
+敵編成は「葦を刈って見通す」ルート相当の5体(湿地の毒蜘蛛4+沼蛇1)を基本形とし、
+他2ルートは`enemiesRemoved`(1/2)で減らす反転トリック(M9-Bで確立済み)を使用。
+沼蛇は正本上「毒噛み優先」を持つが、この地点の主目的・勝敗に毒の有無が関わらない
+ため、地点1の湿地の毒蜘蛛と同じ理由(新規`UnitClass`を避ける)でBanditのステータスを
+名前だけ差し替えて再利用した(「Marsh Viper」)。毒攻撃武器(`Weapon::
+onHitStatuses`)の実装は、それが主目的の一部になる地点まで見送っている。副目標
+「古い道標を2個調査」は`surveyObjectiveId`+`surveyTileCount:2`(既存パターンの
+2箇所版)で実装、報酬は正本の「湿地踏査記録」相当を単純な素材ボーナス(薬草+1)へ
+近似した(重複防止台帳を持つ本格的なDiscovery機構はまだ無い)。
+
+コード変更は無し(`primarySecureTileAlternative`/`surveyObjectiveId`/
+`enemiesRemoved`/`routeVictoryLootDelta`という既存機構だけで表現できるため)。
+新素材`poison_material`(毒素材)・敵表示名`character.marsh_viper`をLocaleへ追加。
+
+`jf_forest_balance --region=blackwater_lowlands`(500 Seed)の実測: 地点2
+(葦原の分岐)のfresh-party win率はDirect 99.2%/Tactical 98.4%。
+`primarySecureTileAlternative`のSecureTile代替経路により、単純なDirect/Tactical
+方策でも高いwin率になる傾向は既存地点(Rubble Terrace)と同じ。
+[[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録のみで数値調整は
+行わない。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功
