@@ -155,6 +155,18 @@ struct StageDescriptor {
     // unimplemented).
     std::optional<std::string> primaryDefeatUnitId;
 
+    // docs/regions/blackwater_lowlands.md「3. 薬草洲」's "主目的: 3ラウンド防衛、
+    // または敵全滅": same "widen the default primary group to Any" pattern as
+    // primaryHoldTileAlternative/primarySecureTileAlternative above, just with
+    // ObjectiveKind::SurviveRounds instead. Doesn't reuse HoldTileMissionRule's
+    // shape since SurviveRounds has no tile/zone concept at all, just a round
+    // threshold.
+    struct SurviveRoundsMissionRule {
+        std::string id;
+        int surviveUntilRound = 3;
+    };
+    std::optional<SurviveRoundsMissionRule> primarySurviveRoundsAlternative;
+
     // Per-route outcome override (docs/regions/ashbough_forest.md: each
     // site's 3 exploration choices can have genuinely different effects, not
     // just different numbers plugged into the same shared shape). Empty

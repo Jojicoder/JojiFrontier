@@ -435,6 +435,26 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
         battle.missionState().progress[secure.id] = ObjectiveProgress{secure.id};
     }
 
+    if (stage.primarySurviveRoundsAlternative) {
+        // docs/regions/blackwater_lowlands.md「3. 薬草洲」: primary objective is
+        // EliminateTeam OR surviving until a given round (no tile involved,
+        // just a round threshold) - same "widen the default primary group to
+        // Any" pattern as primaryHoldTileAlternative/primarySecureTileAlternative
+        // above, just with ObjectiveKind::SurviveRounds.
+        const auto& rule = *stage.primarySurviveRoundsAlternative;
+        for (ObjectiveGroupDefinition& group : battle.missionState().groups) {
+            if (group.id == "primary") group.rule = ObjectiveGroupRule::Any;
+        }
+        ObjectiveDefinition survive;
+        survive.id = rule.id;
+        survive.kind = ObjectiveKind::SurviveRounds;
+        survive.primary = true;
+        survive.groupId = "primary";
+        survive.target.surviveUntilRound = rule.surviveUntilRound;
+        battle.missionState().definitions.push_back(survive);
+        battle.missionState().progress[survive.id] = ObjectiveProgress{survive.id};
+    }
+
     std::vector<GridPos> herbTiles;
     if (stage.herbPatchGeneration) {
         // docs/regions/ashbough_forest.md "薬草の沢": "盤面中央に浅瀬と薬草地点

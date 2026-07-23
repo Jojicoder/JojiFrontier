@@ -155,6 +155,13 @@ struct StageContentData {
     // Mirrors StageDescriptor::primarySecureTileAlternative.
     std::optional<HoldTileMissionRuleData> primarySecureTileAlternative;
     std::optional<std::string> primaryDefeatUnitId;
+
+    // Mirrors StageDescriptor::SurviveRoundsMissionRule.
+    struct SurviveRoundsMissionRuleData {
+        std::string id;
+        int surviveUntilRound = 3;
+    };
+    std::optional<SurviveRoundsMissionRuleData> primarySurviveRoundsAlternative;
 };
 
 struct GameData {

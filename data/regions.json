@@ -542,12 +542,47 @@
       "id": "herb_islet",
       "terrainProfileId": "ash_road",
       "enemyRoster": [
-        { "id": "herb_islet_bandit1", "name": "Raider", "classId": "Bandit" },
-        { "id": "herb_islet_bandit2", "name": "Raider", "classId": "Bandit" }
+        { "id": "herb_islet_spider1", "name": "Marsh Poison Spider", "classId": "Wolf" },
+        { "id": "herb_islet_spider2", "name": "Marsh Poison Spider", "classId": "Wolf" },
+        { "id": "herb_islet_viper1", "name": "Marsh Viper", "classId": "Bandit" },
+        { "id": "herb_islet_viper2", "name": "Marsh Viper", "classId": "Bandit" }
       ],
       "baseVictoryLoot": [{ "id": "herb", "quantity": 2 }],
-      "missionNameEn": "Herb Islet (placeholder)",
-      "missionNameJa": "薬草洲(仮実装)"
+      "routeVictoryLootDelta": [
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "herb", "quantity": 2 }] },
+        { "choice": "ScoutRoute", "loot": [{ "id": "herb", "quantity": -2 }, { "id": "quality_herb", "quantity": 2 }] }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath", "enableReinforcementWave": true },
+        { "choice": "ScoutRoute" }
+      ],
+      "routeDiscoveries": [
+        { "choice": "ScoutRoute", "discoveries": ["marsh_emergency_medicine"] }
+      ],
+      "scoutRouteRequiredClass": "DawnChirurgeon",
+      "timedReinforcement": {
+        "id": "herb_islet_spider_wave",
+        "spawnRound": 2,
+        "spawnPhase": "EnemyPhase",
+        "announceRoundsBefore": 1,
+        "requiredForElimination": true,
+        "units": [
+          { "id": "herb_islet_reinforcement_spider1", "name": "Marsh Poison Spider", "classId": "Wolf" },
+          { "id": "herb_islet_reinforcement_spider2", "name": "Marsh Poison Spider", "classId": "Wolf" }
+        ],
+        "orderedSpawnCandidates": [
+          { "row": 0, "col": 7 },
+          { "row": 1, "col": 7 },
+          { "row": 2, "col": 7 }
+        ]
+      },
+      "primarySurviveRoundsAlternative": { "id": "herb_islet_defense", "surviveUntilRound": 3 },
+      "surveyObjectiveId": "herb_islet_herb_points",
+      "surveyTileCount": 2,
+      "surveyBonusLoot": [{ "id": "quality_herb", "quantity": 1 }],
+      "missionNameEn": "Herb Islet",
+      "missionNameJa": "薬草洲"
     },
     {
       "id": "resin_grove",

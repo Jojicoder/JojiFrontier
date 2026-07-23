@@ -491,6 +491,11 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
                     h.at("id").get<std::string>(), h.value("requiredHoldRounds", 2), h.value("zoneMinCol", 0),
                     h.value("zoneMaxCol", kGridCols - 1)};
             }
+            if (s.contains("primarySurviveRoundsAlternative")) {
+                const auto& sr = s.at("primarySurviveRoundsAlternative");
+                stage.primarySurviveRoundsAlternative = StageContentData::SurviveRoundsMissionRuleData{
+                    sr.at("id").get<std::string>(), sr.value("surviveUntilRound", 3)};
+            }
             if (s.contains("primaryDefeatUnitId")) {
                 stage.primaryDefeatUnitId = s.at("primaryDefeatUnitId").get<std::string>();
                 bool foundInRoster =

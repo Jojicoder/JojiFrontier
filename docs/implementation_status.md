@@ -1469,6 +1469,47 @@ onHitStatuses`)の実装は、それが主目的の一部になる地点まで�
 [[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録のみで数値調整は
 行わない。
 
+### M9-G 黒水低湿地: 地点3(薬草洲)
+
+主目的「3ラウンド防衛、または敵全滅」を実装するため、`primaryHoldTileAlternative`/
+`primarySecureTileAlternative`と同じ「既定`primary`グループをAnyへ広げ、代替
+Objectiveを追加する」パターンを`primarySurviveRoundsAlternative`として新設した
+(`include/jf/data/GameData.hpp`/`include/jf/core/Region.hpp`/`src/data/
+GameData.cpp`/`src/core/Region.cpp`/`src/battle/BattleFactory.cpp`)。
+`ObjectiveKind::SurviveRounds`自体は`battle.round() > target.surviveUntilRound`で
+判定する既存実装(`ObjectiveTracker.cpp`)で、今回新設したのはOR合成の配線のみ。
+`HoldTileMissionRule`はタイル/ゾーンの概念を持つため流用せず、`id`+
+`surviveUntilRound`だけの新しい構造体にした。
+
+副目標「採取者を撤退させない」+ 敗北条件「採取者の撤退」は調査の結果、
+Cinderwatchの`old_barracks`「伝令兵脱出」・Ashiron Quarry地点3A/4と同じ
+「プレイヤー操作外のNPCユニットを配置し生死を追跡する」ゲスト/護衛ユニット系
+サブシステムの一種と判明した。`ObjectiveKind::ProtectUnit`はEnum+
+Active→Failed追跡ロジックまで存在するが(1)そのFailedを実際の敗北条件へ結びつける
+配線が無く、(2)そもそも「プレイヤー操作外の中立ユニット」を配置するTeam/生成手段
+自体が存在しない(`Team`はPlayer/Enemyのみ、`BattleObjectTeam::Neutral`はUnitでは
+なくObject用)。1地点のためだけに新しいUnit Team/中立ユニット配置の仕組みを作るのは
+過剰実装と判断し、この副目標・敗北条件は見送った(地点3A/4/`old_barracks`と同じ
+既知のギャップ)。
+
+副目標「薬草地点2個を調査」は既存の`surveyObjectiveId`+`surveyTileCount:2`
+(`sunken_path`/`reedway_fork`と同型)。「奥まで採取」ルートの2ラウンド目増援
+(毒蜘蛛2体)は既存の`timedReinforcement`フィールド(Herbwater Hollowの狼増援と
+同型)をそのままルート限定(`enableReinforcementWave`)で使用。`[暁の衛生兵]`ルート
++`marsh_emergency_medicine`Discoveryは`routeDiscoveries`(既存機構)で実装したが、
+調査の結果「今回スキップしても地点7で代替取得できる」という重複防止つき代替取得
+機構自体はAshiron Quarryの「採掘技術記録」と同じく実際にはコード化されておらず
+(`RewardRule`の`RewardGrantId`重複防止は`region_mission_data_contract.md`側の
+将来仕様として明記済みの未実装)、正本の記述は設計意図のプローズと判断し、地点3・
+地点7それぞれで独立にDiscoveryを付与する(相互の重複防止ロジックは作らない)方針で
+統一した。
+
+`jf_forest_balance --region=blackwater_lowlands`(500 Seed)の実測: 地点3
+(薬草洲)のfresh-party win率はDirect 100%/Tactical 99.8%。SurviveRounds/
+EliminateTeamどちらの経路でも単純なDirect/Tactical方策が機能することを確認できた。
+[[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録のみで数値調整は
+行わない。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功

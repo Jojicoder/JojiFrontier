@@ -6644,7 +6644,7 @@ int main() {
         winCurrentBattle(app);
         app.proceedToCamp();
         app.continueExpedition(); // -> Camp I -> branch, first unresolved member
-        assert(app.currentMissionNameJa() == "薬草洲(仮実装)");
+        assert(app.currentMissionNameJa() == "薬草洲");
         assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
         winCurrentBattle(app);
         app.proceedToCamp();
@@ -6725,6 +6725,98 @@ int main() {
                                                                         jf::ActionKind::Wait, secureDef->target.tile}});
         jf::syncObjectiveProgress(battle);
         assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/blackwater_lowlands.md「3. 薬草洲」: primarySurviveRoundsAlternative
+        // - primary objective is EliminateTeam OR surviving until a given
+        // round. Mirrors the primarySecureTileAlternative tests above.
+        jf::GameData data = makeFactoryData();
+        jf::StageDescriptor stage = testStage0();
+        stage.primarySurviveRoundsAlternative =
+            jf::StageDescriptor::SurviveRoundsMissionRule{"herb_islet_defense", 3};
+        jf::BattleState battle = jf::createScenarioBattle(data, stage, /*seed=*/7);
+
+        const jf::ObjectiveGroupDefinition* primaryGroup = nullptr;
+        for (const auto& group : battle.missionState().groups)
+            if (group.id == "primary") primaryGroup = &group;
+        assert(primaryGroup && primaryGroup->rule == jf::ObjectiveGroupRule::Any);
+
+        const jf::ObjectiveDefinition* surviveDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.kind == jf::ObjectiveKind::SurviveRounds && def.id == "herb_islet_defense") surviveDef = &def;
+        assert(surviveDef && surviveDef->primary && surviveDef->target.surviveUntilRound == 3);
+
+        // EliminateTeam remains an independent win path.
+        jf::AliveSnapshot before = jf::captureAliveSnapshot(battle);
+        for (jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+        jf::emitUnitDefeatedEvents(battle, before);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // Same setup, but win via SurviveRounds instead: no enemy is
+        // defeated, the battle simply outlasts round 3.
+        jf::GameData data = makeFactoryData();
+        jf::StageDescriptor stage = testStage0();
+        stage.primarySurviveRoundsAlternative =
+            jf::StageDescriptor::SurviveRoundsMissionRule{"herb_islet_defense", 3};
+        jf::BattleState battle = jf::createScenarioBattle(data, stage, /*seed=*/7);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind != jf::BattleOutcomeKind::Victory);
+        while (battle.round() <= 3) {
+            battle.beginEnemyPhase();
+            battle.beginPlayerPhase();
+        }
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/blackwater_lowlands.md「3. 薬草洲」: 3探索ルートの
+        // 敵数・報酬差分、`[暁の衛生兵]`ルートのrouteDiscoveries確認。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor blackwaterRegion = jf::regionDescriptor(jf::RegionId::BlackwaterLowlands, *data);
+        const jf::StageDescriptor& herbStage = blackwaterRegion.stages[2];
+        assert(herbStage.id == "herb_islet" && herbStage.enemyRoster.size() == 4);
+        assert(herbStage.scoutRouteRequiredClass == jf::UnitClass::DawnChirurgeon);
+        assert(herbStage.primarySurviveRoundsAlternative &&
+              herbStage.primarySurviveRoundsAlternative->id == "herb_islet_defense");
+        assert(herbStage.timedReinforcement && herbStage.timedReinforcement->id == "herb_islet_spider_wave");
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(herbStage, choice, false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "herb") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "herb") == 4); // 2 + 2
+        assert(findLoot(lootFor(jf::ExplorationChoice::ScoutRoute), "herb") == 0); // 2 - 2
+        assert(findLoot(lootFor(jf::ExplorationChoice::ScoutRoute), "quality_herb") == 2);
+
+        auto discoveriesFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageDiscoveries(herbStage, choice);
+        };
+        assert(discoveriesFor(jf::ExplorationChoice::FrontalAdvance).empty());
+        const auto scoutDiscoveries = discoveriesFor(jf::ExplorationChoice::ScoutRoute);
+        assert(scoutDiscoveries.size() == 1 && scoutDiscoveries[0] == "marsh_emergency_medicine");
+
+        // CollapsedSidePath ("奥まで採取") installs the round-2 spider wave;
+        // the other 2 routes don't (mirrors Herbwater Hollow's wolf-wave test).
+        jf::ExplorationOutcome harvest = jf::stageRouteOutcome(herbStage, jf::ExplorationChoice::CollapsedSidePath);
+        jf::BattleState withWave = jf::createScenarioBattle(*data, herbStage, 42, harvest);
+        assert(withWave.reinforcementWaves().size() == 1);
+        assert(withWave.reinforcementWaves()[0].id == "herb_islet_spider_wave");
+        assert(withWave.reinforcementWaves()[0].spawnRound == 2);
+        jf::ExplorationOutcome standard = jf::stageRouteOutcome(herbStage, jf::ExplorationChoice::FrontalAdvance);
+        jf::BattleState withoutWave = jf::createScenarioBattle(*data, herbStage, 42, standard);
+        assert(withoutWave.reinforcementWaves().empty());
     }
 
     {
