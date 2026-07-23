@@ -76,6 +76,15 @@ const RegionRouteGraph& cinderwatchGraph() {
     return graph;
 }
 
+// docs/regions/ashiron_quarry.md「地点構成」: entrance -> 1.崩落した搬入口 ->
+// 2.砕石段丘 -> キャンプI -> (3A.旧採掘坑 | 3B.巻上機区画、どちらか1つで進行可) ->
+// 4.灰鉄鉱脈 -> キャンプII -> 5.崩落核(ボス) -> exit. Unlike Cinderwatch's only
+// BranchGroup (AllMembers - clear both), this one is `AnyMember` - clearing
+// either 3A or 3B lets the expedition continue (clearing both is a
+// carry-over bonus per the doc, not required). M9-A implements only site1
+// (`quarry_entrance`) as real content; sites 2/3A/3B/4/5 stay pre-spec
+// placeholders (same role Cinderwatch's later sites played before M6-B/C
+// fleshed them out) until later Slices replace them one at a time.
 const RegionRouteGraph& ashironQuarryGraph() {
     static const RegionRouteGraph graph{
         RegionId::AshironQuarry,
@@ -84,12 +93,29 @@ const RegionRouteGraph& ashironQuarryGraph() {
         "ashiron_quarry_exit",
         {
             {"ashiron_quarry_entrance", RouteNodeKind::Entrance, std::nullopt},
-            {"ashiron_quarry_outpost", RouteNodeKind::Site, "ashiron_quarry_outpost"},
+            {"quarry_entrance", RouteNodeKind::Site, "quarry_entrance"},
+            {"quarry_terrace", RouteNodeKind::Site, "quarry_terrace"},
+            {"quarry_camp1", RouteNodeKind::Camp, std::nullopt},
+            {"quarry_mine_hoist_branch", RouteNodeKind::BranchGroup, std::nullopt,
+             {"quarry_old_mine", "quarry_hoist_works"}, BranchCompletion::AnyMember},
+            {"quarry_old_mine", RouteNodeKind::Site, "quarry_old_mine"},
+            {"quarry_hoist_works", RouteNodeKind::Site, "quarry_hoist_works"},
+            {"ashiron_vein", RouteNodeKind::Site, "ashiron_vein"},
+            {"quarry_camp2", RouteNodeKind::Camp, std::nullopt},
+            {"quarry_collapse_core", RouteNodeKind::Site, "quarry_collapse_core"},
             {"ashiron_quarry_exit", RouteNodeKind::Exit, std::nullopt},
         },
         {
-            {"ashiron_quarry_entrance", "ashiron_quarry_outpost"},
-            {"ashiron_quarry_outpost", "ashiron_quarry_exit"},
+            {"ashiron_quarry_entrance", "quarry_entrance"},
+            {"quarry_entrance", "quarry_terrace"},
+            {"quarry_terrace", "quarry_camp1"},
+            {"quarry_camp1", "quarry_mine_hoist_branch"},
+            {"quarry_old_mine", "quarry_mine_hoist_branch"},
+            {"quarry_hoist_works", "quarry_mine_hoist_branch"},
+            {"quarry_mine_hoist_branch", "ashiron_vein"},
+            {"ashiron_vein", "quarry_camp2"},
+            {"quarry_camp2", "quarry_collapse_core"},
+            {"quarry_collapse_core", "ashiron_quarry_exit"},
         },
     };
     return graph;

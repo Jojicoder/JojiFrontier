@@ -255,6 +255,16 @@ bool startCinderwatchExpedition(jf::GameApp& app) {
     return app.startExpedition(jf::RegionId::CinderwatchGate);
 }
 
+// Same idea as startCinderwatchExpedition(), one region further: AshironQuarry
+// unlocks on CinderwatchGate completion (docs/region_unlocks.md).
+bool startAshironQuarryExpedition(jf::GameApp& app) {
+    jf::SaveData save = app.createSaveData("en");
+    save.base.completedRegionIds.insert(jf::RegionId::AshboughForest);
+    save.base.completedRegionIds.insert(jf::RegionId::CinderwatchGate);
+    if (!app.applySaveData(save)) return false;
+    return app.startExpedition(jf::RegionId::AshironQuarry);
+}
+
 // docs/regions/cinderwatch_gate.md「1. シンダーウォッチ外門」disables ScoutRoute
 // (its class-gated 3rd choice needs 重装兵/HeavyInfantry, not implemented yet
 // - docs/implementation_roadmap.md M6-A). Tests that exercise the generic
@@ -6153,7 +6163,12 @@ int main() {
         const jf::RegionRouteGraph& ashironRoute = jf::regionRouteGraph(jf::RegionId::AshironQuarry);
         assert(jf::usesRouteGraph(jf::RegionId::AshironQuarry));
         assert(jf::validateRouteGraph(ashironRoute, nullptr));
-        assert(jf::findRouteNode(ashironRoute, "ashiron_quarry_outpost"));
+        assert(jf::findRouteNode(ashironRoute, "quarry_entrance"));
+        assert(jf::findRouteNode(ashironRoute, "quarry_collapse_core"));
+        const jf::RouteNodeDefinition* ashironBranch = jf::findRouteNode(ashironRoute, "quarry_mine_hoist_branch");
+        assert(ashironBranch && ashironBranch->kind == jf::RouteNodeKind::BranchGroup &&
+              ashironBranch->branchCompletion == jf::BranchCompletion::AnyMember &&
+              ashironBranch->branchMembers.size() == 2);
 
         jf::RegionRouteGraph disconnectedExit = cinderwatchRoute;
         disconnectedExit.edges.erase(std::remove_if(disconnectedExit.edges.begin(), disconnectedExit.edges.end(),
@@ -6179,6 +6194,60 @@ int main() {
         corrupted.close();
         assert(!jf::loadGameData(scratchDir.string()));
         std::filesystem::remove_all(scratchDir);
+    }
+
+    {
+        // docs/regions/ashiron_quarry.md「地点構成」: AnyMember branch -
+        // clearing just quarry_old_mine (without touching quarry_hoist_works)
+        // must be enough to advance past the branch to ashiron_vein.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        jf::GameApp app(*data);
+        assert(startAshironQuarryExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // quarry_entrance
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> quarry_terrace
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // -> Camp I -> branch, first unresolved member
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition(); // AnyMember: one resolved member is enough -> ashiron_vein
+        assert(app.currentMissionNameJa() == "灰鉄鉱脈(仮実装)");
+    }
+
+    {
+        // docs/regions/ashiron_quarry.md「1. 崩落した搬入口」: 3 exploration
+        // routes each with their own enemy count/loot per the spec table.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor ashironRegion = jf::regionDescriptor(jf::RegionId::AshironQuarry, *data);
+        const jf::StageDescriptor& entranceStage = ashironRegion.stages[0];
+        assert(entranceStage.id == "quarry_entrance" && entranceStage.enemyRoster.size() == 4);
+        assert(entranceStage.scoutRouteRequiredClass == jf::UnitClass::HeavyInfantry);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(entranceStage, choice, false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "stone") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "stone") == 1); // 2 - 1
+        assert(findLoot(lootFor(jf::ExplorationChoice::ScoutRoute), "stone") == 3); // 2 + 1
+
+        jf::GameApp app(*data);
+        assert(startAshironQuarryExpedition(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::CollapsedSidePath));
+        int enemyCount = 0;
+        for (const jf::Unit& unit : app.battle().battle().units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 3); // base 4 - enemiesRemoved:1
     }
 
     {

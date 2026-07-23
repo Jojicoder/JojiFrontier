@@ -178,7 +178,12 @@ RegionDescriptor ashironQuarryRegion(const GameData& data) {
     region.displayNameEn = "Ashiron Quarry";
     region.displayNameJa = "灰鉄採石場";
 
-    region.stages.push_back(stageDescriptorFromContent(data.stageContent("ashiron_quarry_outpost")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("quarry_entrance")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("quarry_terrace")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("quarry_old_mine")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("quarry_hoist_works")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("ashiron_vein")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("quarry_collapse_core")));
 
     return region;
 }

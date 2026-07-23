@@ -1195,6 +1195,49 @@ identityカード下部へ、選択中と異なるUnitが比較対象に設定�
 加入候補は`joinReadyCandidateIds`にあるだけでrosterには入らない)。見せる名前自体が
 まだ存在しないため、正本の要件はすでに満たされている。
 
+## M9 残り8地域 実装詳細(2026-07)
+
+### M9-A 灰鉄採石場: 地域骨格 + 地点1(崩落した搬入口)
+
+M6-Dで追加した最小プレースホルダー(1地点、汎用Bandit2体)を、正本
+(`docs/regions/ashiron_quarry.md`)どおりの5地点構成の骨格へ拡張した。M6-A方式
+(最初は1地点だけ実コンテンツ、残りはプレースホルダーのまま次Sliceへ)を踏襲。
+
+`src/core/RouteGraph.cpp`の`ashironQuarryGraph()`を、
+`entrance → quarry_entrance → quarry_terrace → キャンプI →
+BranchGroup(quarry_old_mine | quarry_hoist_works) → ashiron_vein → キャンプII →
+quarry_collapse_core → exit`へ拡張。Cinderwatchの唯一のBranchGroup
+(`cinderwatch_stores_barracks`)が`AllMembers`(両方確保必須)だったのに対し、
+正本の地点3分岐は「どちらか1つで進行可」- 既存の`BranchCompletion::AnyMember`
+列挙値は宣言されていたが実際には一度も使われておらず、分岐解決ロジック
+`findNextUnresolvedBranchMember()`(`src/core/ExpeditionService.cpp`)は
+`branch.branchCompletion`を一切参照せず常に「全メンバー解決」を要求する実装のまま
+だった。今回`AnyMember`の場合は「メンバーのいずれか1つがこの遠征内で解決済み、
+または既に恒久Secured済みなら分岐完了」という判定を追加し、`AllMembers`の既存挙動は
+そのまま維持した(Cinderwatchの回帰テストが無改修で通ることを確認済み)。
+
+地点1(`quarry_entrance`、崩落した搬入口)は正本の探索3択(標準/斜面ルート/
+`[重装兵]`ルート)・敵編成(斧兵2・弓兵1・槍兵1)・報酬・副目標(搬入口標識確保)を
+そのまま実装。`[重装兵]`ルートの「小型瓦礫1個を除去」(ObjectPlacementRuleの
+バリア数削減)は、このSliceでは地点自体にバリア配置ルールを設けていないため
+未実装のまま(地形生成・破壊可能Object本格導入は正本「実装順」項目2で、次以降の
+Slice担当)。「標識確保で採石場旧図面を入手」も、既存コードには「探索副目標成功時
+限定のDiscovery付与」という汎用の仕組みが無く(`surveyBonusLoot`はLoot専用)、
+新しい仕組みを作るには早いと判断し、このSliceでは見送った。
+
+地点2〜5(`quarry_terrace`/`quarry_old_mine`/`quarry_hoist_works`/`ashiron_vein`/
+`quarry_collapse_core`)はM6-D当時の`ashiron_quarry_outpost`と同じ役割の最小
+プレースホルダー(汎用Bandit編成、少量の素材報酬)として新設。`jf_forest_balance
+--region=ashiron_quarry`(100 Seed)で実測記録: 地点1(崩落した搬入口)のfresh-party
+win率はDirect 37%/Tactical 35%で、Cinderwatchの外門(40%前後)と近い難度感。
+[[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録のみで数値調整は
+行わない。
+
+戦闘魔導士(`mage_recruit`)の加入経路配線は、正本上「灰鉄採石場攻略後」(地域完了、
+異常鉱脈記録registered)が条件のため、地域が本格的に完了できるようになる後続Slice
+(地点2-5が実コンテンツ化され、`ashiron_quarry_secured`の複合完了条件を実装する段階)
+まで持ち越す。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功

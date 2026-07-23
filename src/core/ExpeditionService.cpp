@@ -93,14 +93,26 @@ const RouteNodeDefinition* findNextUnresolvedBranchMember(const RegionRouteGraph
                                                            const RouteNodeDefinition& branch,
                                                            const RouteProgressSnapshot& progress,
                                                            RegionId regionId, const BaseState& baseState) {
-    for (const std::string& memberId : branch.branchMembers) {
-        if (progress.resolvedNodeIds.count(memberId)) continue;
+    auto isMemberResolved = [&](const std::string& memberId) {
+        if (progress.resolvedNodeIds.count(memberId)) return true;
         const RouteNodeDefinition* member = findRouteNode(graph, memberId);
         if (member && member->stageId) {
             auto access = baseState.siteAccess.find(siteAccessKey(regionId, *member->stageId));
-            if (access != baseState.siteAccess.end() && access->second >= SiteAccessState::Secured) continue;
+            if (access != baseState.siteAccess.end() && access->second >= SiteAccessState::Secured) return true;
         }
-        return member;
+        return false;
+    };
+    // docs/regions/ashiron_quarry.md「地点構成」: unlike Cinderwatch's only
+    // BranchGroup (AllMembers - clear every member), AnyMember means the
+    // branch is done as soon as ONE member is resolved (this expedition or
+    // permanently), regardless of the others' state.
+    if (branch.branchCompletion == BranchCompletion::AnyMember) {
+        for (const std::string& memberId : branch.branchMembers)
+            if (isMemberResolved(memberId)) return nullptr;
+    }
+    for (const std::string& memberId : branch.branchMembers) {
+        if (isMemberResolved(memberId)) continue;
+        return findRouteNode(graph, memberId);
     }
     return nullptr;
 }

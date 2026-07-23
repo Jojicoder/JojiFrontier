@@ -347,18 +347,89 @@
       "missionNameJa": "最後の信号"
     },
     {
-      "id": "ashiron_quarry_outpost",
+      "id": "quarry_entrance",
       "terrainProfileId": "ash_road",
       "enemyRoster": [
-        { "id": "ashiron_quarry_bandit1", "name": "Bandit", "classId": "Bandit" },
-        { "id": "ashiron_quarry_bandit2", "name": "Bandit", "classId": "Bandit" }
+        { "id": "quarry_entrance_bandit1", "name": "Raider", "classId": "Bandit" },
+        { "id": "quarry_entrance_bandit2", "name": "Raider", "classId": "Bandit" },
+        { "id": "quarry_entrance_archer1", "name": "Watch Archer", "classId": "WatchArcher" },
+        { "id": "quarry_entrance_spearman1", "name": "Spearman", "classId": "Spearman" }
       ],
       "baseVictoryLoot": [
-        { "id": "iron", "quantity": 1 },
-        { "id": "stone", "quantity": 1 }
+        { "id": "stone", "quantity": 2 },
+        { "id": "wood", "quantity": 1 }
       ],
-      "missionNameEn": "Ashiron Quarry Outpost",
-      "missionNameJa": "灰鉄採石場の前線基地"
+      "routeVictoryLootDelta": [
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "stone", "quantity": -1 }] },
+        { "choice": "ScoutRoute", "loot": [{ "id": "stone", "quantity": 1 }] }
+      ],
+      "routeOutcomes": [
+        { "choice": "CollapsedSidePath", "partyDamage": 2, "enemiesRemoved": 1 },
+        { "choice": "ScoutRoute" }
+      ],
+      "scoutRouteRequiredClass": "HeavyInfantry",
+      "surveyObjectiveId": "quarry_entrance_marker",
+      "missionNameEn": "Collapsed Entrance",
+      "missionNameJa": "崩落した搬入口"
+    },
+    {
+      "id": "quarry_terrace",
+      "terrainProfileId": "ash_road",
+      "enemyRoster": [
+        { "id": "quarry_terrace_bandit1", "name": "Raider", "classId": "Bandit" },
+        { "id": "quarry_terrace_bandit2", "name": "Raider", "classId": "Bandit" },
+        { "id": "quarry_terrace_archer1", "name": "Watch Archer", "classId": "WatchArcher" },
+        { "id": "quarry_terrace_archer2", "name": "Watch Archer", "classId": "WatchArcher" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 2 }, { "id": "stone", "quantity": 1 }],
+      "missionNameEn": "Rubble Terrace (placeholder)",
+      "missionNameJa": "砕石段丘(仮実装)"
+    },
+    {
+      "id": "quarry_old_mine",
+      "terrainProfileId": "ash_road",
+      "enemyRoster": [
+        { "id": "quarry_old_mine_bandit1", "name": "Raider", "classId": "Bandit" },
+        { "id": "quarry_old_mine_bandit2", "name": "Raider", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }, { "id": "wood", "quantity": 1 }],
+      "missionNameEn": "Old Mine Shaft (placeholder)",
+      "missionNameJa": "旧採掘坑(仮実装)"
+    },
+    {
+      "id": "quarry_hoist_works",
+      "terrainProfileId": "ash_road",
+      "enemyRoster": [
+        { "id": "quarry_hoist_works_bandit1", "name": "Raider", "classId": "Bandit" },
+        { "id": "quarry_hoist_works_bandit2", "name": "Raider", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }, { "id": "stone", "quantity": 1 }],
+      "missionNameEn": "Hoist Works (placeholder)",
+      "missionNameJa": "巻上機区画(仮実装)"
+    },
+    {
+      "id": "ashiron_vein",
+      "terrainProfileId": "ash_road",
+      "enemyRoster": [
+        { "id": "ashiron_vein_bandit1", "name": "Raider", "classId": "Bandit" },
+        { "id": "ashiron_vein_bandit2", "name": "Raider", "classId": "Bandit" },
+        { "id": "ashiron_vein_archer1", "name": "Watch Archer", "classId": "WatchArcher" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 2 }],
+      "missionNameEn": "Ashiron Vein (placeholder)",
+      "missionNameJa": "灰鉄鉱脈(仮実装)"
+    },
+    {
+      "id": "quarry_collapse_core",
+      "terrainProfileId": "ash_road",
+      "enemyRoster": [
+        { "id": "quarry_collapse_core_bandit1", "name": "Raider", "classId": "Bandit" },
+        { "id": "quarry_collapse_core_bandit2", "name": "Raider", "classId": "Bandit" },
+        { "id": "quarry_collapse_core_spearman1", "name": "Spearman", "classId": "Spearman" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 2 }, { "id": "stone", "quantity": 2 }],
+      "missionNameEn": "Collapse Core (placeholder boss)",
+      "missionNameJa": "崩落核(仮実装)"
     }
   ]
 }
