@@ -3095,6 +3095,47 @@ completedRegionIdsへ入り、最低保証報酬フロアが適用され、燼�
 登場しないため収集手段が無い。Discoveryと同じ「ゲート実装済み・到達不能」扱いとして
 記録する。
 
+## M7項目3続き 差分プレビュー(2026-07)
+
+`docs/implementation_roadmap.md`「M7項目3(残り)」の差分プレビューを実装した。
+`docs/character_progression.md`「ユニットページ/詳細」の「武器、特性、スキルを選ぶと、
+右側へ「現在」「変更後」「変わる戦術」「失うもの」を表示する。長文は折り返し、
+ホバーだけに必須情報を置かない」を正本のまま使用し、新しいゲームデザイン数値は
+追加していない。
+
+実装した内容:
+
+- `src/ui_facilities.cpp`: `drawForgeEquipmentPanel()`/`drawSkillEquipmentPanel()`が
+  候補ボタンへのホバーを検出し、`EquipmentHover`(現在ID/ホバー中IDと種別)を
+  `drawUnitScreen()`へ返すよう変更。ホバー中は`drawEquipmentDiffPanel()`が
+  ユニット詳細画面下部(比較対象カードと同じ領域)へ2x2グリッドで
+  「現在」「変更後」「変わる戦術」「失うもの」を描画する(比較対象カードはホバー中
+  ではない時のみ表示。両者は同じ画面領域を共有する一時的な表示補助という位置づけ)
+- 武器の差分導出: `Weapon`構造体が既に持つ`might`/`minRange`・`maxRange`/
+  `moveModifier`/`causesKnockback`/`braceBoost`/`onHitStatuses`を現在武器とホバー中
+  武器で比較。数値差分(威力・射程・MOV補正、+/-符号付き)は「変わる戦術」へ、
+  `causesKnockback`/`braceBoost`/`onHitStatuses`から得られる質的タグは、ホバー中側に
+  だけあるものを「変わる戦術」の「得る効果」、現在側にだけあるものを「失うもの」へ
+  振り分ける
+- スキルの差分導出: `SkillDefinition`は数値フィールドを持たないため、`effectEn`/
+  `effectJa`の説明文をそのまま「変わる戦術」へ表示し、`category`/`usageType`が
+  現在スキルと異なる場合はその変化も追加する。現在スキルが空でなければ、
+  「失うもの」へ現在スキルの効果を失う旨を表示する
+- 特性(調整特性)は対象外: 現状のUIには`trait_hide_wrapped_grip`の単純な
+  装備/解除トグルしかなく、比較対象となる複数の候補を選ぶUI自体が無い
+  (`drawForgeEquipmentPanel()`の該当箇所を確認済み)。差分プレビューは「候補を選ぶと
+  現在と変更後を比較する」機能のため、比較対象が1つしかない現状のトグルには
+  適用対象が無く、新規に特性選択UIを作ることは本スライスの範囲外とした
+- `data/locales/{en,ja}.json`に`ui.unit_screen.diff.*`・`skill.category.*`・
+  `skill.usage.*`キーを追加(日本語グリフは`loadAppFont()`の
+  `allJapaneseGlyphText()`自動収集経由で追加のcharset編集は不要だった)
+
+目視確認: サンドボックス環境にディスプレイが無く(`raylib`起動時に
+`GLFW: Failed to determine Monitor to center Window`で即終了)、実機でのGUI往復操作は
+未確認。`cmake --build`と`ctest`(既存4スイート、ロケールキー整合性チェック含む)は
+成功を確認した。ユニット詳細画面の描画コードはPure描画ロジックであり、既存の
+`drawForgeEquipmentPanel()`等にも単体テストが無いため、新規テストは追加していない。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

@@ -142,8 +142,13 @@ void drawBaseSupplies(jf::GameApp& app, Vector2 mouse, bool clicked, std::vector
 }
 
 // The unlocked/locked region picker list. Split out of drawBaseScreen(); no
-// behavior change.
-void drawBaseRegionList(jf::GameApp& app, Vector2 mouse, bool clicked, std::vector<TooltipLine>& hoverLines) {
+// behavior change. Returns the Y just below the last drawn row, so callers
+// placing content beneath this list (drawBaseOutpostInfo's discoveries
+// section) can offset dynamically instead of assuming a fixed row count -
+// this list grows with every new region (7 as of M9-Y, more to come), and a
+// hardcoded discoveries-section Y previously overlapped it once the list
+// grew past that fixed position.
+int drawBaseRegionList(jf::GameApp& app, Vector2 mouse, bool clicked, std::vector<TooltipLine>& hoverLines) {
     drawSectionHeading(tr("exploration.region_section"), 480, 405, 18);
     int y = 433;
     for (const auto& summary : app.regionSummaries()) {
@@ -164,6 +169,7 @@ void drawBaseRegionList(jf::GameApp& app, Vector2 mouse, bool clicked, std::vect
         }
         y += 45;
     }
+    return y;
 }
 
 // The prepared-bag slot list plus the Begin Expedition button. Split out of
@@ -195,9 +201,15 @@ void drawBaseBagAndExpedition(jf::GameApp& app, Vector2 mouse, bool clicked, std
 }
 
 // Outpost stage name/advance button and the Discovery registry list. Split
-// out of drawBaseScreen(); no behavior change.
-void drawBaseOutpostInfo(jf::GameApp& app, Vector2 mouse, bool clicked) {
+// out of drawBaseScreen(); no behavior change. `regionListBottom` is
+// drawBaseRegionList()'s return value - the discoveries column (x=492) sits
+// directly below the region list (x=480-780), so its heading must never sit
+// above a fixed Y that the region list can outgrow (see that function's own
+// comment).
+void drawBaseOutpostInfo(jf::GameApp& app, Vector2 mouse, bool clicked, int regionListBottom) {
     const jf::BaseState& base = app.baseState();
+    const int sectionY = std::max(520, regionListBottom + 20);
+    const int contentY = sectionY + 32;
     drawSectionHeading(tr("ui.outpost.title"), 40, 520, 20);
     drawText(outpostStageNameFor(base.outpostStage), 40, 552, 22, kColorTextPrimary);
     Rectangle advanceRect{40, 588, 390, 46};
@@ -208,11 +220,11 @@ void drawBaseOutpostInfo(jf::GameApp& app, Vector2 mouse, bool clicked) {
         disabledButton(advanceRect, tr("ui.outpost.advance_locked"));
     }
 
-    drawSectionHeading(tr("ui.outpost.discoveries"), 492, 520, 20);
+    drawSectionHeading(tr("ui.outpost.discoveries"), 492, sectionY, 20);
     if (base.discoveryRegistry.empty()) {
-        drawText(tr("ui.outpost.no_discoveries_yet"), 492, 552, 18, kColorTextMuted);
+        drawText(tr("ui.outpost.no_discoveries_yet"), 492, contentY, 18, kColorTextMuted);
     } else {
-        int discoveryY = 552;
+        int discoveryY = contentY;
         for (const jf::DiscoveryId& discovery : base.discoveryRegistry) {
             drawText(discoveryNameFor(discovery), 492, discoveryY, 18, kColorTextPrimary);
             discoveryY += 28;
@@ -227,9 +239,9 @@ void drawBaseScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     std::vector<TooltipLine> hoverLines;
     drawBasePartyRoster(app, mouse, clicked, hoverLines);
     drawBaseSupplies(app, mouse, clicked, hoverLines);
-    drawBaseRegionList(app, mouse, clicked, hoverLines);
+    const int regionListBottom = drawBaseRegionList(app, mouse, clicked, hoverLines);
     drawBaseBagAndExpedition(app, mouse, clicked, hoverLines);
-    drawBaseOutpostInfo(app, mouse, clicked);
+    drawBaseOutpostInfo(app, mouse, clicked, regionListBottom);
     drawTooltipBox(mouse, hoverLines);
 }
 

@@ -245,13 +245,184 @@ std::string weaponEnglishName(const std::string& weaponId) {
     return it != kNames.end() ? it->second : weaponId;
 }
 
+// docs/character_progression.md「ユニットページ/詳細」: "武器、特性、スキルを選ぶと、
+// 右側へ「現在」「変更後」「変わる戦術」「失うもの」を表示する". Filled in by
+// drawForgeEquipmentPanel()/drawSkillEquipmentPanel() whenever the mouse hovers a
+// candidate, and consumed by drawUnitScreen() to render the 4-block diff card.
+// Traits are out of scope: no trait *selection* UI exists yet (only a single
+// binary equip/unequip toggle for "hide_wrapped_grip"), so there is no second
+// candidate to diff against - see drawForgeEquipmentPanel()'s trait button below.
+struct EquipmentHover {
+    bool isSkill = false;
+    std::string currentWeaponId;   // weapon branch: valid when !isSkill
+    std::string hoveredWeaponId;
+    std::string currentSkillId;    // skill: valid when isSkill (may be empty = no skill equipped)
+    std::string hoveredSkillId;
+};
+
+// Short localized tags for a weapon's qualitative (non-numeric) effects, used
+// to derive both "変わる戦術" (gained tags) and "失うもの" (lost tags) - see
+// weaponDiffLines() below.
+std::vector<std::string> weaponEffectTags(const jf::Weapon& weapon) {
+    std::vector<std::string> tags;
+    if (weapon.causesKnockback) tags.push_back(tr("ui.unit_screen.diff.knockback_tag"));
+    if (weapon.braceBoost) tags.push_back(tr("ui.unit_screen.diff.brace_boost_tag"));
+    for (jf::StatusEffectType status : weapon.onHitStatuses) {
+        switch (status) {
+            case jf::StatusEffectType::Poison: tags.push_back(tr("status.poison.label")); break;
+            case jf::StatusEffectType::Burn: tags.push_back(tr("status.burn.label")); break;
+            case jf::StatusEffectType::MoveDown: tags.push_back(tr("status.move_down.label")); break;
+            case jf::StatusEffectType::DefenseDown: tags.push_back(tr("status.def_down.label")); break;
+            case jf::StatusEffectType::Stagger: tags.push_back(tr("status.stagger.label")); break;
+        }
+    }
+    return tags;
+}
+
+std::string weaponRangeText(const jf::Weapon& weapon) {
+    if (weapon.minRange == weapon.maxRange) return std::to_string(weapon.minRange);
+    return std::to_string(weapon.minRange) + "-" + std::to_string(weapon.maxRange);
+}
+
+std::string weaponSummaryLine(const jf::Weapon& weapon) {
+    return tr("ui.unit_screen.diff.might_prefix") + std::to_string(weapon.might) + "   " +
+           tr("ui.unit_screen.diff.range_prefix") + weaponRangeText(weapon);
+}
+
+// "変わる戦術": numeric stat deltas (both directions) plus any effect tags the
+// hovered weapon adds. "失うもの": effect tags only the current weapon has.
+void weaponDiffLines(const jf::Weapon& current, const jf::Weapon& hovered, std::vector<std::string>& tactics,
+                     std::vector<std::string>& lost) {
+    if (hovered.might != current.might) {
+        int delta = hovered.might - current.might;
+        tactics.push_back(tr("ui.unit_screen.diff.might_prefix") + (delta > 0 ? "+" : "") + std::to_string(delta));
+    }
+    if (hovered.minRange != current.minRange || hovered.maxRange != current.maxRange) {
+        tactics.push_back(tr("ui.unit_screen.diff.range_prefix") + weaponRangeText(current) + " -> " +
+                          weaponRangeText(hovered));
+    }
+    if (hovered.moveModifier != current.moveModifier) {
+        int delta = hovered.moveModifier - current.moveModifier;
+        tactics.push_back(tr("ui.unit_screen.diff.move_mod_prefix") + (delta > 0 ? "+" : "") + std::to_string(delta));
+    }
+    const std::vector<std::string> currentTags = weaponEffectTags(current);
+    const std::vector<std::string> hoveredTags = weaponEffectTags(hovered);
+    std::vector<std::string> gained;
+    for (const std::string& tag : hoveredTags)
+        if (std::find(currentTags.begin(), currentTags.end(), tag) == currentTags.end()) gained.push_back(tag);
+    if (!gained.empty()) {
+        std::string joined = tr("ui.unit_screen.diff.gain_prefix");
+        for (std::size_t i = 0; i < gained.size(); ++i) joined += (i ? ", " : "") + gained[i];
+        tactics.push_back(joined);
+    }
+    for (const std::string& tag : currentTags)
+        if (std::find(hoveredTags.begin(), hoveredTags.end(), tag) == hoveredTags.end())
+            lost.push_back(tr("ui.unit_screen.diff.lose_effect", {{"value", tag}}));
+}
+
+std::string skillCategoryNameFor(jf::SkillCategory category) {
+    switch (category) {
+        case jf::SkillCategory::Active: return tr("skill.category.active");
+        case jf::SkillCategory::Passive: return tr("skill.category.passive");
+        case jf::SkillCategory::Reactive: return tr("skill.category.reactive");
+    }
+    return "";
+}
+
+std::string skillUsageNameFor(jf::SkillUsageType usage) {
+    switch (usage) {
+        case jf::SkillUsageType::PerTurn: return tr("skill.usage.per_turn");
+        case jf::SkillUsageType::OncePerBattle: return tr("skill.usage.once_per_battle");
+        case jf::SkillUsageType::Cooldown2: return tr("skill.usage.cooldown2");
+        case jf::SkillUsageType::OncePerPhase: return tr("skill.usage.once_per_phase");
+        case jf::SkillUsageType::Always: return tr("skill.usage.always");
+    }
+    return "";
+}
+
+// Renders the 4-block "現在/変更後/変わる戦術/失うもの" panel
+// (docs/character_progression.md「ユニットページ/詳細」) for whichever
+// weapon/skill candidate is currently hovered. Long text wraps rather than
+// relying on a hover-only tooltip, per the doc's own accessibility note.
+void drawEquipmentDiffPanel(jf::GameApp& app, const EquipmentHover& hover, Rectangle panel) {
+    drawCard(panel, kColorCard, kColorBorderSoft, 0.04f);
+    drawSectionHeading(tr("ui.unit_screen.diff.heading"), static_cast<int>(panel.x + 22),
+                       static_cast<int>(panel.y + 16), 18);
+
+    std::string currentSummary;
+    std::string afterSummary;
+    std::vector<std::string> tactics;
+    std::vector<std::string> lost;
+
+    if (!hover.isSkill) {
+        const jf::Weapon& current = app.gameData().weaponsById.at(hover.currentWeaponId);
+        const jf::Weapon& hovered = app.gameData().weaponsById.at(hover.hoveredWeaponId);
+        currentSummary = weaponNameFor(hover.currentWeaponId, weaponEnglishName(hover.currentWeaponId)) + "\n" +
+                         weaponSummaryLine(current);
+        afterSummary = weaponNameFor(hover.hoveredWeaponId, weaponEnglishName(hover.hoveredWeaponId)) + "\n" +
+                       weaponSummaryLine(hovered);
+        weaponDiffLines(current, hovered, tactics, lost);
+    } else {
+        const jf::SkillDefinition* current = hover.currentSkillId.empty() ? nullptr : jf::findSkill(hover.currentSkillId);
+        const jf::SkillDefinition* hovered = jf::findSkill(hover.hoveredSkillId);
+        currentSummary = current ? pick(current->nameEn, current->nameJa) + "\n" +
+                                       tr("ui.unit_screen.diff.skill_effect_prefix") + pick(current->effectEn, current->effectJa)
+                                 : tr("ui.unit_screen.skill_slot_empty");
+        if (hovered) {
+            afterSummary = pick(hovered->nameEn, hovered->nameJa) + "\n" +
+                           tr("ui.unit_screen.diff.skill_effect_prefix") + pick(hovered->effectEn, hovered->effectJa);
+            tactics.push_back(tr("ui.unit_screen.diff.skill_effect_prefix") + pick(hovered->effectEn, hovered->effectJa));
+            if (current && current->category != hovered->category)
+                tactics.push_back(tr("ui.unit_screen.diff.category_change", {{"value", skillCategoryNameFor(hovered->category)}}));
+            if (current && current->usageType != hovered->usageType)
+                tactics.push_back(tr("ui.unit_screen.diff.usage_change", {{"value", skillUsageNameFor(hovered->usageType)}}));
+            if (current)
+                lost.push_back(tr("ui.unit_screen.diff.skill_lose", {{"value", pick(current->nameEn, current->nameJa)}}));
+        }
+    }
+
+    // 2x2 grid (現在/変更後 on top, 変わる戦術/失うもの below) so all 4 blocks fit
+    // the panel's fixed height without depending on how much text each has -
+    // each quadrant wraps and clips independently instead of pushing later
+    // blocks off the card.
+    const float colWidth = (panel.width - 3 * 22.0f) / 2.0f;
+    const float rowHeight = (panel.height - 40.0f - 16.0f) / 2.0f;
+    const int maxWidth = static_cast<int>(colWidth - 8.0f);
+    auto joinLines = [](const std::vector<std::string>& lines) {
+        std::string joined;
+        for (std::size_t i = 0; i < lines.size(); ++i) joined += (i ? "\n" : "") + lines[i];
+        return joined;
+    };
+    auto drawBlock = [&](int col, int row, const std::string& label, const std::string& body) {
+        const float bx = panel.x + 22.0f + static_cast<float>(col) * (colWidth + 22.0f);
+        const float by = panel.y + 40.0f + static_cast<float>(row) * (rowHeight + 8.0f);
+        drawText(label, static_cast<int>(bx), static_cast<int>(by), 13, kColorAccentGold);
+        std::string wrapped = wrapTextToWidth(body.empty() ? tr("ui.unit_screen.diff.none") : body, 12, maxWidth);
+        // Clips to the quadrant's line budget rather than letting an
+        // overlong diff spill into the next block below it.
+        std::vector<std::string> lines = textLines(wrapped);
+        const int maxLines = std::max(1, static_cast<int>((rowHeight - 18.0f) / textLineHeight(12)));
+        if (static_cast<int>(lines.size()) > maxLines) {
+            lines.resize(static_cast<std::size_t>(maxLines));
+            wrapped.clear();
+            for (std::size_t i = 0; i < lines.size(); ++i) wrapped += (i ? "\n" : "") + lines[i];
+        }
+        drawText(wrapped, static_cast<int>(bx), static_cast<int>(by) + 18, 12, kColorTextPrimary);
+    };
+
+    drawBlock(0, 0, tr("ui.unit_screen.diff.current"), currentSummary);
+    drawBlock(1, 0, tr("ui.unit_screen.diff.after"), afterSummary);
+    drawBlock(0, 1, tr("ui.unit_screen.diff.tactics_change"), joinLines(tactics));
+    drawBlock(1, 1, tr("ui.unit_screen.diff.lost"), joinLines(lost));
+}
+
 // Data-driven for all 12 classes: base weapon comes from the class
 // definition, branch candidates come from any `craft_*` node registered for
 // this class (docs/implementation_roadmap.md "M7項目3(残り) ...特性・武器
 // 分岐の他兵種一般化"). Node id -> weapon id is the "craft_" prefix stripped,
 // which matches every entry in facilityNodeRegistry() by construction.
-void drawForgeEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, float x, float y, float width,
-                             Vector2 mouse, bool clicked) {
+std::optional<EquipmentHover> drawForgeEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, float x,
+                                                       float y, float width, Vector2 mouse, bool clicked) {
     drawSectionHeading(tr("ui.forge.equipment_heading"), static_cast<int>(x),
                        static_cast<int>(y), 18);
     const jf::BaseState& base = app.baseState();
@@ -269,6 +440,7 @@ void drawForgeEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, flo
     }
     float by = y + 58;
     const float candidateWidth = (width - 12.0f) / 2.0f;
+    std::optional<EquipmentHover> hover;
     for (std::size_t index = 0; index < candidates.size(); ++index) {
         const Candidate& candidate = candidates[index];
         bool available = candidate.nodeId.empty() || base.unlockedNodeIds.count(candidate.nodeId) > 0;
@@ -282,6 +454,12 @@ void drawForgeEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, flo
         } else {
             disabledButton(rect, pick(labelEn, labelJa));
         }
+        // Diff preview (docs/character_progression.md「ユニットページ/詳細」): any
+        // hovered candidate other than the currently-equipped one, available or
+        // not, previews what changes - previewing a not-yet-craftable branch is
+        // useful too, so hover isn't gated on `available`.
+        if (candidate.id != current && CheckCollisionPointRec(mouse, rect))
+            hover = EquipmentHover{false, current, candidate.id, "", ""};
     }
 
     by += static_cast<float>((candidates.size() + 1) / 2) * 46.0f + 20.0f;
@@ -297,6 +475,7 @@ void drawForgeEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, flo
     } else {
         disabledButton(traitRect, tr("ui.facilities.trait_locked"));
     }
+    return hover;
 }
 
 // docs/character_progression.md「ユニットページ」詳細5「装備スキル2枠」: unlike the
@@ -304,8 +483,8 @@ void drawForgeEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, flo
 // was already class-generic (only Spearman's *UI* was missing). The diff/preview
 // panel, cooperation tactics, and exploration-ability sections from the full spec
 // are out of scope for this Slice; only the 2 skill slots are wired here.
-void drawSkillEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, float x, float y, float width,
-                             Vector2 mouse, bool clicked) {
+std::optional<EquipmentHover> drawSkillEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, float x,
+                                                       float y, float width, Vector2 mouse, bool clicked) {
     drawSectionHeading(tr("ui.unit_screen.skills_heading"), static_cast<int>(x), static_cast<int>(y), 18);
     const jf::BaseState& base = app.baseState();
     const std::vector<const jf::SkillDefinition*> classSkills = jf::skillsForClass(unit.classId);
@@ -316,6 +495,7 @@ void drawSkillEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, flo
     std::array<std::string, 2> equipped{"", ""};
     if (slotIt != app.equippedSkills().end()) equipped = slotIt->second.equippedSkillIds;
 
+    std::optional<EquipmentHover> hover;
     const float candidateWidth = (width - 3 * 10.0f) / 4.0f;
     for (int slot = 0; slot < 2; ++slot) {
         float slotY = y + 30 + static_cast<float>(slot) * 70.0f;
@@ -342,6 +522,11 @@ void drawSkillEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, flo
             } else {
                 disabledButton(rect, pick(labelEn, labelJa));
             }
+            // Diff preview, mirroring the weapon panel's hover rule above -
+            // hovering a not-yet-available candidate (locked training branch,
+            // or already equipped in the other slot) still previews it.
+            if (skill->id != equipped[slot] && CheckCollisionPointRec(mouse, rect))
+                hover = EquipmentHover{true, "", "", equipped[slot], skill->id};
         }
         Rectangle clearRect{x + 3 * (candidateWidth + 10.0f), slotY + 24, candidateWidth, 34};
         if (equipped[slot].empty()) {
@@ -350,6 +535,7 @@ void drawSkillEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, flo
             app.equipSkillForUnit(unit.id, slot, "");
         }
     }
+    return hover;
 }
 
 void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
@@ -388,11 +574,38 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         drawText(wrapTextToWidth(explorationAbility, 14, 400), 72, 494, 14, kColorTextMuted);
     }
 
+    // Equipment panels are drawn ahead of the comparison/diff region below so
+    // their hover state (docs/character_progression.md「ユニットページ/詳細」
+    // "武器、特性、スキルを選ぶと...") is known before deciding what to show there.
+    // Drawing order doesn't affect the two cards' on-screen position (they
+    // occupy disjoint rectangles), only which data is ready in time.
+    Rectangle equipment{548, 104, 690, 500};
+    drawCard(equipment, kColorCard, kColorBorderSoft, 0.04f);
+    std::optional<EquipmentHover> hover;
+    if (classHasWeaponBranchRecipes(unit->classId)) {
+        hover = drawForgeEquipmentPanel(app, *unit, 580, 136, 626, mouse, clicked);
+        if (!app.baseState().constructedFacilityIds.count("simple_forge"))
+            drawText(tr("ui.unit_screen.needs_forge"),
+                     580, 390, 14, Color{205, 135, 135, 255});
+    } else {
+        drawSectionHeading(tr("ui.unit_screen.equipment_heading"), 580, 136, 18);
+        const std::string weaponId = app.gameData().classDefinition(unit->classId).weaponId;
+        drawText(tr("ui.unit_screen.current_weapon_prefix") + weaponNameFor(weaponId, weaponEnglishName(weaponId)),
+                 580, 188, 16, kColorTextPrimary);
+        drawText(tr("ui.unit_screen.no_alt_equipment"),
+                 580, 246, 14, kColorTextMuted);
+    }
+    std::optional<EquipmentHover> skillHover = drawSkillEquipmentPanel(app, *unit, 580, 420, 626, mouse, clicked);
+    if (!hover) hover = skillHover;
+
     // docs/character_progression.md「ユニットページ」一覧「比較対象を1人固定できる」:
     // side-by-side numbers only, no green/red-only diff coloring (spec's own
     // "能力値差を緑赤だけで表現しない"). Silently drops a stale pin (e.g. the
     // pinned Unit is no longer in roster()) instead of showing a broken row.
-    if (gBaseScreen.comparisonUnitId && *gBaseScreen.comparisonUnitId != unit->id) {
+    // Shares its screen region with the diff-preview panel below (both are
+    // transient view aids, and only one is relevant at a time): the diff
+    // preview wins whenever a candidate is actively hovered.
+    if (!hover && gBaseScreen.comparisonUnitId && *gBaseScreen.comparisonUnitId != unit->id) {
         auto comparisonUnit = std::find_if(app.roster().begin(), app.roster().end(),
                                            [&](const jf::UnitTemplate& candidate) {
                                                return candidate.id == *gBaseScreen.comparisonUnitId;
@@ -420,23 +633,10 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         }
     }
 
-    Rectangle equipment{548, 104, 690, 500};
-    drawCard(equipment, kColorCard, kColorBorderSoft, 0.04f);
-    if (classHasWeaponBranchRecipes(unit->classId)) {
-        drawForgeEquipmentPanel(app, *unit, 580, 136, 626, mouse, clicked);
-        if (!app.baseState().constructedFacilityIds.count("simple_forge"))
-            drawText(tr("ui.unit_screen.needs_forge"),
-                     580, 390, 14, Color{205, 135, 135, 255});
-    } else {
-        drawSectionHeading(tr("ui.unit_screen.equipment_heading"), 580, 136, 18);
-        const std::string weaponId = app.gameData().classDefinition(unit->classId).weaponId;
-        drawText(tr("ui.unit_screen.current_weapon_prefix") + weaponNameFor(weaponId, weaponEnglishName(weaponId)),
-                 580, 188, 16, kColorTextPrimary);
-        drawText(tr("ui.unit_screen.no_alt_equipment"),
-                 580, 246, 14, kColorTextMuted);
+    if (hover) {
+        Rectangle diffPanel{42, 620, 1196, 150};
+        drawEquipmentDiffPanel(app, *hover, diffPanel);
     }
-
-    drawSkillEquipmentPanel(app, *unit, 580, 420, 626, mouse, clicked);
 }
 
 // The facility card grid (list view, shown when no facility is visited
@@ -466,10 +666,12 @@ void drawFacilitiesList(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
         drawText(facilityIdNameFor(facility), static_cast<int>(card.x + 22), static_cast<int>(card.y + 18),
                  21, kColorTextPrimary);
         const bool constructed = facilityIsConstructed(base, facility);
-        drawText(tr("ui.facilities.branches_unlocked", {{"count", std::to_string(facilityLevel(base, facility))}}),
-                 static_cast<int>(card.x + 22), static_cast<int>(card.y + 59), 14, kColorAccentGold);
+        const std::string branchesLabel =
+            tr("ui.facilities.branches_unlocked", {{"count", std::to_string(facilityLevel(base, facility))}});
+        drawText(branchesLabel, static_cast<int>(card.x + 22), static_cast<int>(card.y + 59), 14, kColorAccentGold);
+        const int statusX = static_cast<int>(card.x + 22) + textWidth(branchesLabel, 14) + 24;
         drawText(constructed ? tr("ui.facility_node.constructed") : tr("ui.facility_node.not_constructed"),
-                 static_cast<int>(card.x + 112), static_cast<int>(card.y + 59), 14,
+                 statusX, static_cast<int>(card.y + 59), 14,
                  constructed ? Color{105, 205, 145, 255} : Color{180, 125, 125, 255});
         Rectangle visitRect{card.x + card.width - 174.0f, card.y + 82.0f, 150.0f, 40.0f};
         if (button(visitRect, "Visit", "訪れる", mouse, clicked)) {
