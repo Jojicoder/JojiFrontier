@@ -43,6 +43,14 @@ struct Unit {
 
     GridPos position{};
     bool hasActed = false;
+    // 奇襲刃(ambush_blade)「そのラウンドで未行動の敵」判定専用。`hasActed`は
+    // 自チームの次のPhase開始(beginPlayerPhase()/beginEnemyPhase())まで
+    // リセットされないため、Player Phase中は敵の`hasActed`が前Roundの
+    // Enemy Phase終了時点の値(=true)のまま残り続け、「未行動」判定に使えない
+    // (2Round目以降ずっとfalseにならないバグになる)。`markActed()`が呼ばれた
+    // 時点のBattleState::round()を記録し、`target.lastActedRound !=
+    // battle.round()`で「今Roundではまだ行動していない」を正しく判定する。
+    int lastActedRound = 0;
     int tilesMovedThisAction = 0;
 
     // Hide-Wrapped Grip tuning trait: negates this many knockbacks for the
@@ -181,6 +189,12 @@ struct Unit {
     // 固有能力(canHeal()/canFieldFortify()と異なり専用コマンドではなく、通常攻撃
     // 命中時にBattleController::confirmAttack()が自動判定する)。
     bool arcaneOverflowUsed = false;
+    // Snare Bow/Driving Bow/Ember Focus/Resonant Focus (docs/
+    // base_development.md, M7項目3続き 武器分岐固有効果): 戦闘中1回だけ、この
+    // 武器のonHitStatuses/causesKnockback/splashDamageのうちどれか1つを許可
+    // する(weapon.firstHitOnly)。arcaneOverflowUsed同様、clearAllStatusEffects
+    // では戻さない(戦闘スコープの1回きり)。
+    bool weaponFirstHitUsed = false;
 
     // The 2 equipped-skill slots (docs/skill_system.md). See
     // jf/battle/SkillCharges.hpp for lifecycle management.

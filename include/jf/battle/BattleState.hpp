@@ -47,13 +47,31 @@ public:
     int collectedHerbPatches() const { return collectedHerbPatches_; }
 
     bool moveUnit(Unit& unit, GridPos destination);
-    void markActed(Unit& unit) { unit.hasActed = true; }
+    // Also stamps `lastActedRound` (see its own comment on `Unit`) so
+    // ambush_blade's "hasn't acted this round" check survives across Phase
+    // boundaries, unlike raw `hasActed` which only resets at the unit's own
+    // team's next Phase start.
+    void markActed(Unit& unit) {
+        unit.hasActed = true;
+        unit.lastActedRound = round_;
+    }
 
     // Heavy Spear effect: pushes `defender` one tile straight back from
     // `attacker`, unless the destination is blocked/out of bounds (silently
     // no-ops) or the defender has a Hide-Wrapped Grip negation banked (which
     // is consumed instead of the push happening).
     void applyKnockback(const Unit& attacker, Unit& defender);
+
+    // Hook Lance effect (docs/base_development.md): pulls `defender` one
+    // tile TOWARD `attacker` instead of away - the inverse of
+    // applyKnockback() above. Reuses the same negation rules (Heavy Guard's
+    // hasHeavyArmor()/brace_for_impact, Hide-Wrapped Grip's
+    // knockbackNegatesRemaining) since "cannot be knocked back" reads as
+    // "cannot be forcibly repositioned by an attack" either way, and simply
+    // no-ops (no stagger, unlike applyKnockback()) if the destination isn't
+    // free - Hook Lance's own doc wording is "空いていれば" (only if open),
+    // with no mention of a collision penalty.
+    void applyPull(const Unit& attacker, Unit& defender);
 
     // True once every living unit on the given team has acted.
     bool isTeamDone(Team team) const;

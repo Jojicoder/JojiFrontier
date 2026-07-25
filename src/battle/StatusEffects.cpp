@@ -89,8 +89,14 @@ void applyStatusEffect(BattleState& battle, Unit& target, StatusEffectType effec
     }
 }
 
-void applyWeaponOnHitStatuses(BattleState& battle, const Unit& attacker, Unit& target) {
-    if (!target.isAlive()) return;
+void applyWeaponOnHitStatuses(BattleState& battle, Unit& attacker, Unit& target) {
+    if (!target.isAlive() || attacker.weapon.onHitStatuses.empty()) return;
+    // Snare Bow (docs/base_development.md): gated to the first successful
+    // hit each battle - see Unit::weaponFirstHitUsed/Weapon::firstHitOnly.
+    if (attacker.weapon.firstHitOnly) {
+        if (attacker.weaponFirstHitUsed) return;
+        attacker.weaponFirstHitUsed = true;
+    }
     for (StatusEffectType effect : attacker.weapon.onHitStatuses) applyStatusEffect(battle, target, effect);
 }
 

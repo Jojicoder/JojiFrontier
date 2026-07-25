@@ -53,7 +53,7 @@ void applyStatusEffect(BattleState& battle, Unit& target, StatusEffectType effec
 // effect). Poison/Burn/DefenseDown/damage never call this - only Move Down
 // and Stagger are covered (docs/skill_system.md「旗手」).
 bool consumeUnyieldingSignalIfAvailable(BattleState& battle, Unit& target);
-void applyWeaponOnHitStatuses(BattleState& battle, const Unit& attacker, Unit& target);
+void applyWeaponOnHitStatuses(BattleState& battle, Unit& attacker, Unit& target);
 
 // 万能薬・状態治療スキル: clears every status effect on one unit. Leaves
 // staggerImmune untouched - that is a cooldown against reapplication, not a

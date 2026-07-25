@@ -10018,6 +10018,292 @@ int main() {
         assert(sawEmberRavine);
     }
 
+    // M7項目3続き(基礎〜中程度Tier) 武器分岐固有効果 (docs/base_development.md).
+    // Guard Spear's braceBoost is already covered above; these focus on the
+    // OTHER 16 branches' unique effects (recipe/stat-swap tests already
+    // exist from the prior generalization work).
+    {
+        // Charge Lance: +2 damage after moving 3+ tiles this action.
+        jf::Unit rider = makeUnit("rider", jf::Team::Player, {1, 0}, 6, jf::UnitClass::MessengerCavalry);
+        rider.weapon = {.id = "charge_lance", .name = "Charge Lance", .might = 7,
+                        .minRange = 1, .maxRange = 1, .damageType = jf::DamageType::Physical};
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 4});
+        jf::BattleController controller(jf::BattleState({rider, enemy}));
+        controller.selectUnit(controller.battle().units().front());
+        controller.selectMoveTile({1, 3}); // 3 tiles moved, adjacent to enemy
+        assert(controller.battle().units()[0].tilesMovedThisAction == 3);
+        controller.chooseAttack();
+        controller.selectTargetTile({1, 4});
+        assert(controller.inputState() == jf::BattleInputState::ConfirmAttack);
+        auto preview = controller.pendingPreview();
+        assert(preview.has_value());
+        int baseline = 6 + 7 - 2; // STR + might - DEF
+        assert(preview->damage == baseline + 2);
+    }
+    {
+        // Ambush Blade: +2 damage vs an enemy that hasn't acted THIS round.
+        // Regression test for a bug where raw `hasActed` never reset between
+        // rounds during the Player Phase (it only clears at the owning
+        // team's own next Phase start), so an enemy that acted in round 1
+        // would incorrectly read as "already acted" for round 2's Player
+        // Phase too (bonus wrongly denied, even though that enemy hasn't
+        // acted in round 2 yet). `Unit::lastActedRound` + `BattleState::
+        // markActed()` fix this by stamping the round the action happened
+        // in, not just a boolean.
+        jf::Unit scout = makeUnit("scout", jf::Team::Player, {1, 0}, 4, jf::UnitClass::FrontierScout);
+        scout.weapon = {.id = "ambush_blade", .name = "Ambush Blade", .might = 6,
+                        .minRange = 1, .maxRange = 1, .damageType = jf::DamageType::Physical};
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 1});
+        assert(!enemy.hasActed);
+        jf::BattleController controller(jf::BattleState({scout, enemy}));
+        assert(controller.battle().round() == 1);
+        assert(jf::weaponBranchBonusDamage(controller.battle().units(), controller.battle().units()[0],
+                                           controller.battle().units()[1], controller.battle().round()) == 2);
+        // `enemy` acts during round 1's Enemy Phase.
+        controller.battle().markActed(controller.battle().units()[1]);
+        controller.battle().beginPlayerPhase(); // now round 2, hasActed NOT reset for enemies
+        assert(controller.battle().round() == 2);
+        assert(controller.battle().units()[1].hasActed); // stale true from round 1 - the bug's trap
+        // `enemy` hasn't acted in round 2 yet (its round-1 action doesn't
+        // count) - the bonus must still apply here. The old raw-`hasActed`
+        // check would wrongly deny it (the bug this test guards against).
+        assert(jf::weaponBranchBonusDamage(controller.battle().units(), controller.battle().units()[0],
+                                           controller.battle().units()[1], controller.battle().round()) == 2);
+        // Now `enemy` acts again, this time IN round 2 - the bonus must be
+        // denied against it for the rest of round 2.
+        controller.battle().markActed(controller.battle().units()[1]);
+        assert(jf::weaponBranchBonusDamage(controller.battle().units(), controller.battle().units()[0],
+                                           controller.battle().units()[1], controller.battle().round()) == 0);
+    }
+    {
+        // War Bow: +2 damage vs a target at full HP; no bonus once damaged.
+        jf::Unit archer = makeUnit("archer", jf::Team::Player, {1, 0}, 4, jf::UnitClass::WatchArcher);
+        archer.weapon = {.id = "war_bow", .name = "War Bow", .might = 8,
+                         .minRange = 2, .maxRange = 2, .damageType = jf::DamageType::Physical};
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 2});
+        jf::BattleController controller(jf::BattleState({archer, enemy}));
+        auto& units = controller.battle().units();
+        int fullBonus = jf::weaponBranchBonusDamage(units, units[0], units[1], controller.battle().round());
+        auto full = jf::previewAttack(units[0], units[1], controller.battle().combatDefenseBonus(units[1], units[0]),
+                                      100, fullBonus);
+        assert(full.damage == 6 + 8 - 2 + 2);
+        units[1].currentHp -= 1;
+        int damagedBonus = jf::weaponBranchBonusDamage(units, units[0], units[1], controller.battle().round());
+        auto damaged = jf::previewAttack(units[0], units[1], controller.battle().combatDefenseBonus(units[1], units[0]),
+                                         100, damagedBonus);
+        assert(damaged.damage == 6 + 8 - 2);
+    }
+    {
+        // Duel Sword: +2 damage only when no other unit of the target's team
+        // is adjacent to it.
+        jf::Unit captain = makeUnit("captain", jf::Team::Player, {1, 0}, 4, jf::UnitClass::MarchCaptain);
+        captain.weapon = {.id = "duel_sword", .name = "Duel Sword", .might = 7,
+                          .minRange = 1, .maxRange = 1, .damageType = jf::DamageType::Physical};
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 1});
+        jf::Unit escort = makeUnit("escort", jf::Team::Enemy, {1, 2});
+        jf::BattleController isolated(jf::BattleState({captain, enemy}));
+        assert(jf::weaponBranchBonusDamage(isolated.battle().units(), isolated.battle().units()[0],
+                                           isolated.battle().units()[1], isolated.battle().round()) == 2);
+        jf::BattleController escorted(jf::BattleState({captain, enemy, escort}));
+        assert(jf::weaponBranchBonusDamage(escorted.battle().units(), escorted.battle().units()[0],
+                                           escorted.battle().units()[1], escorted.battle().round()) == 0);
+    }
+    {
+        // Quarry Bow: +2 damage only when no ally of the target is adjacent.
+        jf::Unit ranger = makeUnit("ranger", jf::Team::Player, {1, 0}, 4, jf::UnitClass::FrontierRanger);
+        ranger.weapon = {.id = "quarry_bow", .name = "Quarry Bow", .might = 5,
+                         .minRange = 2, .maxRange = 2, .damageType = jf::DamageType::Physical};
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 2});
+        jf::Unit ally = makeUnit("ally", jf::Team::Enemy, {1, 3});
+        jf::BattleController isolated(jf::BattleState({ranger, enemy}));
+        assert(jf::weaponBranchBonusDamage(isolated.battle().units(), isolated.battle().units()[0],
+                                           isolated.battle().units()[1], isolated.battle().round()) == 2);
+        jf::BattleController grouped(jf::BattleState({ranger, enemy, ally}));
+        assert(jf::weaponBranchBonusDamage(grouped.battle().units(), grouped.battle().units()[0],
+                                           grouped.battle().units()[1], grouped.battle().round()) == 0);
+    }
+    {
+        // Mercy Staff: Heal amount 8 -> 12.
+        jf::Unit healer = makeUnit("healer", jf::Team::Player, {1, 0}, 4, jf::UnitClass::DawnChirurgeon);
+        healer.weapon = {.id = "mercy_staff", .name = "Mercy Staff", .might = 1, .minRange = 1, .maxRange = 2,
+                         .damageType = jf::DamageType::Magical, .healAmountOverride = 12};
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {1, 1});
+        ally.currentHp = 4;
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 7});
+        jf::BattleController controller(jf::BattleState({healer, ally, enemy}));
+        controller.selectUnit(controller.battle().units().front());
+        controller.selectMoveTile({1, 0});
+        controller.chooseHeal();
+        controller.selectHealTarget({1, 1});
+        assert(controller.battle().units()[1].currentHp == 16);
+    }
+    {
+        // Ward Staff: Heal 6 + RES+3 until next Enemy Phase end.
+        jf::Unit healer = makeUnit("healer", jf::Team::Player, {1, 0}, 4, jf::UnitClass::DawnChirurgeon);
+        healer.weapon = {.id = "ward_staff", .name = "Ward Staff", .might = 2, .minRange = 1, .maxRange = 2,
+                         .damageType = jf::DamageType::Magical, .healAmountOverride = 6,
+                         .healGrantsResistanceUp = true};
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {1, 1});
+        ally.currentHp = 4;
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 7});
+        jf::BattleController controller(jf::BattleState({healer, ally, enemy}));
+        controller.selectUnit(controller.battle().units().front());
+        controller.selectMoveTile({1, 0});
+        controller.chooseHeal();
+        controller.selectHealTarget({1, 1});
+        assert(controller.battle().units()[1].currentHp == 10);
+        assert(controller.battle().units()[1].resistanceUpActive);
+    }
+    {
+        // March Staff: Heal 6 + MOV+1 until this Player Phase ends, only if
+        // the target hadn't acted yet.
+        jf::Unit healer = makeUnit("healer", jf::Team::Player, {1, 0}, 4, jf::UnitClass::DawnChirurgeon);
+        healer.weapon = {.id = "march_staff", .name = "March Staff", .might = 2, .minRange = 1, .maxRange = 2,
+                         .damageType = jf::DamageType::Magical, .healAmountOverride = 6, .healGrantsMoveUp = true};
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {1, 1});
+        ally.currentHp = 4;
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 7});
+        jf::BattleController controller(jf::BattleState({healer, ally, enemy}));
+        controller.selectUnit(controller.battle().units().front());
+        controller.selectMoveTile({1, 0});
+        controller.chooseHeal();
+        controller.selectHealTarget({1, 1});
+        assert(controller.battle().units()[1].currentHp == 10);
+        assert(controller.battle().units()[1].moveUpActive);
+    }
+    {
+        // Repair Hammer: field_repair amount 6 -> 9.
+        jf::Unit engineer = makeUnit("engineer", jf::Team::Player, {1, 0}, 4, jf::UnitClass::FrontierEngineer);
+        engineer.weapon = {.id = "repair_hammer", .name = "Repair Hammer", .might = 4, .minRange = 1, .maxRange = 1,
+                           .damageType = jf::DamageType::Physical, .fieldRepairAmountOverride = 9};
+        engineer.skillSlots[0].skillId = "field_repair";
+        engineer.skillSlots[0].usesRemaining = 1;
+        jf::BattleController controller(jf::BattleState({engineer}));
+        jf::BattleObjectDefinition boardDef;
+        boardDef.definitionId = "field_barricade";
+        boardDef.kind = jf::BattleObjectKind::Barrier;
+        boardDef.maxDurability = 20;
+        boardDef.canBeRepaired = true;
+        controller.battle().registerObjectDefinition(boardDef);
+        assert(controller.battle().placeObject({"board1", "field_barricade", {1, 1}, jf::BattleObjectTeam::Player,
+                                                jf::BattleObjectStateKind::Active, 5, 0}));
+        controller.selectUnit(controller.battle().units().front());
+        controller.selectMoveTile({1, 0});
+        controller.chooseSkill(0);
+        assert(controller.selectSkillTarget({1, 1}));
+        assert(controller.battle().objectAt({1, 1})->durability == 14);
+    }
+    {
+        // Snare Bow: move_down on-hit gated to the first hit only per battle.
+        jf::Unit ranger = makeUnit("ranger", jf::Team::Player, {1, 0}, 4, jf::UnitClass::FrontierRanger);
+        ranger.weapon = {.id = "snare_bow", .name = "Snare Bow", .might = 3, .minRange = 2, .maxRange = 2,
+                         .damageType = jf::DamageType::Physical,
+                         .onHitStatuses = {jf::StatusEffectType::MoveDown}, .firstHitOnly = true};
+        jf::Unit enemy1 = makeUnit("enemy1", jf::Team::Enemy, {1, 2});
+        jf::Unit enemy2 = makeUnit("enemy2", jf::Team::Enemy, {3, 0});
+        jf::BattleController controller(jf::BattleState({ranger, enemy1, enemy2}));
+        controller.selectUnit(controller.battle().units().front());
+        controller.selectMoveTile({1, 2}); // attack shortcut: enemy1 tile is in range
+        controller.confirmAttack();
+        assert(controller.battle().units()[1].moveDownActive);
+        assert(controller.battle().units()[0].weaponFirstHitUsed);
+        controller.battle().units()[0].hasActed = false; // simulate a second engagement this battle
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile({3, 0}); // attack shortcut: enemy2 tile is in range
+        controller.confirmAttack();
+        assert(!controller.battle().units()[2].moveDownActive); // gate already spent
+    }
+    {
+        // Driving Bow: knockback gated to the first hit only per battle.
+        jf::Unit ranger = makeUnit("ranger", jf::Team::Player, {1, 1}, 4, jf::UnitClass::FrontierRanger);
+        ranger.weapon = {.id = "driving_bow", .name = "Driving Bow", .might = 3, .minRange = 2, .maxRange = 2,
+                         .damageType = jf::DamageType::Physical, .causesKnockback = true, .firstHitOnly = true};
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 3});
+        jf::BattleController controller(jf::BattleState({ranger, enemy}));
+        controller.selectUnit(controller.battle().units().front());
+        controller.selectMoveTile({1, 3}); // attack shortcut: enemy tile is in range
+        controller.confirmAttack();
+        assert((controller.battle().units()[1].position == jf::GridPos{1, 4}));
+        assert(controller.battle().units()[0].weaponFirstHitUsed);
+    }
+    {
+        // Ember Focus: burn on-hit gated to the first hit only per battle.
+        jf::Unit mage = makeUnit("mage", jf::Team::Player, {1, 0}, 4, jf::UnitClass::BattleMage);
+        mage.stats.magic = 6;
+        mage.weapon = {.id = "ember_focus", .name = "Ember Focus", .might = 5, .minRange = 1, .maxRange = 2,
+                       .damageType = jf::DamageType::Magical,
+                       .onHitStatuses = {jf::StatusEffectType::Burn}, .firstHitOnly = true};
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 1});
+        jf::BattleController controller(jf::BattleState({mage, enemy}));
+        controller.selectUnit(controller.battle().units().front());
+        controller.selectMoveTile({1, 1}); // attack shortcut: enemy tile is in range
+        controller.confirmAttack();
+        assert(controller.battle().units()[1].burnRemainingProcs > 0);
+        assert(controller.battle().units()[0].weaponFirstHitUsed);
+    }
+    {
+        // Resonant Focus: first successful hit each battle also splashes 2
+        // fixed damage to enemies directly above/below the target. Battle
+        // Mage's own class-innate 魔力波及(arcaneOverflowUsed, kArcaneOverflowSplashDamage=3)
+        // fires on the same first hit too - both stack onto the same
+        // adjacent tiles (2 + 3 = 5), so the test asserts on the total.
+        jf::Unit mage = makeUnit("mage", jf::Team::Player, {1, 0}, 4, jf::UnitClass::BattleMage);
+        mage.stats.magic = 6;
+        mage.weapon = {.id = "resonant_focus", .name = "Resonant Focus", .might = 4, .minRange = 1, .maxRange = 2,
+                       .damageType = jf::DamageType::Magical, .firstHitOnly = true, .splashDamage = 2};
+        jf::Unit target = makeUnit("target", jf::Team::Enemy, {1, 1});
+        jf::Unit above = makeUnit("above", jf::Team::Enemy, {0, 1});
+        jf::BattleController controller(jf::BattleState({mage, target, above}));
+        int hpBefore = controller.battle().units()[2].currentHp;
+        controller.selectUnit(controller.battle().units().front());
+        controller.selectMoveTile({1, 1}); // attack shortcut: target tile is in range
+        controller.confirmAttack();
+        assert(controller.battle().units()[2].currentHp == hpBefore - 5);
+        assert(controller.battle().units()[0].weaponFirstHitUsed);
+        assert(controller.battle().units()[0].arcaneOverflowUsed);
+    }
+    {
+        // Hook Lance: hitting from range 2 pulls the target 1 tile toward
+        // the attacker.
+        jf::Unit guard = makeUnit("guard", jf::Team::Player, {1, 0}, 4, jf::UnitClass::VeteranGuard);
+        guard.weapon = {.id = "hook_lance", .name = "Hook Lance", .might = 5, .minRange = 1, .maxRange = 2,
+                        .damageType = jf::DamageType::Physical, .pullsAtRangeTwo = true};
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 2});
+        jf::BattleController controller(jf::BattleState({guard, enemy}));
+        controller.selectUnit(controller.battle().units().front());
+        controller.selectMoveTile({1, 2}); // attack shortcut: enemy tile is in range
+        controller.confirmAttack();
+        assert((controller.battle().units()[1].position == jf::GridPos{1, 1}));
+    }
+    {
+        // Trail Blade: moving through Ash trailblazes it for allies that
+        // Player Phase.
+        jf::Unit scout = makeUnit("scout", jf::Team::Player, {1, 0}, 4, jf::UnitClass::FrontierScout);
+        scout.weapon = {.id = "trail_blade", .name = "Trail Blade", .might = 3, .minRange = 1, .maxRange = 1,
+                        .damageType = jf::DamageType::Physical, .moveModifier = 1, .trailblazeOnMove = true};
+        jf::BattleController controller(jf::BattleState({scout}));
+        controller.battle().setTerrain({1, 1}, jf::TerrainType::Ash);
+        assert(!controller.battle().isTrailblazed({1, 1}));
+        controller.selectUnit(controller.battle().units().front());
+        controller.selectMoveTile({1, 1});
+        assert(controller.battle().isTrailblazed({1, 1}));
+    }
+    {
+        // Escort Blade: re-move completing grants DEF+2 to an adjacent ally.
+        jf::Unit rider = makeUnit("rider", jf::Team::Player, {1, 0}, 4, jf::UnitClass::MessengerCavalry);
+        rider.weapon = {.id = "escort_blade", .name = "Escort Blade", .might = 4, .minRange = 1, .maxRange = 1,
+                        .damageType = jf::DamageType::Physical};
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {2, 2});
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 1});
+        jf::BattleController controller(jf::BattleState({rider, ally, enemy}));
+        controller.selectUnit(controller.battle().units().front());
+        controller.selectMoveTile({1, 1}); // attack shortcut: enemy tile is in range
+        controller.confirmAttack();
+        assert(controller.inputState() == jf::BattleInputState::SelectReMoveTarget);
+        controller.selectReMoveTarget({2, 1}); // adjacent to ally at {2,2}
+        assert(controller.battle().units()[1].defenseUpActive);
+    }
+
     std::cout << "Battle tests PASSED\n";
     return 0;
 }

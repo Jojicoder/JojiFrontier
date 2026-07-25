@@ -96,6 +96,26 @@ void BattleState::applyKnockback(const Unit& attacker, Unit& defender) {
     defender.position = dest;
 }
 
+void BattleState::applyPull(const Unit& attacker, Unit& defender) {
+    if (hasHeavyArmor(defender.unitClass) || defender.braceForImpactActive) return;
+    if (defender.knockbackNegatesRemaining > 0) {
+        --defender.knockbackNegatesRemaining;
+        return;
+    }
+    const int rowDelta = defender.position.row - attacker.position.row;
+    const int colDelta = defender.position.col - attacker.position.col;
+    GridPos dest = defender.position;
+    // Same axis-priority tie-break as applyKnockback(), just toward instead
+    // of away from the attacker.
+    if (std::abs(colDelta) >= std::abs(rowDelta)) dest.col -= (colDelta > 0) - (colDelta < 0);
+    else dest.row -= (rowDelta > 0) - (rowDelta < 0);
+    if (!isInBounds(dest) || unitAt(dest) || !isPassable(terrainAt(dest)) || objectBlocksMovementAt(dest) ||
+        objectBlocksStoppingAt(dest)) {
+        return; // "空いていれば" - simply no-op if blocked, no stagger.
+    }
+    defender.position = dest;
+}
+
 // docs/regions/windscar_plateau.md "強風ルール" - see the declaration's
 // comment (BattleState.hpp) for the full rule summary.
 void resolveWindGustRoundEnd(BattleState& battle) {
@@ -249,6 +269,7 @@ void BattleState::resolveReinforcementsForPhase() {
                 unit.team = wave.team;
                 unit.position = placements[i];
                 unit.hasActed = true;
+                unit.lastActedRound = round_;
                 units_.push_back(std::move(unit));
             }
             wave.state = ReinforcementState::Spawned;

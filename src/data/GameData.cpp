@@ -201,6 +201,16 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
                 else if (status == "stagger") weapon.onHitStatuses.push_back(StatusEffectType::Stagger);
             }
         }
+        if (w.contains("healAmountOverride")) weapon.healAmountOverride = w.at("healAmountOverride").get<int>();
+        if (w.contains("healGrantsResistanceUp"))
+            weapon.healGrantsResistanceUp = w.at("healGrantsResistanceUp").get<bool>();
+        if (w.contains("healGrantsMoveUp")) weapon.healGrantsMoveUp = w.at("healGrantsMoveUp").get<bool>();
+        if (w.contains("fieldRepairAmountOverride"))
+            weapon.fieldRepairAmountOverride = w.at("fieldRepairAmountOverride").get<int>();
+        if (w.contains("firstHitOnly")) weapon.firstHitOnly = w.at("firstHitOnly").get<bool>();
+        if (w.contains("splashDamage")) weapon.splashDamage = w.at("splashDamage").get<int>();
+        if (w.contains("pullsAtRangeTwo")) weapon.pullsAtRangeTwo = w.at("pullsAtRangeTwo").get<bool>();
+        if (w.contains("trailblazeOnMove")) weapon.trailblazeOnMove = w.at("trailblazeOnMove").get<bool>();
         data.weaponsById[weapon.id] = weapon;
     }
 

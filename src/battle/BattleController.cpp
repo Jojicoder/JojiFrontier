@@ -419,7 +419,9 @@ std::optional<CombatPreview> BattleController::pendingPreview() const {
     return jf::previewAttack(*selectedUnit_, *pendingTarget_,
                              battle_.combatDefenseBonus(*pendingTarget_, *selectedUnit_),
                              battle_.combatHitChance(*pendingTarget_),
-                             bannerAuraBonus(battle_.units(), *selectedUnit_));
+                             bannerAuraBonus(battle_.units(), *selectedUnit_) +
+                                 weaponBranchBonusDamage(battle_.units(), *selectedUnit_, *pendingTarget_,
+                                                          battle_.round()));
 }
 
 void BattleController::markActionResolved(Unit& unit, ActionKind actionKind) {
@@ -499,6 +501,21 @@ void BattleController::selectReMoveTarget(GridPos pos) {
     if (std::find(reMoveTiles_.begin(), reMoveTiles_.end(), pos) == reMoveTiles_.end()) return;
 
     if (pos != selectedUnit_->position) battle_.moveUnit(*selectedUnit_, pos);
+    // Escort Blade (docs/base_development.md): the moment re-move ends,
+    // grants DEF+2 (defenseUpActive - same amount/lifecycle as 行軍隊長
+    // `hold_formation`'s buff, "次のEnemy Phase終了まで", so reused directly
+    // rather than a dedicated flag) to one adjacent ally. "同じ対象へ重複
+    // 不可" is automatic since the flag is a plain bool. Picks the first
+    // adjacent ally found when more than one qualifies (undocumented tie-break).
+    if (selectedUnit_->weapon.id == "escort_blade") {
+        for (Unit& ally : battle_.units()) {
+            if (&ally == selectedUnit_ || ally.team != selectedUnit_->team || !ally.isAlive()) continue;
+            if (manhattanDistance(ally.position, selectedUnit_->position) == 1) {
+                applyDefenseUp(ally);
+                break;
+            }
+        }
+    }
     markActionResolved(*selectedUnit_, pendingReMoveActionKind_);
 
     selectedUnit_ = nullptr;
@@ -553,6 +570,15 @@ void BattleController::selectMoveTile(GridPos pos) {
     // selectedUnit_->position out from under computeMovementPath()'s origin.
     lastMovementPath_ = computeMovementPath(battle_, *selectedUnit_, pos);
     battle_.moveUnit(*selectedUnit_, pos);
+    // Trail Blade (docs/base_development.md): every move with this weapon
+    // equipped trailblazes the Ash/Shallows tiles passed through, same
+    // underlying mechanic/tile set as 辺境斥候`trailblaze` above.
+    if (selectedUnit_->weapon.trailblazeOnMove) {
+        for (GridPos pathPos : lastMovementPath_) {
+            TerrainType terrain = battle_.terrainAt(pathPos);
+            if (terrain == TerrainType::Ash || terrain == TerrainType::Shallows) battle_.markTrailblazed(pathPos);
+        }
+    }
     reachableTiles_.clear();
     attackRangeTiles_ = computeAttackRangeTiles(*selectedUnit_, {selectedUnit_->position});
     inputState_ = BattleInputState::SelectAction;
@@ -653,7 +679,18 @@ void BattleController::selectHealTarget(GridPos pos) {
 
     Unit* target = battle_.unitAt(pos);
     if (!target || target->team != selectedUnit_->team) return;
-    target->currentHp = std::min(target->currentHp + 8, target->stats.maxHp);
+    // Mercy/Ward/March Staff (docs/base_development.md): override the
+    // default Heal amount (8) when set; this never applies to item healing
+    // ("Heal追加効果はアイテム回復へ適用しない").
+    const bool targetHadNotActed = !target->hasActed; // captured before any side effect below
+    const int healAmount = selectedUnit_->weapon.healAmountOverride > 0 ? selectedUnit_->weapon.healAmountOverride : 8;
+    target->currentHp = std::min(target->currentHp + healAmount, target->stats.maxHp);
+    // Ward Staff: RES+3 until the next Enemy Phase ends (protective_treatment's
+    // own resistanceUpActive shape).
+    if (selectedUnit_->weapon.healGrantsResistanceUp) applyResistanceUp(*target);
+    // March Staff: MOV+1 until THIS Player Phase ends, only if the target
+    // hadn't acted yet ("未行動なら").
+    if (selectedUnit_->weapon.healGrantsMoveUp && targetHadNotActed) applyMoveUp(*target);
     if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return;
     selectedUnit_ = nullptr;
     healableTiles_.clear();
@@ -1082,7 +1119,12 @@ bool BattleController::selectSkillTarget(GridPos pos) {
         BattleObjectState* object = battle_.objectAt(pos);
         const BattleObjectDefinition* def = object ? battle_.objectDefinition(object->definitionId) : nullptr;
         if (!object || !def) return false;
-        object->durability = std::min(object->durability + kFieldRepairAmount, def->maxDurability);
+        // Repair Hammer (docs/base_development.md): overrides the default
+        // repair amount (6) to 9 when equipped.
+        const int repairAmount = selectedUnit_->weapon.fieldRepairAmountOverride > 0
+                                      ? selectedUnit_->weapon.fieldRepairAmountOverride
+                                      : kFieldRepairAmount;
+        object->durability = std::min(object->durability + repairAmount, def->maxDurability);
         consumeSkillCharge(*selectedUnit_, pendingSkillSlot_);
         if (!finishPlayerAction(*selectedUnit_, ActionKind::Skill)) return true;
         selectedUnit_ = nullptr;
@@ -1477,11 +1519,34 @@ void BattleController::confirmAttack() {
     const bool hit = battle_.rollAttackHit(*pendingTarget_);
     resolveAttack(battle_, *selectedUnit_, *pendingTarget_,
                   battle_.combatDefenseBonus(*pendingTarget_, *selectedUnit_), hit,
-                  bannerAuraBonus(battle_.units(), *selectedUnit_));
+                  bannerAuraBonus(battle_.units(), *selectedUnit_) +
+                      weaponBranchBonusDamage(battle_.units(), *selectedUnit_, *pendingTarget_, battle_.round()));
     lastDamage_ = std::max(0, hpBeforeAttack - pendingTarget_->currentHp);
     lastAttackHit_ = lastDamage_ > 0;
-    if (hit && selectedUnit_->weapon.causesKnockback && pendingTarget_->isAlive())
+    // Driving Bow (docs/base_development.md): same causesKnockback path as
+    // Heavy Spear/Driving Maul, gated to the first successful hit each
+    // battle by weapon.firstHitOnly/Unit::weaponFirstHitUsed.
+    const bool weaponFirstHitGateOpen = !selectedUnit_->weapon.firstHitOnly || !selectedUnit_->weaponFirstHitUsed;
+    if (hit && selectedUnit_->weapon.causesKnockback && pendingTarget_->isAlive() && weaponFirstHitGateOpen) {
         battle_.applyKnockback(*selectedUnit_, *pendingTarget_);
+        if (selectedUnit_->weapon.firstHitOnly) selectedUnit_->weaponFirstHitUsed = true;
+    }
+    // Hook Lance (docs/base_development.md): only from exactly range 2 (the
+    // range this weapon's Might/range row grants beyond adjacent), pulls the
+    // target 1 tile toward the attacker instead of pushing it away.
+    if (hit && selectedUnit_->weapon.pullsAtRangeTwo && pendingTarget_->isAlive() &&
+        manhattanDistance(selectedUnit_->position, pendingTarget_->position) == 2) {
+        battle_.applyPull(*selectedUnit_, *pendingTarget_);
+    }
+    // Resonant Focus (docs/base_development.md): first successful normal
+    // attack each battle also hits the row directly above/below the target
+    // for fixed splashDamage - same jf::applyAdjacentSplashDamage() helper
+    // as 戦闘魔導士「魔力波及」below, gated the same weaponFirstHitOnly way.
+    if (hit && selectedUnit_->weapon.splashDamage > 0 && pendingTarget_->isAlive() && weaponFirstHitGateOpen) {
+        applyAdjacentSplashDamage(battle_, pendingTarget_->position, selectedUnit_->team,
+                                  selectedUnit_->weapon.splashDamage);
+        if (selectedUnit_->weapon.firstHitOnly) selectedUnit_->weaponFirstHitUsed = true;
+    }
     // 戦闘魔導士「魔力波及」: 戦闘中1回、通常攻撃(常にMagical武器のため「通常魔法
     // 攻撃」を自動的に満たす)命中後、対象の上下隣接する敵へ固定3ダメージ。
     if (hit && hasArcaneOverflow(selectedUnit_->unitClass) && !selectedUnit_->arcaneOverflowUsed) {

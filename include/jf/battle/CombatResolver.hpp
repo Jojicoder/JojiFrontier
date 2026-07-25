@@ -33,12 +33,18 @@ CombatPreview previewAttack(const Unit& attacker, const Unit& target, int terrai
 // Applies damage to `target.currentHp`, clamped at 0. `battle` is needed to
 // apply any weapon on-hit status (Move Down/Stagger) - those consult 旗手
 // `unyielding_signal` via applyMoveDown()/applyStagger() (StatusEffects.hpp).
-void resolveAttack(BattleState& battle, const Unit& attacker, Unit& target, int terrainDefense = 0, bool hit = true,
+void resolveAttack(BattleState& battle, Unit& attacker, Unit& target, int terrainDefense = 0, bool hit = true,
                    int attackerBonusPower = 0);
 
 // 旗手「戦旗」(docs/class_reference.md「後半6兵種」): `target`のマンハッタン
 // 距離2以内に、`target`自身とは異なる生存中の味方BannerBearerが1体でもいれば+1、
 // いなければ0(複数いても重複せず+1のまま)。
 int bannerAuraBonus(const std::vector<Unit>& units, const Unit& target);
+
+// M7項目3続き(基礎〜中程度Tier) の通常攻撃ダメージ条件付き固有効果
+// (docs/base_development.md): Charge Lance/Ambush Blade/War Bow/Duel Sword/
+// Quarry Bowの5分岐、attacker.weapon.idで分岐する。Guard Spearの迎撃補正は
+// braceBoostとしてcombatDefenseBonus()側に既に実装済みのためここには含めない。
+int weaponBranchBonusDamage(const std::vector<Unit>& units, const Unit& attacker, const Unit& target, int round);
 
 } // namespace jf

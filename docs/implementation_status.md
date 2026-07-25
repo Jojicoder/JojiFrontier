@@ -3095,6 +3095,104 @@ completedRegionIdsへ入り、最低保証報酬フロアが適用され、燼�
 登場しないため収集手段が無い。Discoveryと同じ「ゲート実装済み・到達不能」扱いとして
 記録する。
 
+## M7項目3続き 武器分岐固有効果(基礎〜中程度Tier、2026-07)
+
+前段(「M7項目3続き 武器分岐の全兵種一般化」)で洗い出した、データ・レシピ・UIは
+揃っているがエンジン未接続の約24分岐のうち、コスト「安価〜中程度」に分類した17分岐
+すべてを接続した。「高コスト(新規サブシステムが要る)」に分類した残りは対象外
+(Command Sword/Guard Sword/Fortress Lance/Patrol Lance/Bulwark Maul/旗手3分岐/
+Withdrawal Bladeの計8分岐)で、別タスクへ持ち越す。Patrol Lance/Bulwark Maul(待機
+トリガーDEF)と旗手3分岐は既存機構との重なりが大きいことを確認済みだが、今回は
+スコープに含めない。
+
+### 実装した17分岐
+
+1. **Guard Spear**(迎撃補正+2→+3): 実は前段の一般化作業で`weapon.braceBoost`が既に
+   `combatDefenseBonus()`に接続済みだった - 本タスクでの変更なし、確認のみ。
+2. **Charge Lance**(移動3+マスで+2): `weaponBranchBonusDamage()`(新規、
+   CombatResolver.cpp)が`attacker.tilesMovedThisAction`を見る。
+3. **Ambush Blade**(未行動の敵へ+2): `!target.hasActed`で判定。hasActedは
+   所有チーム自身のPhase開始時(`beginPlayerPhase()`/`beginEnemyPhase()`)にしか
+   リセットされないため、Player Phase中は常に「その敵はまだ今ラウンドのEnemy Phase
+   を経ていない」=trueになる - ラウンド定義(Player Phase→Enemy Phaseの順)と整合する
+   ため、この読み方をそのまま採用した。
+4. **War Bow**(対象が最大HPで+2): `target.currentHp >= target.stats.maxHp`。
+5. **Duel Sword**/6. **Quarry Bow**(対象の隣接に同チームの他ユニットがいなければ+2):
+   共通ヘルパー`hasAdjacentAllyOfTarget()`で判定(両分岐とも「対象のチームメイトが
+   隣接していない」という同一条件)。
+7. **Mercy Staff**(Heal 8→12)/8. **Ward Staff**(Heal 6+RES+3)/9. **March Staff**
+   (Heal 6+未行動ならMOV+1): `Weapon::healAmountOverride`/`healGrantsResistanceUp`/
+   `healGrantsMoveUp`(新規フィールド)を`selectHealTarget()`で参照。RES/MOVバフは
+   既存の`resistanceUpActive`/`moveUpActive`をそのまま再利用(ライフサイクルも同じ)。
+10. **Repair Hammer**(野戦補修6→9): `Weapon::fieldRepairAmountOverride`(新規)を
+    `field_repair`スキル解決コード(`kFieldRepairAmount`を上書き)で参照。
+11. **Snare Bow**/12. **Driving Bow**/13. **Ember Focus**(既存onHit効果を戦闘1回に
+    ガート): `Weapon::firstHitOnly`+`Unit::weaponFirstHitUsed`(いずれも新規、
+    `arcaneOverflowUsed`と同じ「戦闘中1回、リセットしない」ライフサイクル)。
+    `applyWeaponOnHitStatuses()`(StatusEffects.cpp)とconfirmAttack()のノックバック
+    分岐の両方でこのゲートを見る - 1ユニットが同時に持てる武器は1本だけなので、
+    onHitStatuses用/causesKnockback用で共有フラグにしても衝突しない。
+14. **Resonant Focus**(戦闘1回目の命中で上下隣接へ固定2ダメージ): `Weapon::
+    splashDamage`(新規)+同じfirstHitOnlyゲート。既存の`applyAdjacentSplashDamage()`
+    ヘルパー(戦闘魔導士「魔力波及」用)をそのまま再利用。戦闘魔導士は常に
+    `hasArcaneOverflow()`も真なので、この武器の初命中では魔力波及(固定3)と
+    Resonant Focus本体(固定2)が両方発動し、同じ上下隣接マスへ計5ダメージになる
+    (テストはこの合算値で検証)。
+15. **Hook Lance**(射程2からの命中で1マス引き寄せ): `Weapon::pullsAtRangeTwo`
+    (新規)+`BattleState::applyPull()`(新規、`applyKnockback()`の逆方向版)。
+    Heavy Guardの常時無効化・`brace_for_impact`・Hide-Wrapped Gripの
+    `knockbackNegatesRemaining`は同じく適用する(「強制的な位置操作を受けない」効果は
+    押し出し/引き寄せ問わず一貫させるべきと判断)。ただし衝突時の処理は
+    `applyKnockback()`と非対称: ノックバックは詰まった場合によろめきを付与するが、
+    Hook Lanceのドキュメント文言「空いていれば」は罰則を含意しないため、Pullは単に
+    no-opする。
+16. **Trail Blade**(通過した灰地・浅瀬をそのPlayer Phase中だけ味方も移動コスト1):
+    `Weapon::trailblazeOnMove`(新規)を`selectMoveTile()`(通常の移動確定)で参照し、
+    辺境斥候`trailblaze`スキルと全く同じ`BattleState::markTrailblazed()`/
+    `isTrailblazed()`機構を再利用 - 通常移動のたびに自動発火する点だけが違う。
+17. **Escort Blade**(再移動終了時、隣接味方1人へDEF+2): `selectReMoveTarget()`
+    (再移動の解決点)で、再移動後の位置に隣接する味方1人(複数いれば探索順で最初の
+    1人、未規定のタイブレーク)へ`applyDefenseUp()`(行軍隊長`hold_formation`と同じ
+    +2・次のEnemy Phase終了までのライフサイクル)を直接適用 - 専用フィールドは
+    追加せず既存の`defenseUpActive`を再利用した。
+
+### 実装の簡略化・保留した点
+
+- Tier(a)の条件付きダメージ(2〜6)は、通常攻撃の確定パス(`confirmAttack()`/
+  `pendingPreview()`)にのみ接続し、`counterthrust`(反撃準備)や`overwatch`(警戒
+  射撃)がプレイヤーユニットの武器で攻撃するケース(`EnemyAI.cpp`)には接続していない
+  - これらの武器はプレイヤー専用兵種にしか装備されないため理論上は反撃・警戒射撃でも
+    条件が成立し得るが、影響範囲は小さいと判断し今回は見送った。
+- **[訂正]** Ambush Bladeの「そのラウンドで未行動」判定は当初`hasActed`をそのまま
+  読んでいたが、これは実際にはバグだった: `hasActed`は自チームの次のPhase開始まで
+  リセットされないため、Player Phase中は敵の`hasActed`が前RoundのEnemy Phase終了
+  時点の値=trueのまま残り続け、`!target.hasActed`が2Round目以降ずっとfalseになる
+  (ボーナスが恒久的に不発になる)。`tests/test_battle.cpp`の回帰テストが実際に
+  この不具合を再現・検出したため、`Unit::lastActedRound`(新規フィールド、
+  `BattleState::markActed()`が現在のRoundを記録)+`weaponBranchBonusDamage()`への
+  `round`引数追加で修正した。修正後は「対象敵の最終行動Round ≠ 現在Round」で正しく
+  判定され、Player Phase中は(その敵がまだ今RoundのEnemy Phaseで行動していないため)
+  常に条件を満たし、Enemy Phase中の反撃等で同一Round内に既に行動済みの敵に対しては
+  正しく無効化される。「Player Phase中は事実上常に+2と等価」という性質そのものは
+  そもそも正本の「そのRoundで未行動の敵」という文言どおりの挙動であり(Enemy Phaseは
+  Player Phaseの後に来るため)、バグではなく仕様。実プレイでの駆け引き感覚の検証は
+  引き続き推奨。
+
+### 新規追加フィールド
+
+`Weapon`(include/jf/core/Weapon.hpp): `healAmountOverride`/`healGrantsResistanceUp`/
+`healGrantsMoveUp`/`fieldRepairAmountOverride`/`firstHitOnly`/`splashDamage`/
+`pullsAtRangeTwo`/`trailblazeOnMove`。
+
+`Unit`(include/jf/core/Unit.hpp): `weaponFirstHitUsed`(戦闘中1回、arcaneOverflowUsed
+と同じライフサイクル)。
+
+### テスト・ビルド
+
+`tests/test_battle.cpp`に17分岐ぶんの固有効果テストを追加(スタット入れ替え・
+レシピ解放は前段のテストで既にカバー済みのため対象外)。`ctest --test-dir build -j10`
+は4/4 Pass。
+
 ## M7項目3続き 差分プレビュー(2026-07)
 
 `docs/implementation_roadmap.md`「M7項目3(残り)」の差分プレビューを実装した。
