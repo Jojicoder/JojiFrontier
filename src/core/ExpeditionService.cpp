@@ -169,12 +169,23 @@ std::vector<RegionSummary> computeRegionSummaries(const GameData& data, const Ba
         if (id == RegionId::AshironQuarry) return RegionId::CinderwatchGate;
         if (id == RegionId::BlackwaterLowlands) return RegionId::AshironQuarry;
         if (id == RegionId::WindscarPlateau) return RegionId::BlackwaterLowlands;
+        // docs/regions/old_frontier_settlement.md「燼火峡谷を遠征先へ追加」(M9-Y):
+        // OldFrontierSettlement/EmberRavine were both missing from this
+        // lambda AND the summaries loop below - a pre-existing gap dating to
+        // M9-U (OldFrontierSettlement's own region-skeleton Slice never added
+        // itself here). Fixed as part of this Slice's region-clear wiring,
+        // since without it neither region can ever appear on the Base
+        // screen at all, regardless of regionUnlocked()'s own (correct)
+        // completedRegionIds check.
+        if (id == RegionId::OldFrontierSettlement) return RegionId::WindscarPlateau;
+        if (id == RegionId::EmberRavine) return RegionId::OldFrontierSettlement;
         return std::nullopt;
     };
 
     std::vector<RegionSummary> summaries;
     for (RegionId id : {RegionId::AshboughForest, RegionId::CinderwatchGate, RegionId::AshironQuarry,
-                        RegionId::BlackwaterLowlands, RegionId::WindscarPlateau}) {
+                        RegionId::BlackwaterLowlands, RegionId::WindscarPlateau, RegionId::OldFrontierSettlement,
+                        RegionId::EmberRavine}) {
         RegionDescriptor region = regionDescriptor(id, data);
         bool unlocked = regionUnlocked(id, baseState, data);
         RegionSummary summary{id, region.displayNameEn, region.displayNameJa, unlocked, "", ""};
@@ -317,6 +328,38 @@ ReturnToBaseResult applyExpeditionReturnToBase(ExpeditionState& expedition, Base
             kCourierRouteChartDiscovery,
         };
         for (const DiscoveryId& discovery : kWindscarKeyDiscoveries) {
+            const bool alreadyHave = baseState.discoveryRegistry.count(discovery) ||
+                                      std::find(discoveriesThisReturn.begin(), discoveriesThisReturn.end(), discovery) !=
+                                          discoveriesThisReturn.end();
+            if (!alreadyHave) discoveriesThisReturn.push_back(discovery);
+        }
+    }
+
+    // docs/regions/old_frontier_settlement.md「最低保証報酬」: same mechanism as
+    // Cinderwatch/Blackwater/Windscar's floor top-up above, tracked/applied
+    // independently.
+    const bool settlementStillOpen = expedition.regionId == RegionId::OldFrontierSettlement &&
+                                     !baseState.completedRegionIds.count(RegionId::OldFrontierSettlement);
+    if (settlementStillOpen)
+        for (const auto& [id, quantity] : materialAdds) baseState.settlementMaterialsEarned[id] += quantity;
+
+    if (settlementStillOpen && expedition.pendingRegionCompletions.count(RegionId::OldFrontierSettlement)) {
+        static const std::unordered_map<LootId, int> kSettlementMaterialFloor = {
+            {"building_material", 6}, {"iron", 3}, {"food", 7}, {"cloth", 2},
+        };
+        for (const auto& [id, floor] : kSettlementMaterialFloor) {
+            const int earned = baseState.settlementMaterialsEarned[id];
+            if (earned < floor) materialAdds[id] += floor - earned;
+        }
+        // docs/regions/old_frontier_settlement.md「安定ID」table: 集落台帳・
+        // 援護命令 and 集団防衛・不動の構え each share 1 id -
+        // kSettlementCommandLedgerDiscovery/kCollectiveDefenseRecordsDiscovery's
+        // own comments explain why the doc's 4-row floor table collapses to
+        // these 2 ids.
+        static const std::vector<DiscoveryId> kSettlementKeyDiscoveries = {
+            kSettlementCommandLedgerDiscovery, kCollectiveDefenseRecordsDiscovery,
+        };
+        for (const DiscoveryId& discovery : kSettlementKeyDiscoveries) {
             const bool alreadyHave = baseState.discoveryRegistry.count(discovery) ||
                                       std::find(discoveriesThisReturn.begin(), discoveriesThisReturn.end(), discovery) !=
                                           discoveriesThisReturn.end();

@@ -62,6 +62,20 @@ enum class UnitClass {
     // UnitClass with its own baseStats entry, same decision M9-D/M9-K made
     // for their own bosses.
     PlateauCourierCaptain,
+    // docs/regions/old_frontier_settlement.md "強敵 襲撃団頭領" (夜明けの共同
+    //防衛's elite enemy). Unlike the true bosses above (Boar/Grubworm/
+    // Serpent/CourierCaptain, each with their own takeXBossTurn()), the doc
+    // is explicit this is NOT a scripted-withdrawal boss - it's optional to
+    // defeat, and the region's real win condition is surviving 5 rounds
+    // regardless of whether this unit is ever engaged. No bespoke EnemyAI.cpp
+    // turn function was written for it: it goes through the same generic
+    // takeEnemyTurn()/generateAiCandidates() path as any other enemy, with
+    // AiSystem.cpp's profileFor() giving it a tuned retreatHpPercent (30,
+    // matching the doc's "HP30%以下...撤退") - see that function's own
+    // comment for what's approximated away (the doc's added "かつ4ラウンド目
+    // 以降" round-gate has no round-aware hook in AiProfile, so this unit
+    // considers retreating at HP30% from round 1, not just round 4+).
+    RaidLeader,
 };
 
 enum class Team {

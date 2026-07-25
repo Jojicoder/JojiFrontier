@@ -56,6 +56,7 @@
   "class.ashiron_grubworm": "Ashiron Grubworm",
   "class.marsh_fang_serpent": "Marsh-Fang Serpent",
   "class.plateau_courier_captain": "Courier Captain",
+  "class.raid_leader": "Raid Leader",
   "class.unknown": "Unknown",
   "class.march_captain.role": "Grants a defense bonus to adjacent allies.",
   "class.veteran_guard.role": "Blocks enemy movement through adjacent tiles (Zone of Control).",
@@ -75,6 +76,7 @@
   "class.ashiron_grubworm.role": "Boss: telegraphed dashes and a shell defense; collapses tiles at half HP.",
   "class.marsh_fang_serpent.role": "Boss: venomous bite, telegraphed submerge-and-strike, and a knockback shudder at half HP.",
   "class.plateau_courier_captain.role": "Boss: pass-through strike after a straight-line charge, a telegraphed flanking order, and an escape-route buff at half HP.",
+  "class.raid_leader.role": "Elite (optional): heavy axe, considers retreating at low HP. Not a scripted boss.",
 
   "item.first_aid_kit.name": "First Aid Kit",
   "item.field_treatment_kit.name": "Field Treatment Kit",
@@ -113,6 +115,8 @@
   "material.hardwood": "Hardwood",
   "material.cloth": "Cloth",
   "material.riding_gear": "Riding Gear",
+  "material.building_material": "Building Material",
+  "material.food": "Food",
 
   "weapon.iron_sword": "Iron Sword",
   "weapon.iron_lance": "Iron Lance",

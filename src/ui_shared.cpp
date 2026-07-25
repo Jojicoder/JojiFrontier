@@ -297,7 +297,8 @@ void loadAppFont() {
                       "灰鉄採石場前線基地を攻略すると解放されます"
                       "黒水低湿地灰水の沈み道葦原の分岐薬草洲樹脂林黒水渡し沈没水門深泥の水源(仮実装)"
                       "風裂き高原風下の登り口崩れた中継路風見台分断された輸送隊断崖荷車道高原伝令所"
-                      "旧辺境集落(仮実装)";
+                      "旧辺境集落風化した外柵共同井戸旧穀物庫集会家屋夜明けの共同防衛"
+                      "残留住民帰還者灰道襲撃団襲撃団頭領建築材食料(仮実装)";
     for (const jf::FacilityNode& node : jf::facilityNodeRegistry()) charsetSource += node.nameJa + node.effectJa;
     for (const jf::SkillDefinition& skill : jf::skillRegistry()) charsetSource += skill.nameJa + skill.effectJa;
     for (jf::UnitClass uc : {jf::UnitClass::MarchCaptain, jf::UnitClass::VeteranGuard,
@@ -308,7 +309,8 @@ void loadAppFont() {
                               jf::UnitClass::BannerBearer, jf::UnitClass::BattleMage,
                               jf::UnitClass::Bandit, jf::UnitClass::Wolf,
                               jf::UnitClass::AshenhornBoar, jf::UnitClass::AshironGrubworm,
-                              jf::UnitClass::MarshFangSerpent, jf::UnitClass::PlateauCourierCaptain}) {
+                              jf::UnitClass::MarshFangSerpent, jf::UnitClass::PlateauCourierCaptain,
+                              jf::UnitClass::RaidLeader}) {
         charsetSource += jf::toString(uc);
     }
     // classNameFor()/classRoleFor()'s Japanese text is already covered by
@@ -322,9 +324,10 @@ void loadAppFont() {
     for (const char* id : {"wood", "hide", "herb", "gate_tools", "ash_road_map", "field_medicine",
                            "watch_ledger", "captains_seal", jf::kAshveilFangMaterial,
                            jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment", "iron", "stone",
-                           "old_gear", "signal_core", "quality_iron"})
+                           "old_gear", "signal_core", "quality_iron", "building_material", "food"})
         charsetSource += materialNameFor(id);
-    for (const char* weaponId : {"wolf_bite", "boar_tusks", "grubworm_mandibles", "serpent_fangs", "road_sword"})
+    for (const char* weaponId :
+        {"wolf_bite", "boar_tusks", "grubworm_mandibles", "serpent_fangs", "road_sword", "heavy_axe"})
         charsetSource += weaponNameFor(weaponId, "");
     gLanguage = previousLanguage;
 
@@ -506,6 +509,7 @@ std::string materialNameFor(const std::string& id) {
         "captains_seal", jf::kAshveilFangMaterial, jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment",
         "iron", "stone", "old_gear", "signal_core", "quality_iron", "combustion_oil", "ashiron_shell",
         "wetland_resin", "poison_material", "hardwood", "cloth", "riding_gear",
+        "building_material", "food",
     };
     return known.count(id) ? tr("material." + id) : id;
 }

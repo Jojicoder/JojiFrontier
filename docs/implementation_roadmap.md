@@ -93,11 +93,25 @@ Milestone進行(M0〜M6は完了/概ね完了、M8-Aは未実装、詳細は各�
   の追加まで完了。地点6のfresh-party win率(Direct/Tactical共に0.0%、avg KO
   4.00)は他地点の既知のシミュレータ盲点(OperateObject/EscapeUnits非対応)とは
   異なり純粋な`EliminateTeam`地点での実測のため、次のSlice着手前にバランス調整の
-  要フォローとして記録済み。詳細は`implementation_status.md`参照
+  要フォローとして記録済み。詳細は`implementation_status.md`参照。M9-U〜Xで
+  旧辺境集落(第6地域)の地域骨格+地点1〜4(風化した外柵/共同井戸/旧穀物庫/
+  集会家屋)を実コンテンツ化した後、M9-Y(地点5「夜明けの共同防衛」/強敵
+  「襲撃団頭領」/地域攻略)で**旧辺境集落(第6地域)は完了**(全5地点、2026-07)。
+  正本自身が「頭領撃破ではなく共同防衛が目的」と明記する非ボス構成のため、
+  bespoke boss AIを実装せず既存`AiProfile`調整のみで対応(M9-K/Qの真ボスより
+  軽量な初めてのケース)。地域の最低保証報酬(`settlementMaterialsEarned`フロア)・
+  燼火峡谷(第7地域、`RegionId::EmberRavine`、最小プレースホルダー)の追加まで
+  完了。実装過程で`ObjectiveTracker.cpp`(primary=false・Live評価の
+  OperateObjectが永久にCompletedへ遷移できない)・`ExpeditionService.cpp`
+  (`computeRegionSummaries()`がOldFrontierSettlementを一覧から欠いていた)の
+  2件の既存バグを発見・修正した。詳細は`implementation_status.md`参照
 
 直近の未完了(優先度順):
 
-1. 旧辺境集落(第6地域)の本格実装(M6-B/C・M9-A〜Q方式、現状はプレースホルダー)
+1. 燼火峡谷(第7地域)の本格実装(M6-B/C・M9-A〜Y方式)。旧辺境集落(第6地域)は
+   M9-Yで全5地点+地域攻略が完了し、燼火峡谷は`RegionId::EmberRavine`+
+   `ember_ravine_outpost`の最小プレースホルダーとして追加済み(選択可能、内容は
+   Bandit2体の仮実装のみ)
 3. M7項目3(残り) ユニットページ本体(差分プレビュー/連携作戦)。特性・武器分岐の
    他兵種一般化は2026-07に完了(全12兵種のレシピ・武器データ・UIハードコード解消)。
    固有効果のうちノックバック・移動低下・炎上・MOV変化のみエンジン接続済みで、
@@ -108,6 +122,76 @@ Milestone進行(M0〜M6は完了/概ね完了、M8-Aは未実装、詳細は各�
    盲点[EscapeUnits]に、地点3・6(OperateObject補助部分)は[OperateObject]に
    該当するため、実測win率が実プレイより低く出る既知の構造的偏り(地点1・地点6
    ボス本体は2026-07に調査・対応済み、詳細はM9-R/S参照)
+
+M9-U(旧辺境集落・第6地域: 地域骨格 + 地点1「風化した外柵」)完了(2026-07)。
+5地点+2キャンプ+地点3・4のどちらを先に攻略してもよい分岐が到達可能な状態になり、
+地点1が`extraBarrierCount`/`scalesWithExtraBarrierOutcome`機構(M6以来実在、
+本地域で初めて`[辺境工兵]`ルートの「防護柵1個追加」に使用)で実コンテンツ化
+された。新素材`building_material`(建築材)/`food`(食料)追加、新規
+`old_frontier_settlement`TerrainProfile追加(既存5 TerrainTypeで正本の地形生成表を
+近似)。外柵耐久系の副目標・保全報酬はObject耐久機構未実装のため引き続き見送り。
+詳細は`implementation_status.md`参照。地点2〜5(共同井戸/旧穀物庫/集会家屋/
+夜明けの共同防衛)は引き続きプレースホルダー。
+
+M9-V(旧辺境集落・第6地域 地点2「共同井戸」)完了(2026-07)。主目的は
+`primarySurviveRoundsAlternative`(3ラウンド防衛)の再利用、副目標「中立住民を
+全員避難」は新規`StageDescriptor::secondaryEscapeUnitsAlternative`により
+近似ではなく実際の独立Secondary Objective(primaryグループと衝突しない別
+ObjectiveGroup)として実装できた。guestUnits(中立住民)は全3ルート共通4人固定
+(既知の限界、ルート2の正本2人は未モデル化)。敵は`Bandit`/`WatchArcher`の
+既存クラス再利用、井戸優先ルートのみ斧兵+1(加算後減算パターン)。井戸耐久系の
+副目標・敗北条件・恒久成果`settlement_well_agreement_reached`はObject耐久機構
+未実装/地域完了恒久化機構未実装のため引き続き見送り。詳細は
+`implementation_status.md`参照。地点3〜5(旧穀物庫/集会家屋/夜明けの共同防衛)は
+引き続きプレースホルダー。
+
+M9-W(旧辺境集落・第6地域 地点3「旧穀物庫」)完了(2026-07)。地点1と同じく
+`guestUnits`不要のため`data/regions.json`のみのJSON-authoredで実コンテンツ化
+(Region.cppの手書きステージ関数は不要)。主目的は`primarySurviveRoundsAlternative`
+(4ラウンド防衛)、副目標「食料箱2個を保持」は`surveyObjectiveId`+`surveyTileCount`
+のcrateパターン(ironwatch_stores以来)を再利用、3ラウンド目の軽装剣士1体の予告
+増援は`TimedReinforcementData`(herb_islet以来)を再利用。ルート3「敵増援なし」は
+`TimedReinforcementData`がStage全体固定でルート別に無効化する機構が無いため見送り
+(既知の限界、既存地点にも前例なし)。穀物庫耐久系の探索効果・副目標・敗北条件・
+恒久成果`settlement_granary_shared`はObject耐久機構/地域完了恒久化機構が未実装の
+ため引き続き見送り。詳細は`implementation_status.md`参照。地点4〜5(集会家屋/
+夜明けの共同防衛)は引き続きプレースホルダー。
+
+M9-X(旧辺境集落・第6地域 地点4「集会家屋」)完了(2026-07)。地点1・3と同じく
+`guestUnits`不要のためJSON-authoredで実コンテンツ化。主目的「記録箱2個以上」は
+`surveyTileCount`が真のN-of-M閾値ではなくAny-of-N(M9-H「樹脂箱」前例と同型の
+既知の限界)なため、標準EliminateTeamで近似(正本のOR条件「敵全滅」と自然に一致)。
+記録箱はルート別個数(3/2/3)を出し分けられない既知の限界により固定3個で近似、
+Discovery報酬`settlement_command_ledger`は`stage.discoveries`で無条件付与。
+guestUnitsは正本のルート1・2に一切無くルート3のみ導入する非対称構成のため、
+M9-Vの「全ルート共通4人固定」近似とは異なり、本地点では実装しない判断とした
+(ルート3の「中立住民2人が記録箱を運搬」・副目標「運搬人撤退させない」・報酬
+「織物1」は未配線のflavor textとして記録)。ルート2「防護柵1個追加」は
+`extraBarrierCount`機構で実装(flavor/no-opではない)。地点3・4がともに実
+コンテンツ化されたことで、`RouteGraph.cpp`の`settlement_granary_hall_branch`
+(`BranchCompletion::AllMembers`)経由のキャンプIIが実際に到達可能になった。
+記録箱耐久系の敗北条件・恒久成果`settlement_ledger_restored`はObject耐久機構/
+地域完了恒久化機構が未実装のため引き続き見送り。詳細は`implementation_status.md`
+参照。地点5(夜明けの共同防衛+地域ボス「襲撃団頭領」)のみ引き続きプレースホルダー。
+
+M9-Y(旧辺境集落・第6地域 地点5「夜明けの共同防衛」/ 強敵「襲撃団頭領」/ 地域攻略)
+完了(2026-07)。地域の最終地点+地域攻略で、旧辺境集落(第6地域)の全5地点が
+実コンテンツ化された。正本の主目的AND合成(3サブ条件)は`primarySurviveRoundsAlternative`
+(5ラウンド防衛)をそのまま再利用、井戸/穀物庫耐久サブ条件はObject耐久機構未実装
+のため見送り、警鐘操作サブ条件は新規`ObjectPlacementRule::
+secondaryOperateObjectiveId`により独立Secondary Objectiveとして実装(主目的は
+左右しない)。実装中に`ObjectiveTracker.cpp`の既存バグ(primary=false・
+Live評価のOperateObjectが永久にCompletedへ遷移できない)を発見・修正した。強敵
+「襲撃団頭領」(新規`UnitClass::RaidLeader`)は正本が明記する非ボス構成のため
+bespoke boss AIを実装せず、既存`AiProfile`のretreatHpPercent調整のみで対応
+(M9-K/Q系の真ボスより軽量)。2波の増援のうち1波のみ`timedReinforcement`で実装
+(単一`optional`フィールドの制約、新規制限として記録)。副目標「中立住民を全員避難」
+(織物2)・「頭領撤退」(鉄材1)・「味方戦闘不能者0」(建築材1)はいずれも実装、
+地域の最低保証報酬フロア(`settlementMaterialsEarned`)・燼火峡谷(第7地域、
+`RegionId::EmberRavine`)の追加まで完了。実装過程で`ExpeditionService.cpp`の
+`computeRegionSummaries()`がOldFrontierSettlementを欠いていた既存バグ(M9-U以来、
+Base画面の地域一覧に一度も出現していなかった)も発見・修正した。詳細は
+`implementation_status.md`参照。
 
 M1-E「M9前ブロッカー」4項目は全て対応済み(3項目完了・1項目は現状ニーズ無しと判断し
 意図的に見送り)のため、M9(残り8地域)へいつでも着手できる状態。

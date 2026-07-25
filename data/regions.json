@@ -792,15 +792,171 @@
       "missionNameJa": "高原伝令所"
     },
     {
-      "id": "old_frontier_settlement_outpost",
-      "terrainProfileId": "ash_road",
+      "id": "settlement_outer_fence",
+      "terrainProfileId": "old_frontier_settlement",
       "enemyRoster": [
-        { "id": "old_frontier_settlement_bandit1", "name": "Bandit", "classId": "Bandit" },
-        { "id": "old_frontier_settlement_bandit2", "name": "Bandit", "classId": "Bandit" }
+        { "id": "settlement_fence_axeman1", "name": "Raider", "classId": "Bandit" },
+        { "id": "settlement_fence_axeman2", "name": "Raider", "classId": "Bandit" },
+        { "id": "settlement_fence_archer1", "name": "Watch Archer", "classId": "WatchArcher" },
+        { "id": "settlement_fence_swordsman1", "name": "Raider", "classId": "Bandit" }
       ],
-      "baseVictoryLoot": [{ "id": "hardwood", "quantity": 1 }, { "id": "hide", "quantity": 1 }],
-      "missionNameEn": "Old Frontier Settlement (placeholder)",
-      "missionNameJa": "旧辺境集落(仮実装)"
+      "baseVictoryLoot": [
+        { "id": "building_material", "quantity": 1 },
+        { "id": "food", "quantity": 1 }
+      ],
+      "routeVictoryLootDelta": [
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "building_material", "quantity": -1 }] },
+        { "choice": "ScoutRoute", "loot": [{ "id": "building_material", "quantity": 1 }] }
+      ],
+      "routeOutcomes": [
+        { "choice": "CollapsedSidePath", "partyDamage": 2, "enemiesRemoved": 1 },
+        { "choice": "ScoutRoute", "extraBarrierCount": 1 }
+      ],
+      "scoutRouteRequiredClass": "FrontierEngineer",
+      "objectPlacementRules": [
+        {
+          "definition": {
+            "definitionId": "settlement_reinforced_barrier",
+            "kind": "Barrier",
+            "blocksMovement": true,
+            "canBeAttacked": true,
+            "maxDurability": 8,
+            "defense": 3,
+            "resistance": 3
+          },
+          "idPrefix": "settlement_reinforced_barrier",
+          "count": 0,
+          "scalesWithExtraBarrierOutcome": true,
+          "zoneMinCol": 0,
+          "zoneMaxCol": 2,
+          "avoidFirstEnemyRow": true
+        }
+      ],
+      "missionNameEn": "Weathered Palisade",
+      "missionNameJa": "風化した外柵"
+    },
+    {
+      "id": "settlement_common_well",
+      "terrainProfileId": "old_frontier_settlement",
+      "enemyRoster": [
+        { "id": "settlement_well_bandit1", "name": "Raider", "classId": "Bandit" },
+        { "id": "settlement_well_bandit2", "name": "Raider", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "food", "quantity": 1 }, { "id": "building_material", "quantity": 1 }],
+      "missionNameEn": "Common Well (placeholder)",
+      "missionNameJa": "共同井戸(仮実装)"
+    },
+    {
+      "id": "settlement_old_granary",
+      "terrainProfileId": "old_frontier_settlement",
+      "enemyRoster": [
+        { "id": "settlement_granary_axeman1", "name": "Raider", "classId": "Bandit" },
+        { "id": "settlement_granary_axeman2", "name": "Raider", "classId": "Bandit" },
+        { "id": "settlement_granary_archer1", "name": "Watch Archer", "classId": "WatchArcher" },
+        { "id": "settlement_granary_archer2", "name": "Watch Archer", "classId": "WatchArcher" },
+        { "id": "settlement_granary_swordsman1", "name": "Raider", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "building_material", "quantity": 2 },
+        { "id": "cloth", "quantity": 1 },
+        { "id": "food", "quantity": 1 }
+      ],
+      "routeVictoryLootDelta": [
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "food", "quantity": 1 }] }
+      ],
+      "routeOutcomes": [
+        { "choice": "CollapsedSidePath", "enemiesRemoved": 1 },
+        { "choice": "ScoutRoute", "enemiesRemoved": 1 }
+      ],
+      "scoutRouteRequiredClass": "VeteranGuard",
+      "timedReinforcement": {
+        "id": "settlement_granary_swordsman_wave",
+        "spawnRound": 3,
+        "spawnPhase": "EnemyPhase",
+        "announceRoundsBefore": 1,
+        "requiredForElimination": true,
+        "units": [
+          { "id": "settlement_granary_reinforcement_swordsman1", "name": "Raider", "classId": "Bandit" }
+        ],
+        "orderedSpawnCandidates": [
+          { "row": 0, "col": 7 },
+          { "row": 1, "col": 7 },
+          { "row": 2, "col": 7 }
+        ]
+      },
+      "primarySurviveRoundsAlternative": { "id": "settlement_granary_defense", "surviveUntilRound": 4 },
+      "surveyObjectiveId": "settlement_granary_food_crates",
+      "surveyTileCount": 2,
+      "surveyTileObjectDefinitionId": "food_crate",
+      "surveyBonusLoot": [{ "id": "food", "quantity": 2 }],
+      "missionNameEn": "Old Granary",
+      "missionNameJa": "旧穀物庫"
+    },
+    {
+      "id": "settlement_gathering_hall",
+      "terrainProfileId": "old_frontier_settlement",
+      "enemyRoster": [
+        { "id": "settlement_hall_swordsman1", "name": "Raider", "classId": "Bandit" },
+        { "id": "settlement_hall_swordsman2", "name": "Raider", "classId": "Bandit" },
+        { "id": "settlement_hall_archer1", "name": "Watch Archer", "classId": "WatchArcher" },
+        { "id": "settlement_hall_axeman1", "name": "Raider", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "building_material", "quantity": 1 },
+        { "id": "iron", "quantity": 1 },
+        { "id": "food", "quantity": 1 }
+      ],
+      "routeOutcomes": [
+        { "choice": "CollapsedSidePath", "enemiesRemoved": 1, "extraBarrierCount": 1 }
+      ],
+      "scoutRouteRequiredClass": "MarchCaptain",
+      "objectPlacementRules": [
+        {
+          "definition": {
+            "definitionId": "settlement_reinforced_barrier",
+            "kind": "Barrier",
+            "blocksMovement": true,
+            "canBeAttacked": true,
+            "maxDurability": 8,
+            "defense": 3,
+            "resistance": 3
+          },
+          "idPrefix": "settlement_reinforced_barrier",
+          "count": 0,
+          "scalesWithExtraBarrierOutcome": true,
+          "zoneMinCol": 0,
+          "zoneMaxCol": 2,
+          "avoidFirstEnemyRow": true
+        }
+      ],
+      "surveyObjectiveId": "settlement_gathering_hall_ledger_crates",
+      "surveyTileCount": 3,
+      "surveyTileObjectDefinitionId": "settlement_ledger_crate",
+      "discoveries": ["settlement_command_ledger"],
+      "missionNameEn": "Gathering Hall",
+      "missionNameJa": "集会家屋"
+    },
+    {
+      "id": "settlement_dawn_defense",
+      "terrainProfileId": "old_frontier_settlement",
+      "enemyRoster": [
+        { "id": "settlement_dawn_bandit1", "name": "Raider", "classId": "Bandit" },
+        { "id": "settlement_dawn_bandit2", "name": "Raider", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "building_material", "quantity": 2 }, { "id": "iron", "quantity": 2 }],
+      "missionNameEn": "Dawn's Joint Defense (placeholder)",
+      "missionNameJa": "夜明けの共同防衛(仮実装)"
+    },
+    {
+      "id": "ember_ravine_outpost",
+      "terrainProfileId": "old_frontier_settlement",
+      "enemyRoster": [
+        { "id": "ember_ravine_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "ember_ravine_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
+      "missionNameEn": "Ember Ravine Outpost (placeholder)",
+      "missionNameJa": "燼火峡谷 前線拠点(仮実装)"
     }
   ]
 }

@@ -215,12 +215,57 @@ const RegionRouteGraph& windscarPlateauGraph() {
     return graph;
 }
 
+// docs/regions/old_frontier_settlement.md「地点構成」: entrance -> 1.風化した
+// 外柵 -> 2.共同井戸 -> キャンプI -> (3.旧穀物庫 と 4.集会家屋、どちらを先に
+// 攻略してもよいが両方必須) -> キャンプII -> 5.夜明けの共同防衛 -> exit.
+// Site 3/4's branch is BranchCompletion::AllMembers, the same shape as
+// Windscar's windwatch_station/split_convoy branch (both required,
+// order-free) - matching the doc's "地点3・4はどちらを先に進めてもよい"/
+// "最終防衛には地点3・4の両方が必要". Site 1 (`settlement_outer_fence`) is
+// real content as of this Slice; sites 2-5 are placeholders (see
+// oldFrontierSettlementRegion() in Region.cpp) - this graph's own wiring is
+// unaffected by that distinction, same as every prior region's skeleton
+// Slice.
+const RegionRouteGraph& oldFrontierSettlementGraph() {
+    static const RegionRouteGraph graph{
+        RegionId::OldFrontierSettlement,
+        "old_frontier_settlement_main_route",
+        "old_frontier_settlement_entrance",
+        "old_frontier_settlement_exit",
+        {
+            {"old_frontier_settlement_entrance", RouteNodeKind::Entrance, std::nullopt},
+            {"settlement_outer_fence", RouteNodeKind::Site, "settlement_outer_fence"},
+            {"settlement_common_well", RouteNodeKind::Site, "settlement_common_well"},
+            {"settlement_camp1", RouteNodeKind::Camp, std::nullopt},
+            {"settlement_granary_hall_branch", RouteNodeKind::BranchGroup, std::nullopt,
+             {"settlement_old_granary", "settlement_gathering_hall"}, BranchCompletion::AllMembers},
+            {"settlement_old_granary", RouteNodeKind::Site, "settlement_old_granary"},
+            {"settlement_gathering_hall", RouteNodeKind::Site, "settlement_gathering_hall"},
+            {"settlement_camp2", RouteNodeKind::Camp, std::nullopt},
+            {"settlement_dawn_defense", RouteNodeKind::Site, "settlement_dawn_defense"},
+            {"old_frontier_settlement_exit", RouteNodeKind::Exit, std::nullopt},
+        },
+        {
+            {"old_frontier_settlement_entrance", "settlement_outer_fence"},
+            {"settlement_outer_fence", "settlement_common_well"},
+            {"settlement_common_well", "settlement_camp1"},
+            {"settlement_camp1", "settlement_granary_hall_branch"},
+            {"settlement_old_granary", "settlement_granary_hall_branch"},
+            {"settlement_gathering_hall", "settlement_granary_hall_branch"},
+            {"settlement_granary_hall_branch", "settlement_camp2"},
+            {"settlement_camp2", "settlement_dawn_defense"},
+            {"settlement_dawn_defense", "old_frontier_settlement_exit"},
+        },
+    };
+    return graph;
+}
+
 } // namespace
 
 bool usesRouteGraph(RegionId regionId) {
     return regionId == RegionId::AshboughForest || regionId == RegionId::CinderwatchGate ||
            regionId == RegionId::AshironQuarry || regionId == RegionId::BlackwaterLowlands ||
-           regionId == RegionId::WindscarPlateau;
+           regionId == RegionId::WindscarPlateau || regionId == RegionId::OldFrontierSettlement;
 }
 
 const RegionRouteGraph& regionRouteGraph(RegionId regionId) {
@@ -229,6 +274,7 @@ const RegionRouteGraph& regionRouteGraph(RegionId regionId) {
     if (regionId == RegionId::AshironQuarry) return ashironQuarryGraph();
     if (regionId == RegionId::BlackwaterLowlands) return blackwaterLowlandsGraph();
     if (regionId == RegionId::WindscarPlateau) return windscarPlateauGraph();
+    if (regionId == RegionId::OldFrontierSettlement) return oldFrontierSettlementGraph();
     throw std::invalid_argument("region has no route graph");
 }
 

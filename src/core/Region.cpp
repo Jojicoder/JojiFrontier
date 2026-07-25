@@ -1034,20 +1034,366 @@ RegionDescriptor windscarPlateauRegion(const GameData& data) {
     return region;
 }
 
-// docs/regions/windscar_plateau.md「地域攻略と拠点接続」の「旧辺境集落を次の
-// 遠征先へ追加」: 6th region, added as a minimal 1-site placeholder (Bandit x2)
-// - the exact same role Ashiron Quarry's `ashiron_quarry_outpost` (M6-D) and
-// WindscarPlateau's own pre-M9-L `windswept_highland_outpost` stub played
-// before their regions had real content. Does not use RouteGraph.cpp (see
-// usesRouteGraph()) - a single-stage placeholder region has no branches or
-// camps to route through yet, same as WindscarPlateau's own stub stage
-// before M9-L added the graph.
+// docs/regions/old_frontier_settlement.md「2. 共同井戸」(M9-V): hand-authored
+// here rather than data/regions.json - like blackwaterCrossingStage()/
+// windscarConvoyStage()/windscarCartRoadStage() before it, this stage needs
+// `guestUnits`, neither exposed by stageDescriptorFromContent()'s JSON
+// Schema. Replaces M9-U's `settlement_common_well` Bandit x2 placeholder
+// (data/regions.json's own entry is left in place, dead/unreferenced - same
+// precedent as blackwater_crossing's own dead JSON entry).
+//
+// **主目的**: 「共同井戸を3ラウンド防衛」は`primarySurviveRoundsAlternative`
+// (`SurviveRoundsMissionRule`)の直接再利用 - blackwater_lowlands site3
+// (herb_islet, M9-G)以来証明済みの「defaultのprimary groupをAnyへ拡張し
+// SurviveRounds memberを足す」パターンをそのまま踏襲した。
+//
+// **副目標「中立住民を全員避難」は近似ではなく実際の独立Secondary Objective**:
+// 新設した`StageDescriptor::secondaryEscapeUnitsAlternative`
+// (`primaryEscapeUnitsAlternative`とは別の新規フィールド)を使い、
+// `primarySurviveRoundsAlternative`が握る"primary"グループとは別の、
+// 完全に独立したObjectiveGroupDefinition("secondary_evacuate"、
+// primary=false)を追加した。`primaryEscapeUnitsAlternative`は
+// defaultのEliminateTeam primary memberを「置換」する専用パターン
+// (blackwater_crossing以来)であり、既にprimarySurviveRoundsAlternativeが
+// primaryを握っているこの地点とは共存できない - しかし
+// `ObjectiveKind::EscapeUnits`自体はprimary/secondaryのどちらの文脈にも
+// 中立(Objective.hppの定義参照)で、`surveyObjectiveId`の副目標グループ
+// 追加パターン(BattleFactory.cppの該当ブロック)と全く同型に「新規groupId +
+// primary=false」で追加できることをコード読解で確認した。GameApp::
+// proceedToCamp()もsurveyObjectiveIdと同じ「このgroupIdを持つdefinitionが
+// Completedかどうかを走査する」形で読み戻すだけなので、これは近似ではなく
+// 正しい独立Secondary Objectiveとして機能する。
+//
+// **guestUnitsは4人固定(全3ルート共通)、既知の限界**: シナリオ構築時点で
+// 固定されルート別に出し分けられない(windscarConvoyStage()/
+// windscarCartRoadStage()と同型の既知の限界、M9-Iの記録どおり)。ルート1
+// 「両集団を退避」/ルート3`[旗手]`「共同の防衛位置を示す」がともに4人
+// (両集団)を明示する多数派のため、4人固定を採用した。ルート2「井戸だけを
+// 先に守る」の正本の2人は未モデル化(4人のまま近似) -
+// `secondaryEscapeUnitsAlternative.requiredEscapeCount`も4人固定のため、
+// ルート2でも(正本の2人条件より厳しい)4人全員避難が副目標達成条件となる。
+//
+// **ルート3`[旗手]`「中立Unitが最寄り避難所へ自動移動」は見送り**:
+// AI制御された味方ユニットの自動経路探索機構自体がプロジェクトに存在しない
+// (windscarConvoyStage()の「防衛中に負傷者HP-3」等と同型の既知のギャップ) -
+// 暗黙のno-opとして記録するのみ。`scoutRouteRequiredClass`は
+// `UnitClass::BannerBearer`(旗手)。
+//
+// **敵は既存クラスの再利用のみ**: 正本の斧兵1・弓兵2・軽装剣士1に対応する
+// Axeman/LightSwordsman相当のUnitClassは存在しない(M9-U自身の確認と同じ
+// 結論) - 弓兵は`WatchArcher`をそのまま使い、斧兵・軽装剣士は`Bandit`を
+// 「Raider」表示名で再利用した(M9-Uと同じ再利用パターン、追加JAグリフ
+// 登録不要)。「井戸優先ルート(ルート2)は斧兵1追加」は5体目としてベース
+// ロースターへ常時含め、ルート1/3で`enemiesRemoved=1`により差し引く
+// (windscarAscentStage()以来の加算後減算パターン)。
+//
+// **敗北条件**: 「部隊全滅」は既存`allPlayersDefeated()`のまま。「中立住民
+// 全員の撤退」は`guestUnits`のidを`missionState().guestUnitIds`へ登録する
+// ことで`allGuestsLost()`経由で自動配線される(blackwater_crossing以来)。
+// 「井戸耐久0」はObject耐久機構が丸ごと未実装(M6-C以来の既知のギャップ)の
+// ため見送り - 同じ理由で副目標「井戸耐久8以上」/報酬「食料+1」も未配線
+// のまま(M9-Hの「到達不能な報酬は未宣言のまま残す」前例と同型)。
+//
+// **恒久成果`settlement_well_agreement_reached`**: M9-U自身が地点1の
+// `settlement_outer_fence_opened`をまだ配線していない(地域単位の安全帰還
+// 恒久化機構自体がこの地域にまだ無い)のと同じ理由で、このSliceでも見送る -
+// 個別地点の恒久成果配線は地域全体の「5成果達成+安全帰還で恒久化」機構が
+// 実装されるタイミングでまとめて対応する判断。
+//
+// **全員避難: 集落証言記録**: `kSettlementCommunalTestimonyDiscovery`
+// (新規id、正本の「安定ID」表に個別記載が無いため`<region>_..._records`
+// 命名規則(kMiningTechniqueRecordsDiscovery等)に倣って選定 - id自体の
+// コメントはBaseState.hpp参照) - GameApp::proceedToCamp()から
+// quarry_old_mine/ashiron_veinの「2人とも脱出」等と同じad-hoc
+// creditedTargetIds/グループ完了チェックパターンで付与する(Region.cpp側は
+// 配線しない、GameApp.cppのみ)。
+StageDescriptor settlementCommonWellStage() {
+    StageDescriptor stage;
+    stage.id = "settlement_common_well";
+    stage.terrainProfileId = "old_frontier_settlement";
+    stage.enemyRoster = {
+        {"settlement_well_axeman1", "Raider", UnitClass::Bandit},
+        {"settlement_well_archer1", "Watch Archer", UnitClass::WatchArcher},
+        {"settlement_well_archer2", "Watch Archer", UnitClass::WatchArcher},
+        {"settlement_well_swordsman1", "Raider", UnitClass::Bandit},
+        // 井戸優先ルート(CollapsedSidePath)専用の5体目(斧兵追加) - 他2ルートは
+        // enemiesRemoved=1で差し引く。
+        {"settlement_well_axeman2", "Raider", UnitClass::Bandit},
+    };
+    stage.routeOutcomes = {
+        // 「両集団を井戸から退避」: no condition, 中立Unit4人(guestUnits,
+        // 全ルート共通)、敵4体(5体目のaxeman2を除く)。
+        {ExplorationChoice::FrontalAdvance, ExplorationOutcome{.enemiesRemoved = 1}},
+        // 「井戸だけを先に守る」: no condition, 中立Unit2人(未モデル化、上記
+        // コメント参照 - guestUnitsは4人のまま)、敵5体(base roster、フル)、
+        // 食料+1。
+        {ExplorationChoice::CollapsedSidePath, ExplorationOutcome{}},
+        // `[旗手]`「共同の防衛位置を示す」: 中立Unitが最寄り避難所へ自動移動
+        // (no-op、上記コメント参照)、敵4体(5体目を除く)。
+        {ExplorationChoice::ScoutRoute, ExplorationOutcome{.enemiesRemoved = 1}},
+    };
+    stage.scoutRouteRequiredClass = UnitClass::BannerBearer;
+
+    // 中立住民4人 - blackwaterCrossingStage()以来の非戦闘Escortパターン
+    // (DawnChirurgeon再利用、既存最低STRクラス)。
+    stage.guestUnits = {
+        {{"settlement_well_resident1", "Settler", UnitClass::DawnChirurgeon}, GridPos{0, 3}},
+        {{"settlement_well_resident2", "Settler", UnitClass::DawnChirurgeon}, GridPos{1, 3}},
+        {{"settlement_well_resident3", "Settler", UnitClass::DawnChirurgeon}, GridPos{2, 3}},
+        {{"settlement_well_resident4", "Settler", UnitClass::DawnChirurgeon}, GridPos{1, 4}},
+    };
+
+    // 主目的: 共同井戸を3ラウンド防衛、または敵全滅。
+    stage.primarySurviveRoundsAlternative = StageDescriptor::SurviveRoundsMissionRule{"settlement_well_defense", 3};
+
+    // 副目標: 中立住民を全員避難(独立Secondary Objective、上記コメント参照)。
+    // 避難先は右端(既存EscapeUnits系地点と同じ列)。
+    stage.secondaryEscapeUnitsAlternative = StageDescriptor::SecondaryEscapeUnitsRule{
+        "settlement_well_evacuate_all", /*requiredEscapeCount=*/4,
+        /*zoneMinCol=*/kGridCols - 1, /*zoneMaxCol=*/kGridCols - 1};
+
+    // 敗北条件「部隊全滅」は既存allPlayersDefeated()のまま。「中立住民全員の
+    // 撤退」はguestUnitsのid登録経由でallGuestsLost()に自動配線される
+    // (blackwaterCrossingStage()と同じ)。「井戸耐久0」は上記コメントのとおり
+    // Object耐久機構未実装のため見送り。
+
+    // 勝利: 食料2、織物1. 井戸優先ルート: 食料+1(RouteChoiceルール)。
+    stage.victoryRewardRules = {
+        {RewardRule::Condition::Always, {}, {{"food", 2}, {"cloth", 1}}},
+        {RewardRule::Condition::RouteChoice, ExplorationChoice::CollapsedSidePath, {{"food", 1}}},
+    };
+
+    stage.missionNameEn = "Communal Well";
+    stage.missionNameJa = "共同井戸";
+    return stage;
+}
+
+// docs/regions/old_frontier_settlement.md「地点構成」: 6th region, promoted
+// from M9-Q's single-stage `old_frontier_settlement_outpost` placeholder to
+// the full 5-site + 2-camp skeleton this Slice, mirroring M9-L's own
+// "build the skeleton once" step for Windscar Plateau. Site 1
+// (`settlement_outer_fence`, "風化した外柵") is real content as of this
+// Slice (see `data/regions.json`'s own entry - it fits the JSON Schema
+// directly, the same way windwatch_station/plateau_relay did, so no
+// hand-written Region.cpp stage function was needed for it). Site 2
+// (`settlement_common_well`, "共同井戸") is real content as of M9-V (see
+// settlementCommonWellStage() above - hand-authored, like
+// blackwaterCrossingStage(), since it needs `guestUnits`). Sites 3-5
+// (`settlement_old_granary`/`settlement_gathering_hall`/
+// `settlement_dawn_defense`) remain minimal Bandit x2 placeholders (same
+// M6-B/C/M9-L "1 site at a time" pattern) to be fleshed out in later Slices.
+// Site 3/4's "どちらを先に攻略してもよいが両方必須" branch is wired in
+// RouteGraph.cpp (oldFrontierSettlementGraph()), not here - this function
+// only builds the flat stage list RouteGraph indexes into by id.
+// docs/regions/old_frontier_settlement.md「5. 夜明けの共同防衛」(M9-Y): this
+// region's final site, region-boss-equivalent battle. Hand-authored here
+// rather than `data/regions.json` - like settlementCommonWellStage() before
+// it, needs `guestUnits` (中立住民), not exposed by
+// stageDescriptorFromContent()'s JSON Schema. Replaces `data/regions.json`'s
+// `settlement_dawn_defense` placeholder entry (left in place, dead/
+// unreferenced - same precedent as blackwater_crossing/settlement_common_well's
+// own dead JSON entries).
+//
+// **主目的のAND合成**: 正本は3副条件のAND(5ラウンド防衛 / 井戸か穀物庫どちらかを
+// 耐久1以上残す / 警鐘を1回操作)。この形のAND合成(異なるObjectiveKind同士を
+// 全部満たす)を表現する汎用機構はエンジンに存在しない(M9-D「封鎖杭2箇所」/
+// M9-K「水源標識2個のうちどちらか」以来、1地点のためだけの新設は過剰実装という
+// 判断が繰り返されてきた領域と同型)。
+// 対応方針(タスク指示の「シンプルな方を採用」に従う):
+//   1. 「5ラウンド終了まで避難所を守る」は`primarySurviveRoundsAlternative`
+//      (`SurviveRoundsMissionRule`、blackwater_lowlands site3 M9-G以来証明済み)
+//      をそのまま再利用した。BattleFactory.cppを実際に読み、この機構は
+//      常に「defaultのprimary groupをAnyへ拡張しSurviveRounds memberを足す」
+//      (EliminateTeamとのOR)動作であり、「SurviveRoundsのみ、OR拡張なし」の
+//      設定は存在しないことを確認した - 新規フィールドを足すことも検討したが、
+//      このORが実際の数値・勝敗判定を壊す具体的な理由が見当たらず(敵全滅でも
+//      防衛成功でも「守り切った」という正本の趣旨に反しない)、この地点のためだけに
+//      新しいAND限定バリアントを追加するのはタスク自身が推奨する「よりシンプルな
+//      再利用」を上回る投資と判断し、既存のまま採用した。
+//   2. 「井戸または穀物庫を耐久1以上」はObject耐久機構が丸ごと未実装(M6-C以来の
+//      既知のギャップ)のため見送り。
+//   3. 「警鐘を1回操作」は主目的からは完全に見送るのではなく、新設した
+//      `ObjectPlacementRule::secondaryOperateObjectiveId`(このSliceの新規
+//      フィールド、既存の`operateObjectiveId`と同型だが「置換」ではなく
+//      「独立追加」)経由で実際に機能する非primary Secondary Objectiveとして
+//      配線した - 進捗は追跡できるが、主目的を左右はしない。
+//
+// **副目標「井戸と穀物庫を両方保全」**: Object耐久機構が無いため見送り。
+//
+// **副目標「中立住民を全員避難」**: `secondaryEscapeUnitsAlternative`
+// (settlementCommonWellStage()以来の独立Secondary Objectiveパターン)を
+// そのまま再利用。guestUnitsは4人固定・全3ルート共通(既知の限界、下記参照)。
+//
+// **副目標「襲撃団頭領を撤退させる」**: 新設のUnitClass::RaidLeaderは
+// bespoke boss AIを持たず(RaidLeader自身のコメント参照)、汎用
+// takeEnemyTurn()のRetreat経路(AiProfile::retreatHpPercent)がそのまま使う。
+// GameApp::proceedToCamp()にwindscar_plateau「高原運び手を2人以上撤退」
+// (M9-Q)と同じ`exitReason==Retreated`走査のad-hocボーナスを追加した(この
+// 地点は特定1体=`settlement_dawn_raid_leader`なので2人以上ではなく該当id
+// そのものの撤退を見る)。
+//
+// **副目標「味方戦闘不能者0」**: 既存`noCasualtiesBonusLoot`をそのまま宣言。
+//
+// **敗北条件**: 「部隊全滅」は既存`allPlayersDefeated()`。「避難所耐久0」は
+// Object耐久機構未実装のため見送り。「中立住民全員の撤退、かつ避難完了者も0」は
+// `guestUnits`のid登録経由で`allGuestsLost()`にそのまま配線される
+// (blackwater_crossing/settlement_common_well以来) -
+// [[feedback_ja_glyph_coverage]]と同種の既存知見どおり、EscapeUnitsの
+// crediting は`hasExited`/`isPresent()`を変更しないため、既に避難済みの
+// 住民を「撤退で失った」と誤カウントすることはなく、追加配線は不要だった。
+//
+// **guestUnitsは4人固定・全3ルート共通、既知の限界**: シナリオ構築時点で
+// 固定されルート別に出し分けられない(M9-I以来の限界、M9-V/M9-Xと同型)。
+// ルート2「住民を先に避難させる」正本の「中立Unitなし」は表現できず、
+// guestUnits自体はこのルートでも4人のまま出現する(近似、明記のみ)。
+//
+// **探索3択**:
+//   - 「外柵を中心に守る」: `extraBarrierCount:2`(`settlement_reinforced_barrier`
+//     Barrier定義を地点1/4に続き再利用、`scalesWithExtraBarrierOutcome`)。
+//     「上段増援が多い」はルート限定の増援配分機構が無いため(M9-U自身の
+//     「上段増援」の見送り記録どおり)no-op。
+//   - 「住民を先に避難させる」: 「避難所耐久-3」はObject耐久機構未実装のため
+//     no-op。「敵1体追加」は`enemyRoster`末尾のraid_axeman3を常時含め、
+//     他2ルートで`enemiesRemoved:1`により差し引く(windscarAscentStage()以来の
+//     加算後減算パターン)。
+//   - `[旗手]`「防衛班を三つに分ける」: `scoutRouteRequiredClass:BannerBearer`。
+//     「3組分散配置」は分散初期配置機構自体が無い(M9-L/M9-Fと同型の既知の
+//     ギャップ)ためno-op。「警鐘を開始時に1個操作済み」も、Secondary
+//     Objectiveを戦闘開始前からCompleted状態にする機構が無いため見送り
+//     (この副目標は他2ルートでも通常操作で普通に達成可能なので、達成手段自体は
+//     失われない)。`enemiesRemoved:1`で6体目(raid_axeman3)を差し引く。
+//
+// **敵編成と増援**: 頭領1(RaidLeader)、斧兵2・弓兵2(Raider/WatchArcher再利用、
+// M9-U以来の既知の結論どおりAxeman/LightSwordsman相当のUnitClassは存在しない)。
+// 2ラウンド目「軽装剣士2、1ラウンド前に予告」は`timedReinforcement`
+// (`TimedReinforcementData`、spawnRound:2, announceRoundsBefore:1)で実装。
+// **複数波のうち1波のみ実装、既知の新規制限**: `StageDescriptor::
+// timedReinforcement`は`std::optional`の単一フィールドで、正本が要求する
+// 4ラウンド目の2波目(斧兵1・弓兵1、1ラウンド前予告)を同時に表現できない -
+// タスク指示どおり「より影響の大きい方を採用、他方は見送り明記」の判断で、
+// 5ラウンド防衛という主目的の中間地点により近い2ラウンド目の波を実装し、
+// 4ラウンド目の波は見送った(このプロジェクト全体で複数`timedReinforcement`
+// が同時に必要になったのはこの地点が初めてで、既存の前例が無い新種の制約)。
+StageDescriptor settlementDawnDefenseStage() {
+    StageDescriptor stage;
+    stage.id = "settlement_dawn_defense";
+    stage.terrainProfileId = "old_frontier_settlement";
+    stage.enemyRoster = {
+        {"settlement_dawn_raid_leader", "Raid Leader", UnitClass::RaidLeader},
+        {"settlement_dawn_axeman1", "Raider", UnitClass::Bandit},
+        {"settlement_dawn_axeman2", "Raider", UnitClass::Bandit},
+        {"settlement_dawn_archer1", "Watch Archer", UnitClass::WatchArcher},
+        {"settlement_dawn_archer2", "Watch Archer", UnitClass::WatchArcher},
+        // 「住民を先に避難させる」ルート専用の6体目(敵1体追加) - 他2ルートは
+        // enemiesRemoved=1で差し引く。
+        {"settlement_dawn_axeman3", "Raider", UnitClass::Bandit},
+    };
+    stage.routeOutcomes = {
+        // 「外柵を中心に守る」: 防護柵2個、敵5体(axeman3を除く)。
+        {ExplorationChoice::FrontalAdvance, ExplorationOutcome{.enemiesRemoved = 1, .extraBarrierCount = 2}},
+        // 「住民を先に避難させる」: 敵6体(base roster、フル)。
+        {ExplorationChoice::CollapsedSidePath, ExplorationOutcome{}},
+        // `[旗手]`「防衛班を三つに分ける」: 敵5体(axeman3を除く)。
+        {ExplorationChoice::ScoutRoute, ExplorationOutcome{.enemiesRemoved = 1}},
+    };
+    stage.scoutRouteRequiredClass = UnitClass::BannerBearer;
+
+    // 中立住民4人 - settlementCommonWellStage()以来の非戦闘Escortパターン
+    // (DawnChirurgeon再利用)。
+    stage.guestUnits = {
+        {{"settlement_dawn_resident1", "Settler", UnitClass::DawnChirurgeon}, GridPos{0, 3}},
+        {{"settlement_dawn_resident2", "Settler", UnitClass::DawnChirurgeon}, GridPos{1, 3}},
+        {{"settlement_dawn_resident3", "Settler", UnitClass::DawnChirurgeon}, GridPos{2, 3}},
+        {{"settlement_dawn_resident4", "Settler", UnitClass::DawnChirurgeon}, GridPos{1, 4}},
+    };
+
+    // 主目的サブ条件1: 5ラウンド終了まで避難所を守る(または敵全滅) - 上記コメント
+    // 参照。サブ条件2(井戸/穀物庫耐久)は見送り。
+    stage.primarySurviveRoundsAlternative = StageDescriptor::SurviveRoundsMissionRule{"settlement_dawn_defense_survive", 5};
+
+    // 主目的サブ条件3: 警鐘を1回操作(独立Secondary Objectiveとして配線、
+    // 主目的は左右しない - 上記コメント参照)。
+    stage.objectPlacementRules = {
+        {.definition = BattleObjectDefinition{.definitionId = "settlement_reinforced_barrier",
+                                              .kind = BattleObjectKind::Barrier,
+                                              .maxDurability = 8,
+                                              .defense = 3,
+                                              .resistance = 3,
+                                              .blocksMovement = true,
+                                              .canBeAttacked = true},
+         .idPrefix = "settlement_dawn_barrier",
+         .count = 0,
+         .scalesWithExtraBarrierOutcome = true,
+         .zoneMinCol = 0,
+         .zoneMaxCol = 2,
+         .avoidFirstEnemyRow = true},
+        {.definition = BattleObjectDefinition{
+             .definitionId = "settlement_alarm_bell",
+             .kind = BattleObjectKind::Device,
+             .interaction = ObjectInteractionDefinition{.interactionId = "operate_bell", .range = 1, .maxUses = 1},
+             .interactionResultState = BattleObjectStateKind::Opened},
+         .idPrefix = "settlement_alarm_bell",
+         .count = 1,
+         .zoneMinCol = 3,
+         .zoneMaxCol = 4,
+         .secondaryOperateObjectiveId = "settlement_dawn_alarm_bell"},
+    };
+
+    // 副目標: 中立住民を全員避難(独立Secondary Objective)。
+    stage.secondaryEscapeUnitsAlternative = StageDescriptor::SecondaryEscapeUnitsRule{
+        "settlement_dawn_evacuate_all", /*requiredEscapeCount=*/4,
+        /*zoneMinCol=*/kGridCols - 1, /*zoneMaxCol=*/kGridCols - 1};
+
+    // 2ラウンド目増援: 軽装剣士2(Raider再利用)、1ラウンド前に予告。
+    stage.timedReinforcement = StageDescriptor::TimedReinforcement{
+        "settlement_dawn_reinforcement_wave1",
+        /*spawnRound=*/2,
+        Phase::EnemyPhase,
+        /*announceRoundsBefore=*/1,
+        /*requiredForElimination=*/true,
+        {
+            {"settlement_dawn_swordsman1", "Raider", UnitClass::Bandit},
+            {"settlement_dawn_swordsman2", "Raider", UnitClass::Bandit},
+        },
+        {},
+    };
+
+    // 副目標「味方戦闘不能者0」: 建築材1。
+    stage.noCasualtiesBonusLoot = {{"building_material", 1}};
+
+    // 勝利: 建築材2、鉄材2、食料2(主目的達成時)。
+    stage.victoryRewardRules = {
+        {RewardRule::Condition::Always, {}, {{"building_material", 2}, {"iron", 2}, {"food", 2}}},
+    };
+
+    stage.missionNameEn = "Dawn's Joint Defense";
+    stage.missionNameJa = "夜明けの共同防衛";
+    return stage;
+}
+
 RegionDescriptor oldFrontierSettlementRegion(const GameData& data) {
     RegionDescriptor region;
     region.id = RegionId::OldFrontierSettlement;
     region.displayNameEn = "Old Frontier Settlement";
     region.displayNameJa = "旧辺境集落";
-    region.stages.push_back(stageDescriptorFromContent(data.stageContent("old_frontier_settlement_outpost")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("settlement_outer_fence")));
+    region.stages.push_back(settlementCommonWellStage());
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("settlement_old_granary")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("settlement_gathering_hall")));
+    region.stages.push_back(settlementDawnDefenseStage());
+    return region;
+}
+
+// docs/regions/old_frontier_settlement.md「燼火峡谷を遠征先へ追加」: 7th region,
+// minimal placeholder (same role old_frontier_settlement_outpost/
+// windswept_highland_outpost played before their own regions were fleshed
+// out - M9-K/M9-Q precedent). Content itself is out of scope here.
+RegionDescriptor emberRavineRegion(const GameData& data) {
+    RegionDescriptor region;
+    region.id = RegionId::EmberRavine;
+    region.displayNameEn = "Ember Ravine";
+    region.displayNameJa = "燼火峡谷";
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("ember_ravine_outpost")));
     return region;
 }
 
@@ -1061,6 +1407,7 @@ RegionDescriptor regionDescriptor(RegionId id, const GameData& data) {
         case RegionId::BlackwaterLowlands: return blackwaterLowlandsRegion(data);
         case RegionId::WindscarPlateau: return windscarPlateauRegion(data);
         case RegionId::OldFrontierSettlement: return oldFrontierSettlementRegion(data);
+        case RegionId::EmberRavine: return emberRavineRegion(data);
     }
     return cinderwatchGateRegion(data);
 }
@@ -1073,6 +1420,7 @@ std::string toString(RegionId id) {
         case RegionId::BlackwaterLowlands: return "blackwater_lowlands";
         case RegionId::WindscarPlateau: return "windscar_plateau";
         case RegionId::OldFrontierSettlement: return "old_frontier_settlement";
+        case RegionId::EmberRavine: return "ember_ravine";
     }
     return "cinderwatch_gate";
 }
@@ -1083,6 +1431,7 @@ RegionId regionIdFromString(const std::string& id) {
     if (id == "blackwater_lowlands") return RegionId::BlackwaterLowlands;
     if (id == "windscar_plateau") return RegionId::WindscarPlateau;
     if (id == "old_frontier_settlement") return RegionId::OldFrontierSettlement;
+    if (id == "ember_ravine") return RegionId::EmberRavine;
     return RegionId::CinderwatchGate;
 }
 
@@ -1093,6 +1442,7 @@ std::optional<RegionId> regionIdFromStringStrict(const std::string& id) {
     if (id == "blackwater_lowlands") return RegionId::BlackwaterLowlands;
     if (id == "windscar_plateau") return RegionId::WindscarPlateau;
     if (id == "old_frontier_settlement") return RegionId::OldFrontierSettlement;
+    if (id == "ember_ravine") return RegionId::EmberRavine;
     return std::nullopt;
 }
 
@@ -1159,6 +1509,7 @@ bool regionUnlocked(RegionId regionId, const BaseState& base, const GameData& /*
         case RegionId::BlackwaterLowlands: return base.completedRegionIds.count(RegionId::AshironQuarry) > 0;
         case RegionId::WindscarPlateau: return base.completedRegionIds.count(RegionId::BlackwaterLowlands) > 0;
         case RegionId::OldFrontierSettlement: return base.completedRegionIds.count(RegionId::WindscarPlateau) > 0;
+        case RegionId::EmberRavine: return base.completedRegionIds.count(RegionId::OldFrontierSettlement) > 0;
     }
     return true;
 }

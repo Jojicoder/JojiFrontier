@@ -208,6 +208,31 @@ struct StageDescriptor {
     };
     std::optional<SurviveRoundsMissionRule> primarySurviveRoundsAlternative;
 
+    // docs/regions/old_frontier_settlement.md「2. 共同井戸」's "副目標: 中立住民を
+    // 全員避難", alongside `primarySurviveRoundsAlternative` as this stage's
+    // primary. Unlike primaryEscapeUnitsAlternative (which REPLACES the
+    // default "primary" group's EliminateTeam member - see that field's own
+    // comment), this adds a genuinely independent, non-primary
+    // ObjectiveGroupDefinition/ObjectiveDefinition pair
+    // (primary=false, its own groupId) that coexists with whichever primary
+    // rule the stage also sets. Confirmed viable by reading Objective.hpp/
+    // BattleFactory.cpp: ObjectiveKind::EscapeUnits itself carries no
+    // primary-vs-secondary assumption (only its `target`/`kind`), and
+    // groups.push_back() for a brand-new group id is already the established
+    // pattern for `surveyObjectiveId`'s secondary SecureTile group above -
+    // this is the same shape with EscapeUnits instead of SecureTile. Reads
+    // back the same way `surveyObjectiveId` does (GameApp::proceedToCamp()
+    // scans `mission.definitions` for this group id and checks its progress
+    // is Completed), so this is a REAL secondary objective, not an
+    // approximation.
+    struct SecondaryEscapeUnitsRule {
+        std::string id;
+        int requiredEscapeCount = 1;
+        int zoneMinCol = 0;
+        int zoneMaxCol = kGridCols - 1;
+    };
+    std::optional<SecondaryEscapeUnitsRule> secondaryEscapeUnitsAlternative;
+
     // Per-route outcome override (docs/regions/ashbough_forest.md: each
     // site's 3 exploration choices can have genuinely different effects, not
     // just different numbers plugged into the same shared shape). Empty
@@ -271,6 +296,20 @@ struct StageDescriptor {
         // operating still being required even after a wipe, not an
         // independent win condition - so EliminateTeam alone shouldn't win).
         std::optional<std::string> operateObjectiveId;
+        // docs/regions/old_frontier_settlement.md「5. 夜明けの共同防衛」's 主目的
+        // sub-condition 3「警鐘を1回以上操作する」: unlike `operateObjectiveId`
+        // above (which REPLACES the default "primary" group's EliminateTeam
+        // member - the doc's primary is an AND of 3 sub-conditions this
+        // engine has no AND/OR-Kind-mixing composition for, see
+        // primarySurviveRoundsAlternative's use on this stage for how that's
+        // approximated instead), this adds a genuinely independent,
+        // non-primary ObjectiveGroupDefinition/ObjectiveDefinition pair (its
+        // own groupId, primary=false) - same "push a new group, one
+        // Objective per placed instance" shape as `operateObjectiveId`, just
+        // without touching the default "primary" group at all. A real
+        // secondary Objective that tracks bell-operated progress even though
+        // it can't gate the primary win condition.
+        std::optional<std::string> secondaryOperateObjectiveId;
     };
     std::vector<ObjectPlacementRule> objectPlacementRules;
 

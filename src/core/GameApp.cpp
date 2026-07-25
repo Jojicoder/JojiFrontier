@@ -139,6 +139,32 @@ void GameApp::proceedToCamp() {
         }
     }
 
+    // docs/regions/old_frontier_settlement.md「2. 共同井戸」の副目標「中立住民を
+    // 全員避難」→ 集落証言記録: unlike blackwater_crossing/quarry_old_mine's
+    // ad-hoc creditedTargetIds.size()>=N check above, this reads a REAL
+    // independent secondary Objective group (StageDescriptor::
+    // secondaryEscapeUnitsAlternative, see settlementCommonWellStage()'s own
+    // comment) - same "scan mission.definitions for this group id, check its
+    // progress is Completed" pattern surveySucceeded uses above, just for a
+    // non-survey group id. Grants a Discovery (not Loot) instead, same as
+    // quarry_old_mine's own analogous block.
+    if (!isReconnaissanceRun_ && stage.id == "settlement_common_well" &&
+        stage.secondaryEscapeUnitsAlternative) {
+        const BattleMissionState& mission = battleController_->battle().missionState();
+        bool allEvacuated = false;
+        for (const ObjectiveDefinition& def : mission.definitions) {
+            if (def.groupId == stage.secondaryEscapeUnitsAlternative->id &&
+                mission.progress.at(def.id).status == ObjectiveStatus::Completed) {
+                allEvacuated = true;
+                break;
+            }
+        }
+        if (allEvacuated &&
+            std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                     kSettlementCommunalTestimonyDiscovery) == expedition_.pendingDiscoveries.end())
+            expedition_.pendingDiscoveries.push_back(kSettlementCommunalTestimonyDiscovery);
+    }
+
     // docs/regions/windscar_plateau.md「6. 高原伝令所」の副目標「高原運び手を
     // 2人以上撤退・降伏させる」: reuses the existing generic enemy AI retreat
     // path (jf/battle/AiSystem.hpp's AiProfile::retreatHpPercent, already
@@ -147,6 +173,39 @@ void GameApp::proceedToCamp() {
     // per-faction retreat threshold override, same ad-hoc-secondary-bonus
     // pattern as blackwater_crossing/deep_mire above (no RewardRule::
     // Condition reads a retreat count).
+    // docs/regions/old_frontier_settlement.md「5. 夜明けの共同防衛」の「全住民
+    // 避難: 織物2」: same "scan mission.definitions for this group id, check
+    // Completed" pattern as settlement_common_well's kSettlementCommunalTestimony
+    // Discovery block above, but granting Loot instead of a Discovery (this
+    // site's secondaryEscapeUnitsAlternative id differs from settlement_common_
+    // well's own).
+    // NOTE: `mergeLoot()` only affects `loot` (merged into
+    // expedition_.pendingLoot at the single insert point above, near
+    // computeStageVictoryLoot() - already executed by this point in the
+    // function) - both blocks below push directly onto
+    // expedition_.pendingLoot instead, same as every Discovery-granting
+    // ad-hoc block below already does with pendingDiscoveries.
+    if (!isReconnaissanceRun_ && stage.id == "settlement_dawn_defense" && stage.secondaryEscapeUnitsAlternative) {
+        const BattleMissionState& mission = battleController_->battle().missionState();
+        for (const ObjectiveDefinition& def : mission.definitions) {
+            if (def.groupId == stage.secondaryEscapeUnitsAlternative->id &&
+                mission.progress.at(def.id).status == ObjectiveStatus::Completed) {
+                expedition_.pendingLoot.push_back({"cloth", 2});
+                break;
+            }
+        }
+    }
+    // docs/regions/old_frontier_settlement.md「5. 夜明けの共同防衛」の「頭領撤退:
+    // 鉄材1」: same generic enemy AI retreat path as windscar_plateau's own
+    // "高原運び手を2人以上撤退" bonus (plateau_relay block below) - here it's a
+    // single named unit (`settlement_dawn_raid_leader`) rather than a count
+    // threshold, since this site has exactly one RaidLeader.
+    if (!isReconnaissanceRun_ && stage.id == "settlement_dawn_defense") {
+        const Unit* leader = battleController_->battle().findUnit("settlement_dawn_raid_leader");
+        if (leader != nullptr && leader->exitReason == UnitExitReason::Retreated)
+            expedition_.pendingLoot.push_back({"iron", 1});
+    }
+
     if (!isReconnaissanceRun_ && stage.id == "plateau_relay") {
         int retreatedEnemies = 0;
         for (const Unit& unit : battleController_->battle().units())

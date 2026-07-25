@@ -496,6 +496,30 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
         battle.missionState().progress[survive.id] = ObjectiveProgress{survive.id};
     }
 
+    if (stage.secondaryEscapeUnitsAlternative) {
+        // docs/regions/old_frontier_settlement.md「2. 共同井戸」's "副目標: 中立
+        // 住民を全員避難": a genuinely independent secondary group (its own
+        // groupId, primary=false) that coexists with whichever primary rule
+        // this stage also set above (SurviveRounds here) - see
+        // StageDescriptor::secondaryEscapeUnitsAlternative's own comment for
+        // why this doesn't collide with primaryEscapeUnitsAlternative's
+        // "replace the primary" semantics. Same "push a new group, one
+        // Objective under it" shape as the surveyObjectiveId block below,
+        // just with ObjectiveKind::EscapeUnits instead of SecureTile.
+        const auto& rule = *stage.secondaryEscapeUnitsAlternative;
+        battle.missionState().groups.push_back({rule.id, ObjectiveGroupRule::All});
+        ObjectiveDefinition escape;
+        escape.id = rule.id;
+        escape.kind = ObjectiveKind::EscapeUnits;
+        escape.primary = false;
+        escape.groupId = rule.id;
+        escape.target.tile = chooseHoldTile(battle, seed, rule.zoneMinCol, rule.zoneMaxCol);
+        escape.target.securingTeam = Team::Player;
+        escape.target.requiredEscapeCount = rule.requiredEscapeCount;
+        battle.missionState().definitions.push_back(escape);
+        battle.missionState().progress[escape.id] = ObjectiveProgress{escape.id};
+    }
+
     std::vector<GridPos> herbTiles;
     if (stage.herbPatchGeneration) {
         // docs/regions/ashbough_forest.md "薬草の沢": "盤面中央に浅瀬と薬草地点
@@ -550,6 +574,27 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
             operate.kind = ObjectiveKind::OperateObject;
             operate.primary = true;
             operate.groupId = "primary";
+            operate.target.objectId = object.id;
+            battle.missionState().definitions.push_back(operate);
+            battle.missionState().progress[operate.id] = ObjectiveProgress{operate.id};
+        }
+    }
+
+    // docs/regions/old_frontier_settlement.md「5. 夜明けの共同防衛」's 主目的
+    // sub-condition 3「警鐘を1回以上操作する」: see ObjectPlacementRule::
+    // secondaryOperateObjectiveId's own comment - a real, independent
+    // secondary Objective group, never touches the "primary" group.
+    for (const StageDescriptor::ObjectPlacementRule& rule : stage.objectPlacementRules) {
+        if (!rule.secondaryOperateObjectiveId) continue;
+        battle.missionState().groups.push_back({*rule.secondaryOperateObjectiveId, ObjectiveGroupRule::Any});
+        int index = 0;
+        for (const BattleObjectState& object : battle.objects()) {
+            if (object.id.rfind(rule.idPrefix + "_", 0) != 0) continue;
+            ObjectiveDefinition operate;
+            operate.id = *rule.secondaryOperateObjectiveId + "_" + std::to_string(++index);
+            operate.kind = ObjectiveKind::OperateObject;
+            operate.primary = false;
+            operate.groupId = *rule.secondaryOperateObjectiveId;
             operate.target.objectId = object.id;
             battle.missionState().definitions.push_back(operate);
             battle.missionState().progress[operate.id] = ObjectiveProgress{operate.id};

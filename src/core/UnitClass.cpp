@@ -22,6 +22,7 @@ std::string toString(UnitClass unitClass) {
         case UnitClass::AshironGrubworm: return "Ashiron Grubworm / 灰殻穿岩虫";
         case UnitClass::MarshFangSerpent: return "Marsh-Fang Serpent / 沼牙の大蛇";
         case UnitClass::PlateauCourierCaptain: return "Courier Captain / 高原運び手の隊長";
+        case UnitClass::RaidLeader: return "Raid Leader / 襲撃団頭領";
     }
     return "Unknown";
 }

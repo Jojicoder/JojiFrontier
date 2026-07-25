@@ -56,6 +56,7 @@
   "class.ashiron_grubworm": "灰殻穿岩虫",
   "class.marsh_fang_serpent": "沼牙の大蛇",
   "class.plateau_courier_captain": "高原運び手の隊長",
+  "class.raid_leader": "襲撃団頭領",
   "class.unknown": "不明",
   "class.march_captain.role": "隣接する味方の防御を上昇させる。",
   "class.veteran_guard.role": "隣接するマスを敵が通過するのを妨害する。",
@@ -75,6 +76,7 @@
   "class.ashiron_grubworm.role": "ボス。予告潜行突進と岩殻防御を使う。HPが半分以下で崩落を誘発する。",
   "class.marsh_fang_serpent.role": "ボス。毒牙と予告水中潜行を使う。HPが半分以下で身震いによる押し出しを使う。",
   "class.plateau_courier_captain.role": "ボス。直線移動後の通り抜け攻撃、予告する迂回命令、HPが半分以下で退路確保を使う。",
+  "class.raid_leader.role": "強敵(撃破は任意)。重斧を持ち、HPが低いと撤退を考える。台本化されたボスではない。",
 
   "item.first_aid_kit.name": "救急セット",
   "item.field_treatment_kit.name": "野戦治療キット",
@@ -113,6 +115,8 @@
   "material.hardwood": "硬木",
   "material.cloth": "織物",
   "material.riding_gear": "騎具素材",
+  "material.building_material": "建築材",
+  "material.food": "食料",
 
   "weapon.iron_sword": "鉄の剣",
   "weapon.iron_lance": "鉄のランス",

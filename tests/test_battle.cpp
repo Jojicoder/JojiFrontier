@@ -5807,7 +5807,10 @@ int main() {
         assert(app.screen() == jf::Screen::Base); // rejected attempt leaves screen untouched
 
         auto summaries = app.regionSummaries();
-        assert(summaries.size() == 5);
+        // M9-Y: fixed a pre-existing gap where computeRegionSummaries()'s
+        // region list stopped at WindscarPlateau (OldFrontierSettlement/
+        // EmberRavine were both missing) - now covers all 7 regions.
+        assert(summaries.size() == 7);
         bool sawAshboughUnlocked = false, sawCinderwatchLocked = false, sawAshironLocked = false;
         for (const auto& summary : summaries) {
             if (summary.id == jf::RegionId::AshboughForest) sawAshboughUnlocked = summary.unlocked;
@@ -9405,6 +9408,614 @@ int main() {
         save.base.completedRegionIds.insert(jf::RegionId::WindscarPlateau);
         assert(app.applySaveData(save));
         assert(app.isRegionUnlocked(jf::RegionId::OldFrontierSettlement));
+    }
+
+    {
+        // docs/regions/old_frontier_settlement.md「地点構成」: 5-site skeleton
+        // + 2 camps + the site 3/4 either-order-but-both-required branch,
+        // mirror of the WindscarPlateau skeleton test above.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor settlementRegion =
+            jf::regionDescriptor(jf::RegionId::OldFrontierSettlement, *data);
+        assert(settlementRegion.stages.size() == 5);
+        assert(settlementRegion.stages[0].id == "settlement_outer_fence");
+
+        const jf::RegionRouteGraph& settlementRoute = jf::regionRouteGraph(jf::RegionId::OldFrontierSettlement);
+        std::string error;
+        assert(jf::validateRouteGraph(settlementRoute, &error));
+        assert(jf::findRouteNode(settlementRoute, "settlement_old_granary"));
+        assert(jf::findRouteNode(settlementRoute, "settlement_gathering_hall"));
+        const jf::RouteNodeDefinition* branch = jf::findRouteNode(settlementRoute, "settlement_granary_hall_branch");
+        assert(branch && branch->kind == jf::RouteNodeKind::BranchGroup &&
+               branch->branchCompletion == jf::BranchCompletion::AllMembers);
+    }
+
+    {
+        // docs/regions/old_frontier_settlement.md「1. 風化した外柵」: 主目的
+        // (灰道襲撃団4体)・勝利報酬(建築材1、食料1)・ルート2(全員HP-2、敵1体
+        // 除外、建築材-1)・ルート3(辺境工兵限定、防護柵1個追加、建築材+1)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor settlementRegion =
+            jf::regionDescriptor(jf::RegionId::OldFrontierSettlement, *data);
+        const jf::StageDescriptor& fenceStage = settlementRegion.stages[0];
+        assert(fenceStage.enemyRoster.size() == 4);
+        assert(fenceStage.scoutRouteRequiredClass == jf::UnitClass::FrontierEngineer);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(fenceStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "building_material") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "food") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "building_material") == 0);
+        assert(findLoot(lootFor(jf::ExplorationChoice::ScoutRoute), "building_material") == 2);
+
+        jf::BattleState frontal = jf::createScenarioBattle(*data, fenceStage, /*seed=*/5);
+        int enemyCount = 0;
+        for (const jf::Unit& unit : frontal.units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 4);
+
+        const jf::ExplorationOutcome* collapsedOutcome = nullptr;
+        for (const auto& [choice, outcome] : fenceStage.routeOutcomes)
+            if (choice == jf::ExplorationChoice::CollapsedSidePath) collapsedOutcome = &outcome;
+        assert(collapsedOutcome);
+        jf::BattleState collapsed = jf::createScenarioBattle(*data, fenceStage, /*seed=*/5, *collapsedOutcome);
+        int collapsedEnemyCount = 0;
+        for (const jf::Unit& unit : collapsed.units())
+            if (unit.team == jf::Team::Enemy) ++collapsedEnemyCount;
+        assert(collapsedEnemyCount == 3);
+    }
+
+    {
+        // docs/regions/old_frontier_settlement.md「2. 共同井戸」: 主目的(3
+        // ラウンド防衛、または敵全滅)・敵構成(斧兵1/弓兵2/軽装剣士1、井戸優先
+        // ルートで+1)・中立Unit4人・副目標(全員避難)・報酬(食料2、織物1、
+        // 井戸優先ルートで食料+1)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor settlementRegion =
+            jf::regionDescriptor(jf::RegionId::OldFrontierSettlement, *data);
+        const jf::StageDescriptor& wellStage = settlementRegion.stages[1];
+        assert(wellStage.id == "settlement_common_well");
+        assert(wellStage.enemyRoster.size() == 5);
+        assert(wellStage.guestUnits.size() == 4);
+        assert(wellStage.scoutRouteRequiredClass == jf::UnitClass::BannerBearer);
+        assert(wellStage.primarySurviveRoundsAlternative &&
+              wellStage.primarySurviveRoundsAlternative->id == "settlement_well_defense" &&
+              wellStage.primarySurviveRoundsAlternative->surviveUntilRound == 3);
+        assert(wellStage.secondaryEscapeUnitsAlternative &&
+              wellStage.secondaryEscapeUnitsAlternative->id == "settlement_well_evacuate_all" &&
+              wellStage.secondaryEscapeUnitsAlternative->requiredEscapeCount == 4);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(wellStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "food") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "cloth") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "food") == 3);
+
+        const jf::ExplorationOutcome* frontalOutcome = nullptr;
+        for (const auto& [choice, outcome] : wellStage.routeOutcomes)
+            if (choice == jf::ExplorationChoice::FrontalAdvance) frontalOutcome = &outcome;
+        assert(frontalOutcome);
+        jf::BattleState frontal = jf::createScenarioBattle(*data, wellStage, /*seed=*/5, *frontalOutcome);
+        int frontalEnemies = 0;
+        for (const jf::Unit& unit : frontal.units())
+            if (unit.team == jf::Team::Enemy) ++frontalEnemies;
+        assert(frontalEnemies == 4);
+
+        const jf::ExplorationOutcome* wellFirstOutcome = nullptr;
+        for (const auto& [choice, outcome] : wellStage.routeOutcomes)
+            if (choice == jf::ExplorationChoice::CollapsedSidePath) wellFirstOutcome = &outcome;
+        assert(wellFirstOutcome);
+        jf::BattleState wellFirst = jf::createScenarioBattle(*data, wellStage, /*seed=*/5, *wellFirstOutcome);
+        int wellFirstEnemies = 0;
+        for (const jf::Unit& unit : wellFirst.units())
+            if (unit.team == jf::Team::Enemy) ++wellFirstEnemies;
+        assert(wellFirstEnemies == 5);
+    }
+
+    {
+        // 敗北条件「中立住民全員の撤退」: allGuestsLost() fires Defeat even
+        // with the player squad fully alive (blackwater_crossing's own test
+        // shape, reused here).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor settlementRegion =
+            jf::regionDescriptor(jf::RegionId::OldFrontierSettlement, *data);
+        const jf::StageDescriptor* wellStage = nullptr;
+        for (const jf::StageDescriptor& stage : settlementRegion.stages)
+            if (stage.id == "settlement_common_well") wellStage = &stage;
+        assert(wellStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *wellStage, /*seed=*/7);
+        assert(battle.missionState().guestUnitIds.size() == 4);
+        assert(!battle.allGuestsLost());
+        for (jf::Unit& unit : battle.units())
+            if (unit.isGuest) unit.currentHp = 0;
+        assert(battle.allGuestsLost());
+        assert(!battle.allPlayersDefeated());
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Defeat);
+    }
+
+    {
+        // 副目標「中立住民を全員避難」: a REAL independent secondary
+        // EscapeUnits group (StageDescriptor::secondaryEscapeUnitsAlternative)
+        // completes on its own, without the primary group (SurviveRounds OR
+        // EliminateTeam) being satisfied at all - confirms it doesn't collide
+        // with or get superseded by the primary group.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor settlementRegion =
+            jf::regionDescriptor(jf::RegionId::OldFrontierSettlement, *data);
+        const jf::StageDescriptor* wellStage = nullptr;
+        for (const jf::StageDescriptor& stage : settlementRegion.stages)
+            if (stage.id == "settlement_common_well") wellStage = &stage;
+        assert(wellStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *wellStage, /*seed=*/7);
+        const jf::ObjectiveDefinition* evacuateDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.id == "settlement_well_evacuate_all") evacuateDef = &def;
+        assert(evacuateDef && !evacuateDef->primary && evacuateDef->kind == jf::ObjectiveKind::EscapeUnits &&
+              evacuateDef->groupId == "settlement_well_evacuate_all");
+
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind != jf::BattleOutcomeKind::Victory);
+
+        const auto& guestIds = battle.missionState().guestUnitIds;
+        assert(guestIds.size() == 4);
+        for (std::size_t i = 0; i < guestIds.size(); ++i) {
+            jf::BattleEvent guestEscapes{
+                static_cast<jf::BattleEventId>(i + 1), 1,
+                jf::ActionResolvedEvent{1, guestIds[i], jf::Team::Player, jf::ActionKind::Wait,
+                                        evacuateDef->target.tile}};
+            jf::handleObjectiveEvent(battle.missionState(), guestEscapes);
+        }
+        jf::syncObjectiveProgress(battle);
+        assert(battle.missionState().progress.at("settlement_well_evacuate_all").status ==
+              jf::ObjectiveStatus::Completed);
+        // The primary group (SurviveRounds OR EliminateTeam) is untouched by
+        // the secondary's completion - still no Victory from this alone.
+        assert(jf::evaluateBattleOutcome(battle).kind != jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // GameApp integration: reaching Victory with all 4 guests evacuated
+        // grants 集落証言記録 (kSettlementCommunalTestimonyDiscovery) via
+        // GameApp::proceedToCamp()'s ad-hoc secondary-group check.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        jf::GameApp app(*data);
+        jf::SaveData save = app.createSaveData("en");
+        save.base.completedRegionIds.insert(jf::RegionId::AshboughForest);
+        save.base.completedRegionIds.insert(jf::RegionId::CinderwatchGate);
+        save.base.completedRegionIds.insert(jf::RegionId::AshironQuarry);
+        save.base.completedRegionIds.insert(jf::RegionId::BlackwaterLowlands);
+        save.base.completedRegionIds.insert(jf::RegionId::WindscarPlateau);
+        assert(app.applySaveData(save));
+        assert(app.startExpedition(jf::RegionId::OldFrontierSettlement));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // settlement_outer_fence
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        app.continueExpedition();
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // settlement_common_well
+
+        const auto& guestIds = app.battle().battle().missionState().guestUnitIds;
+        assert(guestIds.size() == 4);
+        const jf::ObjectiveDefinition* evacuateDef = nullptr;
+        for (const auto& def : app.battle().battle().missionState().definitions)
+            if (def.id == "settlement_well_evacuate_all") evacuateDef = &def;
+        assert(evacuateDef);
+        for (const std::string& guestId : guestIds) {
+            jf::BattleEvent guestEscapes{
+                app.battle().battle().issueEventId(), 1,
+                jf::ActionResolvedEvent{1, guestId, jf::Team::Player, jf::ActionKind::Wait,
+                                        evacuateDef->target.tile}};
+            jf::handleObjectiveEvent(app.battle().battle().missionState(), guestEscapes);
+        }
+        jf::syncObjectiveProgress(app.battle().battle());
+        winCurrentBattle(app);
+        assert(app.battle().inputState() == jf::BattleInputState::Victory);
+        app.proceedToCamp();
+        assert(std::find(app.expedition().pendingDiscoveries.begin(), app.expedition().pendingDiscoveries.end(),
+                         jf::kSettlementCommunalTestimonyDiscovery) != app.expedition().pendingDiscoveries.end());
+    }
+
+    {
+        // docs/regions/old_frontier_settlement.md「3. 旧穀物庫」: 主目的(4
+        // ラウンド防衛、または敵全滅)・敵構成(斧兵2/弓兵2/軽装剣士1、3ラウンド目
+        // に軽装剣士1の予告増援)・副目標(食料箱2個保持)・報酬(建築材2、織物1、
+        // 食料1、封鎖ルートで食料+1、食料箱2個で食料+2)。JSON-authored via
+        // data/regions.json (stageDescriptorFromContent()) like site 1 - no
+        // guestUnits needed, so no hand-written Region.cpp stage function.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor settlementRegion =
+            jf::regionDescriptor(jf::RegionId::OldFrontierSettlement, *data);
+        const jf::StageDescriptor* granaryStage = nullptr;
+        for (const jf::StageDescriptor& stage : settlementRegion.stages)
+            if (stage.id == "settlement_old_granary") granaryStage = &stage;
+        assert(granaryStage);
+        assert(granaryStage->enemyRoster.size() == 5);
+        assert(granaryStage->scoutRouteRequiredClass == jf::UnitClass::VeteranGuard);
+        assert(granaryStage->primarySurviveRoundsAlternative &&
+              granaryStage->primarySurviveRoundsAlternative->id == "settlement_granary_defense" &&
+              granaryStage->primarySurviveRoundsAlternative->surviveUntilRound == 4);
+        assert(granaryStage->timedReinforcement &&
+              granaryStage->timedReinforcement->id == "settlement_granary_swordsman_wave" &&
+              granaryStage->timedReinforcement->spawnRound == 3);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*granaryStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "building_material") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "cloth") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "food") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "food") == 2);
+        assert(findLoot(jf::computeStageVictoryLoot(*granaryStage, jf::ExplorationChoice::FrontalAdvance,
+                                                     /*surveyObjectiveSucceeded=*/true),
+                        "food") == 3);
+
+        const jf::ExplorationOutcome* collapsedOutcome = nullptr;
+        for (const auto& [choice, outcome] : granaryStage->routeOutcomes)
+            if (choice == jf::ExplorationChoice::CollapsedSidePath) collapsedOutcome = &outcome;
+        assert(collapsedOutcome);
+        jf::BattleState collapsed = jf::createScenarioBattle(*data, *granaryStage, /*seed=*/5, *collapsedOutcome);
+        int collapsedEnemies = 0;
+        for (const jf::Unit& unit : collapsed.units())
+            if (unit.team == jf::Team::Enemy) ++collapsedEnemies;
+        assert(collapsedEnemies == 4);
+
+        // Primary win via SurviveRounds to round 4 (no enemy kills needed),
+        // same shape as blackwater_lowlands「薬草洲」/settlement_common_well.
+        jf::BattleState defense = jf::createScenarioBattle(*data, *granaryStage, /*seed=*/5);
+        const jf::ObjectiveDefinition* surviveDef = nullptr;
+        for (const auto& def : defense.missionState().definitions)
+            if (def.kind == jf::ObjectiveKind::SurviveRounds && def.id == "settlement_granary_defense")
+                surviveDef = &def;
+        assert(surviveDef && surviveDef->primary);
+        jf::syncObjectiveProgress(defense);
+        assert(jf::evaluateBattleOutcome(defense).kind != jf::BattleOutcomeKind::Victory);
+        while (defense.round() <= 4) {
+            defense.beginEnemyPhase();
+            defense.beginPlayerPhase();
+        }
+        jf::syncObjectiveProgress(defense);
+        assert(jf::evaluateBattleOutcome(defense).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/old_frontier_settlement.md「4. 集会家屋」: 主目的(記録箱
+        // 2個以上搬入、OR敵全滅)は`surveyTileCount`が「Nのうち任意1個で
+        // グループ完了(Any)」であって真のN-of-M閾値ではないため(M9-H「樹脂箱」
+        // 前例と同型)、標準EliminateTeamで近似 - ドキュメントのOR条件(敵全滅)
+        // と自然に一致する。ルート別記録箱個数(3/2/3)は固定3個で近似
+        // (surveyTileCount:3、food_crate等ownd既存パターンと同型)。
+        // guestUnitsはルート3のみ登場し他2ルートには無い(M9-Vの4人固定ケースと
+        // 非対称)ため、本Sliceでは実装せず「中立住民2人が運搬」を未配線の
+        // flavor textとして記録する判断とした - 対応する副目標「運搬人撤退
+        // させない」/報酬(織物1)も同時に見送り。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor settlementRegion =
+            jf::regionDescriptor(jf::RegionId::OldFrontierSettlement, *data);
+        const jf::StageDescriptor* hallStage = nullptr;
+        for (const jf::StageDescriptor& stage : settlementRegion.stages)
+            if (stage.id == "settlement_gathering_hall") hallStage = &stage;
+        assert(hallStage);
+        assert(hallStage->enemyRoster.size() == 4);
+        assert(hallStage->scoutRouteRequiredClass == jf::UnitClass::MarchCaptain);
+        assert(!hallStage->primarySurviveRoundsAlternative); // default EliminateTeam primary
+        assert(hallStage->surveyObjectiveId && *hallStage->surveyObjectiveId ==
+                                                    "settlement_gathering_hall_ledger_crates");
+        assert(hallStage->surveyTileCount && *hallStage->surveyTileCount == 3);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*hallStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "building_material") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "iron") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "food") == 1);
+        assert(jf::computeStageDiscoveries(*hallStage, jf::ExplorationChoice::FrontalAdvance) ==
+              std::vector<jf::DiscoveryId>{"settlement_command_ledger"});
+
+        const jf::ExplorationOutcome* collapsedOutcome = nullptr;
+        for (const auto& [choice, outcome] : hallStage->routeOutcomes)
+            if (choice == jf::ExplorationChoice::CollapsedSidePath) collapsedOutcome = &outcome;
+        assert(collapsedOutcome);
+        assert(collapsedOutcome->enemiesRemoved == 1);
+        assert(collapsedOutcome->extraBarrierCount == 1);
+        jf::BattleState collapsed = jf::createScenarioBattle(*data, *hallStage, /*seed=*/5, *collapsedOutcome);
+        int collapsedEnemies = 0;
+        for (const jf::Unit& unit : collapsed.units())
+            if (unit.team == jf::Team::Enemy) ++collapsedEnemies;
+        assert(collapsedEnemies == 3);
+        bool foundBarrier = false;
+        for (const jf::BattleObjectState& object : collapsed.objects())
+            if (object.definitionId == "settlement_reinforced_barrier") foundBarrier = true;
+        assert(foundBarrier);
+
+        // Primary win via plain EliminateTeam (default), no crate collection
+        // required - matches the doc's OR condition (敵全滅) directly.
+        jf::BattleState hall = jf::createScenarioBattle(*data, *hallStage, /*seed=*/5);
+        jf::syncObjectiveProgress(hall);
+        assert(jf::evaluateBattleOutcome(hall).kind != jf::BattleOutcomeKind::Victory);
+        for (jf::Unit& unit : hall.units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+        jf::syncObjectiveProgress(hall);
+        assert(jf::evaluateBattleOutcome(hall).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/old_frontier_settlement.md「5. 夜明けの共同防衛」: 地域
+        // 最終地点の構成検証。敵6体(頭領+斧兵2+弓兵2+ルート2専用のaxeman3)、
+        // 主目的サブ条件1(SurviveRounds、5ラウンド)、副目標(全員避難の独立
+        // Secondary、警鐘操作の独立Secondary)、guestUnits4人、2ラウンド目
+        // timedReinforcement、味方戦闘不能者0ボーナス。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor settlementRegion =
+            jf::regionDescriptor(jf::RegionId::OldFrontierSettlement, *data);
+        assert(settlementRegion.stages.size() == 5);
+        const jf::StageDescriptor* dawnStage = nullptr;
+        for (const jf::StageDescriptor& stage : settlementRegion.stages)
+            if (stage.id == "settlement_dawn_defense") dawnStage = &stage;
+        assert(dawnStage);
+        assert(dawnStage->enemyRoster.size() == 6);
+        assert(dawnStage->enemyRoster[0].classId == jf::UnitClass::RaidLeader);
+        assert(dawnStage->scoutRouteRequiredClass == jf::UnitClass::BannerBearer);
+        assert(dawnStage->primarySurviveRoundsAlternative &&
+              dawnStage->primarySurviveRoundsAlternative->id == "settlement_dawn_defense_survive" &&
+              dawnStage->primarySurviveRoundsAlternative->surviveUntilRound == 5);
+        assert(dawnStage->secondaryEscapeUnitsAlternative &&
+              dawnStage->secondaryEscapeUnitsAlternative->id == "settlement_dawn_evacuate_all" &&
+              dawnStage->secondaryEscapeUnitsAlternative->requiredEscapeCount == 4);
+        assert(dawnStage->guestUnits.size() == 4);
+        assert(dawnStage->timedReinforcement && dawnStage->timedReinforcement->spawnRound == 2 &&
+              dawnStage->timedReinforcement->units.size() == 2);
+        assert(dawnStage->noCasualtiesBonusLoot.size() == 1 &&
+              dawnStage->noCasualtiesBonusLoot[0].id == "building_material");
+        bool foundBellRule = false;
+        for (const auto& rule : dawnStage->objectPlacementRules)
+            if (rule.secondaryOperateObjectiveId && *rule.secondaryOperateObjectiveId == "settlement_dawn_alarm_bell")
+                foundBellRule = true;
+        assert(foundBellRule);
+
+        const jf::ExplorationOutcome* collapsedOutcome = nullptr;
+        for (const auto& [choice, outcome] : dawnStage->routeOutcomes)
+            if (choice == jf::ExplorationChoice::CollapsedSidePath) collapsedOutcome = &outcome;
+        assert(collapsedOutcome);
+        jf::BattleState collapsed = jf::createScenarioBattle(*data, *dawnStage, /*seed=*/5, *collapsedOutcome);
+        int collapsedEnemies = 0;
+        for (const jf::Unit& unit : collapsed.units())
+            if (unit.team == jf::Team::Enemy) ++collapsedEnemies;
+        assert(collapsedEnemies == 6); // "敵1体追加" route keeps the full base roster
+
+        const jf::ExplorationOutcome* frontalOutcome = nullptr;
+        for (const auto& [choice, outcome] : dawnStage->routeOutcomes)
+            if (choice == jf::ExplorationChoice::FrontalAdvance) frontalOutcome = &outcome;
+        assert(frontalOutcome && frontalOutcome->extraBarrierCount == 2);
+        jf::BattleState frontal = jf::createScenarioBattle(*data, *dawnStage, /*seed=*/5, *frontalOutcome);
+        int frontalEnemies = 0;
+        for (const jf::Unit& unit : frontal.units())
+            if (unit.team == jf::Team::Enemy) ++frontalEnemies;
+        assert(frontalEnemies == 5);
+        int barrierCount = 0;
+        for (const jf::BattleObjectState& object : frontal.objects())
+            if (object.definitionId == "settlement_reinforced_barrier") ++barrierCount;
+        assert(barrierCount == 2);
+    }
+
+    {
+        // docs/regions/old_frontier_settlement.md「5. 夜明けの共同防衛」主目的
+        // サブ条件1: 5ラウンド終了まで避難所を守る(SurviveRoundsをそのまま
+        // 再利用、EliminateTeamとのOR - herb_islet/settlement_granary以来の
+        // パターン)。敵を1体も倒さなくても5ラウンド生存でVictory。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor settlementRegion =
+            jf::regionDescriptor(jf::RegionId::OldFrontierSettlement, *data);
+        const jf::StageDescriptor* dawnStage = nullptr;
+        for (const jf::StageDescriptor& stage : settlementRegion.stages)
+            if (stage.id == "settlement_dawn_defense") dawnStage = &stage;
+        assert(dawnStage);
+
+        jf::BattleState defense = jf::createScenarioBattle(*data, *dawnStage, /*seed=*/5);
+        jf::syncObjectiveProgress(defense);
+        assert(jf::evaluateBattleOutcome(defense).kind != jf::BattleOutcomeKind::Victory);
+        while (defense.round() <= 5) {
+            defense.beginEnemyPhase();
+            defense.beginPlayerPhase();
+        }
+        jf::syncObjectiveProgress(defense);
+        assert(jf::evaluateBattleOutcome(defense).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/old_frontier_settlement.md「5. 夜明けの共同防衛」敗北条件
+        // 「中立住民全員の撤退」: allGuestsLost()経由でDefeat、部隊全滅とは
+        // 独立(blackwater_crossing/windscar_relay以来のパターン)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor settlementRegion =
+            jf::regionDescriptor(jf::RegionId::OldFrontierSettlement, *data);
+        const jf::StageDescriptor* dawnStage = nullptr;
+        for (const jf::StageDescriptor& stage : settlementRegion.stages)
+            if (stage.id == "settlement_dawn_defense") dawnStage = &stage;
+        assert(dawnStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *dawnStage, /*seed=*/7);
+        assert(!battle.allGuestsLost());
+        for (jf::Unit& unit : battle.units())
+            if (unit.isGuest) unit.currentHp = 0;
+        assert(battle.allGuestsLost());
+        assert(!battle.allPlayersDefeated());
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Defeat);
+    }
+
+    {
+        // docs/regions/old_frontier_settlement.md「5. 夜明けの共同防衛」主目的
+        // サブ条件3「警鐘を1回以上操作する」: `secondaryOperateObjectiveId`が
+        // 実際に独立したSecondary Objectiveを生成し、primaryグループの状態に
+        // 一切影響しないことを確認(settlement_common_well「全員避難」テストと
+        // 同型のパターン、OperateObject版)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor settlementRegion =
+            jf::regionDescriptor(jf::RegionId::OldFrontierSettlement, *data);
+        const jf::StageDescriptor* dawnStage = nullptr;
+        for (const jf::StageDescriptor& stage : settlementRegion.stages)
+            if (stage.id == "settlement_dawn_defense") dawnStage = &stage;
+        assert(dawnStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *dawnStage, /*seed=*/5);
+        const jf::ObjectiveDefinition* bellDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.groupId == "settlement_dawn_alarm_bell") bellDef = &def;
+        assert(bellDef && !bellDef->primary && bellDef->kind == jf::ObjectiveKind::OperateObject);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind != jf::BattleOutcomeKind::Victory);
+
+        // OperateObject is live-evaluated off BattleObjectState::
+        // interactionCount (see the OperateObject unit test above/
+        // ObjectiveTracker.cpp's syncObjectiveProgress()), not a discrete
+        // event - bump it directly, same as that existing test does.
+        jf::GridPos bellPos{};
+        for (const jf::BattleObjectState& object : battle.objects())
+            if (object.id == bellDef->target.objectId) bellPos = object.position;
+        jf::BattleObjectState* bell = battle.objectAt(bellPos);
+        assert(bell && bell->definitionId == "settlement_alarm_bell");
+        bell->interactionCount = 1;
+        jf::syncObjectiveProgress(battle);
+        assert(battle.missionState().progress.at(bellDef->id).status == jf::ObjectiveStatus::Completed);
+        // The primary group (SurviveRounds OR EliminateTeam) is untouched.
+        assert(jf::evaluateBattleOutcome(battle).kind != jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // GameApp integration: 頭領撤退(鉄材1)と全員避難(織物2)のad-hocボーナス、
+        // 味方戦闘不能者0(建築材1、noCasualtiesBonusLoot経由)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        jf::GameApp app(*data);
+        jf::SaveData save = app.createSaveData("en");
+        save.base.completedRegionIds.insert(jf::RegionId::AshboughForest);
+        save.base.completedRegionIds.insert(jf::RegionId::CinderwatchGate);
+        save.base.completedRegionIds.insert(jf::RegionId::AshironQuarry);
+        save.base.completedRegionIds.insert(jf::RegionId::BlackwaterLowlands);
+        save.base.completedRegionIds.insert(jf::RegionId::WindscarPlateau);
+        assert(app.applySaveData(save));
+        assert(app.startExpedition(jf::RegionId::OldFrontierSettlement));
+        for (int i = 0; i < 4; ++i) {
+            assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+            winCurrentBattle(app);
+            app.proceedToCamp();
+            app.continueExpedition();
+        }
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // settlement_dawn_defense
+        winCurrentBattle(app); // wins via the default EliminateTeam OR-member
+
+        jf::BattleState& battle = app.battle().battle();
+        // Override the raid leader to have retreated (rather than been
+        // defeated by winCurrentBattle's HP-zeroing) and credit all 4 guests
+        // onto the secondary evacuation group, both read by
+        // GameApp::proceedToCamp()'s ad-hoc bonus blocks below.
+        for (jf::Unit& unit : battle.units())
+            if (unit.id == "settlement_dawn_raid_leader") unit.exitReason = jf::UnitExitReason::Retreated;
+        const jf::ObjectiveDefinition* evacuateDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.groupId == "settlement_dawn_evacuate_all") evacuateDef = &def;
+        assert(evacuateDef);
+        for (const std::string& guestId : battle.missionState().guestUnitIds) {
+            jf::BattleEvent guestEscapes{
+                battle.issueEventId(), 1,
+                jf::ActionResolvedEvent{1, guestId, jf::Team::Player, jf::ActionKind::Wait,
+                                        evacuateDef->target.tile}};
+            jf::handleObjectiveEvent(battle.missionState(), guestEscapes);
+        }
+        jf::syncObjectiveProgress(battle);
+        app.proceedToCamp();
+
+        auto lootQty = [&](const std::string& id) -> int {
+            int total = 0;
+            for (const jf::LootStack& stack : app.expedition().pendingLoot)
+                if (stack.id == id) total += stack.quantity;
+            return total;
+        };
+        assert(lootQty("iron") >= 1);
+        assert(lootQty("cloth") >= 2);
+        assert(lootQty("building_material") >= 1);
+    }
+
+    {
+        // docs/regions/old_frontier_settlement.md「地域攻略と拠点接続」/
+        // 「最低保証報酬」: safely returning after clearing all 5 sites
+        // commits `RegionId::OldFrontierSettlement` to completedRegionIds
+        // (regionCleared()/computeWouldRegionBeCleared()'s existing generic
+        // mechanism is the whole implementation, same as Ashiron Quarry/
+        // Blackwater/Windscar before it - no `old_frontier_settlement_secured`
+        // code entity of its own), tops up the floor via
+        // `settlementMaterialsEarned`, and unlocks EmberRavine (燼火峡谷).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        jf::GameApp app(*data);
+        jf::SaveData save = app.createSaveData("en");
+        save.base.completedRegionIds.insert(jf::RegionId::AshboughForest);
+        save.base.completedRegionIds.insert(jf::RegionId::CinderwatchGate);
+        save.base.completedRegionIds.insert(jf::RegionId::AshironQuarry);
+        save.base.completedRegionIds.insert(jf::RegionId::BlackwaterLowlands);
+        save.base.completedRegionIds.insert(jf::RegionId::WindscarPlateau);
+        assert(app.applySaveData(save));
+        assert(!app.isRegionUnlocked(jf::RegionId::EmberRavine));
+        assert(app.startExpedition(jf::RegionId::OldFrontierSettlement));
+        for (int i = 0; i < 4; ++i) {
+            assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+            winCurrentBattle(app);
+            app.proceedToCamp();
+            app.continueExpedition();
+        }
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)); // settlement_dawn_defense
+        winCurrentBattle(app);
+        app.proceedToCamp();
+        assert(app.expedition().pendingRegionCompletions.count(jf::RegionId::OldFrontierSettlement));
+        assert(app.returnToBase());
+        assert(app.baseState().completedRegionIds.count(jf::RegionId::OldFrontierSettlement));
+        assert(app.isRegionUnlocked(jf::RegionId::EmberRavine));
+        assert(app.baseState().storageCount("building_material") >= 6);
+        assert(app.baseState().storageCount("iron") >= 3);
+        assert(app.baseState().storageCount("food") >= 7);
+        assert(app.baseState().storageCount("cloth") >= 2);
+        assert(app.baseState().discoveryRegistry.count(jf::kSettlementCommandLedgerDiscovery));
+        assert(app.baseState().discoveryRegistry.count(jf::kCollectiveDefenseRecordsDiscovery));
+
+        auto summaries = app.regionSummaries();
+        bool sawEmberRavine = false;
+        for (const auto& summary : summaries)
+            if (summary.id == jf::RegionId::EmberRavine) sawEmberRavine = true;
+        assert(sawEmberRavine);
     }
 
     std::cout << "Battle tests PASSED\n";

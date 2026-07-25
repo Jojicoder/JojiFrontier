@@ -74,6 +74,29 @@ std::unordered_map<ObjectiveGroupId, std::vector<const ObjectiveDefinition*>> pr
     }
     return byGroup;
 }
+
+// docs/regions/old_frontier_settlement.md「5. 夜明けの共同防衛」's secondary bell
+// OperateObject (`ObjectPlacementRule::secondaryOperateObjectiveId`): a
+// primary=false OperateObject that still needs Live evaluation (unlike
+// SecureTile/EscapeUnits, OperateObject has no discrete handleObjectiveEvent()
+// path of its own - its "Completed" transition only ever happens through the
+// group loop below). `primaryGroups()` above deliberately stays
+// primary-filtered (validateBattleMission()'s "exactly one non-empty primary
+// group" count depends on that), so this is a separate, syncObjectiveProgress()
+// -only helper that additionally includes primary=false OperateObject members.
+// SecureTile/EscapeUnits already tolerate being included here when
+// primary=false (see surveyObjectiveId's own secondary group) - their
+// objectiveSatisfied() case is a no-op re-read of an already-Completed
+// progress.status either way, so folding them in here too rather than
+// building a third, narrower helper is harmless.
+std::unordered_map<ObjectiveGroupId, std::vector<const ObjectiveDefinition*>> liveEvalGroups(
+    const BattleMissionState& mission) {
+    std::unordered_map<ObjectiveGroupId, std::vector<const ObjectiveDefinition*>> byGroup;
+    for (const ObjectiveDefinition& def : mission.definitions) {
+        if (def.primary || def.kind == ObjectiveKind::OperateObject) byGroup[def.groupId].push_back(&def);
+    }
+    return byGroup;
+}
 } // namespace
 
 void handleObjectiveEvent(BattleMissionState& mission, const BattleEvent& event) {
@@ -132,7 +155,7 @@ void resolveHoldTileRoundEnd(BattleState& battle) {
 
 void syncObjectiveProgress(BattleState& battle) {
     BattleMissionState& mission = battle.missionState();
-    auto byGroup = primaryGroups(mission);
+    auto byGroup = liveEvalGroups(mission);
 
     for (const ObjectiveGroupDefinition& group : mission.groups) {
         auto it = byGroup.find(group.id);

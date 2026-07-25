@@ -164,6 +164,21 @@
       "maxBarriersPerColumn": 1,
       "ensureHorizontalRoute": true,
       "countBounds": { "terrain": "WindGust", "minimum": 3, "maximum": 6 }
+    },
+    {
+      "id": "old_frontier_settlement",
+      "generationVersion": 1,
+      "seedSalt": 13,
+      "weights": [
+        { "terrain": "Floor", "weight": 50 },
+        { "terrain": "Ash", "weight": 15 },
+        { "terrain": "WatchPost", "weight": 12 },
+        { "terrain": "Rubble", "weight": 15 },
+        { "terrain": "Barrier", "weight": 8 }
+      ],
+      "signatureTerrain": "Floor",
+      "maxBarriersPerColumn": 1,
+      "ensureHorizontalRoute": true
     }
   ]
 }

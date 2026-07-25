@@ -2522,6 +2522,471 @@ Direct 38.2%/Tactical 49.2%、Ashiron Vein win率Direct 23.8%/Tactical 27.2%。�
 のみ残す。[[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録のみで
 数値調整は行わない。
 
+### M9-U 旧辺境集落(第6地域): 地域骨格 + 地点1(風化した外柵)
+
+`docs/regions/old_frontier_settlement.md`を確認し、M6/M9の確立済みパターン
+(地域骨格を1度作り、以後1地点ずつ本格化する)を踏襲して着手した。M9-Qが追加した
+`RegionId::OldFrontierSettlement`+`old_frontier_settlement_outpost`の1地点
+プレースホルダーを土台に、本Sliceでスコープ全体(5地点+2キャンプ+地点3・4の
+どちらを先に攻略してもよい分岐)+地点1「風化した外柵」の実コンテンツへ拡張した。
+M9-Lの命名是正と異なりRegionId自体は既にM9-Qの時点で正本どおり
+`RegionId::OldFrontierSettlement`/`"old_frontier_settlement"`だったため改名は不要
+だった。
+
+地点1「風化した外柵」は`windwatch_station`/`plateau_relay`と同じくJSON Schemaへ
+直接収まったため`data/regions.json`のみで実コンテンツ化した(Region.cppの手書き
+ステージ関数は不要)。ルート3`[辺境工兵]`「外柵を仮補修」の「防護柵1個追加」は
+flavor/no-opではなく、`brokenwood_territory`(M6)以来実在する`extraBarrierCount`/
+`scalesWithExtraBarrierOutcome`機構(`ExplorationOutcome::extraBarrierCount`+
+`ObjectPlacementRule::scalesWithExtraBarrierOutcome`)がちょうど「特定ルートでのみ
+Barrier Objectを1個追加」という効果に一致したため、これを使って実装した - 新規
+`settlement_reinforced_barrier`Barrier定義(耐久8、DEF/RES3、`blocksMovement`)を
+count=0のベースに`scalesWithExtraBarrierOutcome:true`で宣言し、ルート3の
+`extraBarrierCount:1`で初めて盤上に現れる。durability自体はObject耐久機構が
+未実装のため戦闘中に減少しないが、Barrierとして実際に通行を塞ぐ効果は本物。
+ルート2「崩れた柵から入る」は`ExplorationOutcome::partyDamage`(既存、Windscar
+site2以来の実証済みフィールド)で全員HP-2、`enemiesRemoved:1`で敵1体除外を表現。
+
+新規材料`building_material`(建築材)/`food`(食料)を`materialNameFor()`のknownセット、
+`data/locales/{en,ja}.json`の`material.building_material`/`material.food`キーへ
+追加した。「建築材-1」(ルート2)/「建築材+1」(ルート3)は`riding_gear`の
+負のRewardRule前例(windscarConvoyStage()/windscarCartRoadStage())と同じ
+`routeVictoryLootDelta`(JSON側)の負quantityで表現 - 新規プラミング不要。
+
+敵「灰道襲撃団」は正本が斧兵2・弓兵1・軽装剣士1(Axeman/LightSwordsman相当)と
+明記するが、Windscar site4調査時と同様、現時点でもプロジェクト全体にAxeman/
+LightSwordsman相当のUnitClassは存在しないため確認済み。弓兵はWatchArcherを
+そのまま使い、斧兵・軽装剣士はBanditを「Raider」表示名で再利用した(split_convoy
+と同じ再利用パターン、追加のJAグリフ登録も不要)。
+
+新規`old_frontier_settlement`TerrainProfile(`data/terrain_profiles.json`)を追加し、
+地点1を含む本Sliceの全5地点で共有した(windscarAscentStage()の`windscar_ascent`
+プロファイルが後続の全プレースホルダーにも再利用された前例と同型)。正本の
+地形生成表(集落道35〜50%/荒れた庭10〜20%/低い石垣10〜15%/家屋跡10〜20%/
+共同広場5〜10%/崩れた家屋5〜10%)は新規TerrainTypeを追加せず既存5種で近似:
+集落道+共同広場→Floor(50)、荒れた庭→Ash(15)、低い石垣→WatchPost(12、DEF+2が
+「低い石垣」の防御ボーナスに一致)、家屋跡→Rubble(15)、崩れた家屋→Barrier(8、
+通行不可という正本の第一選択肢に一致)。共同広場固有の「任務地点候補」という
+役割は本Sliceでは配線していない(地点1自身が使わないため)。
+
+地域骨格の残り4地点(`settlement_common_well`/`settlement_old_granary`/
+`settlement_gathering_hall`/`settlement_dawn_defense`)はM6-B/C/M9-L方式の
+Bandit x2最小プレースホルダー。地点3・4の`AllMembers`分岐は
+`oldFrontierSettlementGraph()`(`RouteGraph.cpp`)でCinderwatch/Blackwater/Windscar
+と同じ形で配線した。
+
+見送った部分(正本との差分、都度明記):
+
+- 副目標「外柵耐久を1以上残す」/報酬「外柵保全: 建築材+1」: Object耐久機構が
+  丸ごと未実装(M6-C以来の既知ギャップ)のため、副目標自体を配線しておらず
+  報酬側も到達不能のまま未宣言で残した(M9-H以来の「到達不能な報酬は未宣言のまま
+  残す」前例と同型)。この地域は「複合防衛」テーマ上、後続の地点でもこのギャップに
+  繰り返し当たる見込みが高い(タスク側の既知の予告どおり)
+- ルート1「住民配置公開」: エンジンにfog-of-war機構が無く常時全公開のため
+  Windscar site1のルート3と同型の暗黙no-op
+
+`tests/test_battle.cpp`へ3件追加: 地域骨格(5地点+ルートグラフ+分岐の
+`AllMembers`検証)、地点1の報酬・敵数・ルート別`enemiesRemoved`(FrontalAdvance
+4体/CollapsedSidePath 3体)、地域解放条件(既存M9-Q相当のテストは温存)。既存4
+テストスイート(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/
+`check_localization`)含め全成功。`old_frontier_settlement`TerrainProfile追加時、
+weightsの合計が100でないと`loadGameData()`が読み込み失敗する既存バリデーション
+(「terrain weights must total 100」)に一度引っかかり、Floor weightを45→50へ
+調整して解消した。
+
+`jf_forest_balance --region=old_frontier_settlement`(500 Seed)の実測: 地点1
+(風化した外柵)のfresh-party win率はDirect 60.6%/HP残19.6%、Tactical 53.6%/
+HP残27.9%。既存地点1の実測レンジ(33.6%〜100%、M9-L訂正記事参照)の範囲内であり
+外れ値ではない。[[jf_forest_balance worst-case numbers]]の教訓どおり実測記録の
+みに留め、本Sliceでの数値調整は行わない。
+
+以上で旧辺境集落(第6地域)の骨格(5地点+2キャンプ+分岐)が到達可能になり、地点1が
+実コンテンツ化された。地点2〜5は次のSlice以降で1地点ずつ本格化する。
+
+### M9-V 旧辺境集落(第6地域) 地点2(共同井戸)
+
+M9-Uに続き、地点2「共同井戸」(`settlement_common_well`)を本格化した。
+`guestUnits`(中立住民4人)が必要なため、地点1(JSON定義のみで済んだ)とは異なり
+`windscarConvoyStage()`/`windscarCartRoadStage()`と同型のhand-authored
+`settlementCommonWellStage()`(`src/core/Region.cpp`)として実装した。
+`data/regions.json`の`settlement_common_well`プレースホルダーエントリは
+blackwater_crossing以来の前例どおり死んだJSONとしてそのまま残した(参照されない)。
+
+**主目的**: 「共同井戸を3ラウンド防衛」は`primarySurviveRoundsAlternative`
+(blackwater_lowlands site3「薬草洲」M9-G以来証明済み)をそのまま再利用した。
+
+**副目標「中立住民を全員避難」は近似ではなく実際の独立Secondary Objectiveとして
+実装できた**。タスクの指示どおりObjective.hpp/BattleFactory.cppを読み、
+`ObjectiveKind::EscapeUnits`自体がprimary/secondaryのどちらの文脈にも中立で、
+`surveyObjectiveId`の副目標グループ追加パターン(新規`groupId`+`primary=false`)を
+そのままEscapeUnits版へ転用できることを確認した。新規`StageDescriptor::
+secondaryEscapeUnitsAlternative`フィールドを追加し、`BattleFactory.cpp`の
+`assembleScenario()`へ`surveyObjectiveId`ブロックと同型の配線を追加、
+`GameApp::proceedToCamp()`にも同じ「このgroupIdを持つdefinitionがCompletedかを
+走査する」パターンで報酬(Discovery)付与を追加した。`primarySurviveRoundsAlternative`
+(primaryグループ)とは完全に独立したグループのため、両者が衝突なく共存することを
+テストで確認済み(下記)。これは`primaryEscapeUnitsAlternative`の「primaryを置換」
+パターンとは別物 - 既にprimaryをSurviveRoundsが握っているこの地点では
+`primaryEscapeUnitsAlternative`は使えないが、今回追加したsecondary版は使える。
+
+**guestUnitsは4人固定(全3ルート共通)**: シナリオ構築時点で固定されルート別に
+出し分けられない既知の限界(M9-I以来)。ルート1「両集団を退避」/ルート3
+`[旗手]`「共同の防衛位置を示す」がともに4人(両集団)を明示する多数派のため4人を
+採用し、ルート2「井戸だけを先に守る」の正本の2人は未モデル化(4人のまま近似、
+`secondaryEscapeUnitsAlternative.requiredEscapeCount`も4人固定)。
+
+**ルート3`[旗手]`「中立Unitが最寄り避難所へ自動移動」は見送り**: AI制御された
+味方ユニットの自動経路探索機構自体が存在しないため(windscarConvoyStage()の
+「防衛中に負傷者HP-3」等と同型の既知のギャップ)、暗黙のno-opとして記録。
+`scoutRouteRequiredClass`は`UnitClass::BannerBearer`。
+
+**敵**: 正本の斧兵1・弓兵2・軽装剣士1に対応するAxeman/LightSwordsman相当の
+UnitClassは存在しない(M9-U自身の確認と同じ結論) - 弓兵は`WatchArcher`、
+斧兵・軽装剣士は`Bandit`を「Raider」表示名で再利用(追加JAグリフ登録不要)。
+「井戸優先ルート(ルート2)は斧兵1追加」は5体目としてベースロースターへ常時含め、
+ルート1/3で`enemiesRemoved=1`により差し引く加算後減算パターン
+(windscarAscentStage()以来)を採用した。
+
+**見送った部分(正本との差分)**:
+- 副目標「井戸耐久8以上」/報酬「食料+1」/敗北条件「井戸耐久0」: Object耐久機構が
+  丸ごと未実装(M6-C以来の既知のギャップ)のため未配線。報酬は到達不能なまま
+  未宣言で残した(M9-Hの前例と同型)
+- 恒久成果`settlement_well_agreement_reached`: 地域単位の「5成果達成+安全帰還で
+  恒久化」機構自体がまだ無く、M9-U自身も地点1の`settlement_outer_fence_opened`を
+  未配線のままにしている - 同じ理由でこのSliceでも見送り、個別地点の恒久成果配線は
+  地域全体の機構実装タイミングでまとめて対応する判断とした
+- 「全員避難: 集落証言記録」用の新規Discovery id`settlement_communal_testimony_records`
+  (`kSettlementCommunalTestimonyDiscovery`)は正本の「安定ID」表に記載が無いため
+  `<region>_..._records`命名規則(`kMiningTechniqueRecordsDiscovery`等)に倣って
+  選定した。ui_shared.cppの`discoveryNameFor()`には未登録のまま(表示名は
+  raw idへフォールバック) - `kWindscarRoadChartDiscovery`/`kCourierRouteChartDiscovery`/
+  `kMiningTechniqueRecordsDiscovery`/`kAnomalousVeinRecordsDiscovery`もすべて
+  未登録の既存ギャップで、新規に導入したものではない
+
+**キャンプI**: `RouteGraph.cpp`の`oldFrontierSettlementGraph()`はM9-Uの時点で
+既に`settlement_common_well -> settlement_camp1 -> settlement_granary_hall_branch`
+という配線が完了しており、本Sliceでの追加変更は不要だった(骨格構築時に先読みで
+配線済み)。
+
+`tests/test_battle.cpp`へ5件追加: 地点2の構成検証(敵5体ロースター・guestUnits4人・
+primarySurviveRoundsAlternative/secondaryEscapeUnitsAlternativeの各id・ルート別
+敵数と報酬)、中立住民全員撤退によるDefeat(`allGuestsLost()`)、独立Secondary
+Objectiveとしての全員避難完了(primaryグループの状態に一切影響しないことを確認)、
+GameApp経由のフル遠征テストでの`kSettlementCommunalTestimonyDiscovery`付与確認。
+既存4テストスイート(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/
+`check_localization`)含め全成功。テスト実行中、本Sliceと無関係な既存テスト
+(Cinderwatch地点3の`stacked_crate`個数検証、乱数seed依存)が単発で1回だけ
+flakyに失敗する既知の事象を確認したが、複数回の再実行では毎回成功しており
+本Sliceの変更とは無関係と判断した(未調査のまま記録のみ)。
+
+`jf_forest_balance --region=old_frontier_settlement`(500 Seed)の実測: 地点2
+(共同井戸)のfresh-party win率はDirect 100.0%/HP残82.9%、Tactical 97.4%/
+HP残78.3%(いずれも主目的がEliminateTeam ORなためシミュレータが素直に殲滅で
+勝てている)。[[jf_forest_balance worst-case numbers]]の教訓どおり実測記録の
+みに留め、本Sliceでの数値調整は行わない。
+
+### M9-W 旧辺境集落(第6地域) 地点3(旧穀物庫)
+
+M9-Vに続き、地点3「旧穀物庫」(`settlement_old_granary`)を本格化した。地点1
+(`settlement_outer_fence`)と同じく`guestUnits`が不要なため、
+`stageDescriptorFromContent()`+`data/regions.json`のJSON-authoredパスに収まり、
+Region.cppの手書きステージ関数は不要だった。`data/regions.json`の
+`settlement_old_granary`プレースホルダーエントリを実コンテンツへ差し替えた
+(`RouteGraph.cpp`の`oldFrontierSettlementGraph()`はM9-Uの時点で既に
+`settlement_old_granary`を参照済みのため、配線側の変更は不要)。
+
+**主目的**: 「穀物庫を4ラウンド防衛、または敵全滅」は`primarySurviveRoundsAlternative`
+(blackwater_lowlands site3「薬草洲」M9-G以来証明済み、M9-Vでも再利用済みの
+パターン)を`surviveUntilRound: 4`でそのまま再利用した。
+
+**副目標「食料箱2個を保持」**は`surveyObjectiveId`+`surveyTileCount: 2`+
+`surveyTileObjectDefinitionId`(ironwatch_stores以来証明済みのcrateパターン)を
+`food_crate`という新規definitionIdで再利用し、`surveyBonusLoot`で食料+2を配線した。
+
+**敵**: 正本の斧兵2・弓兵2・軽装剣士1に対応するAxeman/LightSwordsman相当の
+UnitClassは存在しない(M9-U/Vと同じ既知の結論) - 弓兵2体は`WatchArcher`、
+斧兵2体・軽装剣士1体は`Bandit`を「Raider」表示名で再利用(追加JAグリフ登録不要)。
+3ラウンド目の軽装剣士1体の予告増援は`TimedReinforcementData`
+(`spawnRound: 3`、`announceRoundsBefore: 1`、herb_islet「薬草洲」以来証明済みの
+機構)をそのまま再利用した。
+
+**探索3択**: ルート1「備蓄を数えてから運ぶ」は無条件・敵5体で標準ロースターに
+一致(`routeOutcomes`変更なし)。ルート2「住民へ先に配る」は`enemiesRemoved: 1`
+(敵4体)+`routeVictoryLootDelta`で食料+1。ルート3`[古参守備兵]`「搬出口を封鎖」は
+`scoutRouteRequiredClass: VeteranGuard`+`enemiesRemoved: 1`(敵4体)。
+
+**ルート3の「敵増援なし」は見送り**: `TimedReinforcementData`はStage全体で1つの
+固定フィールドで、`routeOutcomes`側にも特定ルートでのみ増援を無効化する機構は
+存在しない(`guestUnits`がルート別に出し分けられないM9-I以来の限界と同型)。
+コードベース全体を確認したが、既存地点にも「特定ルートで増援を止める」前例は
+無かった(windscarConvoyStage()等の「防衛中に負傷者HP-3」と同じ、単に未接続の
+既知ギャップ)。このため全ルート共通で3ラウンド目増援ありのままとし、ルート3の
+この差分は暗黙のno-opとして記録する(次に同種のニーズが出た時点で
+`routeOutcomes`側へ増援抑制フラグを追加する判断は保留)。
+
+**見送った部分(正本との差分、Object耐久機構が丸ごと未実装というM6-C以来の
+既知のギャップに起因)**:
+- ルート2「穀物庫耐久-3」/ルート3「穀物庫耐久+2」: flavor/no-op(耐久という
+  ベース値自体が存在しないため引き算・足し算のしようがない)
+- 副目標「穀物庫耐久6以上」/敗北条件「穀物庫耐久0」: 未配線
+- 恒久成果`settlement_granary_shared`: 地域単位の「恒久化」機構自体が
+  まだ無い(M9-U/Vと同じ理由で見送り)
+
+`tests/test_battle.cpp`へ1件追加: 地点3の構成検証(敵5体ロースター・
+`scoutRouteRequiredClass: VeteranGuard`・`primarySurviveRoundsAlternative`/
+`timedReinforcement`の各id、ルート別敵数と報酬、副目標成功時の食料+2上乗せ)、
+ルート2の`enemiesRemoved`確認、SurviveRoundsで4ラウンド目まで生存してVictoryに
+なることの確認(herb_islet「薬草洲」の第2テストと同型の
+`beginEnemyPhase()`/`beginPlayerPhase()`ループ)。既存4テストスイート
+(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/`check_localization`)
+含め全成功(`cmake --build build -j10 --clean-first`+`ctest --test-dir build -j10`)。
+
+`jf_forest_balance --region=old_frontier_settlement`(500 Seed)の実測: 地点3
+(旧穀物庫)のfresh-party win率はDirect 69.4%/HP残13.6%、Tactical 80.6%/
+HP残24.1%(主目的がSurviveRounds ORのためシミュレータが素直に殲滅または
+4ラウンド生存で勝てている)。地点1(Direct 60.6%)と近いレンジで外れ値ではない。
+[[jf_forest_balance worst-case numbers]]の教訓どおり実測記録のみに留め、本Sliceでの
+数値調整は行わない。
+
+### M9-X 旧辺境集落(第6地域) 地点4(集会家屋)
+
+M9-Wに続き、地点4「集会家屋」(`settlement_gathering_hall`)を本格化した。地点1・3と
+同じくguestUnitsが(全ルート共通では)不要なため、`stageDescriptorFromContent()`+
+`data/regions.json`のJSON-authoredパスに収まった。`RouteGraph.cpp`の
+`oldFrontierSettlementGraph()`はM9-Uの時点で既に`settlement_gathering_hall`を
+`settlement_granary_hall_branch`(`BranchCompletion::AllMembers`)の一員として
+参照済みのため、配線側の変更は不要だった。
+
+**主目的「記録箱2個以上を集会家屋へ運ぶ」は真のN-of-M閾値では実装していない**。
+タスクの指示どおり`surveyTileCount`の実際の意味を`BattleFactory.cpp`で確認したところ、
+Nタイル配置時でもグループは常に`ObjectiveGroupRule::Any`(=配置されたN個のうち
+「どれか1個」で群完了、AND側の「全部」もN-of-Mの閾値も無い)であることを再確認した
+(既存の`settlement_old_granary`「食料箱2個保持」も同じ Any-of-2 の近似のまま実装
+されている)。「2個以上」という閾値をそのまま表現する新規機構はM9-H「樹脂箱2個の
+うち1個以上」(Blackwater地点4)の時点で既に見送り済みで、本SliceもM9-Hの前例に
+倣い**主目的を標準EliminateTeam(既定値、StageDescriptorに何も設定しない)で近似**
+した。都合の良いことに、正本のOR条件「敵全滅後、残る記録箱1個を操作」の
+「敵全滅」側とこの近似は完全に一致するため、近似後の主目的は正本のOR条件の
+半分をそのまま体現している(OperateObjectのOR-alternate自体はM9-D/J/M/O/Q/T
+以来の「AND/OR混在Kind合成」ギャップのため引き続き見送り)。
+
+**記録箱はsurveyObjectiveId経由で3個固定配置**: ルート別個数(3/2/3、ルート2のみ
+2個)は、ルート別Object個数を出し分けられない既知の限界(Windscar地点系列以来)の
+ため固定3個で近似した(`settlement_gathering_hall_ledger_crates`+
+`surveyTileCount:3`+`surveyTileObjectDefinitionId:"settlement_ledger_crate"`、
+food_crateパターンと同型)。副目標「3個すべて回収」も同じAny-of-3の近似のまま
+専用のsurveyBonusLootは設定していない(正本の「記録箱3個: 集落台帳」報酬は
+Discovery付与であり、`stage.discoveries`(無条件でVictory時に付与、既存の多くの
+地点と同じ機構)で`settlement_command_ledger`(正本「安定ID」表の既存ID)を
+そのまま採用した - Survey成功を条件にするより単純だが、正本の「3個すべて回収」
+という副目標条件そのものへの厳密な紐付けは近似のまま残る)。
+
+**guestUnitsはこの地点では実装しなかった**: 正本のルート1・2にはguest言及が
+一切無く、ルート3`[行軍隊長]`のみ「中立住民2人が記録箱を運搬」を導入する非対称な
+構成である。M9-V「共同井戸」の`[旗手]`ルートのように全ルート共通でguestが存在し
+1ルートだけ数値が変わるケース(そちらは4人固定近似が妥当)とは異なり、本地点は
+「guestが存在しないルートの方が多数派」であるため、4人固定方式と同じ理由付けで
+2人固定を採用するのは正本の非対称性を歪める判断と考え、guestUnits自体を配線
+しない選択をした。ルート3の「中立住民2人が記録箱を運搬」は未配線のflavor text
+として記録し、対応する副目標「中立運搬人を撤退させない」・報酬「運搬人生存:
+織物1」も同時に見送った。
+
+**ルート2「防護柵1個追加」**は地点1「風化した外柵」以来実在する`extraBarrierCount`/
+`scalesWithExtraBarrierOutcome`機構(`settlement_reinforced_barrier`Barrier定義を
+再利用)でそのまま実装した - flavor/no-opではない。
+
+**敵**: 正本の軽装剣士2・弓兵1・斧兵1に対応するAxeman/LightSwordsman相当の
+UnitClassは存在しない(M9-U/V/Wと同じ既知の結論) - 弓兵は`WatchArcher`、
+軽装剣士2体・斧兵1体は`Bandit`を「Raider」表示名で再利用(追加JAグリフ登録不要)。
+ルート2「防衛準備を優先する」は`enemiesRemoved:1`(敵3体)、ルート3は
+`scoutRouteRequiredClass:MarchCaptain`で敵数は基準の4体のまま(正本どおり)。
+
+**見送った部分(正本との差分)**:
+- 敗北条件「記録箱3個をすべて失う」: Object耐久機構が丸ごと未実装(M6-C以来の
+  既知のギャップ)のため未配線
+- 恒久成果`settlement_ledger_restored`: 地域単位の「恒久化」機構自体がまだ無い
+  (M9-U/V/Wと同じ理由で見送り)
+- guestUnits関連一式(上記の判断どおり): 中立住民2人の運搬・副目標「運搬人撤退
+  させない」・報酬「織物1」
+
+**キャンプII到達可能性を確認**: `RouteGraph.cpp`の`oldFrontierSettlementGraph()`は
+`settlement_granary_hall_branch`(`BranchCompletion::AllMembers`、
+`{"settlement_old_granary", "settlement_gathering_hall"}`)→`settlement_camp2`の
+配線をM9-Uの時点で既に持っており、両地点(地点3・4)が本Sliceまでに実コンテンツ化
+されたことで、キャンプIIは初めて実際に到達可能になった(骨格構築時のプレースホルダー
+2地点は`jf_content_tests`のRoute Graph到達可能性検証を素通りしていただけで、実際の
+実プレイでは中身が伴っていなかった)。
+
+`tests/test_battle.cpp`へ1件追加: 地点4の構成検証(敵4体ロースター・
+`scoutRouteRequiredClass:MarchCaptain`・`primarySurviveRoundsAlternative`が
+未設定(既定EliminateTeam)・`surveyObjectiveId`/`surveyTileCount`・ルート別
+`enemiesRemoved`/`extraBarrierCount`・Barrier Objectの実配置・
+`computeStageDiscoveries()`が`settlement_command_ledger`を返すこと)、標準
+EliminateTeamでのVictory確認。既存4テストスイート(`jf_battle_tests`/
+`jf_locale_tests`/`jf_content_tests`/`check_localization`)含め全成功
+(`cmake --build build -j10`+`ctest --test-dir build -j10`)。実装中、JSON側の
+Object配置キー名を誤って`objectPlacements`(誤)と書いてしまい`objectPlacementRules`
+(正)との取り違えでBarrierが盤上に現れない不具合に一度当たった - `definition`
+ブロックへ`definitionId`を明示していなかった不備も併発しており、地点1の既存JSONを
+再確認して両方修正した。
+
+`jf_forest_balance --region=old_frontier_settlement`(500 Seed)の実測: 地点4
+(集会家屋)のfresh-party win率はDirect 60.6%/HP残19.6%、Tactical 53.6%/HP残27.9%
+(主目的が標準EliminateTeamのため、同じく敵4体基準ロースターの地点1「風化した
+外柵」と数値が一致 - 同一TerrainProfile・近い敵構成であるため偶然の一致であり
+外れ値ではない)。[[jf_forest_balance worst-case numbers]]の教訓どおり実測記録の
+みに留め、本Sliceでの数値調整は行わない。
+
+以上で旧辺境集落(第6地域)の地点1〜4が実コンテンツ化され、キャンプIIが実際に到達
+可能になった。残るは地点5「夜明けの共同防衛」(地域ボス「襲撃団頭領」を含む最終
+防衛戦)のみで、次のSlice以降で本格化する。
+
+### M9-Y 旧辺境集落(第6地域): 地点5(夜明けの共同防衛)/ 強敵「襲撃団頭領」/ 地域攻略
+
+`docs/regions/old_frontier_settlement.md`「5. 夜明けの共同防衛」「強敵 襲撃団頭領」
+「地域攻略と拠点接続」「最低保証報酬」を確認し、旧辺境集落の最終地点+強敵+地域攻略を
+実装した。地点5は正本自身が「頭領撃破ではなく共同防衛が目的、頭領は無視して5ラウンド
+守ることもできる」と明記する非ボス構成のため、M9-K/M9-Qの真ボス実装(独自
+`takeXBossTurn()`)をそのまま踏襲せず、まず生成AI+Profile調整だけで足りるかを検討した。
+
+**主目的のAND合成(3サブ条件)の扱い**: `BattleFactory.cpp`を実際に読み、
+`primarySurviveRoundsAlternative`が常に「defaultのprimary groupをAnyへ拡張し
+SurviveRounds memberを足す」(EliminateTeamとのOR)動作で、「SurviveRoundsのみ、
+OR拡張なし」という設定は存在しないことを確認した。タスク指示どおり「よりシンプルな方」
+を採用する判断で、新規フィールドは追加せず`primarySurviveRoundsAlternative`
+(`surviveUntilRound: 5`)をそのまま再利用した - このORが具体的に数値・勝敗判定を
+壊す理由が見当たらないため。サブ条件2(井戸/穀物庫耐久1以上)はObject耐久機構が
+丸ごと未実装(M6-C以来の既知のギャップ)のため見送り。サブ条件3(警鐘操作)は
+完全な見送りにはせず、新設した`StageDescriptor::ObjectPlacementRule::
+secondaryOperateObjectiveId`(既存の`operateObjectiveId`と同型だが「primaryを置換」
+ではなく「独立追加」)経由で実際に機能する非primary Secondary Objectiveとして配線した -
+進捗は追跡できるが主目的自体は左右しない。
+
+**新規発見・修正した既存バグ**: `secondaryOperateObjectiveId`実装時、
+`ObjectiveTracker.cpp`の`syncObjectiveProgress()`が内部で使う`primaryGroups()`が
+`def.primary`でフィルタしており、primary=falseのOperateObjectは(SecureTile/
+EscapeUnitsと異なりLive評価専用でイベント駆動パスを持たないため)このフィルタに
+弾かれて永久にCompletedへ遷移できないことが判明した - 本Slice以前にはprimary=falseの
+OperateObjectが存在しなかったため露見していなかった既存の潜在バグで、本Sliceが
+初めて踏んだ。`validateBattleMission()`の「primary groupは1つのみ」検証は
+`primaryGroups()`のprimary厳格フィルタに依存しているため、そちらは変更せず、
+`syncObjectiveProgress()`専用の新規`liveEvalGroups()`(primary、またはKind==
+OperateObjectを含む)を追加してこの1箇所だけ差し替えた。
+
+**強敵「襲撃団頭領」はbespoke boss AIを実装しなかった**: 新規`UnitClass::RaidLeader`
+(`data/classes.json`、正本どおりHP42/STR10/DEF7/RES3/MOV4、新規武器`heavy_axe`
+威力7射程1)を追加したが、`EnemyAI.cpp`へ新しい`takeXBossTurn()`は書かなかった -
+既存の`takeEnemyTurn()`/`generateAiCandidates()`パス(`AiSystem.cpp`の`profileFor()`)
+にRaidLeader専用の分岐を1つ足し、`retreatHpPercent`を30(正本の「HP30%以下」)へ
+調整しただけ。固有行動3つのうち「柵割り」(Object限定ダメージ+4)はObject耐久機構が
+無いため無意味、「略奪指示」(次増援が穀物庫優先)はObject指定Targeting AIが無いため
+no-op、「退路判断」(HP30%以下かつ4ラウンド目以降で撤退)はAiProfileにラウンド認識の
+フックが無いため「4ラウンド目以降」のゲートだけ近似で省略(HP30%以下なら1ラウンド目
+からでも撤退候補になる) - 3つとも既存の汎用機構の範囲に収まり、専用ターン関数を
+書くほどの複雑さが無いと判断した。正本自身が「強敵は無視して勝てる」と明記する
+non-boss構成であることが、この軽量アプローチを裏付けている。
+
+**複数波増援のうち1波のみ実装**: `StageDescriptor::timedReinforcement`は
+`std::optional`の単一フィールドで、正本が要求する2波(2ラウンド目:軽装剣士2、
+4ラウンド目:斧兵1・弓兵1、いずれも1ラウンド前予告)を同時に表現できない - この
+プロジェクトで複数`timedReinforcement`が同時に必要になったのはこの地点が初めてで、
+既存の前例が無い新種の制約。タスク指示どおり「より影響の大きい方を採用、他方は
+見送り明記」の判断で、5ラウンド防衛という主目的の中間地点により近い2ラウンド目の
+波(軽装剣士2、Bandit「Raider」再利用)を実装し、4ラウンド目の波は見送った。
+
+**探索3択**: ルート1「外柵を中心に守る」は地点1/4以来の`extraBarrierCount`/
+`scalesWithExtraBarrierOutcome`機構(`settlement_reinforced_barrier`再利用)で
+防護柵2個を実装、「上段増援が多い」はルート限定の増援配分機構が無いためno-op。
+ルート2「住民を先に避難させる」は「敵1体追加」を`enemyRoster`6体目の常時包含+他
+2ルートでの`enemiesRemoved:1`差し引き(加算後減算パターン)で実装、「避難所耐久-3」
+はObject耐久機構未実装のためno-op、「中立Unitなし」はguestUnitsがルート別に
+出し分けられない既知の限界(M9-I以来)のためno-op(4人のまま近似)。ルート3
+`[旗手]`は`scoutRouteRequiredClass:BannerBearer`、「3組分散配置」は分散初期配置
+機構が無いためno-op、「警鐘を開始時に1個操作済み」もSecondary Objectiveを開始前
+からCompleted状態にする機構が無いため見送り(他2ルートでも通常操作で普通に
+達成可能なので達成手段自体は失われない)。
+
+**副目標・報酬**: 「中立住民を全員避難」は`secondaryEscapeUnitsAlternative`
+(settlementCommonWellStage()以来の独立Secondary Objectiveパターン、4人固定)を
+そのまま再利用、GameApp::proceedToCamp()から織物2を付与。「頭領撤退」は
+`settlement_dawn_raid_leader`固定idの`exitReason==Retreated`を走査するad-hoc
+ボーナス(windscar_plateauの「高原運び手を2人以上撤退」と同型)で鉄材1を付与。
+「味方戦闘不能者0」は既存`noCasualtiesBonusLoot`(建築材1)をそのまま宣言。
+「井戸・穀物庫保全: 集団防衛資料」はObject耐久機構未実装のため個別報酬としては
+未配線(到達不能、M9-Hの前例と同型)だが、地域攻略の最低保証報酬フロア経由では
+確実に取得できる(下記)。**実装中に見つけたバグ**: 最初`mergeLoot()`
+(織物2・鉄材1の両方)を使ったが、この関数は`expedition_.pendingLoot`へ既に
+挿入済みの`loot`ローカル変数にしか作用せず、以降の変更は反映されないことが
+テストで判明した(このバグは`plateau_relay`等の既存Discovery系ad-hocブロックが
+`pendingDiscoveries`へ直接pushしているのと同じ理由で回避されていた領域に、Loot系の
+新規ブロックを初めて追加したために露見した) - `expedition_.pendingLoot.push_back()`
+への直接pushへ修正した。
+
+**地域攻略・最低保証報酬**: M9-Kの`blackwaterMaterialsEarned`と完全に同じ形で
+`settlementMaterialsEarned`(新規フィールド、`BaseState.hpp`/`SaveSystem.cpp`)を
+追加し、`ExpeditionService.cpp`の`applyExpeditionReturnToBase()`へ同型のTop-up
+ブロックを実装(建築材6・鉄材3・食料7・織物2のフロア、`settlement_command_ledger`/
+`collective_defense_records`の2 Discovery - 正本の「安定ID」表で「集落台帳・
+援護命令」「集団防衛・不動の構え」がそれぞれ1つのidを共有すると明記されているため、
+フロア表の4行はこの2 idへ集約される)。`old_frontier_settlement_secured`という
+安定ID自体は前例どおりコード上の実体は無く、`RegionId::OldFrontierSettlement`が
+`completedRegionIds`へ入ることがその実装。共同施設研究`collective_facility_methods`・
+「宿舎交流区画研究可能化」・スキル解放(援護命令/不動の構え)は、Facilities.hppの
+`SkillDefinition`にDiscovery条件でスキルをゲートする機構自体が存在しない(M9-Qが
+`plateau_targeting_records`等で記録した既知のギャップと同型)、および「地域共同作業」
+という施設研究の仕組み自体が存在しないため、Discovery id自体は付与されるがその
+効果は解放されない(既知の据え置き)。なお`social_quarters`(交流区画)facility node
+は元々`requiredDiscoveries`が空で常時研究可能なため、正本の要求は事実上満たされている。
+
+**発見した既存の別バグ・修正**: `ExpeditionService.cpp`の`computeRegionSummaries()`
+の地域一覧・predecessorラムダが`RegionId::WindscarPlateau`までしかカバーしておらず、
+`RegionId::OldFrontierSettlement`自体がM9-U以来ずっとBase画面の地域一覧に
+出現していなかった(pre-existing gap)。EmberRavine追加のためにこの一覧を拡張する
+過程で発覚し、両地域を追加して解消した - この修正が無いと旧辺境集落もEmberRavineも
+Base画面から選択できないままだったため、地域攻略の実プレイ確認に不可欠な修正として
+本Sliceで対応した。
+
+**燼火峡谷(第7地域)**: 新規`RegionId::EmberRavine`+`ember_ravine_outpost`
+(`data/regions.json`、Bandit2体の最小プレースホルダー)で追加した。M9-K/Qの
+`_outpost`プレースホルダー前例を踏襲(`old_frontier_settlement`TerrainProfileを
+再利用)。`Region.cpp`の4箇所のswitch文・`regionUnlocked()`
+(OldFrontierSettlement完了で解放)・`ExpeditionService.cpp`の地域リストを他地域と
+同じ形で配線した。
+
+`tests/test_battle.cpp`へ7件追加: 地点5の構成検証(敵6体ロースター・
+primarySurviveRoundsAlternative(5ラウンド)・secondaryEscapeUnitsAlternative・
+guestUnits4人・timedReinforcement・noCasualtiesBonusLoot・secondaryOperateObjectiveId・
+ルート別敵数/防護柵2個)、SurviveRoundsで5ラウンド目まで生存してVictoryになることの
+確認、中立住民全員撤退によるDefeat(`allGuestsLost()`)、警鐘の独立Secondary
+Objective完了(primaryグループの状態に一切影響しないことを確認、interactionCount
+Live評価)、GameApp経由のフル遠征テスト(頭領撤退で鉄材1・全員避難で織物2の
+ad-hocボーナス)、地域攻略テスト(5地点完走→`old_frontier_settlement_secured`
+相当の`completedRegionIds`確定→最低保証報酬フロア→EmberRavine解放→
+`regionSummaries()`にEmberRavineが出現)。既存の地域一覧テスト
+(`summaries.size() == 5`)は7地域(OldFrontierSettlement/EmberRavine追加)へ更新した。
+既存4テストスイート(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/
+`check_localization`)含め全成功。
+
+`jf_forest_balance --region=old_frontier_settlement`(500 Seed)の実測: 地点5
+(夜明けの共同防衛)のfresh-party win率はDirect 89.2%/HP残60.4%、Tactical 77.8%/
+HP残51.6%(主目的がSurviveRounds ORのため、地点2・3同様シミュレータが素直に殲滅
+または5ラウンド生存で勝てている - 正本の非ボス構成と`primarySurviveRoundsAlternative`
+再利用が噛み合った結果と見られる)。5地点通しのRegion clear win率はDirect 0.6%/
+Tactical 2.2%(いずれも極めて低い)だが、これは地点5自体の数値・AIの問題ではなく、
+[[jf_forest_balance worst-case numbers]]が記録する既知の「guest-escort/survey地点は
+自動プレイAIに過小評価されやすい」傾向どおり、Reachが地点2(共同井戸、guestUnits)
+303/500・地点4(集会家屋、surveyTileCount)86/500と早い段階から目減りしている
+ことに起因する(地点5自体のReachは4/500・18/500まで下がるが、これは前段の
+目減りの複利)。実測記録のみに留め、本Sliceでの数値調整は行わない。
+
+以上で旧辺境集落(第6地域)の全5地点が実コンテンツ化され、地域全体を安全帰還まで
+攻略可能になった(guestUnits/surveyTileCountを伴う地点のOperateObject/EscapeUnits
+自動プレイ非対応を除き、実プレイでのend-to-endクリアはエンジン機構としては揃って
+いる - 部隊全滅を回避しつつ手動プレイすれば5ラウンド生存または敵全滅、全員避難、
+警鐘操作をすべて達成でき、安全帰還でRegionId::OldFrontierSettlementが
+completedRegionIdsへ入り、最低保証報酬フロアが適用され、燼火峡谷(第7地域)が
+選択可能な状態でBase画面に追加される)。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功

@@ -48,6 +48,13 @@ enum class RegionId {
     // out of scope here - a later Slice fleshes it out, mirroring M9-K/L's
     // "add the stub now, flesh it out later" split.
     OldFrontierSettlement,
+    // docs/regions/old_frontier_settlement.md「燼火峡谷を遠征先へ追加」: 7th
+    // region. Added as a minimal placeholder (same role OldFrontierSettlement's
+    // own pre-M9-U `old_frontier_settlement_outpost`-shaped stub played),
+    // unlocked once OldFrontierSettlement completes. Content itself is out of
+    // scope here - a later Slice fleshes it out, mirroring M9-K/L/Q/U's
+    // established "add the stub now, flesh it out later" split.
+    EmberRavine,
 };
 
 using LootId = std::string;
@@ -176,6 +183,10 @@ struct BaseState {
     // cinderwatchMaterialsEarned/blackwaterMaterialsEarned above, tracked
     // independently per region.
     std::unordered_map<std::string, int> windscarMaterialsEarned;
+    // docs/regions/old_frontier_settlement.md「最低保証報酬」: same mechanism as
+    // cinderwatchMaterialsEarned/blackwaterMaterialsEarned/
+    // windscarMaterialsEarned above, tracked independently per region.
+    std::unordered_map<std::string, int> settlementMaterialsEarned;
 
     // docs/item_system.md "製作単位と倉庫上限": consumables owned but not
     // currently packed into an expedition bag - crafted via GameApp::
@@ -322,6 +333,39 @@ inline constexpr const char* kAshboughForestSurveyCompleteDiscovery = "ashbough_
 // this region).
 inline constexpr const char* kMiningTechniqueRecordsDiscovery = "quarry_mining_technique_records";
 inline constexpr const char* kAnomalousVeinRecordsDiscovery = "ashiron_anomalous_vein_records";
+// docs/regions/old_frontier_settlement.md「2. 共同井戸」の「全員避難: 集落証言
+// 記録」(M9-V): not listed in the doc's own「安定ID」table (that table only
+// covers 恒久成果/地域攻略-scale ids), so this id was chosen to match the
+// existing `<region>_..._records` Discovery naming convention (see
+// kMiningTechniqueRecordsDiscovery above). Granted ad-hoc from
+// GameApp::proceedToCamp() (same pattern as kMiningTechniqueRecordsDiscovery),
+// same known display-name gap as kWindscarRoadChartDiscovery/
+// kCourierRouteChartDiscovery/kMiningTechniqueRecordsDiscovery/
+// kAnomalousVeinRecordsDiscovery above - none of these post-M9-T Discoveries
+// are wired into ui_shared.cpp's discoveryNameFor(), so they display as their
+// raw id rather than a localized name (pre-existing gap, not newly
+// introduced here).
+inline constexpr const char* kSettlementCommunalTestimonyDiscovery = "settlement_communal_testimony_records";
+// docs/regions/old_frontier_settlement.md「安定ID」table: 集落台帳・援護命令 and
+// 集団防衛・不動の構え respectively - each id is shared by 2 doc-listed reward
+// rows (the doc's floor table lists them as 2 separate line items, but both
+// map to the same underlying Discovery per the「安定ID」table, same "one id,
+// dedup on re-grant" semantics every other Discovery constant already has).
+// `settlement_command_ledger` itself is already granted directly as a raw
+// string from `data/regions.json`'s `settlement_gathering_hall` entry
+// (M9-X); this constant exists so the region-clear floor top-up (below) and
+// GameApp's dawn-defense ad-hoc bonus block can reference the same id
+// without retyping the literal.
+inline constexpr const char* kSettlementCommandLedgerDiscovery = "settlement_command_ledger";
+// docs/regions/old_frontier_settlement.md「5. 夜明けの共同防衛」の「井戸・穀物庫
+// 保全: 集団防衛資料」: unreachable as ordinary Loot/Discovery victory reward
+// (Object durability system doesn't exist - M6-C-era known gap, sub-condition
+// 2 of the primary's 3-way AND is deferred entirely, see
+// settlementDawnDefenseStage()'s own comment), but still granted via the
+// region-clear floor top-up below (same "unreachable per-site, guaranteed at
+// region-clear" shape as kMiningTechniqueRecordsDiscovery's own gap, just
+// resolved by the floor instead of left fully stranded).
+inline constexpr const char* kCollectiveDefenseRecordsDiscovery = "collective_defense_records";
 
 // Forge tuning traits, tracked as an id rather than a free string so a typo
 // can't silently create an unrecognized "equipped" trait.

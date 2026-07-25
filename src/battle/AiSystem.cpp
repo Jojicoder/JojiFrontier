@@ -72,6 +72,17 @@ AiProfile profileFor(const Unit& unit) {
     // 反映した。
     if (unit.unitClass == UnitClass::Bandit)
         return {AiProfileId::Bandit, 40, 1500, 50, 20, 15, 10, 1, 4};
+    // docs/regions/old_frontier_settlement.md "強敵 襲撃団頭領"'s "退路判断":
+    // HP30%以下かつ4ラウンド目以降なら撤退 - this engine's generic
+    // takeEnemyTurn()/generateAiCandidates() path has no round-aware hook on
+    // AiProfile (retreatHpPercent is the only lever), so the "4ラウンド目
+    // 以降" gate is approximated away: this unit considers retreating at
+    // HP<=30% from round 1 onward, not just round 4+. Explicitly NOT a
+    // bespoke takeXBossTurn() (UnitClass::RaidLeader's own comment) - the
+    // doc frames this as an optional elite, not a true boss, so tuning the
+    // existing generic profile is the intended level of investment.
+    if (unit.unitClass == UnitClass::RaidLeader)
+        return {AiProfileId::Human, 40, 1500, 12, 20, 20, 20, 1, 6, 30};
     return {AiProfileId::Human, 40, 1500, 12, 20, 20, 20, 1, 6};
 }
 
