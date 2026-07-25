@@ -26,7 +26,59 @@ int BattleState::combatDefenseBonus(const Unit& defender, const Unit& attacker) 
     int bonus = defenseBonus(terrainAt(defender.position));
     for (const Unit& ally : units_) {
         if (!ally.isAlive() || ally.team != defender.team || !providesFormationBonus(ally.unitClass)) continue;
-        if (&ally != &defender && manhattanDistance(ally.position, defender.position) == 1) {
+        if (&ally == &defender) continue;
+        // Command Sword(号令剣, docs/base_development.md「M7項目3続き 武器分岐
+        // 固有効果(高コストTier)」): extends this provider's Formation Bonus
+        // radius from adjacent(1) to distance 2, but restricts the actual DEF+1
+        // to whichever 2 same-team allies are nearest to the provider (not
+        // every ally within radius). Every other provider keeps the plain
+        // "adjacent(1), no filter" shape.
+        const int radius = ally.weapon.id == "command_sword" ? 2 : 1;
+        if (manhattanDistance(ally.position, defender.position) > radius) continue;
+        if (ally.weapon.id == "command_sword") {
+            std::vector<const Unit*> nearby;
+            for (const Unit& other : units_) {
+                if (!other.isAlive() || other.team != ally.team || &other == &ally) continue;
+                if (manhattanDistance(ally.position, other.position) <= radius) nearby.push_back(&other);
+            }
+            std::sort(nearby.begin(), nearby.end(), [&](const Unit* a, const Unit* b) {
+                const int da = manhattanDistance(ally.position, a->position);
+                const int db = manhattanDistance(ally.position, b->position);
+                if (da != db) return da < db;
+                return a->id < b->id; // undocumented tie-break, deterministic
+            });
+            bool inNearestTwo = false;
+            for (std::size_t i = 0; i < nearby.size() && i < 2; ++i) {
+                if (nearby[i] == &defender) inNearestTwo = true;
+            }
+            if (!inNearestTwo) continue;
+        }
+        ++bonus;
+        break;
+    }
+    // Guard Sword(護衛剣): once per battle, an adjacent ally's first hit taken
+    // is reduced by 3. Read here dynamically (so previewAttack() reflects it
+    // too) - actual per-battle consumption happens in CombatResolver.cpp's
+    // resolveAttack() the moment a real hit lands.
+    for (const Unit& ally : units_) {
+        if (!ally.isAlive() || ally.team != defender.team || ally.weapon.id != "guard_sword") continue;
+        if (&ally == &defender || ally.guardSwordShieldUsed) continue;
+        if (manhattanDistance(ally.position, defender.position) == 1) {
+            bonus += 3;
+            break;
+        }
+    }
+    // Warding Standard(守護旗槍, 旗手): replaces 戦旗's usual STR/MAG+1 offensive
+    // aura with a defensive DEF+1/RES+1 aura instead. Applied here rather than
+    // CombatResolver.cpp's bannerAuraBonus() since this single return value is
+    // already subtracted from whichever of DEF/RES the attack actually uses
+    // (see CombatResolver.cpp's computeDamage()), so adding it once here grants
+    // both stats symmetrically without a separate RES-only code path. Same
+    // radius(2)/no-self-application rule as the offensive 戦旗 aura.
+    for (const Unit& bearer : units_) {
+        if (!bearer.isAlive() || bearer.team != defender.team || bearer.weapon.id != "warding_standard") continue;
+        if (&bearer == &defender) continue;
+        if (manhattanDistance(bearer.position, defender.position) <= 2) {
             ++bonus;
             break;
         }
@@ -178,7 +230,23 @@ bool BattleState::moveUnit(Unit& unit, GridPos destination) {
     Unit* occupant = unitAt(destination);
     if (occupant != nullptr && occupant != &unit) return false;
     unit.tilesMovedThisAction = manhattanDistance(unit.position, destination);
+    const GridPos origin = unit.position;
     unit.position = destination;
+    // Fortress Lance(城塞槍): entering (not merely already standing in) a
+    // Fortress-Lance-wielding enemy's Zone of Control (range 1 - this branch
+    // doesn't extend ZoC range) costs -2 damage dealt until the entering
+    // unit's next action ends (CombatResolver.cpp's computeDamage() reads
+    // it, markActed() below clears it). Checked here rather than at each
+    // individual move call site since every movement path (normal move,
+    // re-move, self-movement skills, EnemyAI, bosses) funnels through this
+    // one function.
+    for (const Unit& lancer : units_) {
+        if (!lancer.isPresent() || lancer.team == unit.team || lancer.weapon.id != "fortress_lance") continue;
+        if (manhattanDistance(lancer.position, destination) <= 1 && manhattanDistance(lancer.position, origin) > 1) {
+            unit.zocEntryDamageDownActive = true;
+            break;
+        }
+    }
     return true;
 }
 
@@ -209,6 +277,9 @@ void BattleState::beginPlayerPhase() {
         if (u.team == Team::Player) {
             u.hasActed = false;
             u.tilesMovedThisAction = 0;
+            // Patrol Lance(巡回槍): DEF+2 lasts "until the next Player Phase
+            // begins" - this is that moment.
+            u.patrolLanceReadyDefenseActive = false;
         }
     }
     announceReinforcements();

@@ -54,6 +54,10 @@ public:
     void markActed(Unit& unit) {
         unit.hasActed = true;
         unit.lastActedRound = round_;
+        // Fortress Lance's ZoC-entry debuff (see moveUnit()'s own comment)
+        // lasts exactly through the entering unit's next action - this is
+        // that action ending, so clear it here regardless of action kind.
+        unit.zocEntryDamageDownActive = false;
     }
 
     // Heavy Spear effect: pushes `defender` one tile straight back from

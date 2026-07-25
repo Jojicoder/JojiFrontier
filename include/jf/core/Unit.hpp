@@ -195,6 +195,30 @@ struct Unit {
     // する(weapon.firstHitOnly)。arcaneOverflowUsed同様、clearAllStatusEffects
     // では戻さない(戦闘スコープの1回きり)。
     bool weaponFirstHitUsed = false;
+    // Guard Sword(護衛剣, docs/base_development.md「M7項目3続き 武器分岐固有効果
+    // (高コストTier)」): 戦闘中1回、隣接味方が受ける最初の攻撃ダメージを3軽減する。
+    // weaponFirstHitUsed同様「戦闘スコープの1回きり」だが、この武器はここでしか
+    // 使わない独立フラグにした(weaponFirstHitUsedは同じユニットが同時に持てる
+    // onHitStatuses/causesKnockback/splashDamageと排他共有する前提のため)。
+    // 消費側はBattleState::combatDefenseBonus()(参照/プレビュー含む)、確定側は
+    // CombatResolver.cppのresolveAttack()。
+    bool guardSwordShieldUsed = false;
+    // Fortress Lance(城塞槍): このユニットのZone of Controlへ新規に入った敵は、
+    // 次の行動が終わるまで与ダメージ-2。BattleState::moveUnit()が入域を検出して
+    // 立て、BattleState::markActed()がその「次の行動」の終わりでクリアする
+    // (Waitトリガー系のJustGranted二重フラグは不要 - 付与そのものが移動であって
+    // 行動の確定ではないため、「次の行動」は必ずこのフラグが立った後の初回行動)。
+    bool zocEntryDamageDownActive = false;
+    // Patrol Lance(巡回槍): 待機で行動終了した場合、次のPlayer Phase開始まで
+    // DEF+2。immovable_stance/brace_for_impactの「自身の次の行動まで」とは違い
+    // 「次のPlayer Phase開始まで」なのでJustGranted二重フラグは不要 - Player
+    // Phaseの間だけ生き続け、BattleState::beginPlayerPhase()がクリアする。
+    bool patrolLanceReadyDefenseActive = false;
+    // Bulwark Maul(防壁槌): 待機時、次の自分の行動開始まで(=自身の次の行動が
+    // 終わるまで)DEF+2。immovable_stance/brace_for_impactと全く同じ「Waitで
+    // 自動発動、JustGrantedがそのWait自身と次の行動を区別する」ライフサイクル。
+    bool bulwarkMaulActive = false;
+    bool bulwarkMaulJustGranted = false;
 
     // The 2 equipped-skill slots (docs/skill_system.md). See
     // jf/battle/SkillCharges.hpp for lifecycle management.
@@ -295,6 +319,8 @@ struct Unit {
         if (immovableStanceActive) def += 3; // 古参守備兵`immovable_stance`
         if (braceForImpactActive) def += 3; // 重装兵`brace_for_impact`
         if (rallyingBannerActive) def += 1; // 旗手`rallying_banner`
+        if (patrolLanceReadyDefenseActive) def += 2; // 巡回槍
+        if (bulwarkMaulActive) def += 2; // 防壁槌
         if (defenseDownActive) def = std::max(def - statusDefenseDownAmount(isBoss), 0);
         return def;
     }

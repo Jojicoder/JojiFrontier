@@ -3234,6 +3234,57 @@ Withdrawal Bladeの計8分岐)で、別タスクへ持ち越す。Patrol Lance/B
 成功を確認した。ユニット詳細画面の描画コードはPure描画ロジックであり、既存の
 `drawForgeEquipmentPanel()`等にも単体テストが無いため、新規テストは追加していない。
 
+## M7項目3続き 武器分岐固有効果(高コストTier、2026-07)
+
+「M7項目3続き 武器分岐固有効果(基礎〜中程度Tier)」で残した、新規サブシステムが
+要る8分岐すべてを接続した: Command Sword(号令剣、隊形補正半径1→2かつ最も近い
+2人限定)、Guard Sword(護衛剣、戦闘中1回・隣接味方の最初の被弾-3)、Fortress
+Lance(城塞槍、ZoC新規進入で次の行動終了まで与ダメージ-2)、Patrol Lance
+(巡回槍、待機で次のPlayer Phase開始までDEF+2)、Bulwark Maul(防壁槌、待機で
+自身の次の行動終了までDEF+2、immovable_stance/brace_for_impactと同じ二重フラグ
+方式)、Far/Valor/Warding Standard(旗手3分岐、既存`rallyingBannerActive`系の
+戦旗補助を半径/対象ステータスでパラメータ化)、Withdrawal Blade(離脱刃、攻撃後
+生存していれば対象から1マス離れる方向へ再移動、伝令騎兵`ride_through`の方向制約
+版)。これで武器分岐(全12兵種33種)の固有効果はすべてエンジン接続済みとなった。
+
+### 実装中に発見・修正した既存バグ
+
+新規テストの作成過程で、`src/battle/AiSystem.cpp:182`(敵AIの移動候補生成)に
+既存の未定義動作(符号付き整数オーバーフロー)を発見した。生存する`Team::Player`
+ユニットが1体も存在しない瞬間(例: パーティが全滅した直後の残り敵AI計算)に
+`nearest`が`std::numeric_limits<int>::max()`のままとなり、`-nearest *
+profile.distanceWeight`の符号反転でオーバーフローしていた。UBSan
+(`-fsanitize=address,undefined`)でこの一連のテスト不安定化(実行のたびに異なる
+無関係な箇所でassertが失敗する現象)の原因として確認・再現し、`nearest`が
+`INT_MAX`のまま(=対象なし)の場合はその移動候補生成自体をスキップするよう修正
+した。この修正後、UBSanビルドおよび通常ビルドとも5回連続でtest成功を確認した。
+今回の武器分岐機能そのものとは無関係な、既存コードの潜在バグだったため、
+本Sliceの副産物として記録する。
+
+### テストの前提ミス(実装ではなくテスト側)
+
+新規テスト作成中に以下の思い込みミスを発見・修正した(実装側は正しかった):
+
+- Command Swordの「最も近い2人」判定テストで、同着(距離2)のタイブレークを
+  文字列比較の向きを逆に仮定していた("far3" < "near2"は辞書順で真、逆ではない)
+  - 同着に依存しない設計へテストを修正
+- Fortress Lanceのテストで、ZoC進入後の状態のまま「基準値」を測っていた
+  (既にペナルティが乗った値をbaselineとして使ってしまっていた)
+- Patrol Lance/Bulwark Mauleの待機確認は`selectMoveTile()`を経て
+  `SelectAction`状態に入ってから`chooseWait()`を呼ぶ必要がある(既存の
+  `immovable_stance`テストの手順と同じ)
+- Bulwark Mauleは`immovable_stance`/`brace_for_impact`と同じく毎回のWaitで
+  再付与される仕様のため、2回目のWaitでは解除を確認できない(別行動種別が必要)
+- Withdrawal Bladeのテストで、1人しかいないPlayerユニットが行動を終えると
+  Player Phaseがそのまま終了し`EnemyTurn`へ遷移することを見落としていた
+  (`SelectUnit`のままという誤った期待だった)
+
+### テスト・ビルド
+
+`tests/test_battle.cpp`に8分岐ぶんの固有効果テストを追加。`ctest --test-dir
+build -j10`は4/4 Pass(5回連続実行で安定を確認)、UBSan/ASanビルドでも
+クリーン。`git diff --check`成功。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

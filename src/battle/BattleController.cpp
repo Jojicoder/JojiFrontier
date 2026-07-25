@@ -438,7 +438,7 @@ void BattleController::markActionResolved(Unit& unit, ActionKind actionKind) {
 // must skip its own post-action cleanup in that case (see
 // selectReMoveTarget(), which runs the deferred tail once a re-move Tile is
 // chosen) rather than tearing down selectedUnit_/caches out from under it.
-bool BattleController::finishPlayerAction(Unit& unit, ActionKind actionKind) {
+bool BattleController::finishPlayerAction(Unit& unit, ActionKind actionKind, const Unit* attackedTarget) {
     // Snapshot before the terrain/status resolution below so a self-defeat
     // from burn fires UnitDefeatedEvent exactly once (any combat-caused
     // defeat was already captured and emitted by the caller, e.g.
@@ -463,6 +463,14 @@ bool BattleController::finishPlayerAction(Unit& unit, ActionKind actionKind) {
         if (unit.braceForImpactJustGranted) unit.braceForImpactJustGranted = false;
         else unit.braceForImpactActive = false;
     }
+    // Bulwark Maul(防壁槌): same two-flag "survives the granting Wait, clears
+    // at the end of the next action" shape as immovable_stance/
+    // brace_for_impact above, but a weapon-branch effect (not a skill), so
+    // it's armed by weapon.id in chooseWait() rather than a skill slot.
+    if (unit.bulwarkMaulActive) {
+        if (unit.bulwarkMaulJustGranted) unit.bulwarkMaulJustGranted = false;
+        else unit.bulwarkMaulActive = false;
+    }
 
     // 伝令騎兵「再移動」: Attack/Skill/Item行動後、生存していれば最大2マス
     // (`ride_through`使用時4マス)移動して行動終了。まだmarkActed/
@@ -476,6 +484,40 @@ bool BattleController::finishPlayerAction(Unit& unit, ActionKind actionKind) {
             emitUnitDefeatedEvents(battle_, aliveBefore);
             selectedUnit_ = &unit;
             pendingReMoveActionKind_ = actionKind;
+            reachableTiles_.clear();
+            targetableTiles_.clear();
+            objectTargetableTiles_.clear();
+            objectInteractableTiles_.clear();
+            attackRangeTiles_.clear();
+            healableTiles_.clear();
+            fieldFortificationTiles_.clear();
+            itemTargetTiles_.clear();
+            boardTargetTiles_.clear();
+            skillTargetTiles_.clear();
+            inputState_ = BattleInputState::SelectReMoveTarget;
+            return false;
+        }
+    }
+
+    // Withdrawal Blade(離脱刃): after a successful Attack action, if the
+    // attacked enemy is still alive, re-move exactly 1 tile away from it
+    // (strictly increasing distance from its current position) - a
+    // fixed-budget, direction-constrained variant of 伝令騎兵「再移動」above,
+    // so it's kept as its own branch rather than folding into canReMove()
+    // (that budget is always 2/4 and unconstrained in direction).
+    if (unit.weapon.id == "withdrawal_blade" && unit.isAlive() && actionKind == ActionKind::Attack &&
+        attackedTarget && attackedTarget->isAlive()) {
+        const int currentDist = manhattanDistance(unit.position, attackedTarget->position);
+        std::vector<GridPos> awayTiles;
+        for (GridPos candidate : computeReMoveTiles(battle_, unit, 1)) {
+            if (candidate == unit.position) continue;
+            if (manhattanDistance(candidate, attackedTarget->position) > currentDist) awayTiles.push_back(candidate);
+        }
+        if (!awayTiles.empty()) {
+            emitUnitDefeatedEvents(battle_, aliveBefore);
+            selectedUnit_ = &unit;
+            pendingReMoveActionKind_ = actionKind;
+            reMoveTiles_ = std::move(awayTiles);
             reachableTiles_.clear();
             targetableTiles_.clear();
             objectTargetableTiles_.clear();
@@ -1427,6 +1469,19 @@ void BattleController::chooseWait() {
             break;
         }
     }
+    // Bulwark Maul(防壁槌): weapon-branch analogue of brace_for_impact above -
+    // auto-triggers on Wait, no charge/target step.
+    if (selectedUnit_->weapon.id == "bulwark_maul") {
+        selectedUnit_->bulwarkMaulActive = true;
+        selectedUnit_->bulwarkMaulJustGranted = true;
+    }
+    // Patrol Lance(巡回槍): auto-triggers on Wait, but DEF+2 lasts until the
+    // next Player Phase begins (BattleState::beginPlayerPhase() clears it)
+    // rather than through just this unit's own next action, so it needs no
+    // JustGranted companion flag.
+    if (selectedUnit_->weapon.id == "patrol_lance") {
+        selectedUnit_->patrolLanceReadyDefenseActive = true;
+    }
     if (!finishPlayerAction(*selectedUnit_, ActionKind::Wait)) return;
     selectedUnit_ = nullptr;
     reachableTiles_.clear();
@@ -1555,8 +1610,12 @@ void BattleController::confirmAttack() {
         selectedUnit_->arcaneOverflowUsed = true;
     }
     emitUnitDefeatedEvents(battle_, aliveBeforeAttack);
+    // Withdrawal Blade (docs/base_development.md): finishPlayerAction() needs
+    // the attacked enemy to constrain its post-attack re-move direction, so
+    // capture it before clearing pendingTarget_ below.
+    Unit* attackedTarget = pendingTarget_;
     pendingTarget_ = nullptr;
-    if (!finishPlayerAction(*selectedUnit_, ActionKind::Attack)) return;
+    if (!finishPlayerAction(*selectedUnit_, ActionKind::Attack, attackedTarget)) return;
 
     selectedUnit_ = nullptr;
     reachableTiles_.clear();

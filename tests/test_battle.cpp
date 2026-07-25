@@ -10304,6 +10304,218 @@ int main() {
         assert(controller.battle().units()[1].defenseUpActive);
     }
 
+    // M7項目3続き(高コストTier) 武器分岐固有効果 (docs/base_development.md).
+    {
+        // Command Sword: Formation Bonus radius 1->2, but DEF+1 only to the
+        // nearest 2 allies of the Command Sword wielder - a 3rd, strictly
+        // farther ally within radius 2 must NOT get the bonus. Both "near"
+        // allies sit at distance 1 (no tie with "far3"'s distance 2), so
+        // this doesn't depend on the id-string tie-break the implementation
+        // uses for same-distance allies.
+        jf::Unit captain = makeUnit("captain", jf::Team::Player, {2, 2}, 4, jf::UnitClass::MarchCaptain);
+        captain.weapon = {.id = "command_sword", .name = "Command Sword", .might = 4, .minRange = 1, .maxRange = 1,
+                          .damageType = jf::DamageType::Physical};
+        jf::Unit near1 = makeUnit("near1", jf::Team::Player, {2, 3}); // distance 1
+        jf::Unit near2 = makeUnit("near2", jf::Team::Player, {2, 1}); // distance 1
+        jf::Unit far3 = makeUnit("far3", jf::Team::Player, {0, 2});   // distance 2, strictly farther
+        jf::Unit attacker = makeUnit("attacker", jf::Team::Enemy, {5, 5}, 4);
+        jf::BattleController controller(jf::BattleState({captain, near1, near2, far3, attacker}));
+        auto& units = controller.battle().units();
+        assert(controller.battle().combatDefenseBonus(units[1], units[4]) >= 1); // near1: bonus
+        assert(controller.battle().combatDefenseBonus(units[2], units[4]) >= 1); // near2: bonus
+        const int bonusOnFar3 = controller.battle().combatDefenseBonus(units[3], units[4]);
+        const int bonusOnNear2 = controller.battle().combatDefenseBonus(units[2], units[4]);
+        assert(bonusOnFar3 < bonusOnNear2);
+    }
+    {
+        // Guard Sword: once per battle, reduces an adjacent ally's first hit
+        // taken by 3; the shield is consumed after that first hit lands.
+        jf::Unit swordsman = makeUnit("swordsman", jf::Team::Player, {1, 0}, 4, jf::UnitClass::MarchCaptain);
+        swordsman.weapon = {.id = "guard_sword", .name = "Guard Sword", .might = 4, .minRange = 1, .maxRange = 1,
+                            .damageType = jf::DamageType::Physical};
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {1, 1}, 4);
+        jf::Unit attacker = makeUnit("attacker", jf::Team::Enemy, {1, 2}, 4);
+        attacker.stats.strength = 8;
+        attacker.weapon = {.id = "iron_sword", .name = "Iron Sword", .might = 5, .minRange = 1, .maxRange = 1,
+                           .damageType = jf::DamageType::Physical};
+        jf::BattleController controller(jf::BattleState({swordsman, ally, attacker}));
+        auto& units = controller.battle().units();
+        const int shieldedBonus = controller.battle().combatDefenseBonus(units[1], units[2]);
+        int hpBefore = units[1].currentHp;
+        jf::resolveAttack(controller.battle(), units[2], units[1], shieldedBonus, true);
+        const int shieldedDamage = hpBefore - units[1].currentHp;
+        assert(units[0].guardSwordShieldUsed);
+        // Shield is spent - a second hit on the same ally gets no reduction.
+        hpBefore = units[1].currentHp;
+        const int unshieldedBonus = controller.battle().combatDefenseBonus(units[1], units[2]);
+        jf::resolveAttack(controller.battle(), units[2], units[1], unshieldedBonus, true);
+        const int unshieldedDamage = hpBefore - units[1].currentHp;
+        assert(unshieldedDamage == shieldedDamage + 3);
+    }
+    {
+        // Fortress Lance: an enemy moving into its ZoC (range 1) takes -2
+        // damage dealt until its next action ends.
+        jf::Unit lancer = makeUnit("lancer", jf::Team::Player, {1, 5}, 4, jf::UnitClass::VeteranGuard);
+        lancer.weapon = {.id = "fortress_lance", .name = "Fortress Lance", .might = 4, .minRange = 1, .maxRange = 2,
+                         .damageType = jf::DamageType::Physical};
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 0}, 4);
+        enemy.stats.strength = 6;
+        enemy.weapon = {.id = "enemy_sword", .name = "Enemy Sword", .might = 5, .minRange = 1, .maxRange = 1,
+                        .damageType = jf::DamageType::Physical};
+        jf::Unit victim = makeUnit("victim", jf::Team::Player, {2, 4}, 4);
+        jf::BattleState battle({lancer, enemy, victim});
+        auto& units = battle.units();
+        assert(!units[1].zocEntryDamageDownActive);
+        const int baseline = jf::computeDamage(units[1], units[2], 0, 0); // measured BEFORE entering the ZoC
+        battle.moveUnit(units[1], {1, 4}); // enters lancer's ZoC (distance 1)
+        assert(units[1].zocEntryDamageDownActive);
+        const int penalized = jf::computeDamage(units[1], units[2], 0, 0);
+        assert(penalized == baseline - 2);
+        battle.moveUnit(units[1], {2, 4}); // still adjacent to victim, still inside ZoC (no re-trigger needed)
+        assert(units[1].zocEntryDamageDownActive); // still active, not re-triggered or cleared by this move
+        assert(jf::computeDamage(units[1], units[2], 0, 0) == baseline - 2);
+        battle.markActed(units[1]); // enemy's next action ends
+        assert(!units[1].zocEntryDamageDownActive);
+        assert(jf::computeDamage(units[1], units[2], 0, 0) == baseline);
+    }
+    {
+        // Patrol Lance: confirming Wait grants DEF+2 until the next Player
+        // Phase begins (survives the intervening Enemy Phase).
+        jf::Unit lancer = makeUnit("lancer", jf::Team::Player, {1, 0}, 4, jf::UnitClass::VeteranGuard);
+        lancer.weapon = {.id = "patrol_lance", .name = "Patrol Lance", .might = 5, .minRange = 1, .maxRange = 2,
+                         .damageType = jf::DamageType::Physical};
+        jf::BattleController controller(jf::BattleState({lancer}));
+        const int baseDef = controller.battle().units()[0].effectiveDefense();
+        controller.selectUnit(controller.battle().units().front());
+        controller.selectMoveTile(controller.battle().units()[0].position); // no movement
+        controller.chooseWait();
+        assert(controller.battle().units()[0].patrolLanceReadyDefenseActive);
+        assert(controller.battle().units()[0].effectiveDefense() == baseDef + 2);
+        controller.battle().beginEnemyPhase();
+        assert(controller.battle().units()[0].patrolLanceReadyDefenseActive); // survives Enemy Phase
+        controller.battle().beginPlayerPhase();
+        assert(!controller.battle().units()[0].patrolLanceReadyDefenseActive); // cleared at next Player Phase
+    }
+    {
+        // Bulwark Maul: confirming Wait grants DEF+2 until this unit's own
+        // next action ends (immovable_stance/brace_for_impact's shape) - it
+        // re-arms on every Wait confirmation (same as those two skills), so
+        // a SECOND Wait would just re-grant it rather than let it expire;
+        // a different action kind is what actually clears it (mirroring the
+        // immovable_stance test's own use of a non-Wait action to prove
+        // this), here a plain Attack.
+        jf::Unit maul = makeUnit("maul", jf::Team::Player, {1, 0}, 4, jf::UnitClass::HeavyInfantry);
+        maul.weapon = {.id = "bulwark_maul", .name = "Bulwark Maul", .might = 5, .minRange = 1, .maxRange = 1,
+                       .damageType = jf::DamageType::Physical};
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 1}, 4);
+        jf::BattleController controller(jf::BattleState({maul, enemy}));
+        const int baseDef = controller.battle().units()[0].effectiveDefense();
+        controller.selectUnit(controller.battle().units().front());
+        controller.selectMoveTile(controller.battle().units()[0].position); // no movement
+        controller.chooseWait();
+        assert(controller.battle().units()[0].bulwarkMaulActive);
+        assert(controller.battle().units()[0].effectiveDefense() == baseDef + 2);
+        // Let the real Enemy Phase run (rather than calling
+        // BattleState::beginPlayerPhase() directly, which would desync
+        // BattleController's own inputState_ from the underlying phase -
+        // it'd stay stuck wherever chooseWait() left it, e.g. EnemyTurn,
+        // and every subsequent controller call would silently no-op against
+        // the stale state) so BattleController transitions back to
+        // SelectUnit properly for round 2, mirroring the immovable_stance
+        // test's own use of this exact update() loop for the same reason.
+        for (int i = 0; i < 20 && controller.inputState() == jf::BattleInputState::EnemyTurn; ++i)
+            controller.update(1.0f);
+        assert(controller.inputState() == jf::BattleInputState::SelectUnit);
+        assert(controller.battle().round() == 2);
+        assert(controller.battle().units()[0].bulwarkMaulActive); // survived the Enemy Phase
+        // This unit's own next action (an Attack, not another Wait) clears
+        // it. Re-find the enemy since it may have moved/counter-attacked
+        // during the Enemy Phase above.
+        jf::Unit* mauler = controller.battle().findUnit("maul");
+        jf::Unit* foe = controller.battle().findUnit("enemy");
+        assert(mauler && foe && foe->isAlive());
+        controller.selectUnit(*mauler);
+        controller.selectMoveTile(mauler->position); // no movement
+        assert(controller.inputState() == jf::BattleInputState::SelectAction);
+        controller.chooseAttack();
+        assert(controller.inputState() == jf::BattleInputState::SelectTarget);
+        controller.selectTargetTile(foe->position);
+        assert(controller.inputState() == jf::BattleInputState::ConfirmAttack);
+        controller.confirmAttack();
+        assert(!controller.battle().findUnit("maul")->bulwarkMaulActive);
+    }
+    {
+        // Far Standard: 戦旗 radius extended from 2 to 3.
+        jf::Unit bearer = makeUnit("bearer", jf::Team::Player, {0, 0}, 4, jf::UnitClass::BannerBearer);
+        bearer.weapon = {.id = "far_standard", .name = "Far Standard", .might = 2, .minRange = 1, .maxRange = 2,
+                         .damageType = jf::DamageType::Physical};
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {0, 3}, 4); // distance 3
+        ally.weapon = {.id = "iron_sword", .name = "Iron Sword", .might = 5, .minRange = 1, .maxRange = 1,
+                       .damageType = jf::DamageType::Physical};
+        jf::BattleState battle({bearer, ally});
+        assert(jf::bannerAuraBonus(battle.units(), battle.units()[1]) == 1);
+    }
+    {
+        // Valor Standard: STR+2 (not the usual +1) for a Physical attacker,
+        // but 0 for a Magical attacker ("MAGは上昇させない").
+        jf::Unit bearer = makeUnit("bearer", jf::Team::Player, {0, 0}, 4, jf::UnitClass::BannerBearer);
+        bearer.weapon = {.id = "valor_standard", .name = "Valor Standard", .might = 5, .minRange = 1, .maxRange = 2,
+                         .damageType = jf::DamageType::Physical};
+        jf::Unit physicalAlly = makeUnit("physicalAlly", jf::Team::Player, {0, 2}, 4);
+        physicalAlly.weapon = {.id = "iron_sword", .name = "Iron Sword", .might = 5, .minRange = 1, .maxRange = 1,
+                               .damageType = jf::DamageType::Physical};
+        jf::Unit magicAlly = makeUnit("magicAlly", jf::Team::Player, {0, 1}, 4);
+        magicAlly.weapon = {.id = "arcane_focus", .name = "Arcane Focus", .might = 6, .minRange = 1, .maxRange = 2,
+                            .damageType = jf::DamageType::Magical};
+        jf::BattleState battle({bearer, physicalAlly, magicAlly});
+        assert(jf::bannerAuraBonus(battle.units(), battle.units()[1]) == 2);
+        assert(jf::bannerAuraBonus(battle.units(), battle.units()[2]) == 0);
+    }
+    {
+        // Warding Standard: replaces 戦旗's STR/MAG+1 aura with a defensive
+        // DEF+1/RES+1 aura (applied via combatDefenseBonus(), so 0 offense).
+        jf::Unit bearer = makeUnit("bearer", jf::Team::Player, {0, 0}, 4, jf::UnitClass::BannerBearer);
+        bearer.weapon = {.id = "warding_standard", .name = "Warding Standard", .might = 3, .minRange = 1,
+                         .maxRange = 2, .damageType = jf::DamageType::Physical};
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {0, 2}, 4);
+        ally.weapon = {.id = "iron_sword", .name = "Iron Sword", .might = 5, .minRange = 1, .maxRange = 1,
+                       .damageType = jf::DamageType::Physical};
+        jf::Unit attacker = makeUnit("attacker", jf::Team::Enemy, {5, 5}, 4);
+        jf::BattleState battle({bearer, ally, attacker});
+        assert(jf::bannerAuraBonus(battle.units(), battle.units()[1]) == 0); // no offensive aura
+        assert(battle.combatDefenseBonus(battle.units()[1], battle.units()[2]) >= 1); // defensive aura present
+    }
+    {
+        // Withdrawal Blade: after a successful attack, if the target is
+        // still alive, re-move 1 tile strictly away from it.
+        jf::Unit scout = makeUnit("scout", jf::Team::Player, {1, 1}, 4, jf::UnitClass::FrontierScout);
+        scout.stats.maxHp = 20;
+        scout.currentHp = 20;
+        scout.weapon = {.id = "withdrawal_blade", .name = "Withdrawal Blade", .might = 3, .minRange = 1,
+                        .maxRange = 1, .damageType = jf::DamageType::Physical};
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 2}, 4);
+        enemy.stats.maxHp = 30;
+        enemy.currentHp = 30;
+        enemy.stats.defense = 10; // survives the hit (low might, high DEF)
+        jf::BattleController controller(jf::BattleState({scout, enemy}));
+        controller.selectUnit(controller.battle().units().front());
+        controller.selectMoveTile({1, 2}); // attack shortcut: enemy tile is in range
+        assert(controller.inputState() == jf::BattleInputState::ConfirmAttack);
+        controller.confirmAttack();
+        assert(controller.battle().units()[1].isAlive());
+        assert(controller.inputState() == jf::BattleInputState::SelectReMoveTarget);
+        const int distBefore = jf::manhattanDistance(controller.battle().units()[0].position,
+                                                      controller.battle().units()[1].position);
+        controller.selectReMoveTarget({1, 0});
+        const int distAfter = jf::manhattanDistance(controller.battle().units()[0].position,
+                                                     controller.battle().units()[1].position);
+        assert(distAfter > distBefore);
+        // `scout` is the only Player unit, so finishing its action (the
+        // re-move's own markActionResolved()) ends the Player Phase outright
+        // rather than returning to SelectUnit for another unit to act.
+        assert(controller.inputState() == jf::BattleInputState::EnemyTurn);
+    }
+
     std::cout << "Battle tests PASSED\n";
     return 0;
 }

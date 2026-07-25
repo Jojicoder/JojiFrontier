@@ -183,6 +183,15 @@ std::vector<AiCandidate> generateAiCandidates(const BattleState& battle,
             for (const Unit& target : battle.units())
                 if (target.team == Team::Player && target.isAlive())
                     nearest = std::min(nearest, manhattanDistance(destination, target.position));
+            // No living Team::Player unit exists (e.g. the whole party was
+            // just wiped) - `nearest` stays at INT_MAX, and `-nearest *
+            // profile.distanceWeight` below would be a signed-integer-
+            // overflow UB (confirmed via UBSan: this silently corrupted
+            // unrelated state under some builds, producing sporadic,
+            // seemingly unrelated test flakes). There's nothing to move
+            // toward in this case, so skip generating this candidate - the
+            // `result.empty()` Wait fallback below still applies.
+            if (nearest == std::numeric_limits<int>::max()) continue;
             AiCandidate move;
             move.type = AiActionType::Move;
             move.destination = destination;

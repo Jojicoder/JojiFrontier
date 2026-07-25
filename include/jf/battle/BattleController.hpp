@@ -213,7 +213,12 @@ private:
     // BattleInputState::SelectReMoveTarget and returns false. Every call
     // site must skip its own post-action cleanup when this returns false
     // (selectReMoveTarget() runs the deferred tail once resolved).
-    bool finishPlayerAction(Unit& unit, ActionKind actionKind);
+    // `attackedTarget` is only consulted for Withdrawal Blade (docs/
+    // base_development.md): the enemy just attacked, if any, so its
+    // post-attack re-move can be constrained to tiles that increase distance
+    // from that specific enemy. Callers that aren't a normal attack (or that
+    // have already cleared their own pendingTarget_) pass nullptr.
+    bool finishPlayerAction(Unit& unit, ActionKind actionKind, const Unit* attackedTarget = nullptr);
     // markActed + ActionResolvedEvent construction/dispatch, shared by
     // finishPlayerAction()'s immediate path and selectReMoveTarget()'s
     // deferred-tail path.
