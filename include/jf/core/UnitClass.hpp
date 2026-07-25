@@ -49,6 +49,19 @@ enum class UnitClass {
     // (jf/battle/EnemyAI.hpp's takeGrubwormBossTurn()), reuses AshenhornBoar's
     // generic boss-runtime Unit fields (bossEnraged/chargeTelegraphed/etc).
     AshironGrubworm,
+    // docs/regions/blackwater_lowlands.md "沼牙の大蛇" (深泥の水源's boss). Own
+    // AI (jf/battle/EnemyAI.hpp's takeSerpentBossTurn()), reuses the same
+    // generic boss-runtime Unit fields as the boar/grubworm above.
+    MarshFangSerpent,
+    // docs/regions/windscar_plateau.md "高原運び手の隊長" (高原伝令所's boss).
+    // Own AI (jf/battle/EnemyAI.hpp's takeCourierCaptainBossTurn()), reuses
+    // the same generic boss-runtime Unit fields as the boar/grubworm/serpent
+    // above. Stat shape starts from MessengerCavalry per the doc's own
+    // "兵種: 伝令騎兵型" wording, but the boss's HP40/DEF6/RES4 diverge too
+    // far from the base class (HP22/DEF4/RES3) to reuse it directly - a new
+    // UnitClass with its own baseStats entry, same decision M9-D/M9-K made
+    // for their own bosses.
+    PlateauCourierCaptain,
 };
 
 enum class Team {

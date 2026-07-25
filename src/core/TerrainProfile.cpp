@@ -13,6 +13,7 @@ std::optional<TerrainType> terrainTypeFromString(const std::string& id) {
     if (id == "Brush") return TerrainType::Brush;
     if (id == "HerbPatch") return TerrainType::HerbPatch;
     if (id == "Shallows") return TerrainType::Shallows;
+    if (id == "WindGust") return TerrainType::WindGust;
     return std::nullopt;
 }
 

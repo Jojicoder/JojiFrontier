@@ -167,11 +167,60 @@ const RegionRouteGraph& blackwaterLowlandsGraph() {
     return graph;
 }
 
+// docs/regions/windscar_plateau.md「地点構成」: entrance -> 1.風下の登り口 ->
+// 2.崩れた中継路 -> キャンプI -> (3.風見台 と 4.分断された輸送隊、どちらを
+// 先に攻略してもよいが両方必須) -> キャンプII -> 5.断崖荷車道 ->
+// 6.高原伝令所 -> exit. Site 3/4's branch is BranchCompletion::AllMembers
+// (both required, order-free), the same shape as Cinderwatch's
+// ironwatch_stores/old_barracks and Blackwater's herb_islet/resin_grove -
+// not AnyMember (Ashiron's mine/hoist branch), matching the doc's "地点5へ
+// 進むには地点3・4の両方を確保する" explicitly requiring both. Sites 1-5
+// (`windscar_ascent`/`windscar_relay`/`windwatch_station`/`split_convoy`/
+// `cliff_cart_road`) are real content as of M9-P; site 6 (`plateau_relay`) is
+// real content as of this Slice too (`data/regions.json`), completing the
+// region - this graph's own wiring is unchanged.
+const RegionRouteGraph& windscarPlateauGraph() {
+    static const RegionRouteGraph graph{
+        RegionId::WindscarPlateau,
+        "windscar_plateau_main_route",
+        "windscar_plateau_entrance",
+        "windscar_plateau_exit",
+        {
+            {"windscar_plateau_entrance", RouteNodeKind::Entrance, std::nullopt},
+            {"windscar_ascent", RouteNodeKind::Site, "windscar_ascent"},
+            {"windscar_relay", RouteNodeKind::Site, "windscar_relay"},
+            {"windscar_camp1", RouteNodeKind::Camp, std::nullopt},
+            {"windwatch_convoy_branch", RouteNodeKind::BranchGroup, std::nullopt,
+             {"windwatch_station", "split_convoy"}, BranchCompletion::AllMembers},
+            {"windwatch_station", RouteNodeKind::Site, "windwatch_station"},
+            {"split_convoy", RouteNodeKind::Site, "split_convoy"},
+            {"windscar_camp2", RouteNodeKind::Camp, std::nullopt},
+            {"cliff_cart_road", RouteNodeKind::Site, "cliff_cart_road"},
+            {"plateau_relay", RouteNodeKind::Site, "plateau_relay"},
+            {"windscar_plateau_exit", RouteNodeKind::Exit, std::nullopt},
+        },
+        {
+            {"windscar_plateau_entrance", "windscar_ascent"},
+            {"windscar_ascent", "windscar_relay"},
+            {"windscar_relay", "windscar_camp1"},
+            {"windscar_camp1", "windwatch_convoy_branch"},
+            {"windwatch_station", "windwatch_convoy_branch"},
+            {"split_convoy", "windwatch_convoy_branch"},
+            {"windwatch_convoy_branch", "windscar_camp2"},
+            {"windscar_camp2", "cliff_cart_road"},
+            {"cliff_cart_road", "plateau_relay"},
+            {"plateau_relay", "windscar_plateau_exit"},
+        },
+    };
+    return graph;
+}
+
 } // namespace
 
 bool usesRouteGraph(RegionId regionId) {
     return regionId == RegionId::AshboughForest || regionId == RegionId::CinderwatchGate ||
-           regionId == RegionId::AshironQuarry || regionId == RegionId::BlackwaterLowlands;
+           regionId == RegionId::AshironQuarry || regionId == RegionId::BlackwaterLowlands ||
+           regionId == RegionId::WindscarPlateau;
 }
 
 const RegionRouteGraph& regionRouteGraph(RegionId regionId) {
@@ -179,6 +228,7 @@ const RegionRouteGraph& regionRouteGraph(RegionId regionId) {
     if (regionId == RegionId::CinderwatchGate) return cinderwatchGraph();
     if (regionId == RegionId::AshironQuarry) return ashironQuarryGraph();
     if (regionId == RegionId::BlackwaterLowlands) return blackwaterLowlandsGraph();
+    if (regionId == RegionId::WindscarPlateau) return windscarPlateauGraph();
     throw std::invalid_argument("region has no route graph");
 }
 

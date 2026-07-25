@@ -111,6 +111,20 @@
       "weaponId": "grubworm_mandibles",
       "nameKey": "class.ashiron_grubworm",
       "roleKey": "class.ashiron_grubworm.role"
+    },
+    {
+      "id": "MarshFangSerpent",
+      "baseStats": { "maxHp": 60, "strength": 9, "magic": 0, "speed": 5, "defense": 6, "resistance": 3, "move": 4 },
+      "weaponId": "serpent_fangs",
+      "nameKey": "class.marsh_fang_serpent",
+      "roleKey": "class.marsh_fang_serpent.role"
+    },
+    {
+      "id": "PlateauCourierCaptain",
+      "baseStats": { "maxHp": 40, "strength": 9, "magic": 0, "speed": 8, "defense": 6, "resistance": 4, "move": 6 },
+      "weaponId": "road_sword",
+      "nameKey": "class.plateau_courier_captain",
+      "roleKey": "class.plateau_courier_captain.role"
     }
   ]
 }

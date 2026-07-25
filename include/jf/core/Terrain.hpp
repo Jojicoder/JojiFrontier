@@ -15,7 +15,12 @@ enum class TerrainType {
     // docs/regions/ashbough_forest.md "薬草の沢": movement cost 2, passable,
     // no defense/evasion bonus. No current unit class ignores this penalty
     // (only a future flying class would).
-    Shallows
+    Shallows,
+    // docs/regions/windscar_plateau.md "強風帯"/"強風ルール": movement cost 1,
+    // passable, no defense/evasion bonus by itself - its effect is the
+    // forced Round-end push (BattleState::resolveWindGustRoundEnd()), not a
+    // per-tile stat modifier.
+    WindGust
 };
 
 int movementCost(TerrainType terrain);

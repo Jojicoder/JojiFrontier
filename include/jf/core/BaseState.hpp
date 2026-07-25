@@ -32,6 +32,22 @@ enum class RegionId {
     AshboughForest,
     AshironQuarry,
     BlackwaterLowlands,
+    // docs/regions/windscar_plateau.md「内部地域IDは`windscar_plateau`」: 5th
+    // region. M9-K added this as a minimal placeholder (same role Ashiron
+    // Quarry's own `ashiron_quarry_outpost` stub played before M9-A fleshed
+    // it out); this Slice renamed the enum/string id from the pre-spec
+    // "WindsweptHighland"/"windswept_highland" to match the doc's internal
+    // id exactly (every other region's enum name already matches its
+    // toString() 1:1 - see Region.cpp) and fleshed out the region skeleton +
+    // site 1.
+    WindscarPlateau,
+    // docs/regions/windscar_plateau.md「旧辺境集落を次の遠征先へ追加」: 6th
+    // region. This Slice added it as a minimal placeholder (same role
+    // WindscarPlateau's own pre-M9-L `windswept_highland_outpost` stub
+    // played), unlocked once WindscarPlateau completes. Content itself is
+    // out of scope here - a later Slice fleshes it out, mirroring M9-K/L's
+    // "add the stub now, flesh it out later" split.
+    OldFrontierSettlement,
 };
 
 using LootId = std::string;
@@ -153,6 +169,13 @@ struct BaseState {
     // applyExpeditionReturnToBase() reads this once, at the moment the region
     // completes, to top up any shortfall against the floor table.
     std::unordered_map<std::string, int> cinderwatchMaterialsEarned;
+    // docs/regions/blackwater_lowlands.md「最低保証報酬」: same role/mechanism
+    // as cinderwatchMaterialsEarned above, tracked independently per region.
+    std::unordered_map<std::string, int> blackwaterMaterialsEarned;
+    // docs/regions/windscar_plateau.md「最低保証報酬」: same role/mechanism as
+    // cinderwatchMaterialsEarned/blackwaterMaterialsEarned above, tracked
+    // independently per region.
+    std::unordered_map<std::string, int> windscarMaterialsEarned;
 
     // docs/item_system.md "製作単位と倉庫上限": consumables owned but not
     // currently packed into an expedition bag - crafted via GameApp::
@@ -259,6 +282,27 @@ inline constexpr const char* kBannerRecordsDiscovery = "last_signal_banner_recor
 inline constexpr const char* kFieldConstructionDiscovery = "ironwatch_field_construction_records";
 // Infirmary's Field Infirmary build requirement (a herb-thicket location).
 inline constexpr const char* kHerbThicketDiscovery = "herb_thicket_grounds";
+// docs/regions/blackwater_lowlands.md「安定ID」: the region's 4 key records,
+// same "region-completion floor top-up is the actual grant path" pattern as
+// kBannerRecordsDiscovery above - none of the individual sites' own AND/
+// trap/device infra exists to grant these precisely at the specific
+// sub-objective the doc names (M9-F/-G/-H/-J's own documented gaps), so
+// ExpeditionService.cpp's Blackwater floor top-up (mirroring Cinderwatch's)
+// is where all 4 actually get granted, on the safe return that completes
+// the region.
+inline constexpr const char* kBlackwaterSurveyDiscovery = "blackwater_survey_records";
+inline constexpr const char* kMarshPharmacologyDiscovery = "marsh_pharmacology_records";
+inline constexpr const char* kMarshTrapcraftDiscovery = "marsh_trapcraft_records";
+inline constexpr const char* kMarshEmergencyMedicineDiscovery = "marsh_emergency_medicine";
+// docs/regions/windscar_plateau.md「安定ID」: same role as the Blackwater
+// Discovery constants above - all 4 are actually granted through
+// ExpeditionService.cpp's Windscar floor top-up on the region-completing
+// safe return (per-site attainment of these isn't individually wired, same
+// documented gap the Blackwater constants' own comment records).
+inline constexpr const char* kWindscarRoadChartDiscovery = "windscar_road_chart";
+inline constexpr const char* kCavalryOperationRecordsDiscovery = "cavalry_operation_records";
+inline constexpr const char* kPlateauTargetingRecordsDiscovery = "plateau_targeting_records";
+inline constexpr const char* kCourierRouteChartDiscovery = "courier_route_chart";
 // docs/region_unlocks.md: Ashbough Forest's region-level completion mark.
 // Registered as a Discovery (for UI/Discovery-registry visibility) in the
 // same safe-return Transaction that adds RegionId::AshboughForest to

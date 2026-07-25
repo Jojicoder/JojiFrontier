@@ -96,6 +96,35 @@ void BattleState::applyKnockback(const Unit& attacker, Unit& defender) {
     defender.position = dest;
 }
 
+// docs/regions/windscar_plateau.md "強風ルール" - see the declaration's
+// comment (BattleState.hpp) for the full rule summary.
+void resolveWindGustRoundEnd(BattleState& battle) {
+    const auto& config = battle.windGust();
+    if (!config || battle.round() != config->triggerRound) return;
+    // Snapshot the unit ids on wind tiles before moving anyone, so a unit
+    // pushed onto another wind tile this same resolution doesn't get pushed
+    // twice in one Round End.
+    std::vector<std::string> windedUnitIds;
+    for (const Unit& unit : battle.units()) {
+        if (unit.isAlive() && battle.terrainAt(unit.position) == TerrainType::WindGust)
+            windedUnitIds.push_back(unit.id);
+    }
+    for (const std::string& id : windedUnitIds) {
+        Unit* unit = battle.findUnit(id);
+        if (!unit || !unit->isAlive()) continue;
+        if (hasHeavyArmor(unit->unitClass)) continue;
+        GridPos dest = unit->position;
+        dest.row += config->delta.row;
+        dest.col += config->delta.col;
+        if (!isInBounds(dest) || battle.unitAt(dest) || !isPassable(battle.terrainAt(dest)) ||
+            battle.objectBlocksMovementAt(dest) || battle.objectBlocksStoppingAt(dest)) {
+            unit->currentHp = std::max(0, unit->currentHp - 2);
+            continue;
+        }
+        unit->position = dest;
+    }
+}
+
 Unit* BattleState::unitAt(GridPos pos) {
     for (auto& u : units_) {
         if (u.isPresent() && u.position == pos) return &u;
@@ -248,6 +277,14 @@ bool BattleState::allEnemiesDefeated() const {
 bool BattleState::allPlayersDefeated() const {
     return std::none_of(units_.begin(), units_.end(),
                          [](const Unit& u) { return u.team == Team::Player && u.isAlive(); });
+}
+
+bool BattleState::allGuestsLost() const {
+    if (mission_.guestUnitIds.empty()) return false;
+    return std::all_of(mission_.guestUnitIds.begin(), mission_.guestUnitIds.end(), [this](const std::string& id) {
+        const Unit* u = findUnit(id);
+        return u == nullptr || !u->isPresent();
+    });
 }
 
 bool BattleState::registerObjectDefinition(BattleObjectDefinition definition, std::vector<std::string>* errors) {

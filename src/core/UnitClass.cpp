@@ -20,6 +20,8 @@ std::string toString(UnitClass unitClass) {
         case UnitClass::Wolf: return "Wolf / 狼";
         case UnitClass::AshenhornBoar: return "Ashenhorn Boar / 灰角大猪";
         case UnitClass::AshironGrubworm: return "Ashiron Grubworm / 灰殻穿岩虫";
+        case UnitClass::MarshFangSerpent: return "Marsh-Fang Serpent / 沼牙の大蛇";
+        case UnitClass::PlateauCourierCaptain: return "Courier Captain / 高原運び手の隊長";
     }
     return "Unknown";
 }

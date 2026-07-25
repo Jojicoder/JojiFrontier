@@ -90,7 +90,18 @@ void handleObjectiveEvent(BattleMissionState& mission, const BattleEvent& event)
         // credit it.
         if (resolved->actorTeam != def.target.securingTeam) continue;
         ObjectiveProgress& progress = mission.progress[def.id];
-        if (progress.status == ObjectiveStatus::Completed) continue;
+        // SecureTile: nothing more to track once Completed (any single
+        // credit already satisfies it), so skip re-processing entirely.
+        // EscapeUnits keeps crediting distinct units even after
+        // requiredEscapeCount is already met - docs/regions/
+        // blackwater_lowlands.md「5. 黒水渡し」's secondary "2人とも脱出"
+        // needs creditedTargetIds to keep growing past a primary
+        // requiredEscapeCount of 1, since BattleController locks the whole
+        // battle into Victory the instant the primary group is satisfied -
+        // the only way a 2nd escapee can ever be observed is if its credit
+        // was recorded in the SAME batch (see GameApp::proceedToCamp()'s
+        // "全員脱出" bonus check).
+        if (progress.status == ObjectiveStatus::Completed && def.kind == ObjectiveKind::SecureTile) continue;
         if (resolved->endPosition.row != def.target.tile.row || resolved->endPosition.col != def.target.tile.col)
             continue;
         progress.creditedTargetIds.insert(resolved->actorUnitId);
@@ -194,6 +205,10 @@ void syncObjectiveProgress(BattleState& battle) {
 BattleOutcome evaluateBattleOutcome(const BattleState& battle) {
     BattleOutcome outcome;
     if (battle.allPlayersDefeated()) {
+        outcome.kind = BattleOutcomeKind::Defeat;
+        return outcome;
+    }
+    if (battle.allGuestsLost()) {
         outcome.kind = BattleOutcomeKind::Defeat;
         return outcome;
     }
@@ -366,11 +381,13 @@ void emitUnitDefeatedEvents(BattleState& battle, const AliveSnapshot& before) {
         auto it = before.find(unit.id);
         if (it == before.end() || !it->second) continue; // wasn't alive before, nothing to report
         if (!unit.isAlive()) {
-            // docs/boss_common_rules.md "Bossの退場理由": 灰角大猪・灰殻穿岩虫は
-            // HP0後をScriptedWithdrawalとして扱う(撃破相当) - every other
-            // unit's defeat is the plain Defeated case.
+            // docs/boss_common_rules.md "Bossの退場理由": 灰角大猪・灰殻穿岩虫・
+            // 沼牙の大蛇はHP0後をScriptedWithdrawalとして扱う(撃破相当) - every
+            // other unit's defeat is the plain Defeated case.
             unit.exitReason = (unit.unitClass == UnitClass::AshenhornBoar ||
-                               unit.unitClass == UnitClass::AshironGrubworm)
+                               unit.unitClass == UnitClass::AshironGrubworm ||
+                               unit.unitClass == UnitClass::MarshFangSerpent ||
+                               unit.unitClass == UnitClass::PlateauCourierCaptain)
                                   ? UnitExitReason::ScriptedWithdrawal
                                   : UnitExitReason::Defeated;
             BattleEvent event{battle.issueEventId(), 0,

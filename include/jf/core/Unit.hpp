@@ -210,6 +210,23 @@ struct Unit {
     // during which the ability's DEF+2 bonus is lost.
     bool bossChargeRecoveryPending = false;
 
+    // 沼牙の大蛇 (docs/regions/blackwater_lowlands.md「地域ボス 沼牙の大蛇」)
+    // boss-only: HP<=50% one-time "激しい身震い" trigger, same role as
+    // bossEnraged/bossCollapseUsed above. 水中潜行's own telegraph reuses the
+    // generic chargeTelegraphed/bossRuntime.telegraph/chargeCooldownActions
+    // fields above (M9-D's own note: "いずれもボア専用ではない、Unit上の汎用
+    // フィールド") rather than adding new ones.
+    bool bossShudderUsed = false;
+
+    // 高原運び手の隊長 (docs/regions/windscar_plateau.md「地域ボス 高原運び手の
+    // 隊長」) boss-only: 迂回命令 is a once-per-battle telegraph (reuses the
+    // generic chargeTelegraphed/bossRuntime.telegraph fields above, same
+    // reasoning as bossShudderUsed's own comment); 退路確保 is an HP<=50%
+    // one-time trigger, same role as bossEnraged/bossCollapseUsed/
+    // bossShudderUsed above.
+    bool bossFlankUsed = false;
+    bool bossEscapeRouteUsed = false;
+
     // docs/boss_common_rules.md "Bossの退場理由": set once, the moment this
     // unit's HP first reaches 0 (see ObjectiveTracker.cpp's
     // emitUnitDefeatedEvents(), the one place that currently sets it -
@@ -224,6 +241,12 @@ struct Unit {
     // battlefield" is the actual question (unitAt(), AI targeting,
     // EliminateTeam). exitReason is set to Retreated alongside this.
     bool hasExited = false;
+
+    // docs/regions/blackwater_lowlands.md "5. 黒水渡し"の荷運び役のような
+    // 戦闘限定ゲストユニット(常設ロースターに加わらない)であることを示す表示専用
+    // フラグ。team/AI/選択ロジックは通常のTeam::Playerユニットと変わらない -
+    // 見た目(名札・肖像枠など)の区別のためだけに存在する。
+    bool isGuest = false;
 
     bool isAlive() const { return currentHp > 0; }
     bool isPresent() const { return isAlive() && !hasExited; }

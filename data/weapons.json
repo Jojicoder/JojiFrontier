@@ -20,6 +20,63 @@
       "braceBoost": true },
     { "id": "wolf_bite", "name": "Bite", "might": 5, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
     { "id": "boar_tusks", "name": "Tusks", "might": 0, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
-    { "id": "grubworm_mandibles", "name": "Mandibles", "might": 0, "minRange": 1, "maxRange": 1, "damageType": "Physical" }
+    { "id": "grubworm_mandibles", "name": "Mandibles", "might": 0, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
+    { "id": "serpent_fangs", "name": "Fangs", "might": 0, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
+    { "id": "road_sword", "name": "Road Sword", "might": 6, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
+
+    { "id": "command_sword", "name": "Command Sword", "might": 4, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
+    { "id": "duel_sword", "name": "Duel Sword", "might": 7, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
+    { "id": "guard_sword", "name": "Guard Sword", "might": 4, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
+
+    { "id": "hook_lance", "name": "Hook Lance", "might": 5, "minRange": 1, "maxRange": 2, "damageType": "Physical" },
+    { "id": "fortress_lance", "name": "Fortress Lance", "might": 4, "minRange": 1, "maxRange": 2, "damageType": "Physical",
+      "moveModifier": -1 },
+    { "id": "patrol_lance", "name": "Patrol Lance", "might": 5, "minRange": 1, "maxRange": 2, "damageType": "Physical",
+      "moveModifier": 1 },
+
+    { "id": "long_watch_bow", "name": "Long Watch Bow", "might": 3, "minRange": 3, "maxRange": 4, "damageType": "Physical" },
+    { "id": "war_bow", "name": "War Bow", "might": 8, "minRange": 2, "maxRange": 2, "damageType": "Physical" },
+    { "id": "pinning_bow", "name": "Pinning Bow", "might": 4, "minRange": 2, "maxRange": 3, "damageType": "Physical",
+      "onHitStatuses": ["move_down"] },
+
+    { "id": "trail_blade", "name": "Trail Blade", "might": 3, "minRange": 1, "maxRange": 1, "damageType": "Physical",
+      "moveModifier": 1 },
+    { "id": "ambush_blade", "name": "Ambush Blade", "might": 6, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
+    { "id": "withdrawal_blade", "name": "Withdrawal Blade", "might": 3, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
+
+    { "id": "mercy_staff", "name": "Mercy Staff", "might": 1, "minRange": 1, "maxRange": 2, "damageType": "Magical" },
+    { "id": "ward_staff", "name": "Ward Staff", "might": 2, "minRange": 1, "maxRange": 2, "damageType": "Magical" },
+    { "id": "march_staff", "name": "March Staff", "might": 2, "minRange": 1, "maxRange": 2, "damageType": "Magical" },
+
+    { "id": "bulwark_maul", "name": "Bulwark Maul", "might": 5, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
+    { "id": "breaker_maul", "name": "Breaker Maul", "might": 9, "minRange": 1, "maxRange": 1, "damageType": "Physical",
+      "moveModifier": -1 },
+    { "id": "driving_maul", "name": "Driving Maul", "might": 6, "minRange": 1, "maxRange": 1, "damageType": "Physical",
+      "causesKnockback": true },
+
+    { "id": "builder_hammer", "name": "Builder Hammer", "might": 3, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
+    { "id": "demolition_hammer", "name": "Demolition Hammer", "might": 7, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
+    { "id": "repair_hammer", "name": "Repair Hammer", "might": 4, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
+
+    { "id": "road_sabre", "name": "Road Sabre", "might": 3, "minRange": 1, "maxRange": 1, "damageType": "Physical",
+      "moveModifier": 1 },
+    { "id": "charge_lance", "name": "Charge Lance", "might": 7, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
+    { "id": "escort_blade", "name": "Escort Blade", "might": 4, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
+
+    { "id": "snare_bow", "name": "Snare Bow", "might": 3, "minRange": 2, "maxRange": 2, "damageType": "Physical",
+      "onHitStatuses": ["move_down"] },
+    { "id": "quarry_bow", "name": "Quarry Bow", "might": 5, "minRange": 2, "maxRange": 2, "damageType": "Physical" },
+    { "id": "driving_bow", "name": "Driving Bow", "might": 3, "minRange": 2, "maxRange": 2, "damageType": "Physical",
+      "causesKnockback": true },
+
+    { "id": "far_standard", "name": "Far Standard", "might": 2, "minRange": 1, "maxRange": 2, "damageType": "Physical" },
+    { "id": "valor_standard", "name": "Valor Standard", "might": 5, "minRange": 1, "maxRange": 2, "damageType": "Physical" },
+    { "id": "warding_standard", "name": "Warding Standard", "might": 3, "minRange": 1, "maxRange": 2, "damageType": "Physical" },
+
+    { "id": "resonant_focus", "name": "Resonant Focus", "might": 4, "minRange": 1, "maxRange": 2, "damageType": "Magical" },
+    { "id": "war_focus", "name": "War Focus", "might": 9, "minRange": 1, "maxRange": 2, "damageType": "Magical",
+      "moveModifier": -1 },
+    { "id": "ember_focus", "name": "Ember Focus", "might": 5, "minRange": 1, "maxRange": 2, "damageType": "Magical",
+      "onHitStatuses": ["burn"] }
   ]
 }

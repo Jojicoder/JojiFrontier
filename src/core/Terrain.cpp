@@ -11,7 +11,8 @@ int movementCost(TerrainType terrain) {
         case TerrainType::Floor:
         case TerrainType::WatchPost:
         case TerrainType::Brush:
-        case TerrainType::HerbPatch: return 1;
+        case TerrainType::HerbPatch:
+        case TerrainType::WindGust: return 1;
     }
     return 1;
 }
@@ -38,6 +39,7 @@ std::string toString(TerrainType terrain) {
         case TerrainType::Brush: return "Brush";
         case TerrainType::HerbPatch: return "Herb Patch";
         case TerrainType::Shallows: return "Shallows";
+        case TerrainType::WindGust: return "Wind Gust";
     }
     return "Floor";
 }

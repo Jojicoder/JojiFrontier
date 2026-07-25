@@ -104,6 +104,9 @@ Color terrainColor(jf::TerrainType terrain) {
         case jf::TerrainType::Brush: return Color{64, 105, 76, 255};
         case jf::TerrainType::HerbPatch: return Color{72, 122, 91, 255};
         case jf::TerrainType::Shallows: return Color{69, 104, 122, 255};
+        // docs/regions/windscar_plateau.md "強風帯": a pale wind-swept blue,
+        // distinct from Shallows' darker water-blue.
+        case jf::TerrainType::WindGust: return Color{156, 189, 201, 255};
         case jf::TerrainType::Floor: return kFloorPanelColor;
     }
     return kFloorPanelColor;
@@ -292,7 +295,9 @@ void loadAppFont() {
                       "この地点の探索選択と戦闘内容は次の実装工程で追加します現在の未確定戦利品保存されています"
                       "次の地点では探索から開始します荷物そのまま引き継がれます"
                       "灰鉄採石場前線基地を攻略すると解放されます"
-                      "黒水低湿地灰水の沈み道葦原の分岐薬草洲樹脂林黒水渡し沈没水門深泥の水源(仮実装)";
+                      "黒水低湿地灰水の沈み道葦原の分岐薬草洲樹脂林黒水渡し沈没水門深泥の水源(仮実装)"
+                      "風裂き高原風下の登り口崩れた中継路風見台分断された輸送隊断崖荷車道高原伝令所"
+                      "旧辺境集落(仮実装)";
     for (const jf::FacilityNode& node : jf::facilityNodeRegistry()) charsetSource += node.nameJa + node.effectJa;
     for (const jf::SkillDefinition& skill : jf::skillRegistry()) charsetSource += skill.nameJa + skill.effectJa;
     for (jf::UnitClass uc : {jf::UnitClass::MarchCaptain, jf::UnitClass::VeteranGuard,
@@ -302,7 +307,8 @@ void loadAppFont() {
                               jf::UnitClass::MessengerCavalry, jf::UnitClass::FrontierRanger,
                               jf::UnitClass::BannerBearer, jf::UnitClass::BattleMage,
                               jf::UnitClass::Bandit, jf::UnitClass::Wolf,
-                              jf::UnitClass::AshenhornBoar, jf::UnitClass::AshironGrubworm}) {
+                              jf::UnitClass::AshenhornBoar, jf::UnitClass::AshironGrubworm,
+                              jf::UnitClass::MarshFangSerpent, jf::UnitClass::PlateauCourierCaptain}) {
         charsetSource += jf::toString(uc);
     }
     // classNameFor()/classRoleFor()'s Japanese text is already covered by
@@ -318,7 +324,8 @@ void loadAppFont() {
                            jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment", "iron", "stone",
                            "old_gear", "signal_core", "quality_iron"})
         charsetSource += materialNameFor(id);
-    for (const char* weaponId : {"wolf_bite", "boar_tusks", "grubworm_mandibles"}) charsetSource += weaponNameFor(weaponId, "");
+    for (const char* weaponId : {"wolf_bite", "boar_tusks", "grubworm_mandibles", "serpent_fangs", "road_sword"})
+        charsetSource += weaponNameFor(weaponId, "");
     gLanguage = previousLanguage;
 
     static const char* kCandidatePaths[] = {
@@ -435,6 +442,7 @@ std::string terrainNameFor(jf::TerrainType terrain) {
         case jf::TerrainType::Brush: return tr("terrain.brush");
         case jf::TerrainType::HerbPatch: return tr("terrain.herb_patch");
         case jf::TerrainType::Shallows: return tr("terrain.shallows");
+        case jf::TerrainType::WindGust: return tr("terrain.wind_gust");
     }
     return jf::toString(terrain);
 }
@@ -478,9 +486,11 @@ std::string unitDisplayNameFor(const std::string& englishName) {
         {"Wolf", "class.wolf"},
         {"Ashenhorn Boar", "class.ashenhorn_boar"},
         {"Ashiron Grubworm", "class.ashiron_grubworm"},
+        {"Marsh-Fang Serpent", "class.marsh_fang_serpent"},
         {"Rock Borer", "character.rock_borer"},
         {"Marsh Poison Spider", "character.marsh_poison_spider"},
         {"Marsh Viper", "character.marsh_viper"},
+        {"Plateau Runner", "character.plateau_runner"},
         // docs/roster_design.md「加入段階」/docs/gathering_place.md
         // `heavy_recruitment`: 重装兵の加入候補・加入後の表示名(Frontier提案、
         // World Bible未登録)。
@@ -495,7 +505,7 @@ std::string materialNameFor(const std::string& id) {
         "wood", "hide", "herb", "gate_tools", "ash_road_map", "field_medicine", "watch_ledger",
         "captains_seal", jf::kAshveilFangMaterial, jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment",
         "iron", "stone", "old_gear", "signal_core", "quality_iron", "combustion_oil", "ashiron_shell",
-        "wetland_resin", "poison_material",
+        "wetland_resin", "poison_material", "hardwood", "cloth", "riding_gear",
     };
     return known.count(id) ? tr("material." + id) : id;
 }
@@ -519,7 +529,21 @@ std::string weaponNameFor(const std::string& weaponId, const std::string& englis
         "iron_sword", "iron_lance", "iron_axe",  "watch_bow",   "scout_blade", "dawn_staff",
         "iron_spear", "long_spear", "heavy_spear", "guard_spear", "wolf_bite",   "boar_tusks",
         "iron_greathammer", "engineer_hammer", "messenger_sword", "hunting_bow", "banner_spear",
-        "arcane_focus", "grubworm_mandibles",
+        "arcane_focus", "grubworm_mandibles", "road_sword",
+        // Weapon-branch generalization to the other 11 classes
+        // (docs/implementation_roadmap.md "M7項目3(残り) ...特性・武器分岐の
+        // 他兵種一般化").
+        "command_sword", "duel_sword", "guard_sword",
+        "hook_lance", "fortress_lance", "patrol_lance",
+        "long_watch_bow", "war_bow", "pinning_bow",
+        "trail_blade", "ambush_blade", "withdrawal_blade",
+        "mercy_staff", "ward_staff", "march_staff",
+        "bulwark_maul", "breaker_maul", "driving_maul",
+        "builder_hammer", "demolition_hammer", "repair_hammer",
+        "road_sabre", "charge_lance", "escort_blade",
+        "snare_bow", "quarry_bow", "driving_bow",
+        "far_standard", "valor_standard", "warding_standard",
+        "resonant_focus", "war_focus", "ember_focus",
     };
     return known.count(weaponId) ? tr("weapon." + weaponId) : englishName;
 }

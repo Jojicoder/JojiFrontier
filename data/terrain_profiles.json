@@ -147,6 +147,23 @@
       "maxBarriersPerColumn": 0,
       "ensureHorizontalRoute": true,
       "countBounds": { "terrain": "Brush", "minimum": 2, "maximum": 7 }
+    },
+    {
+      "id": "windscar_ascent",
+      "generationVersion": 1,
+      "seedSalt": 12,
+      "weights": [
+        { "terrain": "Floor", "weight": 38 },
+        { "terrain": "Ash", "weight": 20 },
+        { "terrain": "WatchPost", "weight": 12 },
+        { "terrain": "WindGust", "weight": 15 },
+        { "terrain": "Barrier", "weight": 8 },
+        { "terrain": "Rubble", "weight": 7 }
+      ],
+      "signatureTerrain": "WindGust",
+      "maxBarriersPerColumn": 1,
+      "ensureHorizontalRoute": true,
+      "countBounds": { "terrain": "WindGust", "minimum": 3, "maximum": 6 }
     }
   ]
 }

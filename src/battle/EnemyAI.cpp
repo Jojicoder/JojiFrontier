@@ -655,12 +655,505 @@ Unit* takeGrubwormBossTurn(BattleState& battle, Unit& grubworm) {
     return nullptr;
 }
 
+// docs/regions/blackwater_lowlands.md "沼牙の大蛇"/"行動"/"行動優先順位".
+// Approximated relative to the doc the same way M9-D scoped down the
+// grubworm (see this function's own comments below for each spot):
+// - 水中潜行's "浅瀬が経路にない場合は使用しない" is approximated to "no
+//   Shallows tile anywhere on the board" (no per-path terrain-walk exists
+//   for a teleport-style move, unlike the boar/grubworm's straight-line
+//   charges which do have one) rather than a true path check.
+// - The `[辺境猟兵]` route's "実際の移動先1マスだけを表示" is deferred: no
+//   route-conditional boss-AI wiring exists anywhere in the engine (grep
+//   0 hits), so every route gets the same 2-tile telegraph.
+// - "水源標識は押し出さず、固定2ダメージを受ける" is deferred: Objects have
+//   no HP/durability field anywhere (same known gap as M6-C/M9-C/M9-D/-J),
+//   so markers simply aren't pushed and take no damage either.
+// - "毒溜まりへ押し出された場合は毒付与" is deferred: no poison-pool terrain
+//   flavor exists (only Shallows), so a push never poisons.
+constexpr int kSerpentVenomBonus = 3;
+constexpr int kSerpentConstrictBonus = 1;
+
+// 締め付け's front-3 pattern: identical shape to boarSweepTargets() (the
+// column immediately toward the player side), reused for a different boss.
+std::vector<Unit*> serpentConstrictTargets(BattleState& battle, const Unit& serpent) {
+    std::vector<Unit*> targets;
+    int col = serpent.position.col - 1;
+    if (col < 0) return targets;
+    for (int row = serpent.position.row - 1; row <= serpent.position.row + 1; ++row) {
+        GridPos pos{row, col};
+        if (!isInBounds(pos)) continue;
+        Unit* occupant = battle.unitAt(pos);
+        if (occupant && occupant->team == Team::Player && occupant->isAlive()) targets.push_back(occupant);
+    }
+    return targets;
+}
+
+int countAdjacentPlayers(BattleState& battle, const Unit& serpent) {
+    int count = 0;
+    for (const GridPos& delta : {GridPos{-1, 0}, GridPos{1, 0}, GridPos{0, -1}, GridPos{0, 1}}) {
+        GridPos pos{serpent.position.row + delta.row, serpent.position.col + delta.col};
+        if (!isInBounds(pos)) continue;
+        Unit* occupant = battle.unitAt(pos);
+        if (occupant && occupant->team == Team::Player && occupant->isAlive()) ++count;
+    }
+    return count;
+}
+
+Unit* adjacentPlayer(BattleState& battle, const Unit& serpent) {
+    for (const GridPos& delta : {GridPos{-1, 0}, GridPos{1, 0}, GridPos{0, -1}, GridPos{0, 1}}) {
+        GridPos pos{serpent.position.row + delta.row, serpent.position.col + delta.col};
+        if (!isInBounds(pos)) continue;
+        Unit* occupant = battle.unitAt(pos);
+        if (occupant && occupant->team == Team::Player && occupant->isAlive()) return occupant;
+    }
+    return nullptr;
+}
+
+// True if any tile on the board is Shallows (see this function's own header
+// comment above on the approximation this makes for "経路に浅瀬がない").
+bool anyShallowsOnBoard(const BattleState& battle) {
+    for (int row = 0; row < kGridRows; ++row)
+        for (int col = 0; col < kGridCols; ++col)
+            if (battle.terrainAt({row, col}) == TerrainType::Shallows) return true;
+    return false;
+}
+
+// 毒牙: range-1 STR+3 physical attack on `target`, poisoning it unless
+// already poisoned (docs: "すでに毒状態なら追加ダメージを増やさない" - no
+// stacking, just skip the re-application).
+Unit* performSerpentVenomBite(BattleState& battle, Unit& serpent, Unit& target) {
+    const bool hit = battle.rollAttackHit(target);
+    resolveAttack(battle, serpent, target, battle.combatDefenseBonus(target, serpent), hit, kSerpentVenomBonus);
+    if (hit && target.isAlive() && target.poisonRemainingProcs <= 0) applyPoison(target);
+    return &target;
+}
+
+// 締め付け: front-3 pattern, STR+1, Move Down with no stacking on a target
+// that already has it (docs: "同じ対象へ効果量を重複させない").
+Unit* performSerpentConstrict(BattleState& battle, Unit& serpent) {
+    std::vector<Unit*> targets = serpentConstrictTargets(battle, serpent);
+    if (targets.empty()) return nullptr;
+    const AliveSnapshot aliveBefore = captureAliveSnapshot(battle);
+    for (Unit* target : targets) {
+        const bool hit = battle.rollAttackHit(*target);
+        resolveAttack(battle, serpent, *target, battle.combatDefenseBonus(*target, serpent), hit,
+                      kSerpentConstrictBonus);
+        if (hit && target->isAlive() && !target->moveDownActive) applyMoveDown(battle, *target);
+    }
+    emitUnitDefeatedEvents(battle, aliveBefore);
+    return targets.front();
+}
+
+// 激しい身震い: HP<=50%, once, knocks back all 4 orthogonally-adjacent
+// units 1 tile (BattleState::applyKnockback(), same mechanic every other
+// knockback source already uses). Markers/poison-pool tie-ins are deferred
+// (see this function's own header comment above).
+void triggerSerpentShudder(BattleState& battle, Unit& serpent) {
+    std::vector<Unit*> adjacent;
+    for (const GridPos& delta : {GridPos{-1, 0}, GridPos{1, 0}, GridPos{0, -1}, GridPos{0, 1}}) {
+        GridPos pos{serpent.position.row + delta.row, serpent.position.col + delta.col};
+        if (!isInBounds(pos)) continue;
+        if (Unit* occupant = battle.unitAt(pos)) adjacent.push_back(occupant);
+    }
+    for (Unit* unit : adjacent) battle.applyKnockback(serpent, *unit);
+}
+
+// Picks up to 2 reachable tiles adjacent to the nearest living player as
+// 水中潜行's telegraphed candidate destinations (row-major tie-break for
+// determinism, mirroring the boar/grubworm's own deterministic scans).
+std::vector<GridPos> computeSerpentSubmergeCandidates(BattleState& battle, const Unit& serpent) {
+    Unit* target = findNearestPlayer(battle, serpent);
+    if (!target) return {};
+    std::vector<GridPos> reachable = computeReachableTiles(battle, serpent);
+    std::vector<GridPos> candidates;
+    for (const GridPos& delta : {GridPos{-1, 0}, GridPos{1, 0}, GridPos{0, -1}, GridPos{0, 1}}) {
+        GridPos pos{target->position.row + delta.row, target->position.col + delta.col};
+        if (!isInBounds(pos) || pos == serpent.position) continue;
+        if (battle.unitAt(pos)) continue;
+        if (std::find(reachable.begin(), reachable.end(), pos) == reachable.end()) continue;
+        candidates.push_back(pos);
+        if (candidates.size() >= 2) break;
+    }
+    return candidates;
+}
+
+Unit* takeSerpentBossTurn(BattleState& battle, Unit& serpent) {
+    // 1. A telegraphed submerge always executes now: move to the first
+    // candidate tile (deterministic - the doc's own player-visible "予告"
+    // is a UI concern the AI doesn't need a live choice for), then attack
+    // one adjacent unit if any is in range.
+    if (serpent.bossRuntime.telegraph.pending()) {
+        const std::vector<GridPos>& tiles = serpent.bossRuntime.telegraph.lockedTiles;
+        if (!tiles.empty()) battle.moveUnit(serpent, tiles.front());
+        serpent.chargeTelegraphed = false;
+        serpent.bossRuntime.telegraph.state = TelegraphState::Executed;
+        handleObjectiveEvent(battle.missionState(),
+                             {battle.issueEventId(), 0,
+                              BossTelegraphChangedEvent{serpent.id, serpent.bossRuntime.telegraph.actionId, false}});
+        serpent.bossRuntime.telegraph.clear();
+        serpent.chargeCooldownActions = 1;
+        const AliveSnapshot aliveBefore = captureAliveSnapshot(battle);
+        if (Unit* target = adjacentPlayer(battle, serpent)) performSerpentVenomBite(battle, serpent, *target);
+        emitUnitDefeatedEvents(battle, aliveBefore);
+        finishEnemyAction(battle, serpent, ActionKind::Attack);
+        return nullptr;
+    }
+
+    const bool submergeOnCooldown = serpent.chargeCooldownActions > 0;
+    if (submergeOnCooldown) --serpent.chargeCooldownActions;
+
+    // 2. HP<=50%: 激しい身震い, once, instant (mirrors bossEnraged/
+    // bossCollapseUsed's "checked before this turn's decision" pattern).
+    if (!serpent.bossShudderUsed && serpent.currentHp * 2 <= serpent.stats.maxHp) {
+        serpent.bossShudderUsed = true;
+        triggerSerpentShudder(battle, serpent);
+        serpent.bossRuntime.stageIndex = 1;
+        handleObjectiveEvent(battle.missionState(),
+                             BattleEvent{battle.issueEventId(), 0,
+                                         BossStageChangedEvent{serpent.id, serpent.bossRuntime.stageIndex}});
+    }
+
+    // 3. Attack an ally currently occupying a marker tile (approximated as
+    // "any adjacent player standing on a Container-kind Object", the shape
+    // every surveyTileObjectDefinitionId marker takes - see BattleFactory.
+    // cpp's survey-tile placement).
+    for (const GridPos& delta : {GridPos{-1, 0}, GridPos{1, 0}, GridPos{0, -1}, GridPos{0, 1}}) {
+        GridPos pos{serpent.position.row + delta.row, serpent.position.col + delta.col};
+        if (!isInBounds(pos)) continue;
+        Unit* occupant = battle.unitAt(pos);
+        if (!occupant || occupant->team != Team::Player || !occupant->isAlive()) continue;
+        if (!battle.objectAt(pos)) continue;
+        const AliveSnapshot aliveBefore = captureAliveSnapshot(battle);
+        performSerpentVenomBite(battle, serpent, *occupant);
+        emitUnitDefeatedEvents(battle, aliveBefore);
+        finishEnemyAction(battle, serpent, ActionKind::Attack);
+        return occupant;
+    }
+
+    // 4. Constrict whenever 2+ players are adjacent.
+    if (countAdjacentPlayers(battle, serpent) >= 2) {
+        if (Unit* hit = performSerpentConstrict(battle, serpent)) {
+            finishEnemyAction(battle, serpent, ActionKind::Attack);
+            return hit;
+        }
+    }
+
+    // 5. Venom bite an adjacent, not-yet-poisoned target.
+    for (const GridPos& delta : {GridPos{-1, 0}, GridPos{1, 0}, GridPos{0, -1}, GridPos{0, 1}}) {
+        GridPos pos{serpent.position.row + delta.row, serpent.position.col + delta.col};
+        if (!isInBounds(pos)) continue;
+        Unit* occupant = battle.unitAt(pos);
+        if (!occupant || occupant->team != Team::Player || !occupant->isAlive()) continue;
+        if (occupant->poisonRemainingProcs > 0) continue;
+        const AliveSnapshot aliveBefore = captureAliveSnapshot(battle);
+        performSerpentVenomBite(battle, serpent, *occupant);
+        emitUnitDefeatedEvents(battle, aliveBefore);
+        finishEnemyAction(battle, serpent, ActionKind::Attack);
+        return occupant;
+    }
+
+    // 6. Telegraph a submerge toward an isolated target if Shallows terrain
+    // exists anywhere on the board (see this function's header comment).
+    if (!submergeOnCooldown && anyShallowsOnBoard(battle)) {
+        std::vector<GridPos> candidates = computeSerpentSubmergeCandidates(battle, serpent);
+        if (!candidates.empty()) {
+            serpent.chargeTelegraphed = true;
+            serpent.bossRuntime.telegraph = {"deep_mire_submerge", TelegraphShape::Area, TelegraphState::Announced,
+                                             battle.round(), battle.round() + 1, {}, candidates, 0};
+            handleObjectiveEvent(battle.missionState(),
+                                 {battle.issueEventId(), 0,
+                                  BossTelegraphChangedEvent{serpent.id, "deep_mire_submerge", true}});
+            finishEnemyAction(battle, serpent, ActionKind::Skill);
+            return nullptr;
+        }
+    }
+
+    // 7. Otherwise, close the distance toward the nearest player (the doc's
+    // "水源から3マス以内を維持" leash is deferred - no persistent "水源"
+    // marker position is threaded into EnemyAI.cpp anywhere, the same
+    // category of gap as the boar/grubworm not tracking a home tile either).
+    Unit* target = findNearestPlayer(battle, serpent);
+    bool moved = false;
+    if (target) {
+        std::vector<GridPos> reachable = computeReachableTiles(battle, serpent);
+        GridPos bestTile = serpent.position;
+        int bestDist = manhattanDistance(serpent.position, target->position);
+        for (const GridPos& tile : reachable) {
+            int dist = manhattanDistance(tile, target->position);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestTile = tile;
+            }
+        }
+        if (bestTile != serpent.position) moved = battle.moveUnit(serpent, bestTile);
+    }
+
+    const AliveSnapshot aliveBeforeAttack = captureAliveSnapshot(battle);
+    if (Unit* attacked = attackIfPossible(battle, serpent, target)) {
+        emitUnitDefeatedEvents(battle, aliveBeforeAttack);
+        finishEnemyAction(battle, serpent, ActionKind::Attack);
+        return attacked;
+    }
+    finishEnemyAction(battle, serpent, moved ? ActionKind::Move : ActionKind::Wait);
+    return nullptr;
+}
+
+// docs/regions/windscar_plateau.md「地域ボス 高原運び手の隊長」.
+constexpr int kCourierEscapeMoveBonus = 1;
+constexpr int kCourierEscapeDefensePenalty = 2;
+constexpr int kCourierLeashRadius = 4;
+constexpr int kCourierPositioningRadius = 3;
+// 行動優先順位6「伝令所から3マス以内で側面位置を取る」/退路確保「伝令所から
+// 4マスを超えて離れない」: plateau_relay is authored directly in
+// data/regions.json with no per-battle marker Object threaded into
+// EnemyAI.cpp for "伝令所"'s own board position (M9-K's own 水源3マス leash
+// note already recorded this exact "no persistent marker position" gap for
+// a prior boss), so this hardcodes the fixed reference tile this stage's
+// layout places it at, rather than adding new generic Object-position
+// plumbing for a single boss ability.
+constexpr GridPos kPlateauRelayStationTile{2, kGridCols - 1};
+
+// 通り抜け攻撃「敵から離れる方向へ最大2マス再移動」: BattleState::moveUnit()
+// already checks exactly the doc's "実際の通行可否は見るがZoC・Unit・通行不能
+// 地形回避ルールは無視する" shape (destination terrain/Object/occupant only,
+// no path or ZoC check) - the same direct-teleport call the serpent's
+// submerge and grubworm's tunnel already use for their own ZoC-ignoring
+// repositions, so this needs no new movement primitive.
+void performCourierRepositionAwayFromTarget(BattleState& battle, Unit& captain, const Unit& target) {
+    int dirRow = captain.position.row - target.position.row;
+    int dirCol = captain.position.col - target.position.col;
+    dirRow = dirRow > 0 ? 1 : (dirRow < 0 ? -1 : 0);
+    dirCol = dirCol > 0 ? 1 : (dirCol < 0 ? -1 : 0);
+    if (dirRow == 0 && dirCol == 0) return;
+    for (int distance = 2; distance >= 1; --distance) {
+        GridPos candidate{captain.position.row + dirRow * distance, captain.position.col + dirCol * distance};
+        if (battle.moveUnit(captain, candidate)) return;
+    }
+}
+
+// 通り抜け攻撃「直線で2マス以上移動した後だけ使用可能」: scans reachable
+// tiles (leash-filtered while 退路確保 is active this same action, per its
+// own "伝令所から4マスを超えて離れない") for one that is (a) melee range of a
+// living player and (b) reached by a straight (same row or same column) move
+// of at least 2 tiles from the captain's current position, preferring the
+// lowest-HP such target (mirrors 行動優先順位4's "低HP対象を攻撃"). Falls
+// back to nullptr (no reposition happens, caller keeps trying lower-priority
+// steps) if no such tile/target pair exists - "再移動先がなければ通常攻撃
+// だけ行う" only applies once a target is already committed to, which this
+// selection guarantees by construction.
+Unit* performCourierPassThroughStrike(BattleState& battle, Unit& captain, bool leashActive) {
+    std::vector<GridPos> reachable = computeReachableTiles(battle, captain);
+    Unit* best = nullptr;
+    GridPos bestTile{};
+    int bestHp = INT_MAX;
+    for (Unit& target : battle.units()) {
+        if (target.team != Team::Player || !target.isAlive()) continue;
+        for (const GridPos& tile : reachable) {
+            if (leashActive && manhattanDistance(tile, kPlateauRelayStationTile) > kCourierLeashRadius) continue;
+            if (manhattanDistance(tile, target.position) != 1) continue;
+            const bool sameRow = tile.row == captain.position.row;
+            const bool sameCol = tile.col == captain.position.col;
+            if (!sameRow && !sameCol) continue;
+            if (manhattanDistance(captain.position, tile) < 2) continue;
+            if (target.currentHp < bestHp) {
+                bestHp = target.currentHp;
+                best = &target;
+                bestTile = tile;
+            }
+        }
+    }
+    if (!best) return nullptr;
+    battle.moveUnit(captain, bestTile);
+    triggerRangerTrapIfPresent(battle, captain);
+    const AliveSnapshot aliveBefore = captureAliveSnapshot(battle);
+    attackIfPossible(battle, captain, best, /*onlyPreferred=*/true);
+    emitUnitDefeatedEvents(battle, aliveBefore);
+    if (best->isAlive()) performCourierRepositionAwayFromTarget(battle, captain, *best);
+    return best;
+}
+
+// 迂回命令 resolution: 行動優先順位1「予告済み迂回命令を解決」. Reduced-scope
+// approximation (see this function's header comment on takeCourierCaptainBossTurn) -
+// this project has no cross-unit squad-AI influence mechanism (every other
+// boss's telegraph only ever affects the boss's own next action), so "騎兵
+// 1体と弓兵1体が...優先" becomes "the captain itself prioritizes a player in
+// the announced row". "対象不在なら通常AIへ戻り、無料の追加攻撃は発生しない"
+// is honored literally: returns nullptr and lets the caller fall through to
+// the rest of this same turn's priority list instead of ending the action.
+Unit* resolveCourierFlankingOrder(BattleState& battle, Unit& captain) {
+    const std::vector<GridPos> tiles = captain.bossRuntime.telegraph.lockedTiles;
+    captain.chargeTelegraphed = false;
+    captain.bossRuntime.telegraph.state = TelegraphState::Executed;
+    handleObjectiveEvent(battle.missionState(),
+                         {battle.issueEventId(), 0,
+                          BossTelegraphChangedEvent{captain.id, captain.bossRuntime.telegraph.actionId, false}});
+    captain.bossRuntime.telegraph.clear();
+
+    Unit* target = nullptr;
+    int bestDist = INT_MAX;
+    for (Unit& unit : battle.units()) {
+        if (unit.team != Team::Player || !unit.isAlive()) continue;
+        bool inRow = false;
+        for (const GridPos& tile : tiles) inRow = inRow || unit.position.row == tile.row;
+        if (!inRow) continue;
+        const int dist = manhattanDistance(captain.position, unit.position);
+        if (dist < bestDist) {
+            bestDist = dist;
+            target = &unit;
+        }
+    }
+    if (!target) return nullptr;
+
+    std::vector<GridPos> reachable = computeReachableTiles(battle, captain);
+    GridPos bestTile = captain.position;
+    int bestScore = manhattanDistance(captain.position, target->position);
+    for (const GridPos& tile : reachable) {
+        const int score = manhattanDistance(tile, target->position);
+        if (score < bestScore) {
+            bestScore = score;
+            bestTile = tile;
+        }
+    }
+    if (bestTile != captain.position) {
+        battle.moveUnit(captain, bestTile);
+        triggerRangerTrapIfPresent(battle, captain);
+    }
+    const AliveSnapshot aliveBefore = captureAliveSnapshot(battle);
+    Unit* hit = attackIfPossible(battle, captain, target);
+    emitUnitDefeatedEvents(battle, aliveBefore);
+    return hit;
+}
+
+// docs/regions/windscar_plateau.md「地域ボス 高原運び手の隊長」「行動優先
+// 順位」. 主目的は本Sliceの近似(標準EliminateTeam、地点データのコメント参照)
+// によりコースが存在しないため、doc手順3「伝令箱へ到達可能な味方伝令を妨害」
+// は今回スコープ外(伝令ゲスト自体が未配線)。それ以外の5手順を、
+// takeGrubwormBossTurn()/takeSerpentBossTurn()と同じ早期return連鎖で実装。
+Unit* takeCourierCaptainBossTurn(BattleState& battle, Unit& captain) {
+    // 1. Resolve a pending 迂回命令 telegraph first, always.
+    if (captain.bossRuntime.telegraph.pending()) {
+        if (Unit* hit = resolveCourierFlankingOrder(battle, captain)) {
+            finishEnemyAction(battle, captain, ActionKind::Attack);
+            return hit;
+        }
+        // No valid target in the announced row: falls back to normal AI
+        // this same turn, no free extra attack (falls through below).
+    }
+
+    // 2. HP<=50%, one-time: 退路確保. "MOV+1/DEF-2まで行動終了" is applied for
+    // exactly this action's own decisions below and reverted before this
+    // function returns (see escapeRouteActive's two revert sites) rather
+    // than persisted across turns, matching "次の行動終了まで" literally.
+    bool escapeRouteActive = false;
+    if (!captain.bossEscapeRouteUsed && captain.currentHp * 2 <= captain.stats.maxHp) {
+        captain.bossEscapeRouteUsed = true;
+        escapeRouteActive = true;
+        captain.stats.move += kCourierEscapeMoveBonus;
+        captain.stats.defense = std::max(captain.stats.defense - kCourierEscapeDefensePenalty, 0);
+        captain.bossRuntime.stageIndex = 1;
+        handleObjectiveEvent(battle.missionState(),
+                             BattleEvent{battle.issueEventId(), 0,
+                                         BossStageChangedEvent{captain.id, captain.bossRuntime.stageIndex}});
+    }
+    auto revertEscapeRoute = [&]() {
+        if (!escapeRouteActive) return;
+        captain.stats.move -= kCourierEscapeMoveBonus;
+        captain.stats.defense += kCourierEscapeDefensePenalty;
+    };
+
+    // 4. 通り抜け攻撃 on the lowest-HP target it can reach with a straight
+    // 2+-tile move and safely reposition away from afterward.
+    // [M9-S balance tune] Reuses the generic chargeCooldownActions field
+    // (same field the boar/grubworm/serpent bosses use for their own
+    // telegraphed dash/submerge cooldowns) to put this action on a 1-turn
+    // cooldown after each use. Without this, the captain could reposition to
+    // a counter-safe tile and land a free unanswered hit every single turn
+    // for the whole fight - a structural AI advantage the other 2 working
+    // region bosses don't have (their analogous burst actions are each
+    // gated by their own telegraph/cooldown already). This is the smallest
+    // available fix once enemy-roster trimming alone proved insufficient
+    // (see docs/implementation_status.md M9-S) - it does not touch the
+    // action's damage, targeting, or reposition logic, only how often it
+    // can fire.
+    const bool passThroughOnCooldown = captain.chargeCooldownActions > 0;
+    if (passThroughOnCooldown) --captain.chargeCooldownActions;
+    if (!passThroughOnCooldown) {
+        if (Unit* hit = performCourierPassThroughStrike(battle, captain, escapeRouteActive)) {
+            captain.chargeCooldownActions = 1;
+            revertEscapeRoute();
+            finishEnemyAction(battle, captain, ActionKind::Attack);
+            return hit;
+        }
+    }
+
+    // 5. Telegraph 迂回命令 if not yet used this battle: announce whichever
+    // half (top rows 0..kGridRows/2-1, bottom the rest) currently holds more
+    // living players (ties favor top, a stable deterministic choice).
+    if (!captain.bossFlankUsed) {
+        int topCount = 0, bottomCount = 0;
+        for (const Unit& unit : battle.units()) {
+            if (unit.team != Team::Player || !unit.isAlive()) continue;
+            if (unit.position.row < kGridRows / 2) ++topCount; else ++bottomCount;
+        }
+        const bool announceTop = topCount >= bottomCount;
+        std::vector<GridPos> tiles;
+        const int rowStart = announceTop ? 0 : kGridRows / 2;
+        const int rowEnd = announceTop ? kGridRows / 2 : kGridRows;
+        for (int row = rowStart; row < rowEnd; ++row)
+            for (int col = 0; col < kGridCols; ++col) tiles.push_back(GridPos{row, col});
+
+        captain.bossFlankUsed = true;
+        captain.chargeTelegraphed = true;
+        captain.bossRuntime.telegraph = {"plateau_relay_flanking_order", TelegraphShape::Area,
+                                         TelegraphState::Announced, battle.round(), battle.round() + 1,
+                                         {}, tiles, 0};
+        handleObjectiveEvent(battle.missionState(),
+                             {battle.issueEventId(), 0,
+                              BossTelegraphChangedEvent{captain.id, "plateau_relay_flanking_order", true}});
+        revertEscapeRoute();
+        finishEnemyAction(battle, captain, ActionKind::Skill);
+        return nullptr;
+    }
+
+    // 6. Otherwise, take a flanking position within kCourierPositioningRadius
+    // of the relay station (leash-filtered to kCourierLeashRadius while
+    // 退路確保 is active), attacking anyone already in range along the way.
+    std::vector<GridPos> reachable = computeReachableTiles(battle, captain);
+    GridPos bestTile = captain.position;
+    int bestScore = manhattanDistance(captain.position, kPlateauRelayStationTile);
+    for (const GridPos& tile : reachable) {
+        if (escapeRouteActive && manhattanDistance(tile, kPlateauRelayStationTile) > kCourierLeashRadius) continue;
+        const int score = manhattanDistance(tile, kPlateauRelayStationTile);
+        if (score < bestScore) {
+            bestScore = score;
+            bestTile = tile;
+        }
+    }
+    bool moved = false;
+    if (bestTile != captain.position) {
+        moved = battle.moveUnit(captain, bestTile);
+        if (moved) triggerRangerTrapIfPresent(battle, captain);
+    }
+    const AliveSnapshot aliveBeforeAttack = captureAliveSnapshot(battle);
+    if (Unit* attacked = attackIfPossible(battle, captain, findNearestPlayer(battle, captain))) {
+        emitUnitDefeatedEvents(battle, aliveBeforeAttack);
+        revertEscapeRoute();
+        finishEnemyAction(battle, captain, ActionKind::Attack);
+        return attacked;
+    }
+    revertEscapeRoute();
+    finishEnemyAction(battle, captain, moved ? ActionKind::Move : ActionKind::Wait);
+    return nullptr;
+}
+
 } // namespace
 
 Unit* takeEnemyTurn(BattleState& battle, Unit& enemy, AiSquadReservations* reservations) {
     if (!enemy.isPresent() || enemy.hasActed) return nullptr;
     if (enemy.unitClass == UnitClass::AshenhornBoar) return takeBoarBossTurn(battle, enemy);
     if (enemy.unitClass == UnitClass::AshironGrubworm) return takeGrubwormBossTurn(battle, enemy);
+    if (enemy.unitClass == UnitClass::MarshFangSerpent) return takeSerpentBossTurn(battle, enemy);
+    if (enemy.unitClass == UnitClass::PlateauCourierCaptain) return takeCourierCaptainBossTurn(battle, enemy);
 
     // Captured once, before anything below (including 監視弓兵`overwatch`'s
     // ambush), so a defeat from any of it fires UnitDefeatedEvent exactly

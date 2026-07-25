@@ -4,7 +4,7 @@
 
 仕様索引: [`README.md`](README.md)
 
-更新日: 2026-07-22
+更新日: 2026-07-23
 
 この文書は実装順、依存関係、品質Gateだけを管理する。ゲーム仕様、数値、安定IDを新規定義しない。
 仕様変更は[`README.md`](README.md)で指定された正本へ行い、現在の実装詳細は
@@ -28,15 +28,86 @@ Milestone進行(M0〜M6は完了/概ね完了、M8-Aは未実装、詳細は各�
   (地点3「薬草洲」、`primarySurviveRoundsAlternative`を新規実装)・M9-H(地点4
   「樹脂林」、コード変更無し)完了。地点3/4の`AllMembers`分岐は両方確保済みで解決、
   キャンプII以降へ進行可能。「採取者を撤退させない」副目標/敗北条件は、地点3A/4と
-  同じゲストユニット系ギャップとして意図的に見送り
+  同じゲストユニット系ギャップとして意図的に見送り。M9-I(地点5「黒水渡し」)は主目的
+  そのものがこのギャップに依存していたため、今回はゲストユニット護衛サブシステム
+  (`Unit::isGuest`、`BattleMissionState::guestUnitIds`、`BattleState::allGuestsLost()`、
+  `StageDescriptor::guestUnits`/`primaryEscapeUnitsAlternative`)を新規実装したうえで
+  地点5を正本どおり実コンテンツ化(完了、2026-07)。詳細は`implementation_status.md`
+  参照。「荷物を減らして渡る」の持込品一時封印、`[伝令騎兵]`ルートの護衛対象MOV+1・
+  増援位置公開は該当インフラが無いため引き続き見送り。M9-J(地点6「沈没水門」)は
+  signal_tower実装済みの`objectPlacementRules`+`operateObjectiveId`機構がそのまま
+  収まったため`data/regions.json`のみで実コンテンツ化(完了、2026-07)。主目的の
+  「水門操作」と「2ラウンド防衛」のAND結合、副目標(制御輪保全/毒罠処理)、
+  「水門本体の耐久0」敗北条件は該当インフラが無いため引き続き見送り。M9-K(地点7
+  「深泥の水源」/地域ボス「沼牙の大蛇」)で黒水低湿地(第4地域)の全7地点が完了
+  (完了、2026-07)。M9-Dの`takeGrubwormBossTurn()`と同じ構造で新規`UnitClass::
+  MarshFangSerpent`のボスAIを実装、主目的のAND合成はM9-Dと同じ理由で
+  `EliminateTeam`のみへ近似。地域の最低保証報酬(M6-Dと同型の`blackwaterMaterials
+  Earned`フロア)・診療所「薬学」/工房「罠技術」の解放条件配線・風裂き高原(第5地域、
+  当時`RegionId::WindsweptHighland`、最小プレースホルダー)の追加まで完了。M9-Lで
+  `RegionId::WindscarPlateau`/`"windscar_plateau"`へ改名(他地域のenum名/toString()
+  一致規約に合わせる是正)のうえ、地域骨格(6地点+2キャンプ+地点3・4のどちらを
+  先に攻略してもよい分岐)+地点1「風下の登り口」を実コンテンツ化し、正本が
+  「実装順」1番目に挙げる新規地形機構「強風」(`TerrainType::WindGust`+
+  `BattleState::resolveWindGustRoundEnd()`)を実装(完了、2026-07)。地点1の
+  fresh-party win率(Direct 56.0%)が先行区域の地点1(軒並み99〜100%)より明確に
+  低い実測が出ており、次のSlice着手前にバランス調整の要フォローとして記録済み。
+  詳細は`implementation_status.md`参照。M9-M(地点2「崩れた中継路」)で
+  `StageDescriptor::guestUnits`/`primaryEscapeUnitsAlternative`(M9-Iで実装済みの
+  護衛サブシステム)を流用し実コンテンツ化(完了、2026-07)。主目的「護衛対象を
+  右端へ脱出、または敵全滅後に橋を操作」はEscapeUnits単独へ近似、木橋耐久系
+  (副目標/工兵ルート効果/敗北条件の一部)はObject耐久機構が未実装のため引き続き
+  見送り。新素材`riding_gear`(騎具素材)追加。詳細は`implementation_status.md`参照。
+  M9-N(地点3「風見台」)はsignal_tower実装済みの`objectPlacementRules`+
+  `operateObjectiveId`機構(2 Object版)がそのまま収まったため`data/regions.json`
+  のみで実コンテンツ化(完了、2026-07)。敵は`WatchArcher`/`Spearman`/
+  `MessengerCavalry`を再スキンなしで使用。OR条件(敵全滅後の代替操作)・
+  4ラウンド以内副目標(Round数に基づく報酬条件の機構が無い)・風見盤破壊による
+  敗北条件(Object耐久機構未実装)は該当インフラが無いため引き続き見送り。
+  詳細は`implementation_status.md`参照。M9-O(地点4「分断された輸送隊」)は
+  地点2「崩れた中継路」と同じ`StageDescriptor::guestUnits`/
+  `primaryEscapeUnitsAlternative`パターンで実コンテンツ化(完了、2026-07)。
+  主目的「負傷者1人以上を脱出、または荷物箱1個以上を確保」はEscapeUnits単独へ
+  近似(荷物箱側はObject耐久機構未実装のため未モデル化)、敵は既存
+  `WatchArcher`+`Bandit`(「Raider」表示名)を再利用。地点3・4の両方が本格
+  コンテンツになったことで、`windwatch_convoy_branch`(`AllMembers`)経由の
+  キャンプII解放ゲートが正しく機能する状態になったことをテストで確認。
+  詳細は`implementation_status.md`参照。M9-P(地点5「断崖荷車道」)は地点2/4と
+  同じ`StageDescriptor::guestUnits`/`primaryEscapeUnitsAlternative`パターンで
+  実コンテンツ化(完了、2026-07)。主目的「荷車または護衛対象1人以上を右端へ
+  脱出」は正本のOR自体がEscapeUnits単独と機能的に一致するためこれまでで
+  最も近似度が高く実装できた。荷車は既存GuestUnitData1体で近似(耐久12という
+  数値自体は未モデル化)、ルート3の強風移動無効は`hasHeavyArmor()`が
+  ユニット種別を問わない汎用判定であるため技術的には成立しうるが、荷車に
+  実戦闘クラスのステータスを与える副作用を避けて見送り。敵は既存
+  `MessengerCavalry`/`Spearman`/`WatchArcher`を再スキンなしで使用。
+  詳細は`implementation_status.md`参照。M9-Q(地点6「高原伝令所」/地域ボス
+  「高原運び手の隊長」/地域攻略)で風裂き高原(第5地域)の全6地点が完了
+  (完了、2026-07)。M9-Kの`takeSerpentBossTurn()`と同じ構造で新規`UnitClass::
+  PlateauCourierCaptain`のボスAIを実装(通り抜け攻撃・迂回命令・退路確保の
+  3固有行動)、主目的のOR合成はM9-D/Kと同じ理由で`EliminateTeam`のみへ近似
+  (ScriptedWithdrawal撤退)。地域の最低保証報酬(M9-Kと同型の
+  `windscarMaterialsEarned`フロア)・旧辺境集落(第6地域、最小プレースホルダー)
+  の追加まで完了。地点6のfresh-party win率(Direct/Tactical共に0.0%、avg KO
+  4.00)は他地点の既知のシミュレータ盲点(OperateObject/EscapeUnits非対応)とは
+  異なり純粋な`EliminateTeam`地点での実測のため、次のSlice着手前にバランス調整の
+  要フォローとして記録済み。詳細は`implementation_status.md`参照
 
 直近の未完了(優先度順):
 
-1. M9-I以降 黒水低湿地の残り地点(地点5「黒水渡し」から1地点ずつ、M6-B/C方式)
-2. 灰鉄採石場の地点3A「旧採掘坑」・地点4「灰鉄鉱脈」(ゲストユニット/護衛脱出
-   サブシステムの実装後、または軽量近似での着手を再検討)
-3. M7項目3(残り) ユニットページ本体(差分プレビュー/連携作戦/特性・武器分岐の
-   他兵種一般化)
+1. 風裂き高原(第5地域)の地点1・2バランス調整(fresh-party win率が先行区域の
+   地点1より明確に低い、M9-L/M9-M実測)、および地点6「高原伝令所」の
+   バランス調整(fresh-party win率0.0%、M9-Q実測 - 他地点と異なりシミュレータ
+   盲点によらない実測)。地点2・4・5は主目的がシミュレータの`ObjectiveKind`
+   盲点[EscapeUnits]に、地点3は[OperateObject]に該当するため、実測win率が
+   実プレイより低く/高く出る既知の構造的偏りを含む
+2. 灰鉄採石場の地点3A「旧採掘坑」・地点4「灰鉄鉱脈」(ゲストユニット護衛サブシステムは
+   M9-Iで実装済みのため、正本どおりの本格実装を再検討可能)
+3. 旧辺境集落(第6地域)の本格実装(M6-B/C・M9-A〜Q方式、現状はプレースホルダー)
+4. M7項目3(残り) ユニットページ本体(差分プレビュー/連携作戦)。特性・武器分岐の
+   他兵種一般化は2026-07に完了(全12兵種のレシピ・武器データ・UIハードコード解消。
+   固有効果のうちノックバック・移動低下・炎上・MOV変化のみエンジン接続済みで、
+   残りは未接続 - 詳細は`implementation_status.md`「M7項目3続き」参照)
 
 M1-E「M9前ブロッカー」4項目は全て対応済み(3項目完了・1項目は現状ニーズ無しと判断し
 意図的に見送り)のため、M9(残り8地域)へいつでも着手できる状態。
@@ -1751,8 +1822,32 @@ OR代替(`surveyObjectiveId`+`surveyTileCount:2`は既に`ObjectiveGroupRule::An
 実装済みだが、常にボーナス報酬経路であり主目的化には新規配線が要る)は、正本の報酬表を
 確認したところクレート確保専用の追加報酬が無く実装差が薄いと判断し、標準
 `EliminateTeam`のみで近似(コード変更無し)。地点3/4の`AllMembers`分岐は両方確保済み
-で解決、Camp II以降へ進行可能になった。地点5〜7はプレースホルダーのまま、M6-B/C方式
-で1地点ずつ本格化する。残り6地域は未着手
+で解決、Camp II以降へ進行可能になった。M9-I(地点5「黒水渡し」)は主目的「荷運び役2人
+のうち1人以上を右端へ脱出」自体がゲストユニット系ギャップに依存していたため、まず
+ゲストユニット護衛サブシステムを新規実装(完了、2026-07)。追加した型/関数:
+`Unit::isGuest`(表示専用フラグ、team/AI/選択ロジックは通常のTeam::Playerユニットと
+不変)、`BattleMissionState::guestUnitIds`、`BattleState::allGuestsLost()`
+(`allPlayersDefeated()`と同じ形で`evaluateBattleOutcome()`の敗北ゲートへ追加、
+guestUnitIdsの全員が`isPresent()==false`になった時点で部隊全滅とは独立に敗北)、
+`StageDescriptor::GuestUnitData`/`guestUnits`(`BattleFactory.cpp`の`assembleScenario`
+が`Team::Player`・`isGuest=true`で通常ユニットと同じ`units`ベクタへスポーンし
+`guestUnitIds`へ登録)、`StageDescriptor::primaryEscapeUnitsAlternative`
+(`primaryDefeatUnitId`と同じ「置換であって追加ではない」パターンで`EscapeUnits`を
+主目的化、脱出タイルは既存`chooseHoldTile()`を流用)。`ObjectiveTracker.cpp`の
+`EscapeUnits`クレジット判定は、`requiredEscapeCount`到達でCompleted確定した後も
+`creditedTargetIds`への追記を続けるようガードを緩和(副目標「2人とも脱出」の判定に
+必要、`SecureTile`側の挙動は無変更)。これを使って地点5を正本どおり実コンテンツ化
+(`blackwaterCrossingStage()`、`Region.cpp`にC++直接記述、`guestUnits`/
+`primaryEscapeUnitsAlternative`はJSONスキーマ未対応のためJSON化せず、
+`data/regions.json`の旧プレースホルダーエントリは未使用のまま残置)。沼蛇=Bandit・
+毒蜘蛛=Wolf再利用は地域内の既存前例に合わせて踏襲。荷物箱副目標は地点4と同じ
+`surveyObjectiveId`+`SurveySuccess`RewardRuleパターンを1個用に流用。「荷物を減らして
+渡る」の持込品一時封印、`[伝令騎兵]`ルートの護衛対象MOV+1・増援位置公開は該当
+インフラが無いため意図的に見送り。`GameApp::proceedToCamp()`へ地点固有の副目標報酬
+分岐(2人脱出→高品質薬草1、荷物箱確保→毒素材1)を追加、既存の`mergeLoot`ボーナス
+パターンを踏襲。`tests/test_battle.cpp`へ4件追加(単体脱出勝利/ゲスト全滅による
+部隊生存下の敗北/両者脱出ボーナス/荷物箱確保ボーナス)。全ビルド・既存テスト含め成功。
+地点6〜7はプレースホルダーのまま、M6-B/C方式で1地点ずつ本格化する。残り6地域は未着手
 
 目的: 完成済み共通基盤へ地域データを追加し、本編10地域を構築する。
 

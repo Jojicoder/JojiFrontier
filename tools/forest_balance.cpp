@@ -543,7 +543,8 @@ int main(int argc, char** argv) {
                     ? createScenarioBattle(*data, forest.stages[stageIndex], static_cast<std::uint32_t>(seed),
                         stageRouteOutcome(forest.stages[stageIndex], ExplorationChoice::FrontalAdvance))
                     : createScenarioContinuationBattle(*data, survivors, forest.stages[stageIndex],
-                        static_cast<std::uint32_t>(seed * 17 + static_cast<int>(stageIndex)));
+                        static_cast<std::uint32_t>(seed * 17 + static_cast<int>(stageIndex)),
+                        stageRouteOutcome(forest.stages[stageIndex], ExplorationChoice::FrontalAdvance));
                 finalResult = runBattle(std::move(battle), policy);
                 expeditionRounds += finalResult.rounds;
                 if (stageIndex == 0) expeditionMaxHp = finalResult.maxHp;

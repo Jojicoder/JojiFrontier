@@ -168,12 +168,13 @@ std::vector<RegionSummary> computeRegionSummaries(const GameData& data, const Ba
         if (id == RegionId::CinderwatchGate) return RegionId::AshboughForest;
         if (id == RegionId::AshironQuarry) return RegionId::CinderwatchGate;
         if (id == RegionId::BlackwaterLowlands) return RegionId::AshironQuarry;
+        if (id == RegionId::WindscarPlateau) return RegionId::BlackwaterLowlands;
         return std::nullopt;
     };
 
     std::vector<RegionSummary> summaries;
     for (RegionId id : {RegionId::AshboughForest, RegionId::CinderwatchGate, RegionId::AshironQuarry,
-                        RegionId::BlackwaterLowlands}) {
+                        RegionId::BlackwaterLowlands, RegionId::WindscarPlateau}) {
         RegionDescriptor region = regionDescriptor(id, data);
         bool unlocked = regionUnlocked(id, baseState, data);
         RegionSummary summary{id, region.displayNameEn, region.displayNameJa, unlocked, "", ""};
@@ -266,6 +267,61 @@ ReturnToBaseResult applyExpeditionReturnToBase(ExpeditionState& expedition, Base
         // registered」= 地域攻略後の安全帰還が条件そのものなので、Pending経由
         // せずこの完了Transaction内で直接恒久化する。
         baseState.joinReadyCandidateIds.insert("banner_recruit");
+    }
+
+    // docs/regions/blackwater_lowlands.md「最低保証報酬」: same mechanism as
+    // Cinderwatch's floor top-up above, tracked/applied independently.
+    const bool blackwaterStillOpen = expedition.regionId == RegionId::BlackwaterLowlands &&
+                                     !baseState.completedRegionIds.count(RegionId::BlackwaterLowlands);
+    if (blackwaterStillOpen)
+        for (const auto& [id, quantity] : materialAdds) baseState.blackwaterMaterialsEarned[id] += quantity;
+
+    if (blackwaterStillOpen && expedition.pendingRegionCompletions.count(RegionId::BlackwaterLowlands)) {
+        static const std::unordered_map<LootId, int> kBlackwaterMaterialFloor = {
+            {"herb", 8}, {"quality_herb", 1}, {"poison_material", 4}, {"wetland_resin", 7},
+        };
+        for (const auto& [id, floor] : kBlackwaterMaterialFloor) {
+            const int earned = baseState.blackwaterMaterialsEarned[id];
+            if (earned < floor) materialAdds[id] += floor - earned;
+        }
+        static const std::vector<DiscoveryId> kBlackwaterKeyDiscoveries = {
+            kBlackwaterSurveyDiscovery, kMarshPharmacologyDiscovery, kMarshTrapcraftDiscovery,
+            kMarshEmergencyMedicineDiscovery,
+        };
+        for (const DiscoveryId& discovery : kBlackwaterKeyDiscoveries) {
+            const bool alreadyHave = baseState.discoveryRegistry.count(discovery) ||
+                                      std::find(discoveriesThisReturn.begin(), discoveriesThisReturn.end(), discovery) !=
+                                          discoveriesThisReturn.end();
+            if (!alreadyHave) discoveriesThisReturn.push_back(discovery);
+        }
+    }
+
+    // docs/regions/windscar_plateau.md「最低保証報酬」: same mechanism as
+    // Cinderwatch/Blackwater's floor top-up above, tracked/applied
+    // independently.
+    const bool windscarStillOpen = expedition.regionId == RegionId::WindscarPlateau &&
+                                   !baseState.completedRegionIds.count(RegionId::WindscarPlateau);
+    if (windscarStillOpen)
+        for (const auto& [id, quantity] : materialAdds) baseState.windscarMaterialsEarned[id] += quantity;
+
+    if (windscarStillOpen && expedition.pendingRegionCompletions.count(RegionId::WindscarPlateau)) {
+        static const std::unordered_map<LootId, int> kWindscarMaterialFloor = {
+            {"hide", 5}, {"cloth", 7}, {"hardwood", 5}, {"riding_gear", 4},
+        };
+        for (const auto& [id, floor] : kWindscarMaterialFloor) {
+            const int earned = baseState.windscarMaterialsEarned[id];
+            if (earned < floor) materialAdds[id] += floor - earned;
+        }
+        static const std::vector<DiscoveryId> kWindscarKeyDiscoveries = {
+            kWindscarRoadChartDiscovery, kCavalryOperationRecordsDiscovery, kPlateauTargetingRecordsDiscovery,
+            kCourierRouteChartDiscovery,
+        };
+        for (const DiscoveryId& discovery : kWindscarKeyDiscoveries) {
+            const bool alreadyHave = baseState.discoveryRegistry.count(discovery) ||
+                                      std::find(discoveriesThisReturn.begin(), discoveriesThisReturn.end(), discovery) !=
+                                          discoveriesThisReturn.end();
+            if (!alreadyHave) discoveriesThisReturn.push_back(discovery);
+        }
     }
 
     std::unordered_map<LootId, int> fitPlan;

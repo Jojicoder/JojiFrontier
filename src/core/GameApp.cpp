@@ -83,7 +83,47 @@ void GameApp::proceedToCamp() {
         std::none_of(battleController_->battle().units().begin(), battleController_->battle().units().end(),
                     [](const Unit& unit) { return unit.team == Team::Player && !unit.isAlive(); }))
         mergeLoot(stage.noCasualtiesBonusLoot);
+    // docs/regions/blackwater_lowlands.md「5. 黒水渡し」's "全員脱出: 高品質薬草1" -
+    // "both guests escaped" isn't expressible through RewardRule's Condition
+    // enum (SurveySuccess only reads a surveyObjectiveId group, not
+    // creditedTargetIds' size), so it's checked directly here, same
+    // ad-hoc-secondary-bonus pattern as logCollisionBonusLoot/
+    // noCasualtiesBonusLoot above. The crate's "荷物箱保持: 毒素材1" doesn't
+    // need a twin here - it's already an ordinary SurveySuccess RewardRule
+    // (stage.victoryRewardRules), folded into `loot` above.
+    if (!isReconnaissanceRun_ && stage.id == "blackwater_crossing") {
+        const BattleMissionState& mission = battleController_->battle().missionState();
+        for (const ObjectiveDefinition& def : mission.definitions) {
+            if (def.id != "blackwater_crossing_escape") continue;
+            if (mission.progress.at(def.id).creditedTargetIds.size() >= 2)
+                mergeLoot({{"quality_herb", 1}});
+            break;
+        }
+    }
+    // docs/regions/blackwater_lowlands.md「7. 深泥の水源」の副目標「薬草地点を
+    // 使用せず勝利」: same ad-hoc-secondary-bonus pattern as blackwater_crossing
+    // above - no RewardRule::Condition reads BattleState::collectedHerbPatches().
+    if (!isReconnaissanceRun_ && stage.id == "deep_mire" && battleController_->battle().collectedHerbPatches() == 0)
+        mergeLoot({{"quality_herb", 1}});
     expedition_.pendingLoot.insert(expedition_.pendingLoot.end(), loot.begin(), loot.end());
+
+    // docs/regions/windscar_plateau.md「6. 高原伝令所」の副目標「高原運び手を
+    // 2人以上撤退・降伏させる」: reuses the existing generic enemy AI retreat
+    // path (jf/battle/AiSystem.hpp's AiProfile::retreatHpPercent, already
+    // ~30% for Human-derived profiles - see EnemyAI.cpp's takeEnemyTurn(),
+    // which sets exitReason=Retreated on that path) rather than any new
+    // per-faction retreat threshold override, same ad-hoc-secondary-bonus
+    // pattern as blackwater_crossing/deep_mire above (no RewardRule::
+    // Condition reads a retreat count).
+    if (!isReconnaissanceRun_ && stage.id == "plateau_relay") {
+        int retreatedEnemies = 0;
+        for (const Unit& unit : battleController_->battle().units())
+            if (unit.team == Team::Enemy && unit.exitReason == UnitExitReason::Retreated) ++retreatedEnemies;
+        if (retreatedEnemies >= 2 && !baseState_.discoveryRegistry.count(kWindscarRoadChartDiscovery) &&
+            std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                     kWindscarRoadChartDiscovery) == expedition_.pendingDiscoveries.end())
+            expedition_.pendingDiscoveries.push_back(kWindscarRoadChartDiscovery);
+    }
 
     if (!isReconnaissanceRun_) {
         std::size_t stageIndex = static_cast<std::size_t>(expedition_.stageIndex);
@@ -92,6 +132,19 @@ void GameApp::proceedToCamp() {
                 expedition_.pendingDiscoveries.push_back(discovery);
             stageDiscoveryAwarded_[stageIndex] = true;
         }
+        // docs/regions/blackwater_lowlands.md「7. 深泥の水源」の副目標「毒状態の
+        // 味方0で戦闘終了」: grants marsh_emergency_medicine early if this run's
+        // party ends the battle with nobody poisoned and it isn't already
+        // registered/pending - same ad-hoc-secondary-bonus pattern as above.
+        // Harmless if herb_islet's own ScoutRoute already granted it earlier in
+        // the same expedition (discoveryRegistry/pendingDiscoveries dedupe).
+        if (stage.id == "deep_mire" &&
+            std::none_of(battleController_->battle().units().begin(), battleController_->battle().units().end(),
+                        [](const Unit& unit) { return unit.team == Team::Player && unit.poisonRemainingProcs > 0; }) &&
+            !baseState_.discoveryRegistry.count(kMarshEmergencyMedicineDiscovery) &&
+            std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                     kMarshEmergencyMedicineDiscovery) == expedition_.pendingDiscoveries.end())
+            expedition_.pendingDiscoveries.push_back(kMarshEmergencyMedicineDiscovery);
         // docs/roster_design.md「加入段階」: 灰角大猪撃破(brokenwood_territory
         // 勝利)で重装兵の加入候補を記録する。安全帰還まではPending
         // (ExpeditionState::pendingRecruitCandidateIds)、敗北で失う。
@@ -663,25 +716,29 @@ bool GameApp::equipWeaponForUnit(const std::string& unitId, const std::string& w
     auto unit = std::find_if(roster_.begin(), roster_.end(), [&](const UnitTemplate& candidate) {
         return candidate.id == unitId;
     });
-    if (unit == roster_.end() || unit->classId != UnitClass::Spearman) return false;
+    if (unit == roster_.end()) return false;
     if (weaponId.empty()) {
         weaponOverrides_.erase(unitId);
         markPersistentStateChanged();
         return true;
     }
     if (data_.weaponsById.find(weaponId) == data_.weaponsById.end()) return false;
-    static const std::unordered_map<std::string, std::string> requiredRecipes = {
-        {"long_spear", "craft_long_spear"},
-        {"heavy_spear", "craft_heavy_spear"},
-        {"guard_spear", "craft_guard_spear"},
-    };
-    if (weaponId != "iron_spear") {
-        auto recipe = requiredRecipes.find(weaponId);
-        if (recipe == requiredRecipes.end() || !baseState_.unlockedNodeIds.count(recipe->second)) return false;
+    // Weapon-branch generalization to all 12 classes (docs/implementation_
+    // roadmap.md "M7項目3(残り) ...特性・武器分岐の他兵種一般化"): the
+    // recipe->weapon link is data-driven via FacilityNode::weaponBranchClass
+    // instead of a Spearman-only lookup table. A "craft_*" node's id is
+    // always "craft_" + its weapon id by construction.
+    const std::string baseWeaponId = data_.classDefinition(unit->classId).weaponId;
+    if (weaponId != baseWeaponId) {
+        const FacilityNode* recipe = findFacilityNode("craft_" + weaponId);
+        if (recipe == nullptr || recipe->weaponBranchClass != unit->classId ||
+            !baseState_.unlockedNodeIds.count(recipe->id)) {
+            return false;
+        }
         // docs/item_system.md「武器と特性の共有」: a crafted branch weapon is a single
         // shared-warehouse copy - reject if another unit already has it equipped.
-        // iron_spear is exempt (every Spearman is issued their own copy at join,
-        // per docs/roster_design.md「加入人物には対応する基本武器を1本支給する」).
+        // The class's base weapon is exempt (every unit is issued their own copy at
+        // join, per docs/roster_design.md「加入人物には対応する基本武器を1本支給する」).
         for (const auto& [otherUnitId, otherWeaponId] : weaponOverrides_) {
             if (otherUnitId != unitId && otherWeaponId == weaponId) return false;
         }

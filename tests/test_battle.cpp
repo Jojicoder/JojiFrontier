@@ -168,6 +168,65 @@ jf::GameData makeFactoryData() {
     data.classesById.emplace(
         jf::UnitClass::AshironGrubworm,
         jf::ClassDefinition{jf::UnitClass::AshironGrubworm, grubwormStats, "grubworm_mandibles"});
+    jf::Weapon serpentFangs{.id = "serpent_fangs", .name = "Fangs", .might = 0, .minRange = 1,
+                           .maxRange = 1, .damageType = jf::DamageType::Physical};
+    data.weaponsById.emplace("serpent_fangs", serpentFangs);
+    jf::Stats serpentStats{.maxHp = 60, .strength = 9, .magic = 0, .speed = 5,
+                          .defense = 6, .resistance = 3, .move = 4};
+    data.classesById.emplace(
+        jf::UnitClass::MarshFangSerpent,
+        jf::ClassDefinition{jf::UnitClass::MarshFangSerpent, serpentStats, "serpent_fangs"});
+    // Weapon-branch generalization to all 12 classes (docs/implementation_
+    // roadmap.md "M7項目3(残り) ...特性・武器分岐の他兵種一般化") - the
+    // synthetic branch weapons this file's own tests craft/equip, mirroring
+    // data/weapons.json.
+    auto addWeapon = [&](const char* id, const char* name, int might, int minRange, int maxRange,
+                          jf::DamageType damageType, int moveModifier = 0, bool causesKnockback = false,
+                          std::vector<jf::StatusEffectType> onHitStatuses = {}) {
+        jf::Weapon weapon{.id = id, .name = name, .might = might, .minRange = minRange, .maxRange = maxRange,
+                          .damageType = damageType};
+        weapon.moveModifier = moveModifier;
+        weapon.causesKnockback = causesKnockback;
+        weapon.onHitStatuses = std::move(onHitStatuses);
+        data.weaponsById.emplace(id, weapon);
+    };
+    addWeapon("command_sword", "Command Sword", 4, 1, 1, jf::DamageType::Physical);
+    addWeapon("duel_sword", "Duel Sword", 7, 1, 1, jf::DamageType::Physical);
+    addWeapon("guard_sword", "Guard Sword", 4, 1, 1, jf::DamageType::Physical);
+    addWeapon("hook_lance", "Hook Lance", 5, 1, 2, jf::DamageType::Physical);
+    addWeapon("fortress_lance", "Fortress Lance", 4, 1, 2, jf::DamageType::Physical, -1);
+    addWeapon("patrol_lance", "Patrol Lance", 5, 1, 2, jf::DamageType::Physical, 1);
+    addWeapon("long_watch_bow", "Long Watch Bow", 3, 3, 4, jf::DamageType::Physical);
+    addWeapon("war_bow", "War Bow", 8, 2, 2, jf::DamageType::Physical);
+    addWeapon("pinning_bow", "Pinning Bow", 4, 2, 3, jf::DamageType::Physical, 0, false,
+              {jf::StatusEffectType::MoveDown});
+    addWeapon("trail_blade", "Trail Blade", 3, 1, 1, jf::DamageType::Physical, 1);
+    addWeapon("ambush_blade", "Ambush Blade", 6, 1, 1, jf::DamageType::Physical);
+    addWeapon("withdrawal_blade", "Withdrawal Blade", 3, 1, 1, jf::DamageType::Physical);
+    addWeapon("mercy_staff", "Mercy Staff", 1, 1, 2, jf::DamageType::Magical);
+    addWeapon("ward_staff", "Ward Staff", 2, 1, 2, jf::DamageType::Magical);
+    addWeapon("march_staff", "March Staff", 2, 1, 2, jf::DamageType::Magical);
+    addWeapon("bulwark_maul", "Bulwark Maul", 5, 1, 1, jf::DamageType::Physical);
+    addWeapon("breaker_maul", "Breaker Maul", 9, 1, 1, jf::DamageType::Physical, -1);
+    addWeapon("driving_maul", "Driving Maul", 6, 1, 1, jf::DamageType::Physical, 0, true);
+    addWeapon("builder_hammer", "Builder Hammer", 3, 1, 1, jf::DamageType::Physical);
+    addWeapon("demolition_hammer", "Demolition Hammer", 7, 1, 1, jf::DamageType::Physical);
+    addWeapon("repair_hammer", "Repair Hammer", 4, 1, 1, jf::DamageType::Physical);
+    addWeapon("road_sabre", "Road Sabre", 3, 1, 1, jf::DamageType::Physical, 1);
+    addWeapon("charge_lance", "Charge Lance", 7, 1, 1, jf::DamageType::Physical);
+    addWeapon("escort_blade", "Escort Blade", 4, 1, 1, jf::DamageType::Physical);
+    addWeapon("snare_bow", "Snare Bow", 3, 2, 2, jf::DamageType::Physical, 0, false,
+              {jf::StatusEffectType::MoveDown});
+    addWeapon("quarry_bow", "Quarry Bow", 5, 2, 2, jf::DamageType::Physical);
+    addWeapon("driving_bow", "Driving Bow", 3, 2, 2, jf::DamageType::Physical, 0, true);
+    addWeapon("far_standard", "Far Standard", 2, 1, 2, jf::DamageType::Physical);
+    addWeapon("valor_standard", "Valor Standard", 5, 1, 2, jf::DamageType::Physical);
+    addWeapon("warding_standard", "Warding Standard", 3, 1, 2, jf::DamageType::Physical);
+    addWeapon("resonant_focus", "Resonant Focus", 4, 1, 2, jf::DamageType::Magical);
+    addWeapon("war_focus", "War Focus", 9, 1, 2, jf::DamageType::Magical, -1);
+    addWeapon("ember_focus", "Ember Focus", 5, 1, 2, jf::DamageType::Magical, 0, false,
+              {jf::StatusEffectType::Burn});
+
     data.recruitDefinitionsById.emplace("heavy_recruit",
                                         jf::UnitTemplate{"heavy_recruit", "Hadric", jf::UnitClass::HeavyInfantry});
     data.recruitDefinitionsById.emplace(
@@ -282,6 +341,31 @@ bool startBlackwaterExpedition(jf::GameApp& app) {
     save.base.completedRegionIds.insert(jf::RegionId::AshironQuarry);
     if (!app.applySaveData(save)) return false;
     return app.startExpedition(jf::RegionId::BlackwaterLowlands);
+}
+
+// docs/regions/blackwater_lowlands.md「5. 黒水渡し」: wins sites 1-4 (all via
+// FrontalAdvance, same "AllMembers" branch-resolution shape the resin_grove
+// test above uses) and continues to Blackwater Crossing's Exploration
+// screen, the shared setup every Blackwater Crossing GameApp test needs.
+bool reachBlackwaterCrossing(jf::GameApp& app) {
+    if (!startBlackwaterExpedition(app)) return false;
+    if (!app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)) return false; // sunken_path
+    winCurrentBattle(app);
+    app.proceedToCamp();
+    app.continueExpedition();
+    if (!app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)) return false; // reedway_fork
+    winCurrentBattle(app);
+    app.proceedToCamp();
+    app.continueExpedition();
+    if (!app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)) return false; // herb_islet
+    winCurrentBattle(app);
+    app.proceedToCamp();
+    app.continueExpedition();
+    if (!app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance)) return false; // resin_grove
+    winCurrentBattle(app);
+    app.proceedToCamp();
+    app.continueExpedition(); // both branch members resolved -> Camp II -> blackwater_crossing
+    return app.screen() == jf::Screen::Exploration && app.currentMissionNameJa() == "黒水渡し";
 }
 
 // docs/regions/cinderwatch_gate.md「1. シンダーウォッチ外門」disables ScoutRoute
@@ -1788,6 +1872,103 @@ int main() {
         attacker.tilesMovedThisAction = 2;
         jf::BattleState battle({defender, attacker});
         assert(battle.combatDefenseBonus(battle.units()[0], battle.units()[1]) == 3);
+    }
+
+    {
+        // Weapon-branch generalization to the other 11 classes
+        // (docs/implementation_roadmap.md "M7項目3(残り) ...特性・武器分岐の
+        // 他兵種一般化"): recipe unlock + weapon-stat-swap (incl. MOV where
+        // applicable) for each class, mirroring the Spearman tests above.
+        // Required Discoveries are seeded directly since several aren't
+        // granted by any implemented region content yet (see
+        // docs/implementation_status.md).
+        struct BranchCheck {
+            jf::UnitClass unitClass;
+            const char* forgingNode;
+            const char* craftNode;
+            const char* discovery;
+            const char* weaponId;
+            int might;
+            int minRange;
+            int maxRange;
+            int moveModifier;
+        };
+        const BranchCheck checks[] = {
+            {jf::UnitClass::MarchCaptain, "march_captain_forging", "craft_command_sword",
+             "cinderwatch_command_drills", "command_sword", 4, 1, 1, 0},
+            {jf::UnitClass::VeteranGuard, "veteran_guard_forging", "craft_hook_lance",
+             "cinderwatch_defense_manual", "hook_lance", 5, 1, 2, 0},
+            {jf::UnitClass::WatchArcher, "watch_archer_forging", "craft_long_watch_bow",
+             "cinderwatch_watch_records", "long_watch_bow", 3, 3, 4, 0},
+            {jf::UnitClass::FrontierScout, "frontier_scout_forging", "craft_trail_blade",
+             "ashbough_forest_survey_complete", "trail_blade", 3, 1, 1, 1},
+            {jf::UnitClass::DawnChirurgeon, "dawn_chirurgeon_forging", "craft_mercy_staff",
+             jf::kHerbThicketDiscovery, "mercy_staff", 1, 1, 2, 0},
+            {jf::UnitClass::HeavyInfantry, "heavy_infantry_forging", "craft_driving_maul",
+             "impact_balance_record", "driving_maul", 6, 1, 1, 0},
+            {jf::UnitClass::FrontierEngineer, "frontier_engineer_forging", "craft_repair_hammer",
+             "structural_repair_guide", "repair_hammer", 4, 1, 1, 0},
+            {jf::UnitClass::MessengerCavalry, "messenger_cavalry_forging", "craft_road_sabre",
+             "courier_route_chart", "road_sabre", 3, 1, 1, 1},
+            {jf::UnitClass::FrontierRanger, "frontier_ranger_forging", "craft_driving_bow",
+             "herding_shot_method", "driving_bow", 3, 2, 2, 0},
+            {jf::UnitClass::BannerBearer, "banner_bearer_forging", "craft_far_standard",
+             "long_range_signal_code", "far_standard", 2, 1, 2, 0},
+            {jf::UnitClass::BattleMage, "battle_mage_forging", "craft_ember_focus",
+             "controlled_ember_formula", "ember_focus", 5, 1, 2, 0},
+        };
+        for (const BranchCheck& check : checks) {
+            jf::GameData data = makeFactoryData();
+            data.playerParty[0].classId = check.unitClass;
+            jf::GameApp app(data);
+            jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+            testBase.outpostStage = jf::OutpostStage::PioneerCity; // clear every stage gate
+            testBase.unlockedNodeIds.insert("simple_forge");
+            testBase.constructedFacilityIds.insert("simple_forge");
+            testBase.discoveryRegistry.insert(check.discovery);
+            assert(!jf::facilityNodeEligible(app.baseState(), *jf::findFacilityNode(check.craftNode)))
+                ; // forging branch not unlocked yet
+            assert(app.unlockFacilityNode(check.forgingNode));
+            const jf::FacilityNode* craftNode = jf::findFacilityNode(check.craftNode);
+            assert(craftNode != nullptr);
+            assert(craftNode->weaponBranchClass == check.unitClass);
+            for (const jf::LootStack& cost : craftNode->materialCosts) testBase.addStorage(cost.id, cost.quantity + 1);
+            assert(app.unlockFacilityNode(check.craftNode));
+            assert(app.baseState().unlockedNodeIds.count(check.craftNode) == 1);
+
+            assert(app.equipWeaponForUnit("player0", check.weaponId));
+            jf::UnitTemplate branchTemplate{"branch_test", "Branch Test", check.unitClass};
+            jf::WeaponOverrides overrides{{"branch_test", check.weaponId}};
+            jf::Unit branched = jf::instantiateUnit(data, branchTemplate, jf::Team::Player, {0, 0}, &overrides);
+            assert(branched.weapon.id == check.weaponId);
+            assert(branched.weapon.might == check.might);
+            assert(branched.weapon.minRange == check.minRange);
+            assert(branched.weapon.maxRange == check.maxRange);
+            assert(branched.stats.move ==
+                   data.classDefinition(check.unitClass).baseStats.move + check.moveModifier);
+        }
+    }
+
+    {
+        // Driving Maul / Driving Bow: knockback branches reuse the same
+        // generic Weapon::causesKnockback hook Heavy Spear already wired.
+        jf::Unit attacker = makeUnit("attacker", jf::Team::Player, {1, 2}, 4, jf::UnitClass::HeavyInfantry);
+        attacker.weapon.causesKnockback = true;
+        jf::Unit defender = makeUnit("defender", jf::Team::Enemy, {1, 3});
+        jf::BattleState battle({attacker, defender});
+        battle.applyKnockback(battle.units()[0], battle.units()[1]);
+        assert((battle.units()[1].position == jf::GridPos{1, 4}));
+    }
+
+    {
+        // Pinning Bow / Snare Bow / Ember Focus: on-hit status branches reuse
+        // the generic Weapon::onHitStatuses hook.
+        jf::Unit attacker = makeUnit("attacker", jf::Team::Player, {1, 2}, 4, jf::UnitClass::WatchArcher);
+        attacker.weapon.onHitStatuses = {jf::StatusEffectType::MoveDown};
+        jf::Unit defender = makeUnit("defender", jf::Team::Enemy, {1, 3});
+        jf::BattleState battle({attacker, defender});
+        jf::applyWeaponOnHitStatuses(battle, battle.units()[0], battle.units()[1]);
+        assert(battle.units()[1].moveDownActive);
     }
 
     {
@@ -5604,7 +5785,7 @@ int main() {
         assert(app.screen() == jf::Screen::Base); // rejected attempt leaves screen untouched
 
         auto summaries = app.regionSummaries();
-        assert(summaries.size() == 4);
+        assert(summaries.size() == 5);
         bool sawAshboughUnlocked = false, sawCinderwatchLocked = false, sawAshironLocked = false;
         for (const auto& summary : summaries) {
             if (summary.id == jf::RegionId::AshboughForest) sawAshboughUnlocked = summary.unlocked;
@@ -6593,6 +6774,539 @@ int main() {
     }
 
     {
+        // docs/regions/blackwater_lowlands.md「沼牙の大蛇」「毒牙」: range-1
+        // STR+3 physical attack that poisons on hit unless already poisoned.
+        jf::Unit serpent = makeUnit("serpent", jf::Team::Enemy, {1, 1}, 4, jf::UnitClass::MarshFangSerpent);
+        serpent.stats.strength = 9;
+        serpent.stats.defense = 6;
+        serpent.stats.resistance = 3;
+        serpent.stats.maxHp = 60;
+        serpent.currentHp = 60;
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {1, 2}); // adjacent
+        jf::BattleState battle({ally, serpent});
+
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(battle.units()[0].currentHp < battle.units()[0].stats.maxHp);
+        assert(battle.units()[0].poisonRemainingProcs > 0);
+        const int hpAfterFirstBite = battle.units()[0].currentHp;
+
+        battle.units()[1].hasActed = false; // simulate the next turn, still adjacent+poisoned
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(battle.units()[0].currentHp < hpAfterFirstBite); // still takes normal attack damage
+    }
+
+    {
+        // docs/regions/blackwater_lowlands.md「沼牙の大蛇」「締め付け」: fires
+        // (STR+1, Move Down, no stacking) only once 2+ players are adjacent -
+        // otherwise falls through to a normal single-target attack.
+        jf::Unit serpent = makeUnit("serpent", jf::Team::Enemy, {1, 1}, 4, jf::UnitClass::MarshFangSerpent);
+        serpent.stats.strength = 9;
+        serpent.stats.defense = 6;
+        serpent.stats.resistance = 3;
+        serpent.stats.maxHp = 60;
+        serpent.currentHp = 60;
+        // allyA is orthogonally adjacent AND in the front-3 column (takes
+        // the constrict hit); allyB is orthogonally adjacent but NOT in the
+        // front-3 column (only counts toward the 2+ trigger condition).
+        jf::Unit allyA = makeUnit("allyA", jf::Team::Player, {1, 0});
+        jf::Unit allyB = makeUnit("allyB", jf::Team::Player, {0, 1});
+        jf::BattleState battle({allyA, allyB, serpent});
+
+        jf::takeEnemyTurn(battle, battle.units()[2]);
+        assert(battle.units()[0].currentHp < battle.units()[0].stats.maxHp);
+        assert(battle.units()[0].moveDownActive);
+        assert(battle.units()[1].currentHp == battle.units()[1].stats.maxHp); // outside the front-3 pattern
+    }
+
+    {
+        // docs/regions/blackwater_lowlands.md「沼牙の大蛇」「激しい身震い」:
+        // HP<=50%で一度だけ、隣接4マスのユニットを1マス押し出す。
+        jf::Unit serpent = makeUnit("serpent", jf::Team::Enemy, {2, 2}, 4, jf::UnitClass::MarshFangSerpent);
+        serpent.stats.strength = 9;
+        serpent.stats.defense = 6;
+        serpent.stats.resistance = 3;
+        serpent.stats.maxHp = 60;
+        serpent.currentHp = 30; // exactly 50%
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {2, 3}); // adjacent, east
+        jf::BattleState battle({ally, serpent});
+
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(battle.units()[1].bossShudderUsed);
+        assert(battle.units()[0].position == (jf::GridPos{2, 4})); // knocked back 1 tile away
+
+        battle.units()[1].hasActed = false; // doesn't fire a second time
+        battle.units()[0].position = jf::GridPos{2, 3}; // move back adjacent to re-test
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert((battle.units()[0].position == jf::GridPos{2, 3})); // no second push-out
+    }
+
+    {
+        // docs/regions/blackwater_lowlands.md「深泥の水源」: defeating the boss
+        // (HP0, ScriptedWithdrawal) wins the standard EliminateTeam battle -
+        // the "水源標識1個以上で行動終了" AND-component of the primary is
+        // approximated away (same M9-D precedent: no AND-composition infra
+        // for a single site), and "標識2個確保" is a survey bonus instead.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor blackwaterRegion = jf::regionDescriptor(jf::RegionId::BlackwaterLowlands, *data);
+        const jf::StageDescriptor* mireStage = nullptr;
+        for (const jf::StageDescriptor& stage : blackwaterRegion.stages)
+            if (stage.id == "deep_mire") mireStage = &stage;
+        assert(mireStage);
+        assert(mireStage->surveyObjectiveId == "deep_mire_water_markers");
+        assert(mireStage->surveyTileCount && *mireStage->surveyTileCount == 2);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *mireStage, /*seed=*/17);
+        const jf::AliveSnapshot before = jf::captureAliveSnapshot(battle);
+        for (jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+        jf::emitUnitDefeatedEvents(battle, before);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+
+        const jf::Unit* boss = nullptr;
+        for (const jf::Unit& unit : battle.units())
+            if (unit.unitClass == jf::UnitClass::MarshFangSerpent) boss = &unit;
+        assert(boss && boss->exitReason == jf::UnitExitReason::ScriptedWithdrawal);
+    }
+
+    {
+        // docs/regions/blackwater_lowlands.md「地域攻略と拠点接続」: Windswept
+        // Highland (第5地域) becomes selectable once Blackwater Lowlands
+        // completes, mirroring how Ashiron Quarry unlocked after Cinderwatch.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(!app.isRegionUnlocked(jf::RegionId::WindscarPlateau));
+        jf::SaveData save = app.createSaveData("en");
+        save.base.completedRegionIds.insert(jf::RegionId::BlackwaterLowlands);
+        assert(app.applySaveData(save));
+        assert(app.isRegionUnlocked(jf::RegionId::WindscarPlateau));
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「地点構成」: 6-site skeleton + 2
+        // camps + the site 3/4 either-order-but-both-required branch, mirror
+        // of the BlackwaterLowlands skeleton test above.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor windscarRegion = jf::regionDescriptor(jf::RegionId::WindscarPlateau, *data);
+        assert(windscarRegion.stages.size() == 6);
+        assert(windscarRegion.stages[0].id == "windscar_ascent");
+
+        const jf::RegionRouteGraph& windscarRoute = jf::regionRouteGraph(jf::RegionId::WindscarPlateau);
+        std::string error;
+        assert(jf::validateRouteGraph(windscarRoute, &error));
+        assert(jf::findRouteNode(windscarRoute, "windwatch_station"));
+        assert(jf::findRouteNode(windscarRoute, "split_convoy"));
+        const jf::RouteNodeDefinition* branch = jf::findRouteNode(windscarRoute, "windwatch_convoy_branch");
+        assert(branch && branch->kind == jf::RouteNodeKind::BranchGroup &&
+               branch->branchCompletion == jf::BranchCompletion::AllMembers);
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「1. 風下の登り口」: 主目的4体・
+        // 副目標(標識で行動終了)・勝利報酬(獣皮2、硬木1)・斥候ルート報酬
+        // (織物1)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor windscarRegion = jf::regionDescriptor(jf::RegionId::WindscarPlateau, *data);
+        const jf::StageDescriptor& ascentStage = windscarRegion.stages[0];
+        assert(ascentStage.enemyRoster.size() == 4);
+        assert(ascentStage.surveyObjectiveId == "windscar_ascent_marker");
+        assert(ascentStage.scoutRouteRequiredClass == jf::UnitClass::FrontierScout);
+        assert(ascentStage.windGust && ascentStage.windGust->triggerRound == 3);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(ascentStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "hide") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "hardwood") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "cloth") == 0);
+        assert(findLoot(lootFor(jf::ExplorationChoice::ScoutRoute), "cloth") == 1);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, ascentStage, /*seed=*/5);
+        int enemyCount = 0;
+        for (const jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 4);
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「2. 崩れた中継路」: mirror of
+        // blackwater_crossing's own guest-escort tests above - the guest
+        // reaching the escape tile wins standalone (primary is EscapeUnits,
+        // not EliminateTeam), and losing the guest is Defeat independent of
+        // the player squad's own state.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor windscarRegion = jf::regionDescriptor(jf::RegionId::WindscarPlateau, *data);
+        const jf::StageDescriptor* relayStage = nullptr;
+        for (const jf::StageDescriptor& stage : windscarRegion.stages)
+            if (stage.id == "windscar_relay") relayStage = &stage;
+        assert(relayStage && relayStage->guestUnits.size() == 1);
+        assert(relayStage->enemyRoster.size() == 4);
+        assert(relayStage->scoutRouteRequiredClass == jf::UnitClass::FrontierEngineer);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*relayStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "cloth") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "riding_gear") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "hardwood") == 0);
+        assert(findLoot(lootFor(jf::ExplorationChoice::ScoutRoute), "hardwood") == 1);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *relayStage, /*seed=*/7);
+        assert(battle.missionState().guestUnitIds.size() == 1);
+        for (const jf::Unit& unit : battle.units())
+            if (unit.isGuest) assert(unit.team == jf::Team::Player);
+
+        const jf::ObjectiveDefinition* escapeDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.id == "windscar_relay_escape") escapeDef = &def;
+        assert(escapeDef && escapeDef->primary && escapeDef->kind == jf::ObjectiveKind::EscapeUnits);
+
+        const std::string& guestId = battle.missionState().guestUnitIds[0];
+        jf::BattleEvent guestEscapes{
+            1, 1,
+            jf::ActionResolvedEvent{1, guestId, jf::Team::Player, jf::ActionKind::Wait, escapeDef->target.tile}};
+        jf::handleObjectiveEvent(battle.missionState(), guestEscapes);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「2. 崩れた中継路」敗北条件「護衛対象の
+        // 撤退」: allGuestsLost() fires Defeat even with the player squad
+        // fully alive, same shape as blackwater_crossing's own test.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor windscarRegion = jf::regionDescriptor(jf::RegionId::WindscarPlateau, *data);
+        const jf::StageDescriptor* relayStage = nullptr;
+        for (const jf::StageDescriptor& stage : windscarRegion.stages)
+            if (stage.id == "windscar_relay") relayStage = &stage;
+        assert(relayStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *relayStage, /*seed=*/7);
+        assert(!battle.allGuestsLost());
+        for (jf::Unit& unit : battle.units())
+            if (unit.isGuest) unit.currentHp = 0;
+        assert(battle.allGuestsLost());
+        assert(!battle.allPlayersDefeated());
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Defeat);
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「3. 風見台」: primary is 2
+        // OperateObject Objectives (風見盤2個), mirroring signal_tower's own
+        // dual-panel shape (cinderwatch_gate.md「5. 信号塔下層」) via the same
+        // objectPlacementRules/operateObjectiveId JSON Schema - so defeating
+        // every enemy without operating both panels must NOT win, and
+        // operating only one must NOT win either.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor windscarRegion = jf::regionDescriptor(jf::RegionId::WindscarPlateau, *data);
+        const jf::StageDescriptor* windwatchStage = nullptr;
+        for (const jf::StageDescriptor& stage : windscarRegion.stages)
+            if (stage.id == "windwatch_station") windwatchStage = &stage;
+        assert(windwatchStage);
+        assert(windwatchStage->enemyRoster.size() == 5);
+        assert(windwatchStage->scoutRouteRequiredClass == jf::UnitClass::WatchArcher);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*windwatchStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "hardwood") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "cloth") == 1);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *windwatchStage, /*seed=*/11);
+        int enemyCount = 0;
+        for (const jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 5);
+
+        for (jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+
+        jf::BattleObjectState* northPanel = battle.findObject("windwatch_panel_north_1");
+        assert(northPanel != nullptr);
+        northPanel->interactionCount = 1; // only ONE of the 2 panels operated
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind != jf::BattleOutcomeKind::Victory);
+
+        jf::BattleObjectState* southPanel = battle.findObject("windwatch_panel_south_1");
+        assert(southPanel != nullptr);
+        southPanel->interactionCount = 1; // both panels now operated
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「4. 分断された輸送隊」: mirror of
+        // windscar_relay's own guest-escort tests above - the guest reaching
+        // the escape tile wins standalone (primary is EscapeUnits), and
+        // losing all guests is Defeat independent of the player squad's own
+        // state.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor windscarRegion = jf::regionDescriptor(jf::RegionId::WindscarPlateau, *data);
+        const jf::StageDescriptor* convoyStage = nullptr;
+        for (const jf::StageDescriptor& stage : windscarRegion.stages)
+            if (stage.id == "split_convoy") convoyStage = &stage;
+        assert(convoyStage && convoyStage->guestUnits.size() == 2);
+        assert(convoyStage->enemyRoster.size() == 5);
+        assert(convoyStage->scoutRouteRequiredClass == jf::UnitClass::MessengerCavalry);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*convoyStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "cloth") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "riding_gear") == 1);
+        // ルート1「荷物報酬-1」: riding_gearが1減って0(quantity>0のみ残す既存
+        // フィルタにより結果からriding_gear自体が消える)。
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "cloth") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "riding_gear") == 0);
+
+        jf::ExplorationOutcome frontalOutcome =
+            jf::stageRouteOutcome(*convoyStage, jf::ExplorationChoice::FrontalAdvance);
+        jf::BattleState battle = jf::createScenarioBattle(*data, *convoyStage, /*seed=*/13, frontalOutcome);
+        assert(battle.missionState().guestUnitIds.size() == 2);
+        for (const jf::Unit& unit : battle.units())
+            if (unit.isGuest) assert(unit.team == jf::Team::Player);
+        int enemyCount = 0;
+        for (const jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 4); // FrontalAdvance route: enemiesRemoved=1 from the 5-unit base roster
+
+        const jf::ObjectiveDefinition* escapeDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.id == "split_convoy_escape") escapeDef = &def;
+        assert(escapeDef && escapeDef->primary && escapeDef->kind == jf::ObjectiveKind::EscapeUnits);
+
+        const std::string& guestId = battle.missionState().guestUnitIds[0];
+        jf::BattleEvent guestEscapes{
+            1, 1,
+            jf::ActionResolvedEvent{1, guestId, jf::Team::Player, jf::ActionKind::Wait, escapeDef->target.tile}};
+        jf::handleObjectiveEvent(battle.missionState(), guestEscapes);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「4. 分断された輸送隊」敗北条件
+        // 「負傷者をすべて失う」: allGuestsLost() fires Defeat even with the
+        // player squad fully alive, same shape as windscar_relay's own test.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor windscarRegion = jf::regionDescriptor(jf::RegionId::WindscarPlateau, *data);
+        const jf::StageDescriptor* convoyStage = nullptr;
+        for (const jf::StageDescriptor& stage : windscarRegion.stages)
+            if (stage.id == "split_convoy") convoyStage = &stage;
+        assert(convoyStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *convoyStage, /*seed=*/13);
+        assert(!battle.allGuestsLost());
+        for (jf::Unit& unit : battle.units())
+            if (unit.isGuest) unit.currentHp = 0;
+        assert(battle.allGuestsLost());
+        assert(!battle.allPlayersDefeated());
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Defeat);
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「4. 分断された輸送隊」`[伝令騎兵]`
+        // ルート: enemyRoster's 5th unit (軽装剣士相当) only appears via
+        // ScoutRoute (no enemiesRemoved on that route), while the other 2
+        // routes drop it (enemiesRemoved=1).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor windscarRegion = jf::regionDescriptor(jf::RegionId::WindscarPlateau, *data);
+        const jf::StageDescriptor* convoyStage = nullptr;
+        for (const jf::StageDescriptor& stage : windscarRegion.stages)
+            if (stage.id == "split_convoy") convoyStage = &stage;
+        assert(convoyStage);
+
+        jf::ExplorationOutcome scoutOutcome =
+            jf::stageRouteOutcome(*convoyStage, jf::ExplorationChoice::ScoutRoute);
+        jf::BattleState battle = jf::createScenarioBattle(*data, *convoyStage, /*seed=*/13, scoutOutcome);
+        int enemyCount = 0;
+        for (const jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 5);
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「キャンプII」: available only once
+        // both site 3 (windwatch_station) and site 4 (split_convoy) are
+        // complete - RouteGraph.cpp's windscarPlateauGraph() wires this via
+        // BranchCompletion::AllMembers on the branch node feeding
+        // windscar_camp2, same mechanism CinderwatchGate/BlackwaterLowlands's
+        // own branches use. Verified here directly on the graph data (not a
+        // full campaign-state test, matching this project's existing
+        // reachability-test precedent for these branches).
+        const jf::RegionRouteGraph& graph = jf::regionRouteGraph(jf::RegionId::WindscarPlateau);
+        const jf::RouteNodeDefinition* convoyBranch = nullptr;
+        for (const jf::RouteNodeDefinition& node : graph.nodes)
+            if (node.kind == jf::RouteNodeKind::BranchGroup && node.branchMembers.size() == 2 &&
+                std::find(node.branchMembers.begin(), node.branchMembers.end(), "windwatch_station") !=
+                    node.branchMembers.end() &&
+                std::find(node.branchMembers.begin(), node.branchMembers.end(), "split_convoy") !=
+                    node.branchMembers.end())
+                convoyBranch = &node;
+        assert(convoyBranch);
+        assert(convoyBranch->branchCompletion == jf::BranchCompletion::AllMembers);
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「5. 断崖荷車道」: mirror of
+        // split_convoy's own guest-escort tests above - the cart-guest
+        // reaching the escape tile wins standalone (primary is EscapeUnits),
+        // and losing the cart-guest is Defeat independent of the player
+        // squad's own state.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor windscarRegion = jf::regionDescriptor(jf::RegionId::WindscarPlateau, *data);
+        const jf::StageDescriptor* cartStage = nullptr;
+        for (const jf::StageDescriptor& stage : windscarRegion.stages)
+            if (stage.id == "cliff_cart_road") cartStage = &stage;
+        assert(cartStage && cartStage->guestUnits.size() == 1);
+        assert(cartStage->enemyRoster.size() == 5);
+        assert(cartStage->scoutRouteRequiredClass == jf::UnitClass::HeavyInfantry);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*cartStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "hardwood") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "hide") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "riding_gear") == 1);
+        // ルート2「騎具素材-1」: riding_gearが1減って0(quantity>0のみ残す既存
+        // フィルタにより結果からriding_gear自体が消える)。
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "hardwood") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "riding_gear") == 0);
+
+        jf::ExplorationOutcome frontalOutcome =
+            jf::stageRouteOutcome(*cartStage, jf::ExplorationChoice::FrontalAdvance);
+        jf::BattleState battle = jf::createScenarioBattle(*data, *cartStage, /*seed=*/13, frontalOutcome);
+        assert(battle.missionState().guestUnitIds.size() == 1);
+        for (const jf::Unit& unit : battle.units())
+            if (unit.isGuest) assert(unit.team == jf::Team::Player);
+        int enemyCount = 0;
+        for (const jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 5); // FrontalAdvance route: base 5-unit roster, no removal
+
+        const jf::ObjectiveDefinition* escapeDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.id == "cliff_cart_escape") escapeDef = &def;
+        assert(escapeDef && escapeDef->primary && escapeDef->kind == jf::ObjectiveKind::EscapeUnits);
+
+        const std::string& guestId = battle.missionState().guestUnitIds[0];
+        jf::BattleEvent guestEscapes{
+            1, 1,
+            jf::ActionResolvedEvent{1, guestId, jf::Team::Player, jf::ActionKind::Wait, escapeDef->target.tile}};
+        jf::handleObjectiveEvent(battle.missionState(), guestEscapes);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「5. 断崖荷車道」敗北条件「全輸送
+        // 対象の撤退」: allGuestsLost() fires Defeat even with the player
+        // squad fully alive, same shape as split_convoy's own test.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor windscarRegion = jf::regionDescriptor(jf::RegionId::WindscarPlateau, *data);
+        const jf::StageDescriptor* cartStage = nullptr;
+        for (const jf::StageDescriptor& stage : windscarRegion.stages)
+            if (stage.id == "cliff_cart_road") cartStage = &stage;
+        assert(cartStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *cartStage, /*seed=*/13);
+        assert(!battle.allGuestsLost());
+        for (jf::Unit& unit : battle.units())
+            if (unit.isGuest) unit.currentHp = 0;
+        assert(battle.allGuestsLost());
+        assert(!battle.allPlayersDefeated());
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Defeat);
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「5. 断崖荷車道」ルート2「敵4体」:
+        // enemiesRemoved=1 from the 5-unit base roster (route1/3 keep the
+        // full roster).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor windscarRegion = jf::regionDescriptor(jf::RegionId::WindscarPlateau, *data);
+        const jf::StageDescriptor* cartStage = nullptr;
+        for (const jf::StageDescriptor& stage : windscarRegion.stages)
+            if (stage.id == "cliff_cart_road") cartStage = &stage;
+        assert(cartStage);
+
+        jf::ExplorationOutcome sideOutcome =
+            jf::stageRouteOutcome(*cartStage, jf::ExplorationChoice::CollapsedSidePath);
+        jf::BattleState battle = jf::createScenarioBattle(*data, *cartStage, /*seed=*/13, sideOutcome);
+        int enemyCount = 0;
+        for (const jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 4);
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「強風ルール」: unit standing on a
+        // WindGust tile at the configured trigger Round is pushed 1 tile
+        // along `delta`; a blocked destination deals fixed 2 damage instead
+        // (not BattleState::applyKnockback()'s stagger outcome).
+        jf::Unit windedUnit = makeUnit("winded", jf::Team::Player, {0, 3});
+        jf::Unit heavyUnit = makeUnit("heavy", jf::Team::Player, {0, 4}, 4, jf::UnitClass::HeavyInfantry);
+        jf::Unit blockedUnit = makeUnit("blocked", jf::Team::Player, {2, 5});
+        std::array<jf::TerrainType, jf::kGridRows * jf::kGridCols> terrain{};
+        terrain.fill(jf::TerrainType::Floor);
+        terrain[0 * jf::kGridCols + 3] = jf::TerrainType::WindGust;
+        terrain[0 * jf::kGridCols + 4] = jf::TerrainType::WindGust;
+        terrain[2 * jf::kGridCols + 5] = jf::TerrainType::WindGust; // pushed toward row 3: out of bounds
+
+        jf::BattleState battle({windedUnit, heavyUnit, blockedUnit}, terrain);
+        battle.setWindGust(jf::BattleState::WindGustConfig{jf::GridPos{1, 0}, /*triggerRound=*/1});
+        assert(battle.round() == 1);
+        jf::resolveWindGustRoundEnd(battle);
+
+        const jf::Unit* windedAfter = battle.findUnit("winded");
+        assert(windedAfter && windedAfter->position == (jf::GridPos{1, 3}));
+
+        const jf::Unit* heavyAfter = battle.findUnit("heavy");
+        assert(heavyAfter && heavyAfter->position == (jf::GridPos{0, 4})); // 重量装甲: unmoved
+        assert(heavyAfter->currentHp == heavyAfter->stats.maxHp); // and no collision damage
+
+        const jf::Unit* blockedAfter = battle.findUnit("blocked");
+        assert(blockedAfter && blockedAfter->position == (jf::GridPos{2, 5})); // board edge: unmoved
+        assert(blockedAfter->currentHp == blockedAfter->stats.maxHp - 2); // fixed 2 collision damage
+    }
+
+    {
         // docs/regions/blackwater_lowlands.md「1. 灰水の沈み道」: 3探索ルートの
         // 敵数・報酬差分。ルート効果はCinderwatch/Ashbough共通の
         // cinderwatchOutcome()デフォルト(rush=partyDamage2+enemiesRemoved1、
@@ -6655,7 +7369,7 @@ int main() {
         winCurrentBattle(app);
         app.proceedToCamp();
         app.continueExpedition(); // both resolved -> Camp II -> blackwater_crossing
-        assert(app.currentMissionNameJa() == "黒水渡し(仮実装)");
+        assert(app.currentMissionNameJa() == "黒水渡し");
     }
 
     {
@@ -6867,7 +7581,7 @@ int main() {
         winCurrentBattle(app);
         app.proceedToCamp();
         app.continueExpedition(); // both branch members resolved -> Camp II -> blackwater_crossing
-        assert(app.currentMissionNameJa() == "黒水渡し(仮実装)");
+        assert(app.currentMissionNameJa() == "黒水渡し");
     }
 
     {
@@ -8301,6 +9015,266 @@ int main() {
                                      [](const jf::UnitTemplate& u) { return u.id == "heavy_recruit"; });
         assert(restored != freshApp.roster().end() && restored->classId == jf::UnitClass::HeavyInfantry);
         assert(freshApp.equippedSkills().count("heavy_recruit")); // Tier1スキルも復元
+    }
+
+    {
+        // docs/regions/blackwater_lowlands.md「5. 黒水渡し」: a guest reaching
+        // the escape tile and ending an action there completes the primary
+        // EscapeUnits objective standalone (it replaced the default
+        // EliminateTeam member entirely - see
+        // StageDescriptor::primaryEscapeUnitsAlternative) - Victory even
+        // though every enemy is still alive.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor blackwaterRegion = jf::regionDescriptor(jf::RegionId::BlackwaterLowlands, *data);
+        const jf::StageDescriptor* crossingStage = nullptr;
+        for (const jf::StageDescriptor& stage : blackwaterRegion.stages)
+            if (stage.id == "blackwater_crossing") crossingStage = &stage;
+        assert(crossingStage && crossingStage->guestUnits.size() == 2);
+        assert(crossingStage->enemyRoster.size() == 5);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *crossingStage, /*seed=*/7);
+        assert(battle.missionState().guestUnitIds.size() == 2);
+        for (const jf::Unit& unit : battle.units())
+            if (unit.isGuest) assert(unit.team == jf::Team::Player);
+
+        const jf::ObjectiveDefinition* escapeDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.id == "blackwater_crossing_escape") escapeDef = &def;
+        assert(escapeDef && escapeDef->primary && escapeDef->kind == jf::ObjectiveKind::EscapeUnits);
+
+        const std::string& guestId = battle.missionState().guestUnitIds[0];
+        jf::BattleEvent guestEscapes{
+            1, 1,
+            jf::ActionResolvedEvent{1, guestId, jf::Team::Player, jf::ActionKind::Wait, escapeDef->target.tile}};
+        jf::handleObjectiveEvent(battle.missionState(), guestEscapes);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // Both guests reduced to 0 HP (isPresent() false): allGuestsLost()
+        // gates Defeat independently of the player squad still being fully
+        // alive - the "荷運び役2人の撤退" loss condition.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor blackwaterRegion = jf::regionDescriptor(jf::RegionId::BlackwaterLowlands, *data);
+        const jf::StageDescriptor* crossingStage = nullptr;
+        for (const jf::StageDescriptor& stage : blackwaterRegion.stages)
+            if (stage.id == "blackwater_crossing") crossingStage = &stage;
+        assert(crossingStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *crossingStage, /*seed=*/7);
+        assert(!battle.allGuestsLost()); // both still present at battle start
+        for (jf::Unit& unit : battle.units())
+            if (unit.isGuest) unit.currentHp = 0;
+        assert(battle.allGuestsLost());
+        // Party squad is untouched (still fully alive) - Defeat must still
+        // fire purely from the guests, not allPlayersDefeated().
+        assert(!battle.allPlayersDefeated());
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Defeat);
+    }
+
+    {
+        // Both guests escaping grants the "全員脱出: 高品質薬草1" bonus
+        // (GameApp::proceedToCamp()'s ad-hoc creditedTargetIds.size()>=2
+        // check).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        jf::GameApp app(*data);
+        assert(reachBlackwaterCrossing(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+
+        const std::vector<std::string> guestIds = app.battle().battle().missionState().guestUnitIds;
+        assert(guestIds.size() == 2);
+        const jf::ObjectiveDefinition* escapeDef = nullptr;
+        for (const auto& def : app.battle().battle().missionState().definitions)
+            if (def.id == "blackwater_crossing_escape") escapeDef = &def;
+        assert(escapeDef);
+        const jf::GridPos exitTile = escapeDef->target.tile;
+
+        // requiredEscapeCount is 1, so the FIRST guest to cross already
+        // satisfies the primary objective and locks BattleController into
+        // Victory (no further actions accepted) - crediting the second
+        // guest that way is impossible through real play within the same
+        // battle. Credit it directly first (as if it had already crossed
+        // moments earlier), then have the first guest cross for real so
+        // BattleController's own evaluateOutcome() sees both credits
+        // already present.
+        jf::BattleEvent secondGuestEscapes{
+            app.battle().battle().issueEventId(), 1,
+            jf::ActionResolvedEvent{1, guestIds[1], jf::Team::Player, jf::ActionKind::Wait, exitTile}};
+        jf::handleObjectiveEvent(app.battle().battle().missionState(), secondGuestEscapes);
+
+        jf::Unit* guest = app.battle().battle().findUnit(guestIds[0]);
+        assert(guest);
+        guest->position = exitTile; // bypass real pathing, same trick winCurrentBattle uses
+        guest->hasActed = false;
+        app.battle().selectUnit(*guest);
+        app.battle().selectMoveTile(guest->position);
+        app.battle().chooseWait();
+        assert(app.battle().inputState() == jf::BattleInputState::Victory);
+        app.proceedToCamp();
+        int qualityHerb = 0;
+        for (const auto& loot : app.expedition().pendingLoot)
+            if (loot.id == "quality_herb") qualityHerb = loot.quantity;
+        assert(qualityHerb == 1);
+    }
+
+    {
+        // Holding the cargo box (SecureTile secondary under
+        // surveyObjectiveId="blackwater_crossing_crate") grants "荷物箱保持:
+        // 毒素材1" via the ordinary SurveySuccess RewardRule path - no
+        // GameApp-side special-casing needed for this one.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        jf::GameApp app(*data);
+        assert(reachBlackwaterCrossing(app));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+
+        const jf::ObjectiveDefinition* crateDef = nullptr;
+        const jf::ObjectiveDefinition* escapeDef = nullptr;
+        for (const auto& def : app.battle().battle().missionState().definitions) {
+            if (def.groupId == "blackwater_crossing_crate") crateDef = &def;
+            if (def.id == "blackwater_crossing_escape") escapeDef = &def;
+        }
+        assert(crateDef && escapeDef);
+
+        jf::Unit* carrier = nullptr;
+        for (jf::Unit& unit : app.battle().battle().units())
+            if (unit.team == jf::Team::Player && !unit.isGuest) carrier = &unit;
+        assert(carrier);
+        carrier->position = crateDef->target.tile;
+        carrier->hasActed = false;
+        app.battle().selectUnit(*carrier);
+        app.battle().selectMoveTile(carrier->position);
+        app.battle().chooseWait();
+
+        const std::string& guestId = app.battle().battle().missionState().guestUnitIds[0];
+        jf::Unit* guest = app.battle().battle().findUnit(guestId);
+        assert(guest);
+        guest->position = escapeDef->target.tile;
+        guest->hasActed = false;
+        app.battle().selectUnit(*guest);
+        app.battle().selectMoveTile(guest->position);
+        app.battle().chooseWait();
+
+        assert(app.battle().inputState() == jf::BattleInputState::Victory);
+        app.proceedToCamp();
+        int poisonMaterial = 0;
+        for (const auto& loot : app.expedition().pendingLoot)
+            if (loot.id == "poison_material") poisonMaterial = loot.quantity;
+        assert(poisonMaterial == 1);
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「高原運び手の隊長」「通り抜け攻撃」:
+        // usable only after a straight 2+-tile move, then repositions up to 2
+        // tiles away from the target.
+        jf::Unit captain = makeUnit("captain", jf::Team::Enemy, {2, 0}, 6, jf::UnitClass::PlateauCourierCaptain);
+        captain.stats.strength = 9;
+        captain.stats.defense = 6;
+        captain.stats.resistance = 4;
+        captain.stats.maxHp = 40;
+        captain.currentHp = 40;
+        jf::Unit target = makeUnit("target", jf::Team::Player, {2, 3});
+        jf::BattleState battle({target, captain});
+
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(battle.units()[0].currentHp < battle.units()[0].stats.maxHp); // hit
+        // Moved at least 2 straight tiles before attacking (started at col 0,
+        // had to reach col 2 to be adjacent to the col-3 target), then
+        // repositioned away from the target afterward (not left adjacent).
+        assert(jf::manhattanDistance(battle.units()[1].position, battle.units()[0].position) != 1);
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「高原運び手の隊長」「退路確保」:
+        // HP<=50%で一度だけ発動、次の行動終了までMOV+1/DEF-2(このSliceでは
+        // 同一行動内で適用・復帰)。
+        jf::Unit captain = makeUnit("captain", jf::Team::Enemy, {2, 5}, 6, jf::UnitClass::PlateauCourierCaptain);
+        captain.stats.strength = 9;
+        captain.stats.defense = 6;
+        captain.stats.resistance = 4;
+        captain.stats.maxHp = 40;
+        captain.currentHp = 20; // exactly 50%
+        jf::Unit target = makeUnit("target", jf::Team::Player, {6, 5}); // far away, out of melee range
+        jf::BattleState battle({target, captain});
+
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(battle.units()[1].bossEscapeRouteUsed);
+        assert(battle.units()[1].stats.defense == 6); // reverted after this action
+        assert(battle.units()[1].stats.move == 6);    // reverted after this action
+
+        battle.units()[1].hasActed = false; // doesn't fire a second time
+        battle.units()[1].currentHp = 20;
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(battle.units()[1].bossEscapeRouteUsed); // still true, no re-trigger event needed
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「高原運び手の隊長」「迂回命令」:
+        // 戦闘中1回、1ラウンド前に上下いずれかの行を予告。予告解決時に対象が
+        // いなければ通常AIへ戻る(無料の追加攻撃は発生しない)。
+        jf::Unit captain = makeUnit("captain", jf::Team::Enemy, {2, 5}, 6, jf::UnitClass::PlateauCourierCaptain);
+        captain.stats.strength = 9;
+        captain.stats.defense = 6;
+        captain.stats.resistance = 4;
+        captain.stats.maxHp = 40;
+        captain.currentHp = 40;
+        jf::Unit target = makeUnit("target", jf::Team::Player, {6, 5}); // far away, forces telegraph step
+        jf::BattleState battle({target, captain});
+
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(battle.units()[1].bossFlankUsed);
+        assert(battle.units()[1].bossRuntime.telegraph.pending());
+
+        battle.units()[1].hasActed = false;
+        jf::takeEnemyTurn(battle, battle.units()[1]); // resolves the telegraph this turn
+        assert(!battle.units()[1].bossRuntime.telegraph.pending());
+        assert(!battle.units()[1].bossFlankUsed || battle.units()[1].bossFlankUsed); // stays used, no re-telegraph path taken
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「6. 高原伝令所」: defeating the
+        // boss (HP0, ScriptedWithdrawal) wins the standard EliminateTeam
+        // battle - the courier-escape alternate primary is deferred (same
+        // M9-D/M9-K precedent: no OR-composition infra for a single site).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor windscarRegion = jf::regionDescriptor(jf::RegionId::WindscarPlateau, *data);
+        const jf::StageDescriptor* relayStage = nullptr;
+        for (const jf::StageDescriptor& stage : windscarRegion.stages)
+            if (stage.id == "plateau_relay") relayStage = &stage;
+        assert(relayStage);
+        assert(relayStage->scoutRouteRequiredClass && *relayStage->scoutRouteRequiredClass == jf::UnitClass::MarchCaptain);
+        assert(!relayStage->noCasualtiesBonusLoot.empty());
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *relayStage, /*seed=*/23);
+        const jf::AliveSnapshot before = jf::captureAliveSnapshot(battle);
+        for (jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+        jf::emitUnitDefeatedEvents(battle, before);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+
+        const jf::Unit* boss = nullptr;
+        for (const jf::Unit& unit : battle.units())
+            if (unit.unitClass == jf::UnitClass::PlateauCourierCaptain) boss = &unit;
+        assert(boss && boss->exitReason == jf::UnitExitReason::ScriptedWithdrawal);
+    }
+
+    {
+        // docs/regions/windscar_plateau.md「地域攻略と拠点接続」: Old Frontier
+        // Settlement (第6地域) becomes selectable once Windscar Plateau
+        // completes, mirroring the M9-K unlock test.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(!app.isRegionUnlocked(jf::RegionId::OldFrontierSettlement));
+        jf::SaveData save = app.createSaveData("en");
+        save.base.completedRegionIds.insert(jf::RegionId::WindscarPlateau);
+        assert(app.applySaveData(save));
+        assert(app.isRegionUnlocked(jf::RegionId::OldFrontierSettlement));
     }
 
     std::cout << "Battle tests PASSED\n";

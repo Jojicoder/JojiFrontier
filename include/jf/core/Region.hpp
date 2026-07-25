@@ -65,6 +65,27 @@ struct StageDescriptor {
     };
     std::optional<TimedReinforcement> timedReinforcement;
 
+    // docs/regions/windscar_plateau.md "強風ルール": fixed per-battle wind
+    // direction (`delta`, a 1-tile push offset) + trigger Round, consumed by
+    // BattleFactory.cpp into BattleState::setWindGust(). Unset for every
+    // stage without a WindGust-bearing terrain profile.
+    struct WindGustRule {
+        GridPos delta;
+        int triggerRound = 0;
+    };
+    std::optional<WindGustRule> windGust;
+
+    // docs/regions/blackwater_lowlands.md「5. 黒水渡し」's 荷運び役 escort
+    // targets: Team::Player units (Unit::isGuest = true) spawned alongside
+    // playerParty/enemyRoster, whose ids BattleFactory registers into
+    // BattleState::missionState().guestUnitIds (see BattleState::
+    // allGuestsLost()). Empty for every stage except blackwater_crossing.
+    struct GuestUnitData {
+        UnitTemplate unitTemplate;
+        GridPos spawnPos;
+    };
+    std::vector<GuestUnitData> guestUnits;
+
     // docs/implementation_roadmap.md M1-E「M9前ブロッカー」項目2: unified reward
     // rule list (jf/data/GameData.hpp's RewardRule) - replaces the old parallel
     // baseVictoryLoot/routeVictoryLootDelta/surveyBonusLoot fields.
@@ -154,6 +175,26 @@ struct StageDescriptor {
     // modeled (same gap as the "元守備兵を2人以上撤退・降伏" secondary, left
     // unimplemented).
     std::optional<std::string> primaryDefeatUnitId;
+
+    // docs/regions/blackwater_lowlands.md「5. 黒水渡し」's "主目的: 荷運び役2人の
+    // うち1人以上を右端へ脱出": replaces the default EliminateTeam primary
+    // member with a single EscapeUnits objective targeting a right-edge
+    // tile, same "replace, not widen" reasoning as primaryDefeatUnitId
+    // (defeating every enemy while both guests stay stranded must not win a
+    // stage whose actual objective is a guest escaping). Any Team::Player
+    // unit ending an action on the tile credits it (the existing generic
+    // SecureTile/EscapeUnits ActionResolved mechanism, no guest-specific
+    // wiring needed) - a guest crediting it is simply the expected case.
+    struct PrimaryEscapeUnitsRule {
+        std::string id;
+        int requiredEscapeCount = 1;
+        // Tile is chosen at scenario-build time (chooseHoldTile(), same as
+        // primaryHoldTileAlternative/primarySecureTileAlternative) from this
+        // column range, so it never lands on an impassable/occupied tile.
+        int zoneMinCol = kGridCols - 1;
+        int zoneMaxCol = kGridCols - 1;
+    };
+    std::optional<PrimaryEscapeUnitsRule> primaryEscapeUnitsAlternative;
 
     // docs/regions/blackwater_lowlands.md「3. 薬草洲」's "主目的: 3ラウンド防衛、
     // または敵全滅": same "widen the default primary group to Any" pattern as

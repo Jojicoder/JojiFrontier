@@ -623,25 +623,184 @@
       "id": "sunken_sluice",
       "terrainProfileId": "ash_road",
       "enemyRoster": [
-        { "id": "sunken_sluice_bandit1", "name": "Raider", "classId": "Bandit" },
+        { "id": "sunken_sluice_trapper1", "name": "Trapper", "classId": "Bandit" },
         { "id": "sunken_sluice_archer1", "name": "Watch Archer", "classId": "WatchArcher" },
-        { "id": "sunken_sluice_archer2", "name": "Watch Archer", "classId": "WatchArcher" }
+        { "id": "sunken_sluice_archer2", "name": "Watch Archer", "classId": "WatchArcher" },
+        { "id": "sunken_sluice_spider1", "name": "Marsh Poison Spider", "classId": "Wolf" },
+        { "id": "sunken_sluice_spider2", "name": "Marsh Poison Spider", "classId": "Wolf" }
       ],
-      "baseVictoryLoot": [{ "id": "wetland_resin", "quantity": 2 }],
-      "missionNameEn": "Sunken Sluice (placeholder)",
-      "missionNameJa": "沈没水門(仮実装)"
+      "baseVictoryLoot": [{ "id": "wetland_resin", "quantity": 2 }, { "id": "poison_material", "quantity": 1 }],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath" },
+        { "choice": "ScoutRoute" }
+      ],
+      "scoutRouteRequiredClass": "FrontierEngineer",
+      "objectPlacementRules": [
+        {
+          "definition": {
+            "definitionId": "sluice_gate_wheel",
+            "kind": "Device",
+            "interaction": { "interactionId": "operate_sluice_gate", "range": 1, "maxUses": 1 },
+            "interactionResultState": "Opened"
+          },
+          "idPrefix": "sluice_gate_wheel",
+          "count": 1,
+          "zoneMinCol": 3,
+          "zoneMaxCol": 5,
+          "operateObjectiveId": "operate_sluice_gate"
+        }
+      ],
+      "missionNameEn": "Sunken Sluice",
+      "missionNameJa": "沈没水門"
     },
     {
       "id": "deep_mire",
       "terrainProfileId": "ash_road",
       "enemyRoster": [
-        { "id": "deep_mire_bandit1", "name": "Raider", "classId": "Bandit" },
-        { "id": "deep_mire_bandit2", "name": "Raider", "classId": "Bandit" },
-        { "id": "deep_mire_spearman1", "name": "Spearman", "classId": "Spearman" }
+        { "id": "deep_mire_serpent", "name": "Marsh-Fang Serpent", "classId": "MarshFangSerpent" },
+        { "id": "deep_mire_spider1", "name": "Marsh Poison Spider", "classId": "Wolf" },
+        { "id": "deep_mire_spider2", "name": "Marsh Poison Spider", "classId": "Wolf" },
+        { "id": "deep_mire_spider3", "name": "Marsh Poison Spider", "classId": "Wolf" }
       ],
-      "baseVictoryLoot": [{ "id": "herb", "quantity": 2 }, { "id": "wetland_resin", "quantity": 1 }],
-      "missionNameEn": "Deep Mire (placeholder boss)",
-      "missionNameJa": "深泥の水源(仮実装)"
+      "baseVictoryLoot": [
+        { "id": "herb", "quantity": 2 },
+        { "id": "quality_herb", "quantity": 1 },
+        { "id": "poison_material", "quantity": 2 },
+        { "id": "wetland_resin", "quantity": 1 }
+      ],
+      "routeVictoryLootDelta": [
+        { "choice": "ScoutRoute", "loot": [{ "id": "poison_material", "quantity": 1 }] }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance", "enemiesRemoved": 1 },
+        { "choice": "CollapsedSidePath" },
+        { "choice": "ScoutRoute", "enemiesRemoved": 1 }
+      ],
+      "scoutRouteRequiredClass": "FrontierRanger",
+      "surveyObjectiveId": "deep_mire_water_markers",
+      "surveyTileCount": 2,
+      "surveyTileObjectDefinitionId": "water_source_marker",
+      "surveyBonusLoot": [{ "id": "quality_herb", "quantity": 1 }],
+      "missionNameEn": "Deep Mire",
+      "missionNameJa": "深泥の水源"
+    },
+    {
+      "id": "windscar_relay",
+      "terrainProfileId": "ash_road",
+      "enemyRoster": [
+        { "id": "windscar_relay_bandit1", "name": "Raider", "classId": "Bandit" },
+        { "id": "windscar_relay_bandit2", "name": "Raider", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "hardwood", "quantity": 1 }, { "id": "hide", "quantity": 1 }],
+      "missionNameEn": "Windscar Relay (placeholder)",
+      "missionNameJa": "崩れた中継路(仮実装)"
+    },
+    {
+      "id": "windwatch_station",
+      "terrainProfileId": "windscar_ascent",
+      "enemyRoster": [
+        { "id": "windwatch_station_archer1", "name": "Watch Archer", "classId": "WatchArcher" },
+        { "id": "windwatch_station_archer2", "name": "Watch Archer", "classId": "WatchArcher" },
+        { "id": "windwatch_station_spearman1", "name": "Spearman", "classId": "Spearman" },
+        { "id": "windwatch_station_spearman2", "name": "Spearman", "classId": "Spearman" },
+        { "id": "windwatch_station_cavalry1", "name": "Messenger Cavalry", "classId": "MessengerCavalry" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "hardwood", "quantity": 2 },
+        { "id": "cloth", "quantity": 1 }
+      ],
+      "routeOutcomes": [
+        { "choice": "CollapsedSidePath", "enemiesRemoved": 1 }
+      ],
+      "scoutRouteRequiredClass": "WatchArcher",
+      "objectPlacementRules": [
+        {
+          "definition": {
+            "definitionId": "windwatch_panel_north",
+            "kind": "Device",
+            "interaction": { "interactionId": "operate_panel", "range": 1, "maxUses": 1 },
+            "interactionResultState": "Opened"
+          },
+          "idPrefix": "windwatch_panel_north",
+          "count": 1,
+          "zoneMinCol": 0,
+          "zoneMaxCol": 3,
+          "operateObjectiveId": "operate_windwatch_panel_north"
+        },
+        {
+          "definition": {
+            "definitionId": "windwatch_panel_south",
+            "kind": "Device",
+            "interaction": { "interactionId": "operate_panel", "range": 1, "maxUses": 1 },
+            "interactionResultState": "Opened"
+          },
+          "idPrefix": "windwatch_panel_south",
+          "count": 1,
+          "zoneMinCol": 4,
+          "zoneMaxCol": 7,
+          "operateObjectiveId": "operate_windwatch_panel_south"
+        }
+      ],
+      "missionNameEn": "Windwatch Station",
+      "missionNameJa": "風見台"
+    },
+    {
+      "id": "split_convoy",
+      "terrainProfileId": "ash_road",
+      "enemyRoster": [
+        { "id": "split_convoy_bandit1", "name": "Raider", "classId": "Bandit" },
+        { "id": "split_convoy_bandit2", "name": "Raider", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "hardwood", "quantity": 1 }, { "id": "hide", "quantity": 1 }],
+      "missionNameEn": "Split Convoy (placeholder)",
+      "missionNameJa": "分断された輸送隊(仮実装)"
+    },
+    {
+      "id": "cliff_cart_road",
+      "terrainProfileId": "ash_road",
+      "enemyRoster": [
+        { "id": "cliff_cart_road_bandit1", "name": "Raider", "classId": "Bandit" },
+        { "id": "cliff_cart_road_bandit2", "name": "Raider", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "hardwood", "quantity": 1 }, { "id": "hide", "quantity": 1 }],
+      "missionNameEn": "Cliff Cart Road (placeholder)",
+      "missionNameJa": "断崖荷車道(仮実装)"
+    },
+    {
+      "id": "plateau_relay",
+      "terrainProfileId": "ash_road",
+      "enemyRoster": [
+        { "id": "plateau_relay_captain", "name": "Courier Captain", "classId": "PlateauCourierCaptain" },
+        { "id": "plateau_relay_cavalry1", "name": "Messenger Cavalry", "classId": "MessengerCavalry" },
+        { "id": "plateau_relay_spearman1", "name": "Spearman", "classId": "Spearman" },
+        { "id": "plateau_relay_swordsman1", "name": "Raider", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "hide", "quantity": 2 },
+        { "id": "cloth", "quantity": 2 },
+        { "id": "riding_gear", "quantity": 1 }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance", "enemiesRemoved": 1 },
+        { "choice": "CollapsedSidePath", "enemiesRemoved": 0 },
+        { "choice": "ScoutRoute", "enemiesRemoved": 1 }
+      ],
+      "scoutRouteRequiredClass": "MarchCaptain",
+      "noCasualtiesBonusLoot": [{ "id": "riding_gear", "quantity": 1 }],
+      "missionNameEn": "Plateau Relay Station",
+      "missionNameJa": "高原伝令所"
+    },
+    {
+      "id": "old_frontier_settlement_outpost",
+      "terrainProfileId": "ash_road",
+      "enemyRoster": [
+        { "id": "old_frontier_settlement_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "old_frontier_settlement_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "hardwood", "quantity": 1 }, { "id": "hide", "quantity": 1 }],
+      "missionNameEn": "Old Frontier Settlement (placeholder)",
+      "missionNameJa": "旧辺境集落(仮実装)"
     }
   ]
 }

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "jf/core/GameApp.hpp"
@@ -59,6 +60,16 @@ bool facilityIsConstructed(const jf::BaseState& base, jf::FacilityId facility) {
     }
     if (hasConstructibleRoot) return false;
     return facilityLevel(base, facility) > 0;
+}
+
+// True if any `craft_*` weapon-branch recipe is registered for this class
+// (docs/implementation_roadmap.md "M7項目3(残り) ...特性・武器分岐の他兵種
+// 一般化"). Data-driven so the Forge UI never needs a per-class hardcode.
+bool classHasWeaponBranchRecipes(jf::UnitClass unitClass) {
+    for (const jf::FacilityNode& node : jf::facilityNodeRegistry()) {
+        if (node.id.rfind("craft_", 0) == 0 && node.weaponBranchClass == unitClass) return true;
+    }
+    return false;
 }
 
 void drawFacilityTooltip(jf::FacilityId facility, const jf::BaseState& base, Vector2 mouse) {
@@ -204,37 +215,63 @@ void drawFacilityNodeRow(jf::GameApp& app, const jf::FacilityNode& node, float x
 // English half of a Forge weapon's name, used both as the display fallback
 // and as the lookup key fed into weaponNameFor() for the Japanese half.
 std::string weaponEnglishName(const std::string& weaponId) {
-    if (weaponId == "iron_spear") return "Iron Spear";
-    if (weaponId == "long_spear") return "Long Spear";
-    if (weaponId == "heavy_spear") return "Heavy Spear";
-    if (weaponId == "guard_spear") return "Guard Spear";
-    return weaponId;
+    static const std::unordered_map<std::string, std::string> kNames = {
+        {"iron_spear", "Iron Spear"}, {"long_spear", "Long Spear"}, {"heavy_spear", "Heavy Spear"},
+        {"guard_spear", "Guard Spear"},
+        {"iron_sword", "Iron Sword"}, {"command_sword", "Command Sword"}, {"duel_sword", "Duel Sword"},
+        {"guard_sword", "Guard Sword"},
+        {"iron_lance", "Iron Lance"}, {"hook_lance", "Hook Lance"}, {"fortress_lance", "Fortress Lance"},
+        {"patrol_lance", "Patrol Lance"},
+        {"watch_bow", "Watch Bow"}, {"long_watch_bow", "Long Watch Bow"}, {"war_bow", "War Bow"},
+        {"pinning_bow", "Pinning Bow"},
+        {"scout_blade", "Scout Blade"}, {"trail_blade", "Trail Blade"}, {"ambush_blade", "Ambush Blade"},
+        {"withdrawal_blade", "Withdrawal Blade"},
+        {"dawn_staff", "Dawn Staff"}, {"mercy_staff", "Mercy Staff"}, {"ward_staff", "Ward Staff"},
+        {"march_staff", "March Staff"},
+        {"iron_greathammer", "Iron Greathammer"}, {"bulwark_maul", "Bulwark Maul"},
+        {"breaker_maul", "Breaker Maul"}, {"driving_maul", "Driving Maul"},
+        {"engineer_hammer", "Engineer Hammer"}, {"builder_hammer", "Builder Hammer"},
+        {"demolition_hammer", "Demolition Hammer"}, {"repair_hammer", "Repair Hammer"},
+        {"messenger_sword", "Courier Sabre"}, {"road_sabre", "Road Sabre"}, {"charge_lance", "Charge Lance"},
+        {"escort_blade", "Escort Blade"},
+        {"hunting_bow", "Hunting Bow"}, {"snare_bow", "Snare Bow"}, {"quarry_bow", "Quarry Bow"},
+        {"driving_bow", "Driving Bow"},
+        {"banner_spear", "Standard Spear"}, {"far_standard", "Far Standard"}, {"valor_standard", "Valor Standard"},
+        {"warding_standard", "Warding Standard"},
+        {"arcane_focus", "Arcane Focus"}, {"resonant_focus", "Resonant Focus"}, {"war_focus", "War Focus"},
+        {"ember_focus", "Ember Focus"},
+    };
+    auto it = kNames.find(weaponId);
+    return it != kNames.end() ? it->second : weaponId;
 }
 
-// Only Spearman currently has Forge branch weapons/traits to manage
-// (docs/base_development.md's Iron Spear branches + Hide-Wrapped Grip).
+// Data-driven for all 12 classes: base weapon comes from the class
+// definition, branch candidates come from any `craft_*` node registered for
+// this class (docs/implementation_roadmap.md "M7項目3(残り) ...特性・武器
+// 分岐の他兵種一般化"). Node id -> weapon id is the "craft_" prefix stripped,
+// which matches every entry in facilityNodeRegistry() by construction.
 void drawForgeEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, float x, float y, float width,
                              Vector2 mouse, bool clicked) {
     drawSectionHeading(tr("ui.forge.equipment_heading"), static_cast<int>(x),
                        static_cast<int>(y), 18);
     const jf::BaseState& base = app.baseState();
+    const std::string baseWeaponId = app.gameData().classDefinition(unit.classId).weaponId;
     auto overrideIt = app.weaponOverrides().find(unit.id);
-    std::string current = overrideIt != app.weaponOverrides().end() ? overrideIt->second : "iron_spear";
+    std::string current = overrideIt != app.weaponOverrides().end() ? overrideIt->second : baseWeaponId;
     drawText(tr("ui.facilities.current_weapon_prefix") + weaponNameFor(current, weaponEnglishName(current)),
              static_cast<int>(x), static_cast<int>(y) + 30, 14, kColorTextMuted);
 
-    struct Candidate { const char* id; const char* nodeId; };
-    static const Candidate kCandidates[] = {
-        {"iron_spear", nullptr},
-        {"long_spear", "craft_long_spear"},
-        {"heavy_spear", "craft_heavy_spear"},
-        {"guard_spear", "craft_guard_spear"},
-    };
+    struct Candidate { std::string id; std::string nodeId; };
+    std::vector<Candidate> candidates = {{baseWeaponId, ""}};
+    for (const jf::FacilityNode& node : jf::facilityNodeRegistry()) {
+        if (node.id.rfind("craft_", 0) == 0 && node.weaponBranchClass == unit.classId)
+            candidates.push_back({node.id.substr(6), node.id});
+    }
     float by = y + 58;
     const float candidateWidth = (width - 12.0f) / 2.0f;
-    for (int index = 0; index < 4; ++index) {
-        const Candidate& candidate = kCandidates[index];
-        bool available = candidate.nodeId == nullptr || base.unlockedNodeIds.count(candidate.nodeId) > 0;
+    for (std::size_t index = 0; index < candidates.size(); ++index) {
+        const Candidate& candidate = candidates[index];
+        bool available = candidate.nodeId.empty() || base.unlockedNodeIds.count(candidate.nodeId) > 0;
         Rectangle rect{x + (index % 2) * (candidateWidth + 12.0f), by + (index / 2) * 46.0f,
                        candidateWidth, 34};
         std::string labelEn = weaponEnglishName(candidate.id);
@@ -247,7 +284,7 @@ void drawForgeEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, flo
         }
     }
 
-    by += 100;
+    by += static_cast<float>((candidates.size() + 1) / 2) * 46.0f + 20.0f;
     bool traitUnlocked = base.unlockedNodeIds.count("trait_hide_wrapped_grip") > 0;
     bool traitEquipped = app.equippedTraits().count(unit.id) > 0;
     Rectangle traitRect{x, by, 280, 34};
@@ -385,7 +422,7 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
 
     Rectangle equipment{548, 104, 690, 500};
     drawCard(equipment, kColorCard, kColorBorderSoft, 0.04f);
-    if (unit->classId == jf::UnitClass::Spearman) {
+    if (classHasWeaponBranchRecipes(unit->classId)) {
         drawForgeEquipmentPanel(app, *unit, 580, 136, 626, mouse, clicked);
         if (!app.baseState().constructedFacilityIds.count("simple_forge"))
             drawText(tr("ui.unit_screen.needs_forge"),
@@ -475,7 +512,7 @@ void drawFacilityDetail(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
         if (node.facility != facility) continue;
         const bool isWeaponRecipe = node.id.rfind("craft_", 0) == 0;
         if (facility == jf::FacilityId::Forge) {
-            if (forgeCraftPage && (!isWeaponRecipe || *gBaseScreen.forgeCraftClass != jf::UnitClass::Spearman)) continue;
+            if (forgeCraftPage && (!isWeaponRecipe || node.weaponBranchClass != *gBaseScreen.forgeCraftClass)) continue;
             if (!forgeCraftPage && isWeaponRecipe) continue;
         }
         Rectangle rowPanel{36.0f, nodeY - 5.0f, 696.0f, 38.0f};
@@ -496,11 +533,20 @@ void drawFacilityDetail(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
         const jf::UnitClass craftClasses[] = {
             jf::UnitClass::MarchCaptain, jf::UnitClass::VeteranGuard, jf::UnitClass::WatchArcher,
             jf::UnitClass::FrontierScout, jf::UnitClass::Spearman, jf::UnitClass::DawnChirurgeon,
+            jf::UnitClass::HeavyInfantry, jf::UnitClass::FrontierEngineer, jf::UnitClass::MessengerCavalry,
+            jf::UnitClass::FrontierRanger, jf::UnitClass::BannerBearer, jf::UnitClass::BattleMage,
         };
-        for (int index = 0; index < 6; ++index) {
-            Rectangle craftRect{794.0f, 232.0f + index * 58.0f, 410.0f, 46.0f};
+        for (int index = 0; index < 12; ++index) {
+            // 2 columns x 6 rows so all 12 classes fit inside the existing
+            // info panel (it only had room for 6 single-column rows before).
+            const int col = index / 6;
+            const int row = index % 6;
+            Rectangle craftRect{794.0f + col * 202.0f, 232.0f + row * 58.0f, 198.0f, 46.0f};
             const std::string label = tr("ui.forge.craft_prefix") + classNameFor(app.gameData(), craftClasses[index]);
-            if (craftClasses[index] == jf::UnitClass::Spearman) {
+            // Any class with at least one registered craft_* recipe (all 12,
+            // now that weapon branches are generalized) routes through the
+            // real crafting panel instead of the "(未実装)" fallback.
+            if (classHasWeaponBranchRecipes(craftClasses[index])) {
                 if (button(craftRect, label, mouse, clicked)) gBaseScreen.forgeCraftClass = craftClasses[index];
             } else {
                 disabledButton(craftRect, label + tr("ui.forge.craft_planned_suffix"));

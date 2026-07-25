@@ -1544,6 +1544,892 @@ OR性質(全滅なしでも1個確保だけで勝利できる)は見送った。
 [[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録のみで数値調整は
 行わない。
 
+### M9-I 黒水低湿地: 地点5(黒水渡し)+ ゲストユニット護衛サブシステム新設
+
+`docs/regions/blackwater_lowlands.md`「5. 黒水渡し」の主目的「荷運び役2人のうち1人
+以上を右端へ脱出」自体が、これまで灰鉄採石場地点3A「旧採掘坑」・地点4「灰鉄鉱脈」・
+Cinderwatchの`old_barracks`・黒水低湿地地点3/4で繰り返し意図的に見送ってきた
+「ゲストユニット(プレイヤー操作外/一時加入NPC)」ギャップに依存していると判明した。
+過去の地点ではこのギャップが副目標止まりだったため見送りで済んだが、地点5では主目的
+そのものだったため、今回はこのSliceでサブシステムを新規実装した。
+
+追加した型/関数: `Unit::isGuest`(表示専用フラグ。team/AI/選択ロジックは通常の
+`Team::Player`ユニットと不変、常設ロースターには加わらない一時ユニットであることの
+区別のみに使う)、`BattleMissionState::guestUnitIds`、`BattleState::allGuestsLost()`
+(`allPlayersDefeated()`と同じ形。`evaluateBattleOutcome()`の敗北ゲートへ
+`allPlayersDefeated()`の直後に追加し、`guestUnitIds`全員の`isPresent()`が`false`に
+なった時点で部隊全滅とは独立に敗北とする)、`StageDescriptor::GuestUnitData`/
+`guestUnits`(`BattleFactory.cpp`の`assembleScenario`が`Team::Player`・
+`isGuest=true`で通常ユニットと同じ`units`ベクタへスポーンし、生成したidを
+`guestUnitIds`へ登録)、`StageDescriptor::primaryEscapeUnitsAlternative`
+(`primaryDefeatUnitId`と同じ「主目的を置換する、追加ではない」パターンで
+`ObjectiveKind::EscapeUnits`を主目的化。脱出タイルの選定は既存`chooseHoldTile()`を
+そのまま流用)。
+
+`ObjectiveTracker.cpp`の`EscapeUnits`クレジット判定は、`requiredEscapeCount`到達で
+Completed確定した後も`creditedTargetIds`への追記を続けるようガードを緩和した
+(副目標「2人とも脱出」の判定に`creditedTargetIds.size()>=2`を使うために必要。
+`SecureTile`側の判定・挙動は無変更)。
+
+地点5の実コンテンツは`blackwaterCrossingStage()`として`Region.cpp`にC++直接記述
+(`guestUnits`/`primaryEscapeUnitsAlternative`はJSONスキーマ未対応のため
+`data/regions.json`側の旧プレースホルダーエントリは未使用のまま残置、`resin_grove`等
+既存の「JSON側は最小のまま・実体はC++」パターンと同じ)。沼蛇=Bandit・毒蜘蛛=Wolf
+再利用は地点1〜4の前例を踏襲。荷運び役2人は低戦闘ステータスの既存クラスを流用し
+表示名のみ差し替え。荷物箱の副目標は地点4「樹脂林」と同じ`surveyObjectiveId`+
+`SurveySuccess` RewardRuleパターンを1個用に流用。`GameApp::proceedToCamp()`へ
+地点固有の副目標報酬分岐(2人脱出→高品質薬草1、荷物箱確保→毒素材1)を、既存の
+`mergeLoot`ボーナスパターン(`logCollisionBonusLoot`等と同じ形)で追加した。
+
+以下は該当インフラが無いため、M9-H等と同じ理由で意図的に見送った:
+「荷物を減らして渡る」選択の持込品一時封印(持込品の戦闘限定封印/復元機構が無い)、
+`[伝令騎兵]`ルートの護衛対象MOV+1・増援位置公開(ルート別のユニット別ステータス
+修正/増援可視化機構が無い)。
+
+`tests/test_battle.cpp`へ4件追加: 単体脱出(1人のみ)によるVictory成立(EliminateTeam
+非依存で単独評価されることの確認)、ゲスト2人全滅による部隊生存下でのDefeat成立
+(`allGuestsLost()`が部隊全滅ゲートと独立に効くことの確認)、両者脱出時の
+高品質薬草1ボーナス、荷物箱確保時の毒素材1ボーナス。既存4テストスイート
+(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/`check_localization`)含め
+全成功。
+
+`jf_forest_balance --region=blackwater_lowlands`(500 Seed)実測: Blackwater
+Crossing(地点5)win率はDirect 50.6%・Tactical 50.6%で、他地点(93〜100%)より
+大幅に低い。ただしHP残量はDirect 77.5%・Tactical 68.6%と高く、敗因はKOではなく
+timeout(Direct 26/500、Tactical 132/500、Tactical側は`rounds`平均も12.09と他地点の
+2〜3倍)に偏っている。`tools/forest_balance.cpp`の自動プレイAIは`ObjectiveKind`を
+一切参照せず(grep 0件)、主目的が`EliminateTeam`である他地点を前提に敵殲滅だけを
+行動基準にしていると見られる。地点5の主目的は`EscapeUnits`(脱出タイルへの到達)で
+あり、この自動プレイAIには「脱出タイルへ荷運び役を誘導する」判断が組み込まれていない
+ため、win率低下はゲームバランスの不具合ではなくbalanceツール側の未対応と考えられる。
+[[jf_forest_balance worst-case numbers]]の教訓どおり実プレイでの確認が先であり、
+現時点でこの数値を根拠にした地点5側の数値調整・balanceツール改修のどちらも行っていない。
+
+### M9-J 黒水低湿地: 地点6(沈没水門)
+
+`docs/regions/blackwater_lowlands.md`「6. 沈没水門」を確認したところ、主目的「水門を
+操作し、2ラウンド防衛」のうち「水門を操作」部分は、signal_tower(灰道の監視所の
+姉妹地点、2枚の信号盤)が既に証明済みの`objectPlacementRules`+`operateObjectiveId`
+機構(`BattleFactory.cpp`が最初のOperateObject Objectiveを配置した時点でデフォルトの
+`eliminate_enemies`primaryを置換し、`groupId: "primary"`のAll規則はそのまま維持する
+「置換、拡張ではない」パターン)にそのまま収まると判明したため、水門の制御輪1個を
+`sluice_gate_wheel` Deviceとして配置し、これ単体を主目的として`data/regions.json`へ
+JSON実装した(他の兄弟地点と同じ経路、C++直接記述はしていない)。
+
+以下は該当インフラが無いため見送った:
+
+- 探索3択間の「操作2回」/「操作1回」の差: `ObjectiveKind::OperateObject`の
+  Live評価は`interactionCount > 0`固定判定で閾値を持たず
+  (`docs/implementation_status.md:63`)、3択とも同一のObject1個を共有し、回数差は
+  数値としては機能しないフレーバー扱いとした
+- ルート2「水位を一気に下げる」の「次Roundに敵味方の浅瀬4マスが深泥化」: 戦闘途中で
+  地形を書き換える機構が無く、地点2の「地形上書き」見送りと同じ理由
+- ルート3`[辺境工兵]`の「工具部品1消費」: ルート選択に紐づく消費アイテムコスト機構が
+  無い。`FrontierEngineer`クラス自体はM7-2で実装済みのため
+  `scoutRouteRequiredClass: FrontierEngineer`のクラスゲート自体は機能する
+- 主目的の「水門操作」と「2ラウンド防衛」のAND結合: `primarySurviveRoundsAlternative`
+  は常に`primary`グループをAny(OR)へ拡張したうえでデフォルトの`EliminateTeam`
+  メンバーも残す(`BattleFactory.cpp`)ため、ここでは形が合わない(水門を操作した
+  瞬間に敵が残っていても即勝利してしまう)。OperateObjectへ第2のKindをAllのまま
+  追加する専用配線は存在しないため、1地点のために新規インフラを作らず主目的を
+  OperateObjectのみで近似した(見送りを明記する、既存の判断方針どおり)
+- 副目標「制御輪2個を保全」「毒罠3個を処理」: いずれもObject破壊・トラップ処理を
+  汎用的に判定する機構が無い、M9-H地点4「樹脂林」の同形ギャップと同じ理由。トラップ
+  Objectは機能しないため配置していない。紐づく`薬学記録`/`罠技術記録`の付与も
+  対応する副目標が無いため見送った
+- 敗北条件「水門本体の耐久0」: Object破壊による敗北条件自体が既存に無い
+  (M6-C/M9-C/M9-Dと同じ既知のギャップ)
+
+敵編成は罠師=Bandit、弓兵=WatchArcher、毒蜘蛛=Wolf(Marsh Poison Spider)の
+名前のみ差し替えで、地点1〜5と同じ地域内再利用の慣例に従った。恒久成果
+`sunken_sluice_restored`は他の全地点と同じ既存の一般機構(勝利+安全帰還で
+`siteAccess::Secured`)がそのまま処理する。
+
+結果として、このSliceは`data/regions.json`のコンテンツ追加のみで完結し
+(M9-Fと同じ規模)、コード変更は`Region.cpp`のコメント更新のみで実質的なC++変更は
+無い。`tests/test_battle.cpp`への新規テスト追加は無し(既存のOperateObject/
+objectPlacementRulesの一般機構のテストでカバー済みと判断、signal_tower実装時と同じ
+判断)。既存4テストスイート(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/
+`check_localization`)含め全成功。
+
+`jf_forest_balance --region=blackwater_lowlands`(500 Seed)の実測: 地点6
+(沈没水門)のwin率はDirect 0.0%/Tactical 0.0%で、timeoutがDirect 327/500・
+Tactical 405/500と大半を占める。`tools/forest_balance.cpp`の自動プレイAIは
+`ObjectiveKind`を一切参照せず(grep 0件、M9-Iで確認済みの同じ制約)、
+`OperateObject`をどのタイミングで実行すべきかという判断が組み込まれていないため、
+制御輪へ一度も接触せずラウンド上限までさまよって引き分ける動きが大半と見られる。
+これは地点5(黒水渡し、`EscapeUnits`)と同種のbalanceツール側の未対応であり、
+[[jf_forest_balance worst-case numbers]]の教訓どおり実プレイでの確認が先であり、
+現時点でこの数値を根拠にした地点6側の数値調整・balanceツール改修のどちらも行って
+いない。
+
+### M9-K 黒水低湿地: 地点7(深泥の水源)/ 地域ボス「沼牙の大蛇」/ 地域攻略
+
+`docs/regions/blackwater_lowlands.md`「7. 深泥の水源」「地域ボス 沼牙の大蛇」および
+「地域攻略と拠点接続」「最低保証報酬」を確認し、黒水低湿地の最終地点+地域ボス+
+地域攻略を実装した。M9-Dの`takeGrubwormBossTurn()`を実装パターンの正本として踏襲。
+
+新規`UnitClass::MarshFangSerpent`(`data/classes.json`、正本どおりHP60/STR9/DEF6/
+RES3/MOV4、`serpent_fangs`武器)を追加し、`EnemyAI.cpp`へ`takeSerpentBossTurn()`を
+新規実装。4つの行動:
+
+- **毒牙**: 射程1・STR+3物理、命中時に未毒なら`applyPoison()`(既存機構、確定付与・
+  重複なし)
+- **水中潜行**: 既存の`chargeTelegraphed`/`bossRuntime.telegraph`/
+  `chargeCooldownActions`(いずれもボア専用ではない汎用フィールド、M9-Dの前例どおり
+  再利用)をそのまま流用し、`TelegraphShape::Area`+`lockedTiles`に移動先候補2マスを
+  格納。実行時は先頭候補へ移動し隣接1体を攻撃する。「浅瀬が経路にない場合は使用
+  しない」は、テレポート的な移動のため直線チャージのような経路走査機構が無く、
+  「盤面のどこかにShallowsタイルが存在するか」への近似とした
+- **締め付け**: `boarSweepTargets()`と同型の前方3マスパターン(STR+1、命中時に
+  `moveDownActive`が未設定の対象だけへMove Down、重複なし)、隣接プレイヤー2体
+  以上で発動
+- **激しい身震い**: 新規`bool bossShudderUsed`(灰角大猪の`bossEnraged`/灰殻穿岩虫の
+  `bossCollapseUsed`と同じ役割の1回限りフラグ)、HP50%以下で発火し、隣接4マスの
+  ユニットへ既存`BattleState::applyKnockback()`(あらゆるノックバック源が使う共通
+  機構)を適用
+
+行動優先順位は正本の7項目を`takeGrubwormBossTurn()`と同じ「早期return連鎖」で実装。
+ボス補正(毒1dmg/最大2回、炎上2dmg/最大2回、移動低下MOV-1、防御低下DEF-2、よろめき
+次行動のみMOV-1、完全な行動不能無効)は既存の`isBoss`分岐する汎用関数
+(`StatusEffect.hpp`の`statusPoisonDamage()`等)の数値がそのまま正本と一致していたため
+無改修。ただし`Unit::isBoss`はAshenhornBoar/AshironGrubwormを含め現行のどのボスにも
+`true`をセットする配線が存在しない(grep 0件の既存ギャップ、本Sliceの新規混入ではない)
+- 3体とも実戦では非ボス補正のまま動いている。今回のスコープでは合わせて修正せず、
+既知のギャップとして記録するに留めた。
+
+以下は正本との差分・見送り(M9-Dの判断方針を踏襲、都度明記):
+
+- 正本の主目的「沼牙の大蛇をHP0にして撤退させる AND 水源標識2個のうち1個以上で
+  行動終了」というAND合成は、M9-Dが「封鎖杭2箇所」で下した判断と全く同じ理由
+  (1地点のためだけの汎用AND合成機構を新設するのは過剰実装)で見送り、主目的は標準
+  `EliminateTeam`のみとした。副目標「標識2個を両方確保」は既存の`surveyObjectiveId`
+  +`surveyTileCount:2`+`surveyTileObjectDefinitionId`(`water_source_marker`)パターン
+  (quarry_collapse_coreと同型)で近似した。「1個以上で行動終了」という主目的側の
+  AND成分は、2個確保の達成が包含するため実質的に失われない
+- `[辺境猟兵]`ルートの「潜行先1マスだけ表示」というルート限定のボスAI分岐は、
+  route-conditional boss AI配線の前例がエンジンのどこにも無いため見送り、全ルート
+  共通の2マス予告のままとした(`scoutRouteRequiredClass: FrontierRanger`のクラス
+  ゲート自体は機能する)
+- 「水源標識は押し出さず固定2ダメージ」「毒溜まりへ押し出しで毒付与」は、Object
+  破壊・耐久値システム自体が存在しない既知のギャップ(M6-C/M9-C/M9-D/-Jと同じ)、
+  および毒溜まりに相当する地形フレーバーが存在しない(Shallowsのみ)ため、双方とも
+  「押し出されるが効果なし」に近似
+- 敗北条件「水源標識2個破壊」「10ラウンド終了時に主目的未達成」は、Object破壊駆動の
+  敗北条件・ラウンド上限敗北条件のどちらもエンジンに存在しない既知のギャップ
+  (`Region.cpp`の`cinderwatchGateRegion()`コメントに明記済みの後者と同じ)
+- 副目標「毒状態の味方0で戦闘終了」「薬草地点を使用せず勝利」は`GameApp.cpp`の
+  `blackwater_crossing`と同じ直接チェック(ad-hocセカンダリボーナス)パターンで実装
+  (`RewardRule::Condition`に該当する種類が無いため)。前者は
+  `battle.units()`の毒状態走査、後者は既存`BattleState::collectedHerbPatches()`を
+  そのまま使用
+
+地域攻略・最低保証報酬はM6-Dの`cinderwatchMaterialsEarned`駆動フロアと完全に同じ形で
+`blackwaterMaterialsEarned`(新規フィールド、`BaseState.hpp`/`SaveSystem.cpp`)を追加し、
+`ExpeditionService.cpp`の`applyExpeditionReturnToBase()`へ同型のTop-upブロックを実装
+(薬草8・高品質薬草1・毒素材4・湿地樹脂7のフロア、湿地踏査記録・薬学記録・罠技術
+記録・緊急処置の4Discovery)。`blackwater_lowlands_secured`という安定IDそのものは
+Ashiron Quarryの前例と同じく、コード上の実体は無く`RegionId::BlackwaterLowlands`が
+`completedRegionIds`へ入ること(既存の`regionCleared()`/`computeWouldRegionBeCleared()`
+汎用機構)がその実装である。診療所「薬学」(`pharmacology`)は新規`requiredDiscoveries:
+{marsh_pharmacology_records}`を追加、工房へ新規`trapcraft`(罠技術)ノードを
+`requiredDiscoveries: {marsh_trapcraft_records}`で追加(鉄杭・毒罠処理道具は正本の
+どちらも具体的な`ItemType`を持たないため、既存の`pharmacology`の万能薬同様
+`effectJa`のフレーバー記述のみ)。
+
+風裂き高原(第5地域)は新規`RegionId::WindsweptHighland`+
+`windswept_highland_outpost`(`data/regions.json`、Bandit2体の最小プレースホルダー)
+で追加した。Ashiron Quarryが最初`ashiron_quarry_outpost`という同型の1地点だけの
+プレースホルダーから始まった前例(M6-D)を完全に踏襲。`Region.cpp`の4箇所の
+switch文・`regionUnlocked()`(BlackwaterLowlands完了で解放)・
+`ExpeditionService.cpp`の`computeRegionSummaries()`(地域一覧・ロック済みTooltip)・
+`SaveSystem.cpp`(`blackwaterMaterialsEarned`の保存/復元)を他地域と同じ形で配線した。
+
+`tests/test_battle.cpp`へ5件追加: 毒牙(命中+毒付与)、締め付け(2体以上隣接での
+発動条件・前方3マスのみ命中・Move Down重複なし)、激しい身震い(HP50%閾値・1回
+限定・ノックバック)、地点7の勝利条件(HP0→ScriptedWithdrawal、`surveyObjectiveId`
+設定確認)、風裂き高原の地域解放条件。既存4テストスイート
+(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/`check_localization`)含め
+全成功。
+
+`jf_forest_balance --region=blackwater_lowlands`(500 Seed)の実測: Deep Mire
+(深泥の水源)のfresh-party win率はDirect 99.8%/Tactical 99.2%(平均6〜8ラウンド)。
+主目的が標準`EliminateTeam`のみ(M9-Dと同じ理由でDevice操作を含まない)のため、
+本ツールの自動プレイAIがDevice操作やRound-limit判断を扱えないことによる0%張り付き
+(地点5・6で観測済み)が発生せず、ボスAI自体は両ポリシーで機能することを確認できた。
+7地点通しのRegion clear win率は0%(Direct/Tactical とも)だが、これは既に地点6
+(沈没水門、`OperateObject`)側の`jf_forest_balance`未対応が原因と判明済み
+(M9-J)であり、地点7自体のボス数値・AIが機能しないことを示すものではない。
+[[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録のみで数値調整は
+行わない。
+
+以上で黒水低湿地(第4地域)の全7地点が実コンテンツ化され、地域全体を安全帰還まで
+攻略可能になった(地点6のOperateObject自動プレイ非対応を除き、実プレイでの
+end-to-endクリアはエンジン機構としては揃っている)。風裂き高原(第5地域)は
+選択可能な状態でBase画面に追加される。
+
+### M9-L 風裂き高原(第5地域): 地域骨格 + 地点1(風下の登り口) + 強風地形
+
+`docs/regions/windscar_plateau.md`を確認し、M6/M9の確立済みパターン(地域骨格を
+1度作り、以後1地点ずつ本格化する)を踏襲して着手した。M9-Kが追加した
+`RegionId::WindsweptHighland`+`windswept_highland_outpost`の1地点プレースホルダーを
+土台に、本Sliceでスコープ全体(6地点+2キャンプ+地点3・4のどちらを先に攻略しても
+よい分岐)+地点1「風下の登り口」の実コンテンツへ拡張した。
+
+**命名の是正**: 正本の「内部地域IDは`windscar_plateau`」という明記に対し、M9-Kの
+プレースホルダーは`RegionId::WindsweptHighland`/`"windswept_highland"`という暫定名の
+ままだった。他の全地域(`CinderwatchGate`/`cinderwatch_gate`等)がenum名と
+`toString()`文字列を1:1で一致させている既存規約に反していたため、本格実装の前に
+`RegionId::WindscarPlateau`/`"windscar_plateau"`へ改名した(`BaseState.hpp`・
+`Region.cpp`・`ExpeditionService.cpp`・`tests/test_battle.cpp`・`data/regions.json`)。
+まだ1地点のプレースホルダーしか存在しない段階での改名のため、波及コストは最小。
+
+**強風(新規地形機構)**: 正本の「実装順」1番目かつ地点1の探索ルート1「標準戦闘、
+敵4体、強風は3Round目」が要求する機能のため、フレーバーとして見送らず実装した。
+新規`TerrainType::WindGust`(移動コスト1、通行可能、それ自体に防御/回避ボーナスは
+無い)を追加し、`BattleState`に戦闘ごと固定の`WindGustConfig{delta, triggerRound}`
+(任意)を持たせ、`resolveWindGustRoundEnd()`という新規フリー関数で解決する。
+呼び出し位置は`BattleController.cpp`の毒/炎上ステータスダメージ(
+`processPhaseEndStatusEffects()`)と全く同じRound End地点 - 風で戦闘不能になった
+ユニットが毒と同じ経路で撤退イベントに乗る。移動先が盤外・Unit・通行不能地形・
+Objectで塞がれている場合は固定2ダメージ(正本どおり、既存`applyKnockback()`の
+よろめきステータスとは意図的に別処理)。重装兵の重量装甲は`hasHeavyArmor()`
+(`applyKnockback()`と同じ既存チェック)で移動もダメージも無効化する。地形生成は
+新規`windscar_ascent`TerrainProfile(`data/terrain_profiles.json`、強風帯
+`countBounds`min3/max6)で表現し、既存の重み付きランダム生成をそのまま流用した
+(新規ジェネレータは不要)。
+
+見送った部分(正本との差分、都度明記):
+
+- 戦闘前の風向き・発生Round事前表示、発生1Round前の矢印テレグラフ - UI層の
+  作業で、地点1の勝敗・数値には関わらないため後続Sliceへ先送り
+- 分散配置(「実装順」2番目) - 地点1のルート2「2組の分散配置、敵3体」は
+  `enemiesRemoved:1`の敵数差分だけで近似し、分散初期配置・合流経路保証の本格
+  機構は未着手(既存機構が一切無い新規サブシステムのため、地点1単体のために
+  新設するのは過剰実装、というM9-F/M9-Kと同じ判断)
+- ルート2「織物-1」(消費型のルート効果コスト) - 消費アイテムコスト機構自体が
+  存在しない既知のギャップ(M9-K自身のコメントが同じ理由を既に記録済み)
+- ルート3「地形全公開」- エンジンにfog-of-war機構自体が無く常時全公開のため
+  暗黙のno-op
+- ルート3「強風帯2マス減少」- ルート単位の地形生成上書き機構が無い既知のギャップ
+  (M9-Fの地形上書き見送りと同型)
+- 「標識確保: 高原踏査進行」- 正本の安定ID表に無く、ナラティブラベルと判断して
+  ループ/Discovery側の配線を追加しなかった
+
+高原運び手(この地域の敵勢力)は新規`UnitClass`を作らず、Bandit4体を「Plateau
+Runner」の表示名で再利用した(Blackwaterの「湿地の毒蜘蛛=Wolf」と同じ再利用
+パターン)。副目標「登り口標識で行動終了」は`sunken_path_marker`と同型の
+`surveyObjectiveId`(タイル数/Object指定なし)。勝利報酬(獣皮2、硬木1)・
+斥候ルート報酬(織物1)は新規`victoryRewardRules`。新素材`hardwood`(硬木)・
+`cloth`(織物)を`materialNameFor()`のknownセット+Localeへ追加(`material.hardwood`/
+`material.cloth`)。地域/地点(全6地点)の日本語表示名・新規敵表示名
+「高原運び手」・新規地形名「強風帯」は[[JA glyph coverage / no ID-collision on JA
+text]]の慣習どおり`loadAppFont()`のcharsetSource+Locale双方へ登録した。
+
+地点2〜6はプレースホルダー(汎用Bandit×2編成)のまま、M6-B/C方式で1地点ずつ
+本格化する。地点3「風見台」/4「分断された輸送隊」の分岐は`RouteGraph.cpp`の
+`windscarPlateauGraph()`でCinderwatch/Blackwaterと同じ`BranchCompletion::
+AllMembers`を流用した。
+
+`tests/test_battle.cpp`へ4件追加: 地域骨格(6地点+ルートグラフ+分岐の
+`AllMembers`検証)、地点1の報酬・強風設定値、強風の押し出し/衝突ダメージ/重装兵
+無効化を直接`BattleState`で検証。既存4テストスイート
+(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/`check_localization`)含め
+全成功。
+
+`jf_forest_balance --region=windscar_plateau`(500 Seed)の実測: 地点1(風下の
+登り口)のfresh-party win率はDirect 56.0%/HP残21.1%、Tactical 42.2%
+(いずれも先行区域の地点1が軒並みDirect 99〜100%だったのと比べて明確に低い)。
+Bandit4体の素の強さがBlackwaterの「湿地の毒蜘蛛」(Wolf再利用、より低ステータス)
+より高いこと、および新規`windscar_ascent`TerrainProfileのBarrier比率(8%)・
+強風の押し出し/衝突ダメージが合わさった結果と推測される。
+[[jf_forest_balance worst-case numbers]]の教訓どおり実測記録のみに留め本Sliceでは
+数値調整を行わないが、他地域の地点1と比べ明確に外れた値のため、次のSlice着手前に
+実プレイでの確認とバランス調整を推奨する既知の要フォロー事項として記録する。
+
+**[訂正・M9-Rで再検証済み]** 地点1のFrontalAdvanceルートは`routeOutcomes`上
+`enemiesRemoved:0`(4体のまま)であり、これはツールの不具合ではなく地点1自身の
+正本どおりのルート効果である。M9-Rで`jf_forest_balance`の別の不具合(Expedition
+内の継続戦闘が`routeOutcomes`を適用していなかった点)を修正した後も、この
+Direct 56.0%/Tactical 42.2%という数値は完全に不変だった。したがって上記の
+「バランス調整を推奨」という所見は今も有効。詳細はM9-Rを参照。
+
+**[追加調査・完了]** 上記「バランス調整を推奨」の前提(「先行区域の地点1が軒並み
+Direct 99〜100%」)自体を検証したところ誤りだった。実測しなおすと、黒水低湿地
+地点1(Wolf再利用、HP16/STR6/DEF2)は100.0%/100.0%だが、灰鉄採石場地点1
+(Bandit・Bandit・WatchArcher・Spearmanの混成編成)はDirect 33.6%/Tactical
+約35%で、正本の初出write-up(M9-A、「Direct 37%/Tactical 35%」)と一致する。
+つまり既存の地点1のwin率は33.6%〜100%の幅があり、風裂き高原の56.0%/42.2%は
+その範囲内に収まる、外れ値ではない数値だった。原因の内訳としては、Bandit
+(HP22/STR9/DEF3)がWolf(HP16/STR6/DEF2)よりHP+37.5%/STR+50%/DEF+50%
+明確に強く、これだけで大半のwin率差を説明できる。強風地形(`windscar_ascent`、
+WindGust重み15・countBounds 3〜6/24マス)は最大2ダメージ・1回きりの対称効果
+(敵味方問わず)であり、寄与は副次的と判断した。avg KO 3.05/4・timeout 2/500
+(Direct)であり、行き詰まりではなく純粋な戦闘減耗によるもの。以上より、この
+数値は地域ごとに新規メカニクス(強風)を試すという設計方針(「地域の役割」
+節)の範囲内の想定内の難易度と判断し、**数値調整は行わない**。要フォロー事項
+から除外する。
+
+### M9-M 風裂き高原: 地点2(崩れた中継路)
+
+`docs/regions/windscar_plateau.md`「2. 崩れた中継路」を本格実装した。M9-Lの
+`windscarAscentStage()`と同じく`stageDescriptorFromContent()`+`data/regions.json`
+ではなく`Region.cpp`内で手書きした - このSliceが要求する`StageDescriptor::
+guestUnits`/`primaryEscapeUnitsAlternative`(M9-Iで黒水渡し向けに実装済みの
+護衛サブシステム)がJSON Schemaに露出していないため、`blackwaterCrossingStage()`と
+全く同じ理由・同じパターン。
+
+**主目的のOR合成の近似**: 正本の主目的は「護衛対象を右端へ脱出、または敵全滅後に
+橋を操作」という異なるObjective Kind同士のOR(EscapeUnits vs
+EliminateTeam+OperateObject)で、これを合成する既存機構は無い(M9-D・M9-J
+「地域ボス」「地点6」が自ら記録した「1地点のためにAND/OR合成インフラを新設しない」
+判断と同型)。`primaryEscapeUnitsAlternative`(EscapeUnitsのみ)を主目的として
+採用した。ルート1「吊り橋を一人ずつ渡る」だけが明示的に「護衛対象1人」を挙げており、
+この地点の核が「人を守って渡す」であることが最も明確なため。「敵全滅後に橋を操作」の
+代替経路は、そもそも橋Objectの耐久機構自体が未実装のため今回は見送った(下記参照)。
+
+**護衛ユニットは全3ルート共通**: `StageDescriptor::guestUnits`はシナリオ構築時点で
+固定され、選択した`ExplorationChoice`によって出し分けられない(M9-Iの既知の限界、
+`blackwaterCrossingStage()`の`[伝令騎兵]`ルート自身のコメントが同じ制約を既に
+記録済み)。ルート2「下の砕石道を進む」の正本テキストは「橋防衛なし」と明記するが、
+この実装では護衛ユニット自体は3ルート共通で出現する(近似)。
+
+**見送った部分(木橋Object耐久機構が丸ごと未実装、M6-C/M9-C/M9-D/M9-H/M9-J同型の
+既知ギャップ)**:
+
+- ルート3`[辺境工兵]`「橋索を補強する」の「木橋耐久+5」
+- 副目標「木橋耐久を1以上残す」
+- 敗北条件「木橋破壊後に代替路なし」
+- 主目的の代替経路「敵全滅後に橋を操作」(操作対象のObjectが無い)
+
+**見送らなかった部分**: ルート2「全員HP-2」は`ExplorationOutcome::partyDamage`
+(既存フィールド、M9-D自身のコメントが記録済み)をそのまま流用した - 新規インフラ
+不要。
+
+敵は「槍兵2、弓兵2」の正本記述どおり、地点1の「高原運び手=Bandit再利用」パターンとは
+変え、既存`UnitClass::Spearman`/`UnitClass::WatchArcher`をそのまま使用した(表示名も
+未再スキン、Class名そのまま) - この2クラスは`loadAppFont()`のUnitClass一覧に
+既に含まれているため追加のグリフ登録は不要。新素材`riding_gear`(騎具素材、勝利報酬)を
+`materialNameFor()`のknownセット+`data/locales/{en,ja}.json`(`material.riding_gear`)へ
+追加した - JA表示テキストは`loadAppFont()`の`allJapaneseGlyphText()`がLocale値を
+自動収集する既存経路でカバーされるため、`charsetSource`の手動編集は不要だった
+(地域/地点名は既にM9-L側が「崩れた中継路」まで含め手動リストへ登録済みで、
+このSliceでの追加も無し)。キャンプIの解放自体はM9-Lが`RouteGraph.cpp`の
+`windscarPlateauGraph()`で既に地点2後のノードとして配線済みのため、本Sliceでの
+追加配線は不要だった。
+
+`tests/test_battle.cpp`へ2件追加(`blackwater_crossing`の既存2テストと同型): 護衛
+到達によるVictory単独成立、護衛全滅によるDefeat(部隊は無傷でも成立)を直接
+`BattleState`で検証。既存4テストスイート含め全成功。
+
+`jf_forest_balance --region=windscar_plateau`(500 Seed)の実測: 地点2(崩れた中継路)
+のfresh-party win率はDirect 37.4%/HP残81.3%、Tactical 41.0%。ただしこの数値は
+[[jf_forest_balance worst-case numbers]]・黒水渡し(地点5)自身の実測と同じ既知の
+シミュレータ盲点を含む - 主目的がEscapeUnits(護衛対象の到達)であるにもかかわらず
+このシミュレータは護衛対象を積極的に脱出させる行動を取らない(ヒューリスティックが
+EliminateTeam前提のため)ため、win率が実プレイより低く出る構造的な偏りがある。
+数値調整は行わない。
+
+### M9-N 風裂き高原: 地点3(風見台)
+
+`docs/regions/windscar_plateau.md`「3. 風見台」を本格実装した。この地点の主目的
+「風見盤2個を操作」は`signal_tower`(信号塔下層、M6-C item2)が既に証明した
+`objectPlacementRules`/`operateObjectiveId`の2-Object Schemaへそのまま収まる
+(異なるObjective Kind同士の合成が要らない、`sunken_sluice`(M9-J)の単一Object版と
+同型)ため、地点1・2とは異なり`Region.cpp`の手書きではなく
+`stageDescriptorFromContent()`+`data/regions.json`のJSON側で完結させた
+(`windwatch_panel_north`/`windwatch_panel_south`の2 Device、列0-3/4-7でゾーン分割、
+`signal_tower`の`secondary_signal_panel`/`primary_signal_panel`と同じ形)。M9-K以来
+プレースホルダーだった`windwatch_station`エントリ(`data/regions.json`、汎用Bandit×2)を
+本コンテンツへ置き換えるだけで済み、`Region.cpp`側の`windscarPlateauRegion()`・
+`RouteGraph.cpp`の配線は無改修。
+
+敵は正本「弓兵2、槍兵2、伝令騎兵1」どおり既存`UnitClass::WatchArcher`/`Spearman`/
+`MessengerCavalry`を再スキンなしでそのまま使用した(地点2のSpearman/WatchArcher
+再利用パターンをそのまま踏襲、3クラスとも既に`loadAppFont()`のUnitClass一覧に
+含まれているため追加グリフ登録は不要)。
+
+**探索3択**: ルート1「正面階段を確保する」は無条件で敵5体・標準配置(routeOutcomes
+上書き無し)。ルート2「二組で上下から入る」は、地点1のルート2「2組の分散配置」が
+既に記録した「分散配置の本格機構は無い」判断(独自サブシステム新設は1地点のためには
+過剰実装)をそのまま踏襲し、`enemiesRemoved:1`(5→4体)の敵数差分だけで近似した。
+「風見盤2個を同時操作可能」は"simultaneous"を区別する機構自体が無く(`OperateObject`は
+単に`interactionCount > 0`のLive評価で、Round内の同時性という概念が無い)、そもそも
+2つの別Objectを別々のユニットが同時に操作すること自体は既存機構で元々可能なため、
+このルート特有の効果としては暗黙のno-opとして扱った。ルート3`[監視弓兵]`「射線を
+先に取る」は`scoutRouteRequiredClass = WatchArcher`で兵種ゲートのみ実装し、「稜線1マス
+への自由配置」は見送った - `restrictedAutoSpawnMaxColumn`(薬草の沢/Ashironが
+証明した既存機構)は列範囲でプレイヤー自動配置を絞れるだけで、地形種別(稜線)を
+狙った配置は表現できない。地形種別に基づく配置ゾーニングの機構自体が存在しないため
+(列ベースのゾーンのみ)、地点1ルート3の他の見送り項目と同型のギャップとして
+no-opとした。「敵配置全公開」は地点1が既に記録したとおりfog-of-war自体が無いため
+暗黙で常時真。
+
+**見送った部分(既存の記録済みギャップと同型)**:
+
+- OR条件「敵全滅後、残った風見盤を1個操作」: 異なるObjective Kind (EliminateTeam
+  OR OperateObject)のOR合成インフラが無い、M9-D/M9-J/M9-Mが既に記録した同型の
+  ギャップ。2 Objectの`operateObjectiveId`はいずれもデフォルトのAll(AND)primary
+  groupへ加算されるだけで、代替経路は表現していない。
+- 副目標「4ラウンド以内に両方操作」: `RewardRule::Condition`は`Always`/
+  `RouteChoice`/`SurveySuccess`の3種のみで、Round数に基づく達成判定・報酬条件の
+  機構が存在しない(`ObjectiveProgress`にも達成Roundを記録するタイムスタンプは無い)。
+  一回限りの機構を1地点のために新設しない、という本プロジェクトの一貫した判断により
+  見送り。従属する報酬`plateau_targeting_records`はこのSliceでは到達不能のため
+  未配線(M9-Hの「到達不能な報酬は未宣言のまま残す」前例と同型)。
+- 敗北条件「風見盤2個破壊」: Object耐久機構自体が丸ごと未実装、M6-C/M9-C/M9-D/
+  M9-H/M9-J/M9-M以来記録済みの既知ギャップ。
+
+`tests/test_battle.cpp`へ1件追加(`signal_tower`の2-Object OperateObjectテストと
+同型): 敵全滅+片方の風見盤のみ操作ではVictoryが成立しないこと、両方操作して初めて
+Victoryが成立することを直接`BattleState`で検証。地点3の敵構成(5体)・報酬
+(硬木2/織物1)・`scoutRouteRequiredClass`も同テスト内でアサート。既存4テストスイート
+含め全成功(`jf_content_tests`のRoute Graph到達可能性・3ルート全ての
+`validateBattleMission()`検証も通過)。
+
+`jf_forest_balance --region=windscar_plateau`(500 Seed)の実測: 地点3(風見台)の
+fresh-party win率はDirect/Tactical共に0.0%(timeoutのみでKOなし)。これは
+[[jf_forest_balance worst-case numbers]]・`sunken_sluice`(M9-J)自身の実測が既に
+記録した既知のシミュレータ盲点そのもの - このシミュレータは`ObjectiveKind`を一切
+認識せず、常にEliminateTeam前提のヒューリスティックで動くため、主目的が
+OperateObjectのステージでは(敵を全滅させても勝利条件を満たさないため)必ずtimeoutで
+敗北扱いになる。数値調整は行わない。
+
+### M9-O 風裂き高原: 地点4(分断された輸送隊)
+
+`docs/regions/windscar_plateau.md`「4. 分断された輸送隊」を本格実装した。
+`windscarRelayStage()`(地点2)と同じく`Region.cpp`内で手書きした - この
+Sliceが要求する`StageDescriptor::guestUnits`/`primaryEscapeUnitsAlternative`が
+JSON Schemaに露出していないため、地点2・黒水渡しと全く同じ理由・同じパターン。
+
+**主目的のOR合成の近似**: 正本の主目的は「負傷者1人以上を脱出、または荷物箱1個
+以上を確保」で、異なるObjective Kind同士のOR(EscapeUnits vs SecureTile)。この
+地点はルート1が負傷者2人を、ルート2が荷物箱2個を明示的に挙げており地点2の
+荷運び役よりむしろ対称的だが、EscapeUnits(guest)を主目的として採用する判断は
+M9-Mの前例をそのまま踏襲した - `primaryEscapeUnitsAlternative`+`guestUnits`は
+黒水渡し・地点2で実証済みのend-to-end経路である一方、荷物箱側の
+`surveyObjectiveId`はこのプロジェクトで常に「勝利へのボーナス報酬経路」として
+のみ実証されており(`sunken_path_marker`/`blackwater_crossing_crate`等)、主目的
+そのものとして機能させる配線(荷物箱確保単独で勝利させる、default primary
+groupの置換)はまだどこにも存在しない。1地点のためにこの新しいprimary化を
+新設するより実証済みのEscapeUnits経路を再利用する方が最小プラミングという
+一貫した判断に合うため、こちらを採った。荷物箱自体はObject耐久機構が丸ごと
+未実装(M6-C以来の既知ギャップ)のため今回は一切モデル化していない - ルート2の
+「荷物箱2個」/副目標「荷物箱2個を保全」/敗北条件の荷物箱側/全保全報酬
+`courier_route_chart`はすべて未配線のまま据え置いた(M9-Hの「到達不能な報酬は
+未宣言のまま残す」前例と同型)。
+
+**護衛ユニットは全3ルート共通**(M9-M/M9-Iの既知の限界の継続)。ルート2「荷車を
+先に確保する」の正本テキストは負傷者を明示しないが、この実装では護衛ユニット
+自体は3ルート共通で出現する(近似)。ルート2「防衛中に負傷者HP-3」は
+`StageDescriptor::GuestUnitData`に開始前HPペナルティ用フィールドが無いため
+(`partyDamage`はplayerParty専用)暗黙のno-opとして見送った。
+
+**敵は既存クラスの再利用のみ**: 断崖の野盗(斧兵/弓兵/軽装剣士)に対応する
+`UnitClass`(Axeman/LightSwordsman相当)は存在しない。弓兵は既存
+`UnitClass::WatchArcher`をそのまま使い、斧兵・軽装剣士は新規Classを起こさず
+`UnitClass::Bandit`を「Raider」表示名で再利用した - この表示名は
+`data/regions.json`のsplit_convoyプレースホルダー自身が既に使っていた既存
+ロケールキー(`character.raider`)のため追加のJAグリフ登録は不要。「騎兵ルート
+では軽装剣士1追加」はenemyRosterへ5体目として常時含め、他2ルートで
+`enemiesRemoved=1`により差し引く形で表現した(地点1の「敵4体→ルート2で敵3体」と
+同じ加算後減算パターン)。ルート1「荷物報酬-1」はriding_gearを-1する
+RewardRule::Condition::RouteChoiceルールで表現した(`computeStageVictoryLoot()`が
+全ルールを合算し結果が正の分だけ残す既存機構をそのまま利用でき、M9-Lの
+「織物-1」(消費型アイテムコスト)とは異なりこちらは単なる報酬減算のため新規
+プラミング不要だった)。
+
+**キャンプIIのゲート確認**: M9-Lが`RouteGraph.cpp`の`windscarPlateauGraph()`へ
+既に配線済みの`windwatch_convoy_branch`(`BranchCompletion::AllMembers`、
+メンバー`windwatch_station`/`split_convoy`)をそのまま確認し、地点3・4双方が
+本格コンテンツになった今回も追加配線が不要であることをテストで検証した(下記)。
+
+`tests/test_battle.cpp`へ5件追加: 護衛到達によるVictory単独成立、護衛全滅による
+Defeat(部隊は無傷でも成立、地点2の2テストと同型)、騎兵ルートでの敵5体化検証、
+ロケールキー・報酬ルール(FrontalAdvanceでriding_gear相殺)のアサート、
+`windwatch_convoy_branch`が`AllMembers`のままであることの直接検証。既存4テスト
+スイート含め全成功。
+
+`jf_forest_balance --region=windscar_plateau`(500 Seed)の実測: 地点4(分断された
+輸送隊)のfresh-party win率はDirect 67.0%/HP残83.4%、Tactical 65.2%。ただしこの
+数値は[[jf_forest_balance worst-case numbers]]・地点2(崩れた中継路)自身の実測が
+既に記録した既知のシミュレータ盲点を含む - 主目的がEscapeUnits(護衛対象の到達)
+であるにもかかわらずこのシミュレータは護衛対象を積極的に脱出させる行動を
+取らない(ヒューリスティックがEliminateTeam前提のため)ため、win率が実プレイより
+低く出る構造的な偏り、および6地点通しExpeditionのReach数値(Split Convoy
+0/500)が地点2以前の到達率の掛け算で説明できる縮小である点も同じ既知の性質。
+数値調整は行わない。
+
+### M9-P 風裂き高原: 地点5(断崖荷車道)
+
+`docs/regions/windscar_plateau.md`「5. 断崖荷車道」を本格実装した。
+`windscarConvoyStage()`(地点4)と同じく`Region.cpp`内で手書きした - このSliceが
+要求する`StageDescriptor::guestUnits`/`primaryEscapeUnitsAlternative`が
+JSON Schemaに露出していないため、これまでの3つのguest-escort地点と全く同じ
+理由・同じパターン。
+
+**荷車=Guestユニットとしてのモデル化**: 正本の「荷車耐久12」を、既存の
+非戦闘Escortユニット(`GuestUnitData`)1体で近似した。荷車が右端タイルへ
+到達すること自体は既存の`primaryEscapeUnitsAlternative`/`guestUnits`の
+脱出判定と機能的に同一で、この地点はこれまでのどの地点よりも
+EscapeUnitsとの一致度が高い(正本の主目的自体が「荷車または護衛対象1人以上」
+というOR-of-サム、ルートに関わらず「何か」が到達すればよいため
+`requiredEscapeCount=1`がまさにそのまま正しい)。ただし`UnitTemplate`に
+HP上書きフィールドは無い(ステータスは`UnitClass`から決まる)ため、
+「耐久12」という具体的な数値そのものは表現していない - 護衛クラス
+(`DawnChirurgeon`再利用、既存の非戦闘Escortパターン)のベースHPで
+近似するのみ。
+
+**guestUnitsは全3ルート共通(固定)の既知の限界**: シナリオ構築時点で
+固定されルート別に出し分けられない(M9-Iの既知の限界の継続)。正本は
+ルート1/3が荷車1台、ルート2が護衛対象2人という異なる構成を明示するが、
+このSliceでは荷車1体(Guest 1体)を全3ルート共通で採用した - 2/3ルートが
+荷車を明示する多数派であり、`requiredEscapeCount=1`はどちらの構成でも
+変わらないため。ルート2の「護衛対象2人」は未モデル化(1体のまま)として
+記録する。
+
+**ルート3`[重装兵]`「荷車への強風移動無効」は見送り**: `BattleState::
+resolveWindGustRoundEnd()`のHeavyGuard免除判定(`hasHeavyArmor()`)は
+`unit.unitClass`のみを見る汎用チェックで、プレイヤーか護衛かを区別しない
+ため、荷車Guestの`UnitClass`を`HeavyInfantry`にすれば免除自体は
+「タダで」発生することを確認した。しかし`HeavyInfantry`は実戦闘クラスで
+あり、荷車という非戦闘物体に本物の重装歩兵ステータス(高STR/高DEF)を
+与えるのは正本の意図と乖離する。`guestUnits`はルート別の出し分けも
+できないため(上記の限界)、ルート3専用に別クラスを割り当てることも
+できない。よって`windscarConvoyStage()`の「防衛中に負傷者HP-3」と同型の
+暗黙のno-opとして見送り、コードコメントにのみ記録した(新しいギャップでは
+なく、既存のguestUnits関連ギャップの一種)。
+
+**敵は既存クラスの再利用のみ**: 正本の高原運び手(騎兵2/槍兵2/弓兵1)は
+すべて既存`UnitClass`(`MessengerCavalry`/`Spearman`/`WatchArcher`)に
+対応するため、`windscarRelayStage()`と同じく表示名の再利用なしで直接
+使用した。ルート2「敵4体」はbase 5体ロースターから`enemiesRemoved=1`で
+差し引く(`windscarAscentStage()`以来の加算後減算パターン)。ルート1
+「騎具素材-1」ではなくルート2側の「騎具素材-1」を`RewardRule::
+Condition::RouteChoice`で表現した(`computeStageVictoryLoot()`が全ルールを
+合算し結果が正の分だけ残す既存機構、`split_convoy`と同じ新規プラミング
+不要のパターン)。
+
+**未実装(既知のギャップ、新規なし)**:
+- 副目標「すべての荷物を保持」/「木橋を破壊されない」: Object耐久機構が
+  丸ごと未実装(M6-C以来の既知ギャップ)。
+- 敗北条件「全輸送対象の撤退」のうち荷物側: 上記と同じ理由で対象外 -
+  護衛ユニット側は`allGuestsLost()`経由で自動配線される(実装済み)。
+- 全荷物保持報酬`windscar_road_chart`: 副目標自体が未配線のため到達不能
+  (M9-Hの「到達不能な報酬は未宣言のまま残す」前例と同型)。
+
+`RouteGraph.cpp`の`windscarPlateauGraph()`は既にM9-Lが`cliff_cart_road`
+ノードを配線済みで、このSliceでの追加配線は不要(コメントのみ「real
+content」へ更新)。
+
+`tests/test_battle.cpp`へ5件追加: 護衛(荷車)到達によるVictory単独成立、
+護衛全滅によるDefeat(部隊は無傷でも成立)、ルート2での敵4体化検証、
+ロケールキー・報酬ルール(CollapsedSidePathでriding_gear相殺)のアサート。
+既存全テストスイート含め成功。
+
+`jf_forest_balance --region=windscar_plateau`(500 Seed)の実測: 地点5
+(断崖荷車道)のfresh-party win率はDirect 30.6%/HP残78.1%、Tactical
+27.8%。ただしこの数値は[[jf_forest_balance worst-case numbers]]・地点2/4
+自身の実測が既に記録した既知のシミュレータ盲点を含む - 主目的が
+EscapeUnits(護衛対象=荷車の到達)であるにもかかわらずこのシミュレータは
+護衛対象を積極的に脱出させる行動を取らない(ヒューリスティックが
+EliminateTeam前提のため)ため、win率が実プレイより低く出る構造的な偏り。
+数値調整は行わない。
+
+### M9-Q 風裂き高原: 地点6(高原伝令所)/ 地域ボス「高原運び手の隊長」/ 地域攻略
+
+`docs/regions/windscar_plateau.md`「6. 高原伝令所」「地域ボス 高原運び手の隊長」
+「地域攻略と拠点接続」「最低保証報酬」を確認し、風裂き高原の最終地点+地域ボス+
+地域攻略を実装した。M9-Kの`takeSerpentBossTurn()`を実装パターンの正本として踏襲。
+
+新規`UnitClass::PlateauCourierCaptain`(`data/classes.json`、正本どおりHP40/STR9/
+DEF6/RES4/MOV6、新規武器`road_sword`威力6射程1)を追加した。正本「兵種: 伝令騎兵型」
+の言及どおりまず既存`MessengerCavalry`の再利用を検討したが、HP22/DEF4/RES3という
+ベースクラスの数値がボスのHP40/DEF6/RES4と乖離しすぎるため、M9-D/M9-Kが自ボスで
+下したのと同じ判断で新規Classを起こした。`EnemyAI.cpp`へ`takeCourierCaptainBossTurn()`
+を新規実装。3つの固有行動:
+
+- **通り抜け攻撃**: `computeReachableTiles()`から「隊長の現在位置と同じ行または列」
+  かつ「移動距離2以上」かつ「対象へ隣接(射程1)」を満たすマスのうち最も低HPな対象を
+  選び、`battle.moveUnit()`で直接そのマスへ移動して攻撃した後、対象から離れる方向へ
+  最大2マス再移動する。正本の「ZoC・Unit・通行不能地形回避ルールを無視するが実際の
+  通行可否は見る」は、`BattleState::moveUnit()`が元々「目的地の地形・Object・占有
+  ユニットだけを見て経路上のZoC/Unitは一切見ない」という正本どおりの形をしている
+  ため(沼牙の大蛇の水中潜行・灰殻穿岩虫のトンネルが同じ理由で直接
+  `battle.moveUnit()`呼び出しを使っているのと同型)、新しい移動プリミティブは不要
+  だった
+- **迂回命令**: 戦闘中1回、`chargeTelegraphed`/`bossRuntime.telegraph`(いずれも
+  ボア専用ではない汎用フィールド、M9-D/Kの前例どおり再利用)を使い、生存プレイヤーが
+  多い方の半分の行(上下)を`TelegraphShape::Area`+`lockedTiles`で予告する。次のこの
+  ボス自身の行動で解決: announced行に生存プレイヤーがいれば最も近い1体へ接近して
+  攻撃、いなければ「通常AIへ戻り、無料の追加攻撃は発生しない」を文字どおり実装
+  (turnを消費せず同じ行動内の後続の優先順位ステップへそのままフォールスルー)。
+  正本の「騎兵1体と弓兵1体が...優先」は、このプロジェクトに他ユニットのAI判断へ
+  影響する汎用のsquad間連携機構が一切無いため(全既存ボスの予告も自分自身の次行動
+  にしか影響しない)、「隊長自身がannounced行のプレイヤーを優先する」へ縮小近似
+  した - このSliceでの明示的な既知の縮小
+- **退路確保**: HP50%以下で一度だけ(`bossShudderUsed`と同型の新規`bossEscapeRouteUsed`
+  フラグ)、MOV+1/DEF-2を適用する。正本の「次の行動終了まで」は、他ボスのような
+  ターンをまたぐ状態(`bossWeakenedFromStun`)ではなく、発動したその1行動の意思決定に
+  だけ適用し関数を抜ける前に復帰する形で文字どおり実装した(「次の行動」=「発動した
+  その行動自身」という最小解釈)。「伝令所から4マスを超えて離れない」という
+  leash制約は、`plateau_relay`が`data/regions.json`側でJSON直書きのため戦闘に
+  「伝令所」自身の盤上位置を運ぶ専用機構が存在しない(M9-K自身が沼牙の大蛇の
+  「水源から3マス以内」leashについて記録した既知のギャップと全く同じ形)。1つの
+  ボス能力のためだけに汎用Object位置プラミングを新設するのではなく、この地点の
+  固定レイアウトが伝令所を置く想定の固定タイル(`kPlateauRelayStationTile`)を
+  `EnemyAI.cpp`内に直接ハードコードする形で実装した - leash自体は機能する
+  (退路確保が有効な間、移動先候補をそのタイルから距離4以内へ絞る)が、汎用Object
+  位置トラッキング機構としては存在しない
+
+行動優先順位は正本の6項目のうち、手順3「伝令箱へ到達可能な味方伝令を妨害」を除く
+5項目を`takeGrubwormBossTurn()`/`takeSerpentBossTurn()`と同じ早期return連鎖で実装。
+手順3は主目的の近似判断(下記)によりguest伝令ユニット自体がこのSliceに存在しないため
+スコープ外とした。手順6「伝令所から3マス以内で側面位置を取る」も同じ
+`kPlateauRelayStationTile`を目標に最近接マスへ寄る形で実装した。
+
+以下は正本との差分・見送り(M9-D/M9-Kの判断方針を踏襲、都度明記):
+
+- 正本の主目的「隊長を戦闘不能にして撤退させる OR 味方伝令を伝令箱へ到達させ
+  伝令所を2ラウンド維持する」というOR合成は、M9-D/M9-J/M9-Mが繰り返し下した
+  判断と同じ理由(1地点のためだけの汎用OR合成機構を新設するのは過剰実装)で
+  見送り、主目的は標準`EliminateTeam`のみとした。ボスの撤退(HP0)は
+  `ObjectiveTracker.cpp`の`emitUnitDefeatedEvents()`へ`PlateauCourierCaptain`を
+  追加し、沼牙の大蛇等と同じ`UnitExitReason::ScriptedWithdrawal`扱いにした
+- 探索ルート2「先に伝令を走らせる」の条件`windscar_road_chart`はDiscovery条件で
+  あり、`StageContentData`/`StageDescriptor`のルートゲート機構は
+  `scoutRouteRequiredClass`(UnitClass限定)と`scoutRouteDisabled`(3番目のルート
+  専用の無効化フラグ)しか存在せず、Discoveryゲート・2番目のルート(CollapsedSidePath)
+  向けの無効化のどちらも表現する機構が無い(このSlice時点でプロジェクト全体を
+  通じて前例が無い新種のゲート形)。正本自身、この`windscar_road_chart`が
+  地点1〜5のどこでも「保全報酬が未配線のため到達不能」(M9-H/M9-Pの記録参照)な
+  ままだったため、実際にはこの時点で誰も所持できないルートでもある。よって
+  ルート2は常時選択可能な無条件ルートとして近似し(ゲート自体は掛からない)、
+  「味方伝令1人を追加」は主目的近似同様guestユニット自体を配線しないため
+  no-opとした。「敵増援+1」だけは、`plateau_relay`のenemyRoster末尾に7人目
+  (`plateau_relay_swordsman1`)を常時含めておき、ルート1・3側で
+  `routeOutcomes`の`enemiesRemoved:1`により差し引く(`windscarConvoyStage()`
+  以来の加算後減算パターン)形で表現した。「先行伝令ルートでは3ラウンド目に
+  軽装剣士1増援」という正本のタイミング差分は、この加算後減算近似では
+  即時出現になる(`timedReinforcement`は使わなかった)ことを既知の簡略化として
+  記録する
+- 探索ルート3`[行軍隊長]`「共同運用を提案」は`scoutRouteRequiredClass:
+  MarchCaptain`で兵種ゲート自体は機能する。「敵2人がHP50%以下で撤退可能」は、
+  `jf/battle/AiSystem.hpp`の`AiProfile::retreatHpPercent`(既存の汎用撤退閾値、
+  デフォルト25%)が正本の「HP30%以下で撤退を評価」という高原運び手の敵勢力設定
+  と機能的にほぼ同じ挙動を既に持っており、しかも`profileFor()`はUnitClass単位の
+  グローバルな分岐(この地点・このルートに限定した閾値上書きの機構が無い)のため、
+  ルート3固有の効果としての新規配線はしていない - 既存の汎用撤退閾値がこの地点
+  でも既に(近似値で)機能しているとみなし、記録に留めた。「伝令所耐久+4」は
+  Object耐久機構自体が丸ごと未実装(M6-C以来の既知ギャップ)のため見送り
+- 副目標「伝令所耐久を8以上残す」(騎兵運用記録の従属報酬含む)はObject耐久機構
+  自体が無いため丸ごと見送り(同上の既知ギャップ)
+- 副目標「高原運び手を2人以上撤退・降伏させる」は、上記の既存汎用撤退機構
+  (`EnemyAI.cpp`の`takeEnemyTurn()`が`AiCandidate::Retreat`経路で
+  `exitReason = UnitExitReason::Retreated`を設定する既存配線)をそのまま利用し、
+  `GameApp.cpp`に`blackwater_crossing`/`deep_mire`と同型のad-hocセカンダリ
+  ボーナスとして実装した(`RewardRule::Condition`に該当する種類が無いため) -
+  戦闘終了時に`Team::Enemy`かつ`exitReason==Retreated`のUnit数を数え、2以上かつ
+  `windscar_road_chart`未取得なら`pendingDiscoveries`へ追加する
+- 副目標「味方戦闘不能者0」は既存`noCasualtiesBonusLoot`(M9-D/M6以来の実証済み
+  機構)をそのまま`plateau_relay`エントリへ宣言するだけで済んだ(新規コード不要)
+
+地域攻略・最低保証報酬はM9-Kの`blackwaterMaterialsEarned`と完全に同じ形で
+`windscarMaterialsEarned`(新規フィールド、`BaseState.hpp`/`SaveSystem.cpp`)を
+追加し、`ExpeditionService.cpp`の`applyExpeditionReturnToBase()`へ同型のTop-up
+ブロックを実装(獣皮5・織物7・硬木5・騎具素材4のフロア、高原街道図・騎兵運用
+記録・標的指定記録・伝令路図の4Discovery、いずれも新規`k*Discovery`定数を
+`BaseState.hpp`へ追加)。`windscar_plateau_secured`という安定IDそのものは
+Ashiron Quarry/Blackwater Lowlandsの前例と同じく、コード上の実体は無く
+`RegionId::WindscarPlateau`が`completedRegionIds`へ入ること(既存の
+`regionCleared()`/`computeWouldRegionBeCleared()`汎用機構)がその実装である。
+
+正本「解放効果は装備、スキル、情報、護衛支援へ限定する」の各項目について:
+`plateau_targeting_records`で解放するとされる監視弓兵「標的指定」
+(`mark_target`)、`courier_route_chart`で解放するとされる辺境斥候「緊急離脱」
+(`emergency_withdrawal`)は、`Skill.cpp`の`SkillDefinition`にDiscovery条件で
+スキルをゲートする機構自体が存在しない(全スキルは兵種+階層でのみ決まる)ため
+既知のギャップとして見送った。騎兵運用記録の「機動訓練の上位候補と騎兵装備
+レシピ」・騎具素材の「伝令騎兵の武器分岐」も同型(訓練所候補・武器分岐という
+機構自体が未実装、`docs/implementation_roadmap.md`側の既存スコープ)。高原街道図
+の「輸送情報と次地域の経路表示」はUI層のフレーバーで、地域攻略自体には影響しない
+(正本も明記)ため対象外。
+
+旧辺境集落(第6地域)は新規`RegionId::OldFrontierSettlement`+
+`old_frontier_settlement_outpost`(`data/regions.json`、Bandit2体の最小
+プレースホルダー)で追加した。Windscar Plateauが最初`windswept_highland_outpost`
+という同型の1地点だけのプレースホルダーから始まった前例(M9-K)を完全に踏襲
+(RouteGraphは使わない単一地点構成、`usesRouteGraph()`は無改修)。`Region.cpp`の
+4箇所のswitch文・`regionUnlocked()`(WindscarPlateau完了で解放)・
+`ExpeditionService.cpp`の地域リスト・`unitClassFromString()`(`GameData.cpp`)を
+他地域と同じ形で配線した。
+
+`tests/test_battle.cpp`へ6件追加: 通り抜け攻撃(2マス以上の直線移動を要求し
+対象から離れて再移動)、退路確保(HP50%閾値・1回限定・同一行動内でMOV/DEF復帰)、
+迂回命令(予告→次行動で解決、対象不在時のフォールスルー)、地点6の勝利条件
+(HP0→ScriptedWithdrawal、`scoutRouteRequiredClass`/`noCasualtiesBonusLoot`
+アサート)、旧辺境集落の地域解放条件。既存4テストスイート
+(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/`check_localization`)
+含め全成功。
+
+`jf_forest_balance --region=windscar_plateau`(500 Seed、`500 --region=windscar_plateau`
+という正しい引数順で実行 - `--seeds=`という引数形式は本ツールに存在せず誤って
+未知のClass除外パーサへ吸われることを確認した上で修正)の実測: 地点6(高原伝令所)の
+fresh-party win率はDirect/Tactical共に0.0%(avg KO 4.00、毎試行で部隊全滅)。
+これは地点1〜5の既知のシミュレータ盲点(OperateObject/EscapeUnits主目的への
+非対応)とは異なり、地点6は本Sliceの近似どおり純粋な`EliminateTeam`であるため、
+シミュレータ側の既知の非対応では説明できない実測である。7体編成(隊長+伝令騎兵+
+槍兵2+弓兵2、ルートによっては+1)がこのツールの想定する「新鮮な3人パーティ」に
+対して単体でも相当に重いことが主因と推測されるが、[[jf_forest_balance worst-case
+numbers]]の教訓どおりこれは後退なしの単一地点最悪ケース測定であり実プレイでの
+確認に基づかない数値調整は行わない。ただし地点1(Downwind Ascent)がM9-L記録の
+Direct 56.0%と一致した一方この地点だけ0.0%/全滅という際立った落差のため、次の
+Slice着手前に実プレイでの確認とバランス調整を推奨する既知の要フォロー事項として
+明記する。6地点通しのRegion clear win率は0%(Direct/Tacticalとも)だが、これは
+既に地点3(Windwatch Station、`OperateObject`)側の`jf_forest_balance`未対応が
+主要因と判明済み(M9-N)であり、地点6自体のボス数値・AIが機能しないことを
+示すものではない(Reach: Plateau Relay Stationへの到達自体が0/500)。
+
+**[訂正・M9-Rで再検証済み]** 上記の「地点6は0.0%」という実測は`jf_forest_balance`が
+`plateau_relay`の`routeOutcomes`(FrontalAdvance: `enemiesRemoved:1`)を単発計測
+(fresh-party per site)では既に正しく適用していたことがM9-Rで確認された - 表内の
+「7体編成」という記述自体、実際には`enemiesRemoved:1`差し引き後の6体(隊長+5)を
+指しており、当時の記述は誤解を招く書き方だったが数値自体は誤っていなかった。
+M9-Rはこの計測ツールが持っていた別の実在バグ(6地点通しExpedition内の2地点目
+以降の継続戦闘が`routeOutcomes`を一切適用していなかった)を修正したが、風裂き
+高原のReachは地点6よりずっと手前(地点3のOperateObject非対応)で頭打ちのため、
+この修正によって地点6の数値自体は変化しなかった。したがって地点6の0.0%は
+ツールの不具合による過小評価ではなく、引き続き実プレイでの確認とバランス調整を
+推奨する既知の要フォロー事項として有効である。詳細はM9-Rを参照。
+
+以上で風裂き高原(第5地域)の全6地点が実コンテンツ化され、地域全体を安全帰還まで
+攻略可能になった(地点3のOperateObject自動プレイ非対応を除き、実プレイでの
+end-to-endクリアはエンジン機構としては揃っている)。旧辺境集落(第6地域)は
+選択可能な状態でBase画面に追加される。
+
+### M9-R jf_forest_balance: Expedition内継続戦闘へのroute効果未適用バグ修正
+
+風裂き高原・地点6(高原伝令所)ボス戦の実測win率0.0%が「`jf_forest_balance`が
+`StageDescriptor::routeOutcomes`/`ExplorationOutcome::enemiesRemoved`を一切
+適用せず常に未加工の`enemyRoster`と戦っているのではないか」という疑いから
+再調査した。
+
+**調査結果**: 疑い自体は半分だけ正しかった。`tools/forest_balance.cpp`の
+fresh-party単発計測ループ(各地点を`[Direct]`/`[Tactical]`の表として出力する
+既存の主要な計測経路)は`createScenarioBattle()`へ`stageRouteOutcome(stage,
+ExplorationChoice::FrontalAdvance)`を毎回明示的に渡しており、`routeOutcomes`/
+`enemiesRemoved`は元から正しく適用されていた(`plateau_relay`のFrontalAdvance
+ルートは`enemiesRemoved:1`のため、実際には隊長+5の6体編成で計測されている -
+`buildEnemies()`を直接インスツルメントして`enemyCount=6`を確認した)。M9-L/M9-Qが
+記録した地点1(Downwind Ascent)Direct 56.0%/Tactical 42.2%、地点6(Plateau Relay
+Station)Direct/Tactical共に0.0%は、いずれもこの正しく機能していた経路の実測であり
+不具合の産物ではない。
+
+一方、実在のバグは別の場所にあった: 同ファイルの6地点通しExpedition計測ループ
+(`Reach:`/`Region clear`を出力する経路)は、地点1(`stageIndex==0`)のみ
+`stageRouteOutcome()`を渡し、地点2以降の継続戦闘(`createScenarioContinuationBattle()`)
+へは`outcome`引数を一切渡していなかった - `BattleFactory.hpp`のデフォルト引数
+`ExplorationOutcome outcome = {}`が暗黙に適用され、`enemiesRemoved`を含む全ての
+route効果が2地点目以降で常に無視されていた。
+
+**修正**: `tools/forest_balance.cpp`のExpeditionループにおける
+`createScenarioContinuationBattle()`呼び出しへ、fresh-party単発計測ループと同じ
+`stageRouteOutcome(forest.stages[stageIndex], ExplorationChoice::FrontalAdvance)`を
+追加しただけの1行差分(サロゲートのFrontalAdvance固定は既存のfresh-party計測
+ループ自身の慣習をそのまま踏襲、新しいルート選択ロジックは導入していない)。
+
+**再計測**(500 Seed、`--region=windscar_plateau`): 地点1・地点6ともfresh-party
+win率は修正前後で完全に不変(地点1: Direct 56.0%/Tactical 42.2%、地点6: Direct/
+Tactical共に0.0%)。Expedition側の`Reach`/`Region clear`も見た目上は不変だったが、
+これは風裂き高原の6地点通し到達率が既に地点3(Windwatch Station、`OperateObject`
+未対応)で頭打ちになっており、修正対象だった地点2以降の継続戦闘のroute効果が
+そもそも到達可能な範囲を超えて評価される機会が無かったため(Reach:地点4以降は
+修正前後とも0/500)。
+
+| | 修正前 | 修正後 |
+|---|---|---|
+| 地点1(Downwind Ascent)Direct win | 56.0% | 56.0%(不変) |
+| 地点1(Downwind Ascent)Tactical win | 42.2% | 42.2%(不変) |
+| 地点6(Plateau Relay Station)Direct win | 0.0% | 0.0%(不変) |
+| 地点6(Plateau Relay Station)Tactical win | 0.0% | 0.0%(不変) |
+
+他地域での健全な既存数値についても回帰が無いことを確認した:
+Ashiron Quarry地域ボス(Collapse Core)Direct 98.8%/Tactical 89.8%、Blackwater
+Lowlands地域ボス(Deep Mire)Direct 99.8%/Tactical 99.2%、Cinderwatch Gateの
+全地点数値、いずれも修正前後で完全に一致。`ctest`の既存4スイート
+(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/`check_localization`)は
+全成功。
+
+**結論**: 地点6ボス戦の0.0%は`jf_forest_balance`の不具合による過小評価では
+なかった - fresh-party計測経路は元から`routeOutcomes`を正しく適用していた。
+M9-L/M9-Qが既に記録した「実プレイでの確認とバランス調整を推奨する」という所見は
+そのまま有効であり、本Sliceは計測ツール自体の別の(数値に影響しない)不具合を
+修正したに留まる。数値調整は行わない。
+
+### M9-S 風裂き高原: 地点6(高原伝令所)バランス調整(保守的)
+
+M9-Rで確認された地点6のfresh-party win率0.0%(avg KO≈4.00, HP≈0%、全滅)に対し、
+実プレイ相当の保守的なバランス調整を行った。比較対象の稼働中2地域ボス、Ashiron
+QuarryのCollapse Core(grubworm+borer2体、win Direct 98.8%/Tactical 89.8%)と
+Blackwater LowlandsのDeep Mire(serpent+spider3体、FrontalAdvanceで
+`enemiesRemoved:1`適用後はserpent+spider2体、win Direct 99.8%/Tactical 99.2%)は
+いずれも実戦闘時点でボス+2編成であるのに対し、地点6は`enemiesRemoved:1`適用後も
+隊長+伝令騎兵+槍兵2+弓兵2の隊長+5編成のままだった。
+
+まず`takeCourierCaptainBossTurn()`を`takeGrubwormBossTurn()`/
+`takeSerpentBossTurn()`と比較したところ、構造的な差分を確認した: 他2ボスの
+固有の突進/潜行行動はいずれも予告(telegraph)またはcooldownで頻度が絞られている
+一方、隊長の「通り抜け攻撃」(対象へ隣接して攻撃した後、反撃の届かない位置へ
+再移動する)はcooldownが一切無く、毎ターン無条件に発動できた - 事実上、毎ラウンド
+反撃を受けない一方的な追加ダメージを与え続ける構造的優位であり、これがボス+5と
+いう大きめの編成と相乗して地点1〜5と比べ際立って重い0.0%を生んでいたと判断した。
+
+対応方針(小さい変更から順に検証、目標は40〜70%程度の妥当な範囲への改善、
+他2ボスの90%台への一致は狙わない):
+1. まず`data/regions.json`の`plateau_relay`エントリのみ(グローバルな`Spearman`/
+   `WatchArcher`/`MessengerCavalry`クラスの基礎値は一切変更していない)敵数を
+   隊長+4(弓兵2→1へ削減)へ絞って再計測 → Direct/Tactical共にほぼ変化なし
+   (win 0.0%/0.2%)。編成数だけでは説明できない要因があると判明。
+2. `PlateauCourierCaptain`のDEFを6→5へ試験的に下げて再計測(隊長専用クラスの
+   ため他地点への影響は無い)→ こちらもほぼ変化なし(0.0%/0.2%)。数値上の
+   deviationを正当化する効果が無かったため直ちに元のDEF6へ差し戻した -
+   **正本の確定数値からの逸脱は行っていない**
+3. 上記2つがいずれも不十分だったため、上で特定した構造的AI優位に対応する
+   最小限の変更として、`EnemyAI.cpp`の「通り抜け攻撃」に他ボスと同型の
+   1ターンcooldownを追加した(既存の汎用`chargeCooldownActions`フィールドを
+   再利用、新規フィールド不要)。攻撃自体のダメージ・対象選択・再移動ロジックは
+   一切変更していない、発動頻度のみを絞る変更。これも単独では効果が薄かった
+   (0.0%/0.2%のまま)ため、(1)の敵数調整をさらに一段階進め、`plateau_relay`の
+   編成を隊長+伝令騎兵+槍兵1(+ルート差分の襲撃剣士1)の隊長+2編成へ縮小し、
+   cooldown修正と併用して再計測した。
+
+**結果**(500 Seed、`jf_forest_balance 500 --region=windscar_plateau`):
+
+| | 調整前 | 調整後 |
+|---|---|---|
+| 地点6 Direct win | 0.0% | 66.6% |
+| 地点6 Tactical win | 0.0% | 58.4% |
+
+40〜70%の目標範囲に収まったため、これ以上の反復調整は行わなかった(過剰な
+チューニングを避けるという明示の方針どおり)。6地点通しのRegion clear/Reach
+数値は従前どおり地点3(Windwatch Station、`OperateObject`未対応)で頭打ちのため
+不変。
+
+**正本との関係**: 最終的に適用したのは(1)`plateau_relay`の敵数削減
+(隊長+5→隊長+2、`enemyRoster`配列からの2体削除)と(3)「通り抜け攻撃」への
+1ターンcooldown追加の2点のみ。`PlateauCourierCaptain`のHP40/STR9/DEF6/RES4/MOV6
+という正本の確定数値(`docs/regions/windscar_plateau.md`)は最終的に**一切変更
+していない**(上記(2)のDEF試験は効果測定後に元へ差し戻し済み)。敵数調整は
+M9-Q自身の結び「以後の敵数、風発生Round、報酬量は実戦テストに基づくバランス
+調整として扱う」で明示的に許可されたレンジ内の変更である。一方、cooldown追加は
+「固有行動」の挙動そのものへの変更のため、上記の結び文が明示的にカバーする
+範囲(敵数・タイミング)を厳密には超える - ただし変更したのは発動頻度のみで、
+ダメージ量・対象選択・移動先ロジックは正本記載どおりのまま維持しており、影響は
+最小限に留めた。`tests/test_battle.cpp`の地点6関連アサーション(通り抜け攻撃・
+退路確保・迂回命令・勝利条件)はいずれも敵数やcooldown回数を直接アサートして
+おらず、既存4テストスイート(`jf_battle_tests`/`jf_locale_tests`/
+`jf_content_tests`/`check_localization`)は全成功のまま(回帰無し)。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功
@@ -1586,6 +2472,71 @@ OR性質(全滅なしでも1個確保だけで勝利できる)は見送った。
   実装原則9「未実装の将来拡張を先に一般化しすぎない」との衝突を理由に、M9で実際に
   現行手順では表現できないStageが出た時点で着手する判断とした。M1-E「M9前ブロッカー」
   4項目はこれで全て対応済み(3項目完了・1項目意図的見送り)。
+
+## M7項目3続き 武器分岐の全兵種一般化(2026-07)
+
+`docs/implementation_roadmap.md`「M7項目3(残り)」の武器分岐部分を、槍兵専用実装から
+全12兵種へ一般化した。仕様の数値・固有効果・製作費・レシピDiscoveryは
+`docs/base_development.md`「初期6兵種の武器分岐仕様」「後半6兵種の武器分岐仕様」・
+`docs/character_progression.md`「初期6兵種の武器レシピ」を正本のまま使用し、新しい
+ゲームデザイン数値は追加していない。
+
+実装した内容:
+
+- `data/weapons.json`: 残り11兵種・33分岐武器の威力・射程・MOV補正を追加
+- `include/jf/core/Facilities.hpp`: 兵種ごとの`{class}_forging`解放ノード11個と、
+  `craft_*`分岐レシピ33個(製作費・Discovery条件・前提ノード付き)を追加。
+  `FacilityNode`に`weaponBranchClass`フィールドを新設し、レシピがどの兵種に属するかを
+  データから判定できるようにした(旧実装はSpearman固定のUIハードコードに依存していた)
+- `src/core/GameApp.cpp`の`equipWeaponForUnit()`: 事前調査では「バックエンドは兵種非依存
+  で変更不要」とされていたが、実際には`unit->classId != UnitClass::Spearman`および
+  Spearman専用の`requiredRecipes`マップでハードコードされていたため、
+  `FacilityNode::weaponBranchClass`を使った汎用実装へ書き換えた(この訂正は当初の
+  確認済み事項からの逸脱)
+- `src/ui_facilities.cpp`の3箇所のハードコード(`isWeaponRecipe`フィルタ、
+  `craftClasses[6]`配列と「(未実装)」無効ボタン分岐、`drawUnitScreen()`の
+  `unit->classId == Spearman`ゲート)を全て汎用化。`drawForgeEquipmentPanel()`自体も
+  Spearman専用の候補武器配列で組まれていたため、クラスの基本武器+登録済み`craft_*`
+  ノードからデータ駆動で候補一覧を組むよう書き換えた
+- `data/locales/{en,ja}.json`に33武器分の`weapon.*`キーを追加(日本語グリフは
+  `loadAppFont()`が`facilityNodeRegistry()`のJA文字列と`allJapaneseGlyphText()`を
+  自動収集するため、手動でのcharset編集は不要だった)
+- `tests/test_battle.cpp`: 11兵種分のレシピ解放+武器ステータス入替テスト
+  (威力・射程・MOV補正)、およびノックバック系(圧進槌・追込弓)・状態異常付与系
+  (制圧弓・拘束弓・残火焦点具が使う`Weapon::onHitStatuses`)の一般化済みエンジンフック
+  を検証するテストを追加
+
+エンジンに未接続の固有効果: `Weapon`構造体が汎用的に持つのは
+`moveModifier`/`causesKnockback`/`onHitStatuses`の3種のみで、Spearmanの3分岐は
+すべてこれでカバーできていた。しかし残り33分岐の大半(隊形範囲拡張、待機時DEF上昇、
+条件付き追加ダメージ、Heal回復量変更、再移動、旗支援効果の付け替え等)は専用の
+エンジン機構が無く、今回はレシピ・武器データ・`effectEn`/`effectJa`の説明文までは
+実装したが、固有効果そのものの戦闘挙動は未接続。`causesKnockback`/`onHitStatuses`へ
+素直に写像できた圧進槌・追込弓(ノックバック)、制圧弓・拘束弓(移動低下)、残火焦点具
+(炎上)、および`moveModifier`のみで完結する武器(戦式焦点具・街道剣など)は実際に
+機能する。残りは今回の変更でSpearmanと同じ「レシピは解放できるが固有効果は未接続」
+という新規ギャップであり、既存の「ゲートは実装済みだが到達不能」パターンとは別種の
+既知の未実装として次の優先候補へ追加する。
+
+必要Discoveryが現状どの地域コンテンツからも付与されない(実装済みだが到達不能な)
+レシピ: `cinderwatch_command_drills`・`quarry_combat_records`・
+`settlement_command_ledger`・`cinderwatch_defense_manual`・`quarry_brace_records`・
+`plateau_patrol_records`・`cinderwatch_watch_records`・`quarry_ambush_records`・
+`sanctum_field_medicine`・`heavy_armor_method`・`demolition_forging`・
+`impact_balance_record`・`field_construction_manual`・`controlled_demolition_notes`・
+`structural_repair_guide`・`mounted_charge_drill`・`escort_signal_code`・
+`snare_pattern_record`・`quarry_tracking_notes`・`herding_shot_method`・
+`long_range_signal_code`・`vanguard_banner_record`・`protective_banner_rite`・
+`arcane_resonance_record`・`battle_focus_formula`・`controlled_ember_formula`。
+既に付与経路がある(到達可能な)もの: `plateau_targeting_records`・
+`ashbough_forest_survey_complete`・`marsh_emergency_medicine`(=既存の
+`kMarshEmergencyMedicineDiscovery`)・`courier_route_chart`・
+`herb_thicket_grounds`(=既存の`kHerbThicketDiscovery`)。
+
+同様に、後半6兵種の製作費が参照する`tack_material`(騎具素材)・`marsh_resin`
+(湿地樹脂)・`ruin_fragment`(遺跡片)の3素材も、現状どの地域の戦利品テーブルにも
+登場しないため収集手段が無い。Discoveryと同じ「ゲート実装済み・到達不能」扱いとして
+記録する。
 
 ## 次の優先候補
 

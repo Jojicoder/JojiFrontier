@@ -148,6 +148,10 @@ struct BattleMissionState {
     std::unordered_map<ObjectiveId, ObjectiveProgress> progress;
     std::unordered_set<BattleEventId> consumedEventIds;
     BattleEventId nextEventId = 1; // docs: "戦闘開始時に1へ戻し、発行ごとに単調増加"
+    // Guest-escort subsystem: ids of Team::Player units that are guests
+    // (Unit::isGuest). Empty for every stage except ones that spawn guests -
+    // see BattleState::allGuestsLost().
+    std::vector<std::string> guestUnitIds;
 };
 
 // Matches the game's existing behavior exactly (defeat every enemy =

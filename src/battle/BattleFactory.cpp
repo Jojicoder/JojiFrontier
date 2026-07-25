@@ -345,6 +345,19 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
         if (unit.team == Team::Player && unit.isAlive()) ++livingPlayerCount;
     }
     for (Unit& enemy : buildEnemies(data, stage, outcome, seed, livingPlayerCount)) units.push_back(std::move(enemy));
+
+    // docs/regions/blackwater_lowlands.md「5. 黒水渡し」's 荷運び役 escort
+    // targets: spawned as ordinary Team::Player units (existing turn order/
+    // AI-selection logic untouched) but flagged isGuest for display, and
+    // registered into missionState().guestUnitIds below so
+    // BattleState::allGuestsLost() can gate defeat on them independently of
+    // the player squad.
+    for (const StageDescriptor::GuestUnitData& guest : stage.guestUnits) {
+        Unit guestUnit = instantiateUnit(data, guest.unitTemplate, Team::Player, guest.spawnPos, weaponOverrides);
+        guestUnit.isGuest = true;
+        units.push_back(std::move(guestUnit));
+    }
+
     for (Unit& unit : units) {
         if (unit.team == Team::Player && unit.isAlive())
             unit.currentHp = std::max(1, unit.currentHp - std::max(0, outcome.partyDamage));
@@ -355,6 +368,13 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
         if (!isPassable(terrain[key])) terrain[key] = TerrainType::Floor;
     }
     BattleState battle(std::move(units), terrain, seed);
+    if (stage.windGust) {
+        battle.setWindGust(
+            BattleState::WindGustConfig{stage.windGust->delta, stage.windGust->triggerRound});
+    }
+    for (const StageDescriptor::GuestUnitData& guest : stage.guestUnits) {
+        battle.missionState().guestUnitIds.push_back(guest.unitTemplate.id);
+    }
 
     // 辺境工兵「野戦工作」/`rapid_barricade`(docs/skill_system.md「辺境工兵」):
     // unlike every other object Definition in this file, these are spawned at
@@ -538,6 +558,32 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
         defeatBoss.target.team = Team::Enemy;
         battle.missionState().definitions.push_back(defeatBoss);
         battle.missionState().progress[defeatBoss.id] = ObjectiveProgress{defeatBoss.id};
+    }
+
+    // docs/regions/blackwater_lowlands.md「5. 黒水渡し」's "主目的: 荷運び役2人の
+    // うち1人以上を右端へ脱出": replaces the default EliminateTeam primary
+    // member with a single EscapeUnits objective, same "replace, not widen"
+    // pattern as primaryDefeatUnitId above.
+    if (stage.primaryEscapeUnitsAlternative) {
+        const auto& rule = *stage.primaryEscapeUnitsAlternative;
+        auto& definitions = battle.missionState().definitions;
+        definitions.erase(std::remove_if(definitions.begin(), definitions.end(),
+                                         [](const ObjectiveDefinition& def) {
+                                             return def.id == "eliminate_enemies" && def.groupId == "primary";
+                                         }),
+                          definitions.end());
+        battle.missionState().progress.erase("eliminate_enemies");
+
+        ObjectiveDefinition escape;
+        escape.id = rule.id;
+        escape.kind = ObjectiveKind::EscapeUnits;
+        escape.primary = true;
+        escape.groupId = "primary";
+        escape.target.tile = chooseHoldTile(battle, seed, rule.zoneMinCol, rule.zoneMaxCol);
+        escape.target.securingTeam = Team::Player;
+        escape.target.requiredEscapeCount = rule.requiredEscapeCount;
+        battle.missionState().definitions.push_back(escape);
+        battle.missionState().progress[escape.id] = ObjectiveProgress{escape.id};
     }
 
     if (stage.surveyObjectiveId) {

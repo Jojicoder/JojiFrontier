@@ -69,6 +69,7 @@ public:
 
     bool allEnemiesDefeated() const;
     bool allPlayersDefeated() const;
+    bool allGuestsLost() const;
 
     // docs/mission_objectives.md "所有権と責務": BattleState owns the
     // mission's Definition/Progress/consumed-event-id state.
@@ -125,6 +126,18 @@ public:
     bool isTrailblazed(GridPos pos) const;
     void clearTrailblazedTiles() { trailblazedTiles_.clear(); }
 
+    // docs/regions/windscar_plateau.md "強風ルール": fixed per-battle wind
+    // direction (`delta` is the 1-tile push offset, e.g. {1,0} = downward)
+    // and the single Round it triggers on. Optional - stages without a
+    // WindGust terrain profile leave this unset and
+    // resolveWindGustRoundEnd() is a no-op.
+    struct WindGustConfig {
+        GridPos delta;
+        int triggerRound = 0;
+    };
+    void setWindGust(std::optional<WindGustConfig> config) { windGust_ = config; }
+    const std::optional<WindGustConfig>& windGust() const { return windGust_; }
+
 private:
     std::vector<Unit> units_;
     std::array<TerrainType, kGridRows * kGridCols> terrain_{};
@@ -139,6 +152,21 @@ private:
     bool bossCollidedWithBarrier_ = false;
     std::vector<GridPos> trailblazedTiles_;
     std::vector<ReinforcementWave> reinforcementWaves_;
+    std::optional<WindGustConfig> windGust_;
 };
+
+// docs/regions/windscar_plateau.md "強風ルール": called at Round End (same
+// point processPhaseEndStatusEffects() already applies poison/burn damage -
+// see BattleController's Enemy-Phase-end block) when `battle.round()` equals
+// the configured trigger Round. Pushes every unit standing on a WindGust
+// tile 1 tile along `delta`; a blocked destination (out of bounds, another
+// Unit, impassable terrain/Object) deals a fixed 2 damage instead of moving
+// (docs' collision rule - deliberately NOT BattleState::applyKnockback()'s
+// stagger-status outcome, the doc calls for damage here). Heavy Guard's
+// armor (hasHeavyArmor()) negates both the push and the collision damage,
+// reusing the same check applyKnockback() already uses for the identical
+// "重量装甲は移動距離を0にする" rule. Never moves/damages a unit already at
+// 0 HP, never auto-completes objectives (it only ever changes position/HP).
+void resolveWindGustRoundEnd(BattleState& battle);
 
 } // namespace jf

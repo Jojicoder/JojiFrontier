@@ -1655,6 +1655,11 @@ void BattleController::update(float dt) {
     const AliveSnapshot aliveBeforePhaseEnd = captureAliveSnapshot(battle_);
     processPhaseEndStatusEffects(battle_, Team::Enemy);
     clearSkillBuffsAtEnemyPhaseEnd(battle_);
+    // docs/regions/windscar_plateau.md "強風ルール": resolved at the same
+    // Round-End point as poison/burn status damage above, before defeat
+    // events are emitted, so a unit felled by wind collision damage is
+    // reported the same way a unit felled by poison already is.
+    resolveWindGustRoundEnd(battle_);
     emitUnitDefeatedEvents(battle_, aliveBeforePhaseEnd);
     handleObjectiveEvent(battle_.missionState(),
                          {battle_.issueEventId(), 0, PhaseEndedEvent{Phase::EnemyPhase, battle_.round()}});
