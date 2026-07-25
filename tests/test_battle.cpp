@@ -277,6 +277,28 @@ void winCurrentBattle(jf::GameApp& app) {
     for (jf::Unit& unit : app.battle().battle().units()) {
         if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
     }
+    // docs/regions/ashiron_quarry.md「3A. 旧採掘坑」/「4. 灰鉄鉱脈」(M9-T):
+    // a stage whose primaryEscapeUnitsAlternative replaced the default
+    // EliminateTeam primary (blackwater_crossing/quarry_old_mine/ashiron_vein)
+    // won't reach Victory from zeroed enemy HP alone - it needs a guest
+    // credited on the escape tile, same as the direct BattleState-level test
+    // above this helper. Teleports the first guest onto the target tile and
+    // synthesizes the ActionResolvedEvent credit directly (test-only
+    // shortcut - a real player turn would path-move there).
+    for (const jf::ObjectiveDefinition& def : app.battle().battle().missionState().definitions) {
+        if (def.groupId != "primary" || def.kind != jf::ObjectiveKind::EscapeUnits) continue;
+        const auto& guestIds = app.battle().battle().missionState().guestUnitIds;
+        if (guestIds.empty()) break;
+        jf::Unit* guest = app.battle().battle().findUnit(guestIds[0]);
+        if (!guest) break;
+        guest->position = def.target.tile;
+        jf::BattleEvent guestEscapes{static_cast<jf::BattleEventId>(app.battle().battle().round()), 1,
+                                     jf::ActionResolvedEvent{1, guestIds[0], jf::Team::Player, jf::ActionKind::Wait,
+                                                             def.target.tile}};
+        jf::handleObjectiveEvent(app.battle().battle().missionState(), guestEscapes);
+        jf::syncObjectiveProgress(app.battle().battle());
+        break;
+    }
     for (const jf::BattleObjectState& object : app.battle().battle().objects()) {
         const jf::BattleObjectDefinition* definition = app.battle().battle().objectDefinition(object.definitionId);
         if (definition && definition->interaction) {
@@ -6430,7 +6452,7 @@ int main() {
         winCurrentBattle(app);
         app.proceedToCamp();
         app.continueExpedition(); // AnyMember: one resolved member is enough -> ashiron_vein
-        assert(app.currentMissionNameJa() == "灰鉄鉱脈(仮実装)");
+        assert(app.currentMissionNameJa() == "灰鉄鉱脈");
     }
 
     {
@@ -6581,7 +6603,7 @@ int main() {
         winCurrentBattle(app);
         app.proceedToCamp();
         app.continueExpedition(); // AnyMember: quarry_hoist_works already resolved -> ashiron_vein
-        assert(app.currentMissionNameJa() == "灰鉄鉱脈(仮実装)");
+        assert(app.currentMissionNameJa() == "灰鉄鉱脈");
     }
 
     {
@@ -9165,6 +9187,114 @@ int main() {
         for (const auto& loot : app.expedition().pendingLoot)
             if (loot.id == "poison_material") poisonMaterial = loot.quantity;
         assert(poisonMaterial == 1);
+    }
+
+    {
+        // docs/regions/ashiron_quarry.md「3A. 旧採掘坑」(M9-T): a worker
+        // reaching the escape tile wins standalone, same shape as
+        // blackwater_crossing's own standalone-escape test above.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor ashironRegion = jf::regionDescriptor(jf::RegionId::AshironQuarry, *data);
+        const jf::StageDescriptor* oldMineStage = nullptr;
+        for (const jf::StageDescriptor& stage : ashironRegion.stages)
+            if (stage.id == "quarry_old_mine") oldMineStage = &stage;
+        assert(oldMineStage && oldMineStage->guestUnits.size() == 2);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *oldMineStage, /*seed=*/3);
+        assert(battle.missionState().guestUnitIds.size() == 2);
+        const jf::ObjectiveDefinition* escapeDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.id == "quarry_old_mine_escape") escapeDef = &def;
+        assert(escapeDef && escapeDef->primary && escapeDef->kind == jf::ObjectiveKind::EscapeUnits);
+
+        const std::string& guestId = battle.missionState().guestUnitIds[0];
+        jf::BattleEvent guestEscapes{
+            1, 1,
+            jf::ActionResolvedEvent{1, guestId, jf::Team::Player, jf::ActionKind::Wait, escapeDef->target.tile}};
+        jf::handleObjectiveEvent(battle.missionState(), guestEscapes);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/ashiron_quarry.md「3A. 旧採掘坑」の敗北条件「全作業員の
+        // 撤退」: allGuestsLost() gates Defeat independently of the party
+        // squad, same shape as blackwater_crossing's own guest-loss test.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor ashironRegion = jf::regionDescriptor(jf::RegionId::AshironQuarry, *data);
+        const jf::StageDescriptor* oldMineStage = nullptr;
+        for (const jf::StageDescriptor& stage : ashironRegion.stages)
+            if (stage.id == "quarry_old_mine") oldMineStage = &stage;
+        assert(oldMineStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *oldMineStage, /*seed=*/3);
+        assert(!battle.allGuestsLost());
+        for (jf::Unit& unit : battle.units())
+            if (unit.isGuest) unit.currentHp = 0;
+        assert(battle.allGuestsLost());
+        assert(!battle.allPlayersDefeated());
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Defeat);
+    }
+
+    {
+        // docs/regions/ashiron_quarry.md「4. 灰鉄鉱脈」(M9-T): Irien reaching
+        // the LEFT-column exit tile wins standalone - the "左側退路" primary
+        // approximation (PrimaryEscapeUnitsRule::zoneMinCol/zoneMaxCol=0).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor ashironRegion = jf::regionDescriptor(jf::RegionId::AshironQuarry, *data);
+        const jf::StageDescriptor* veinStage = nullptr;
+        for (const jf::StageDescriptor& stage : ashironRegion.stages)
+            if (stage.id == "ashiron_vein") veinStage = &stage;
+        assert(veinStage && veinStage->guestUnits.size() == 1 &&
+              veinStage->guestUnits[0].unitTemplate.id == "ashiron_vein_irien");
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *veinStage, /*seed=*/3);
+        assert(battle.missionState().guestUnitIds.size() == 1);
+        const jf::ObjectiveDefinition* escapeDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.id == "ashiron_vein_escape") escapeDef = &def;
+        assert(escapeDef && escapeDef->primary && escapeDef->kind == jf::ObjectiveKind::EscapeUnits);
+        assert(escapeDef->target.tile.col <= 2); // left-side zone, not the usual right edge
+
+        const std::string& guestId = battle.missionState().guestUnitIds[0];
+        jf::BattleEvent guestEscapes{
+            1, 1,
+            jf::ActionResolvedEvent{1, guestId, jf::Team::Player, jf::ActionKind::Wait, escapeDef->target.tile}};
+        jf::handleObjectiveEvent(battle.missionState(), guestEscapes);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/ashiron_quarry.md「4. 灰鉄鉱脈」の副目標「イリエンを
+        // 撤退させない」の近似(ProtectUnit機構は未使用、GameApp.cppの
+        // ad-hoc isPresent()チェック): Irien surviving to Victory grants
+        // mage_recruit + 異常鉱脈記録.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        jf::GameApp app(*data);
+        jf::SaveData save = app.createSaveData("en");
+        save.base.completedRegionIds.insert(jf::RegionId::AshboughForest);
+        save.base.completedRegionIds.insert(jf::RegionId::CinderwatchGate);
+        assert(app.applySaveData(save));
+        assert(app.startExpedition(jf::RegionId::AshironQuarry));
+        for (int i = 0; i < 3; ++i) { // quarry_entrance, quarry_terrace, branch member -> ashiron_vein
+            assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+            winCurrentBattle(app);
+            app.proceedToCamp();
+            app.continueExpedition();
+        }
+        assert(app.currentMissionNameJa() == "灰鉄鉱脈");
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        winCurrentBattle(app); // teleports Irien onto the escape tile (winCurrentBattle's guest-escape path)
+        assert(app.battle().inputState() == jf::BattleInputState::Victory);
+        app.proceedToCamp();
+        assert(app.expedition().pendingRecruitCandidateIds.count("mage_recruit"));
+        assert(std::find(app.expedition().pendingDiscoveries.begin(), app.expedition().pendingDiscoveries.end(),
+                         jf::kAnomalousVeinRecordsDiscovery) != app.expedition().pendingDiscoveries.end());
     }
 
     {

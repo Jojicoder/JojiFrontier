@@ -181,6 +181,225 @@ RegionDescriptor ashboughForestRegion(const GameData& data) {
 // M6-A/B/C fleshed Cinderwatch out - a single stage just enough to make the
 // region selectable and completable. The real 5-site content is M9's scope
 // (docs/implementation_status.md「次地域(灰鉄採石場、5地点)」).
+// docs/regions/ashiron_quarry.md「3A. 旧採掘坑」: deferred all the way back
+// at M9-A/M9-D because its primary objective ("作業員1人以上を脱出させる")
+// needs the guest-escort subsystem (StageDescriptor::guestUnits/
+// primaryEscapeUnitsAlternative), which M9-I built for Blackwater Crossing.
+// Hand-built here exactly like blackwaterCrossingStage()/windscar's guest
+// sites, for the same reason (guestUnits isn't exposed to
+// data/regions.json's Schema) - the old `quarry_old_mine` JSON entry
+// (labelled "旧採掘坑(仮実装)") is left in place as dead data, same
+// precedent as blackwater_crossing's own dead JSON entry.
+//
+// Deliberately NOT implemented (documented gap, established convention):
+// - Route 2「支柱を先に確認する」's 作業員1人(vs 2) and route 3
+//   `[古参守備兵]`「退路を封鎖する」's 増援なし: guestUnits/timedReinforcement
+//   are both fixed at scenario-build time, before the chosen
+//   ExplorationChoice's outcome could vary them (same "guestUnits fixed
+//   across all routes" limit M9-I/-O/-P already recorded) - all 3 routes
+//   spawn the same 2 workers and the same round-2 reinforcement.
+// - Route 2's「崩落予告を常時表示」: no CollapseWarning-style terrain kind
+//   exists anywhere in the engine (M9-B's own "落石予告" gap, still open) -
+//   a no-op regardless of route.
+// - Route 3's「味方初期配置は左2列」: DOES have a real mechanism -
+//   ExplorationOutcome::restrictedAutoSpawnMaxColumn (the exact field
+//   Herbwater Hollow's 衛生兵 route already proved) - wired below.
+// - 副目標「坑道支柱2本のうち1本以上を保全」and the`quarry_hoist`-style
+//   `重装加工記録`-style pillar-durability reward: Object-durability
+//   mechanics don't exist (M6-C/M9-C/M9-D's same known gap).
+StageDescriptor quarryOldMineStage() {
+    StageDescriptor stage;
+    stage.id = "quarry_old_mine";
+    stage.terrainProfileId = "ash_road";
+    stage.enemyRoster = {
+        // 穿岩獣 = Bandit reuse, "Rock Borer" display name - established
+        // since M9-D's Collapse Core roster.
+        {"quarry_old_mine_borer1", "Rock Borer", UnitClass::Bandit},
+        {"quarry_old_mine_borer2", "Rock Borer", UnitClass::Bandit},
+        {"quarry_old_mine_borer3", "Rock Borer", UnitClass::Bandit},
+        {"quarry_old_mine_archer1", "Salvage Archer", UnitClass::WatchArcher},
+    };
+    stage.routeOutcomes = {
+        // 「作業員の声を追う」: no condition, standard 4 enemies.
+        {ExplorationChoice::FrontalAdvance, ExplorationOutcome{}},
+        // 「支柱を先に確認する」: no condition. Both the guest-count
+        // difference and the collapse-telegraph effect are the documented
+        // no-ops above.
+        {ExplorationChoice::CollapsedSidePath, ExplorationOutcome{}},
+        // `[古参守備兵]`「退路を封鎖する」: restrictedAutoSpawnMaxColumn=1
+        // confines the party's auto-placement to the left 2 columns
+        // (col 0-1). 増援なし is the documented no-op above (reinforcement
+        // still spawns on this route too).
+        {ExplorationChoice::ScoutRoute, ExplorationOutcome{.restrictedAutoSpawnMaxColumn = 1}},
+    };
+    stage.scoutRouteRequiredClass = UnitClass::VeteranGuard;
+
+    // 2ラウンド目に穿岩獣1体の予告増援 - same TimedReinforcement shape as
+    // blackwater_crossing's snake wave.
+    stage.timedReinforcement = StageDescriptor::TimedReinforcement{
+        "quarry_old_mine_borer_wave",
+        /*spawnRound=*/2,
+        Phase::EnemyPhase,
+        /*announceRoundsBefore=*/1,
+        /*requiredForElimination=*/false,
+        {{"quarry_old_mine_borer_reinforcement", "Rock Borer", UnitClass::Bandit}},
+        {GridPos{0, kGridCols - 1}, GridPos{1, kGridCols - 1}, GridPos{2, kGridCols - 1}},
+    };
+
+    // 作業員2人 - non-combatant guest escort targets, same DawnChirurgeon
+    // reuse (lowest STR of any class) as blackwater_crossing's porters.
+    stage.guestUnits = {
+        {{"quarry_old_mine_worker1", "Mine Worker", UnitClass::DawnChirurgeon}, GridPos{0, 3}},
+        {{"quarry_old_mine_worker2", "Mine Worker", UnitClass::DawnChirurgeon}, GridPos{2, 3}},
+    };
+
+    // 主目的: 作業員1人以上を脱出させる - same shape as blackwater_crossing's
+    // primary, right-edge exit (doc doesn't call out a side for this site,
+    // unlike site 4's explicit "左側退路").
+    stage.primaryEscapeUnitsAlternative =
+        StageDescriptor::PrimaryEscapeUnitsRule{"quarry_old_mine_escape", /*requiredEscapeCount=*/1,
+                                                /*zoneMinCol=*/kGridCols - 1, /*zoneMaxCol=*/kGridCols - 1};
+
+    stage.victoryRewardRules = {
+        {RewardRule::Condition::Always, {}, {{"wood", 2}, {"stone", 1}}},
+    };
+
+    // 副目標「作業員2人とも脱出」→ 採掘技術記録: creditedTargetIds.size()>=2,
+    // same ad-hoc check GameApp::proceedToCamp() already uses for
+    // blackwater_crossing's "2人とも脱出" bonus (RewardRule::Condition has
+    // no shape for crediting-count).
+    // 敗北条件「全作業員の撤退」: allGuestsLost(), zero new code (automatic
+    // via BattleFactory registering guestUnits into missionState().guestUnitIds).
+
+    stage.missionNameEn = "Old Mine Shaft";
+    stage.missionNameJa = "旧採掘坑";
+    return stage;
+}
+
+// docs/regions/ashiron_quarry.md「4. 灰鉄鉱脈」: deferred at M9-D for the
+// same guest-escort reason as site 3A (イリエンを操作可能なゲストユニットと
+// して扱う). Hand-built here for the same JSON-Schema-gap reason as
+// quarryOldMineStage()/blackwaterCrossingStage() - the old `ashiron_vein`
+// JSON entry ("灰鉄鉱脈(仮実装)") is left in place as dead data.
+//
+// **Primary objective approximation**: the doc's primary is an AND of
+// OperateObject(N measurement points, N=1/2/3 by route) and
+// EscapeUnits(Irien to the left exit) - the same "mixed-Kind AND
+// composition has no generic infra" gap M9-D/-J/-M/-O/-Q have all
+// deferred. Per the established precedent of picking ONE Kind as the
+// actual primary (M9-Q's site 6), this stage uses
+// primaryEscapeUnitsAlternative (Irien reaching a LEFT-column zone -
+// PrimaryEscapeUnitsRule::zoneMinCol/zoneMaxCol already support any
+// column range, just never used for the left edge before) as the real
+// primary, since "イリエンを操作可能なゲストユニットとして扱う" is called
+// out as this site's defining new mechanic. The OperateObject/
+// measurement-count mechanic (routes needing 1/2/3 operated tiles) is
+// entirely deferred - no objectPlacementRules are declared for it.
+//
+// **副目標「イリエンを撤退させない」(ObjectiveKind::ProtectUnit)**: NOT
+// wired through the real ProtectUnit machinery. Generating a ProtectUnit
+// Objective for a single guest would need new BattleFactory plumbing (no
+// StageDescriptor field routes a guest into a ProtectUnit definition
+// today), and here it would be redundant anyway - Irien is also the
+// primaryEscapeUnitsAlternative target, so any Victory on this stage
+// already implies she's alive and present. Approximated instead with the
+// same ad-hoc isPresent()-in-GameApp::proceedToCamp() check every other
+// Kind-mismatch secondary bonus already uses (blackwater_crossing's "2人
+// とも脱出", deep_mire's "薬草地点未使用") - see GameApp.cpp. This means
+// ObjectiveKind::ProtectUnit's reward-consumption gap (Objective.hpp's own
+// comment) is still open; this Slice did not close it.
+//
+// **鉱石箱1個を確保**: reuses surveyObjectiveId + surveyTileCount:1 +
+// surveyTileObjectDefinitionId, the exact same secondary-alongside-a-
+// different-primary pattern blackwater_crossing already proved (that
+// stage's crate secondary coexists with its own EscapeUnits primary too).
+//
+// **Route 3 `[戦闘魔導士候補]`**: gated on "地点3Aまたは3B確保", a
+// stage-completion gate no mechanism in this codebase can express
+// (scoutRouteRequiredClass only checks current party composition, and the
+// class this route needs - 戦闘魔導士 - isn't recruitable before this very
+// site grants it). Disabled via scoutRouteDisabled, the exact same
+// resolution M9-D used for this site's own sibling site 5 route 3
+// (`[戦闘魔導士]`, gated on "イリエン加入候補確定").
+StageDescriptor ashironVeinStage() {
+    StageDescriptor stage;
+    stage.id = "ashiron_vein";
+    stage.terrainProfileId = "ash_road";
+    stage.enemyRoster = {
+        {"ashiron_vein_borer1", "Rock Borer", UnitClass::Bandit},
+        {"ashiron_vein_borer2", "Rock Borer", UnitClass::Bandit},
+        {"ashiron_vein_borer3", "Rock Borer", UnitClass::Bandit},
+        {"ashiron_vein_borer4", "Rock Borer", UnitClass::Bandit},
+        // 大型穿岩獣 - reuses the base Rock Borer class/stats (no new stat
+        // variant), name-only reskin, same "Rock Borer = Bandit" precedent.
+        // Present by default; routes 1/3 subtract it via enemiesRemoved=1
+        // (the established "roster includes the max, routes subtract" trick
+        // M9-B/-O use), route 2 (異常反応) keeps all 5.
+        {"ashiron_vein_borer_large", "Large Rock Borer", UnitClass::Bandit},
+    };
+    stage.routeOutcomes = {
+        // 「通常鉱脈だけを採る」: measurement count (1) is part of the
+        // deferred OperateObject mechanic above; enemies 4 (large borer
+        // removed).
+        {ExplorationChoice::FrontalAdvance, ExplorationOutcome{.enemiesRemoved = 1}},
+        // 「異常反応を調べる」: measurement count (3, deferred) + 敵5体
+        // (large borer stays) + 崩落予告 (no CollapseWarning terrain kind
+        // exists - same no-op as quarryOldMineStage()).
+        {ExplorationChoice::CollapsedSidePath, ExplorationOutcome{}},
+        // `[戦闘魔導士候補]` route disabled below (scoutRouteDisabled) - kept
+        // here only so routeOutcomes stays exhaustive over all 3 choices.
+        {ExplorationChoice::ScoutRoute, ExplorationOutcome{.enemiesRemoved = 1}},
+    };
+    stage.scoutRouteDisabled = true;
+
+    // イリエン・ヴェイルリーチ - the operable guest unit this site's doc
+    // text calls its defining mechanic. BattleMage (her actual eventual
+    // class, mage_recruit in data/units.json) rather than a stat-only
+    // reskin, since she's also this site's recruit-candidate reward.
+    stage.guestUnits = {
+        {{"ashiron_vein_irien", "Irien", UnitClass::BattleMage}, GridPos{1, 3}},
+    };
+
+    // 主目的: 指定測定地点をすべて操作し、左側退路へ戻る - approximated as
+    // Irien-escape-to-the-left-column alone (see comment above). Uses the
+    // full left spawn zone (col 0-2, kLeftZoneMinCol/kLeftZoneMaxCol in
+    // BattleFactory.cpp) rather than a single column: chooseHoldTile()
+    // picks the tile AFTER the party/guest already occupy their spawn
+      // tiles there, so a single-column zone (col 0 only) is often fully
+    // saturated by spawned units and silently falls back to the opposite
+    // (right) edge - widening to 3 columns leaves enough free tiles in
+    // practice. Still genuinely the left side, unlike every prior guest
+    // site's right-edge default.
+    stage.primaryEscapeUnitsAlternative = StageDescriptor::PrimaryEscapeUnitsRule{
+        "ashiron_vein_escape", /*requiredEscapeCount=*/1, /*zoneMinCol=*/0, /*zoneMaxCol=*/2};
+
+    // 副目標「鉱石箱1個を確保」: same Any-of-N SecureTile mechanism as
+    // blackwater_crossing's own crate secondary.
+    stage.surveyObjectiveId = "ashiron_vein_crate";
+    stage.surveyTileCount = 1;
+    stage.surveyTileObjectDefinitionId = "ashiron_vein_crate_marker";
+
+    stage.victoryRewardRules = {
+        {RewardRule::Condition::Always, {}, {{"iron", 2}, {"stone", 1}}},
+        // 通常鉱脈ルート: 鉄鉱石+1.
+        {RewardRule::Condition::RouteChoice, ExplorationChoice::FrontalAdvance, {{"iron", 1}}},
+        // 鉱石箱確保: 高品質鉄材1.
+        {RewardRule::Condition::SurveySuccess, {}, {{"quality_iron", 1}}},
+    };
+
+    // 「測定完了かつイリエン生存: 異常鉱脈記録、mage_recruit」: measurement
+    // completion is folded into Victory itself (see the deferred-
+    // OperateObject note above); Irien's survival is checked ad-hoc in
+    // GameApp::proceedToCamp() (see that file's own comment) rather than
+    // through RewardRule, same pattern as quarry_old_mine's "2人とも脱出".
+    // 敗北条件「全測定器破壊」: Object-durability gap, deferred (M6-C/M9-C/
+    // M9-D's same known gap).
+
+    stage.missionNameEn = "Ashiron Vein";
+    stage.missionNameJa = "灰鉄鉱脈";
+    return stage;
+}
+
 RegionDescriptor ashironQuarryRegion(const GameData& data) {
     RegionDescriptor region;
     region.id = RegionId::AshironQuarry;
@@ -189,9 +408,9 @@ RegionDescriptor ashironQuarryRegion(const GameData& data) {
 
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("quarry_entrance")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("quarry_terrace")));
-    region.stages.push_back(stageDescriptorFromContent(data.stageContent("quarry_old_mine")));
+    region.stages.push_back(quarryOldMineStage());
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("quarry_hoist_works")));
-    region.stages.push_back(stageDescriptorFromContent(data.stageContent("ashiron_vein")));
+    region.stages.push_back(ashironVeinStage());
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("quarry_collapse_core")));
 
     return region;

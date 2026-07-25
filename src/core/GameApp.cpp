@@ -107,6 +107,38 @@ void GameApp::proceedToCamp() {
         mergeLoot({{"quality_herb", 1}});
     expedition_.pendingLoot.insert(expedition_.pendingLoot.end(), loot.begin(), loot.end());
 
+    // docs/regions/ashiron_quarry.md「3A. 旧採掘坑」の副目標「作業員2人とも
+    // 脱出」→ 採掘技術記録: same ad-hoc creditedTargetIds.size()>=2 check as
+    // blackwater_crossing's own "2人とも脱出" bonus above, but granting a
+    // Discovery instead of Loot (RewardRule has no Discovery-granting shape).
+    if (!isReconnaissanceRun_ && stage.id == "quarry_old_mine") {
+        const BattleMissionState& mission = battleController_->battle().missionState();
+        for (const ObjectiveDefinition& def : mission.definitions) {
+            if (def.id != "quarry_old_mine_escape") continue;
+            if (mission.progress.at(def.id).creditedTargetIds.size() >= 2 &&
+                std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                         kMiningTechniqueRecordsDiscovery) == expedition_.pendingDiscoveries.end())
+                expedition_.pendingDiscoveries.push_back(kMiningTechniqueRecordsDiscovery);
+            break;
+        }
+    }
+    // docs/regions/ashiron_quarry.md「4. 灰鉄鉱脈」の副目標「イリエンを撤退
+    // させない」(ObjectiveKind::ProtectUnit's documented purpose, but NOT
+    // wired through that Kind here - see ashironVeinStage()'s own comment
+    // for why) combined with "測定完了": approximated as Irien (the
+    // ashiron_vein_irien guest) still being present when the battle ends in
+    // Victory - the same ad-hoc isPresent()-style check every other
+    // Kind-mismatch secondary bonus in this function already uses.
+    if (!isReconnaissanceRun_ && stage.id == "ashiron_vein") {
+        const Unit* irien = battleController_->battle().findUnit("ashiron_vein_irien");
+        if (irien != nullptr && irien->isPresent()) {
+            expedition_.pendingRecruitCandidateIds.insert("mage_recruit");
+            if (std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                         kAnomalousVeinRecordsDiscovery) == expedition_.pendingDiscoveries.end())
+                expedition_.pendingDiscoveries.push_back(kAnomalousVeinRecordsDiscovery);
+        }
+    }
+
     // docs/regions/windscar_plateau.md「6. 高原伝令所」の副目標「高原運び手を
     // 2人以上撤退・降伏させる」: reuses the existing generic enemy AI retreat
     // path (jf/battle/AiSystem.hpp's AiProfile::retreatHpPercent, already

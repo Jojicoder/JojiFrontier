@@ -299,6 +299,27 @@ GridPos chooseHoldTile(const BattleState& battle, std::uint32_t seed, int zoneMi
     };
     std::vector<GridPos> candidates = watchPostCandidates(zoneMinCol, zoneMaxCol);
     if (candidates.empty()) candidates = watchPostCandidates(0, kGridCols - 1);
+    // docs/regions/ashiron_quarry.md「4. 灰鉄鉱脈」(M9-T): a stage whose
+    // terrainProfileId never generates WatchPost tiles at all (ash_road, and
+    // every other non-Cinderwatch profile) previously fell all the way
+    // through to chooseSurveyTile()'s own hardcoded right-edge zone,
+    // silently ignoring `zoneMinCol`/`zoneMaxCol` entirely - harmless for
+    // every caller so far (primaryHoldTileAlternative/
+    // primarySecureTileAlternative/primaryEscapeUnitsAlternative's own
+    // default both happen to BE the right edge), but wrong for
+    // ashiron_vein's left-column exit (zoneMinCol=zoneMaxCol=0), which needs
+    // its requested zone honored even without a WatchPost tile there. Try a
+    // plain-passable-tile search within the requested zone before falling
+    // back to chooseSurveyTile()'s absolute (right-edge) default.
+    if (candidates.empty()) {
+        for (int row = 0; row < kGridRows; ++row) {
+            for (int col = zoneMinCol; col <= zoneMaxCol; ++col) {
+                GridPos pos{row, col};
+                if (isPassable(battle.terrainAt(pos)) && !battle.unitAt(pos) && !battle.objectAt(pos))
+                    candidates.push_back(pos);
+            }
+        }
+    }
     if (candidates.empty()) return chooseSurveyTile(battle, seed);
     std::mt19937 rng(seed ^ 0x7F4A7C15u);
     std::uniform_int_distribution<std::size_t> pick(0, candidates.size() - 1);

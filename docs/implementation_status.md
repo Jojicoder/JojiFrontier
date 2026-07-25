@@ -2430,6 +2430,98 @@ M9-Q自身の結び「以後の敵数、風発生Round、報酬量は実戦テ�
 おらず、既存4テストスイート(`jf_battle_tests`/`jf_locale_tests`/
 `jf_content_tests`/`check_localization`)は全成功のまま(回帰無し)。
 
+### M9-T 灰鉄採石場: 地点3A(旧採掘坑)/ 地点4(灰鉄鉱脈) - 地域完全化
+
+M9-A/-D以来「ゲスト護衛サブシステムが未実装」を理由に据え置かれていた地点3A・4を、
+M9-Iで新設・M9-K/-L/-O/-P/-Q/-Sで実証済みのguestUnits/primaryEscapeUnitsAlternative
+を使って実装し、灰鉄採石場を全5地点+ボス+3A/3B双方実装済みへ完全化した。
+`quarryOldMineStage()`/`ashironVeinStage()`として`blackwaterCrossingStage()`と同型に
+`Region.cpp`へ手書きした(guestUnits/primaryEscapeUnitsAlternativeがJSON Schema未対応
+のため、旧`quarry_old_mine`/`ashiron_vein`のJSONエントリはdead dataとして残置)。
+
+**地点3A(旧採掘坑)**: 主目的は`primaryEscapeUnitsAlternative`(作業員1人以上を右端へ
+脱出、requiredEscapeCount=1)- blackwater_crossingと完全に同型のクリーンな再利用。
+穿岩獣=Bandit(M9-D「Rock Borer」前例)3体+回収団弓兵=WatchArcher1体、2ラウンド目に
+穿岩獣1体の予告増援(TimedReinforcement)。ルート3`[古参守備兵]`「味方初期配置は左2列」
+は`ExplorationOutcome::restrictedAutoSpawnMaxColumn`(Herbwater Hollowの衛生兵ルートが
+既に証明済み)で実装 - 「配置ゾーン機構が既存に無いか」という懸念は杞憂で、既存
+フィールドがそのまま使えた。副目標「作業員2人とも脱出」→採掘技術記録は
+`GameApp::proceedToCamp()`の`creditedTargetIds.size()>=2`アドホックチェック
+(blackwater_crossingの「2人とも脱出」と同型、Loot代わりにDiscoveryを付与する点だけ
+異なる)。
+
+**地点4(灰鉄鉱脈)**: 主目的AND(測定N箇所操作、イリエンを左側退路へ脱出)は
+M9-D/-J/-M/-O/-Qが繰り返し見送った「異なるKind同士のAND合成」ギャップのため、
+`primaryEscapeUnitsAlternative`(イリエンの脱出)を実際の主目的として採用し、
+OperateObject側(測定N箇所)は丸ごと未配線のまま据え置いた。「左側退路」実装で
+`PrimaryEscapeUnitsRule::zoneMinCol/zoneMaxCol`を初めて右端以外(左側)へ設定したところ、
+`BattleFactory.cpp`の`chooseHoldTile()`に実在のバグを発見・修正した: WatchPost地形が
+無いプロファイル(ash_road含む全非Cinderwatchプロファイル)ではリクエストされた
+zoneMinCol/zoneMaxColを完全に無視して`chooseSurveyTile()`の固定右端ゾーンへ
+フォールバックしていた(既存の全ゲスト護衛地点は偶然にも右端をリクエストしていたため
+症状が出なかった)。`chooseHoldTile()`へリクエストされたゾーン内の素の通行可能マス探索
+フォールバックを追加して修正。ただしゾーンを1列(col0のみ)にすると、その列自体が
+味方部隊+ゲストのスポーンで埋まり再度右端へフォールバックする別の実地問題を確認した
+ため、左ゾーンは味方スポーンゾーンと同じ3列(col0-2、`kLeftZoneMinCol`/
+`kLeftZoneMaxCol`)へ広げて回避した - 単列ちょうどの左端ではないが、既存の全地点との
+「右端固定」との対比では明確に左側という性質は保たれている。
+
+副目標「イリエンを撤退させない」(`ObjectiveKind::ProtectUnit`、Objective.hppが「まだ
+どの実コンテンツにも未接続」と記録していたKind)は、**今回もProtectUnit機構そのものは
+配線しなかった**。理由: (1)Irien自身が`primaryEscapeUnitsAlternative`の対象でもあるため、
+このステージのVictoryは既にIrien生存を含意しており、独立のProtectUnit Objective生成
+(BattleFactoryへの新規プラミングが必要)は冗長、(2)1地点のためだけの新規インフラ追加を
+避ける既存方針にも合う。代わりにblackwater_crossing以来の「Kind不一致はGameApp.cppの
+ad-hoc isPresent()チェックで近似する」パターンをそのまま踏襲し、`proceedToCamp()`で
+`ashiron_vein_irien`の生存を直接確認して`mage_recruit`をpendingRecruitCandidateIdsへ、
+異常鉱脈記録(`kAnomalousVeinRecordsDiscovery`)をpendingDiscoveriesへ追加した。よって
+`ObjectiveKind::ProtectUnit`の「reward-granting未接続」というギャップ自体は今回も
+未解消のまま(Objective.hppのコメントは引き続き有効)。
+
+戦闘魔導士イリエンは`data/units.json`の`recruits`へ`mage_recruit`(classId:
+`BattleMage`)として新規登録した(既存の`heavy_recruit`等と同型)。ルート3
+`[戦闘魔導士候補]`(条件: 地点3Aまたは3B確保)はステージ完了状態をゲートする機構が
+存在しない(`scoutRouteRequiredClass`は現在の編成のみを見るクラスゲートで、しかも
+このルートが要求するクラス自体をこの地点でしか入手できない循環依存があるため尚更
+使えない)ため、地点5ルート3(`[戦闘魔導士]`、条件「イリエン加入候補確定」)が
+M9-Dで下したのと全く同じ判断で`scoutRouteDisabled: true`とした。敵は穿岩獣4体+
+大型穿岩獣1体(新規stat variantを起こさず、Rock Borerと同じBandit再利用の名前だけ
+差し替え)、「異常反応」ルートのみ`enemiesRemoved`反転トリックで残す。副目標「鉱石箱
+1個を確保」はblackwater_crossingの荷物箱と全く同じ`surveyObjectiveId`+
+`surveyTileCount:1`+`SurveySuccess` RewardRuleパターンで実装(高品質鉄材1)。
+
+**見送った部分(いずれも既存の同型ギャップ、新規判断なし)**:
+- 地点3A: ルート2「作業員1人」(guestUnits固定、既知の限界)、両地点の「崩落予告」
+  効果はCollapseWarning相当の地形種別が存在しないためno-op(M9-Bの「落石予告」ギャップ
+  継続)、ルート3「増援なし」(timedReinforcementもルート別出し分け不可)、副目標
+  「坑道支柱1本以上を保全」(Object耐久機構が丸ごと無い、M6-C/M9-C/M9-D同型)
+- 地点4: OperateObject測定N箇所(上記)、敗北条件「全測定器破壊」(Object耐久機構、
+  同上)。「採掘技術記録は失敗しても地点5の作業台帳から代替取得できる」という
+  フォールバックはBlackwater/Windscarが持つ「地域完了フロアtop-up」に相当する仕組みが
+  灰鉄採石場自体にまだ存在しないため未実装(新規ギャップとして記録 - 将来
+  灰鉄採石場の地域完了top-upを実装するSliceの対象)
+
+`tests/test_battle.cpp`へ6件追加: 地点3A単独脱出Victory、地点3A全作業員撤退Defeat、
+地点4単独脱出Victory(脱出タイルが左側ゾーンにあることを直接検証)、地点4
+イリエン生存→mage_recruit+異常鉱脈記録の付与(GameApp経由のフル遠征テスト)、既存の
+`winCurrentBattle()`ヘルパーへEscapeUnits主目的地点(quarry_old_mine/ashiron_vein)を
+自動的に解決するteleport-and-credit分岐を追加(既存の3A→4分岐到達済みテスト2件の
+プレースホルダー名アサートを実名へ更新)。既存4テストスイート
+(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/`check_localization`)含め
+全成功。
+
+`jf_forest_balance --region=ashiron_quarry`(500 Seed)実測: Old Mine Shaft win率
+Direct 38.2%/Tactical 49.2%、Ashiron Vein win率Direct 23.8%/Tactical 27.2%。ただし
+両地点とも主目的が`EscapeUnits`であり、このツールの自動プレイAIが`ObjectiveKind`を
+一切参照しない(M9-I以来の既知のシミュレータ盲点、grep 0件)ため、脱出タイルへ誘導する
+判断が組み込まれておらずwin率が実プレイより低く出る構造的な偏りが継続している。
+6地点通しExpeditionのReach数値がOld Mine Shaft以降0に近いのも同じ理由による縮小と
+見られる。Collapsed Entrance(地点1)のDirect win率が2.8%と大幅に低下している点は
+今回のSliceの変更と無関係に見える(地点1はJSON定義のまま無改修)- 既存の別の
+シミュレータ不具合の可能性があるが、本Sliceの検証範囲を超えるため未調査のまま記録
+のみ残す。[[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録のみで
+数値調整は行わない。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功

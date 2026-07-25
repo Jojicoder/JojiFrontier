@@ -312,6 +312,16 @@ inline constexpr const char* kCourierRouteChartDiscovery = "courier_route_chart"
 // regions/ashbough_forest.md) requires defeating 灰角大猪 and securing all
 // 3 locations, which don't exist in code until Phase 4.
 inline constexpr const char* kAshboughForestSurveyCompleteDiscovery = "ashbough_forest_survey_complete";
+// docs/regions/ashiron_quarry.md「3A. 旧採掘坑」/「4. 灰鉄鉱脈」(M9-T):
+// 採掘技術記録/異常鉱脈記録, granted ad-hoc from GameApp::proceedToCamp()
+// (same pattern as kWindscarRoadChartDiscovery above) rather than through a
+// region-completion floor top-up - Ashiron Quarry doesn't have one yet
+// (unlike Blackwater/Windscar's kBlackwaterSurveyDiscovery-style top-up),
+// so the doc's "採掘技術記録は失敗しても地点5の作業台帳から代替取得できる"
+// fallback is NOT modeled (documented gap - no such floor infra exists for
+// this region).
+inline constexpr const char* kMiningTechniqueRecordsDiscovery = "quarry_mining_technique_records";
+inline constexpr const char* kAnomalousVeinRecordsDiscovery = "ashiron_anomalous_vein_records";
 
 // Forge tuning traits, tracked as an id rather than a free string so a typo
 // can't silently create an unrecognized "equipped" trait.
