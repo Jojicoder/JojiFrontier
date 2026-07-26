@@ -126,14 +126,19 @@ windscarRelayStage()前例のRegion.cpp手書き)、敵勢力「熱地採取団�
 (Bandit/WatchArcher再利用reskin)、新素材`sulfur`(硫黄)を実装。
 「冷却床2マス追加」(ルート単位地形上書き未実装)とキャンプIの
 炎上解除演出(キャンプ到達時ステータス書き換えフック未実装)は既知ギャップ
-として見送り。詳細は`implementation_status.md`のM9-AA参照。
+として見送り。詳細は`implementation_status.md`のM9-AA参照。M9-AB(地点3
+「硫黄窪地」)完了。`StageDescriptor::secondaryProtectUnitAlternative`を新設し
+`ObjectiveKind::ProtectUnit`を初めて実際に生成・トラッキングするようにした
+(副目標「採取者を撤退させない」) - 黒水低湿地site3/4・灰鉄採石場site4
+「灰鉄鉱脈」で繰り返し見送られてきた「ゲストユニット系ギャップ」をこの地点に
+限り解消した。詳細は`implementation_status.md`のM9-AB参照。
 
 直近の未完了(優先度順):
 
-1. 燼火峡谷(第7地域)の残り6地点の本格実装(M6-B/C・M9-A〜AA方式)。地点1
-   「焼け石の入口」・地点2「熱風の棚道」はM9-Z/M9-AAで完了、地点3〜8は
-   `data/regions.json`のBandit2体プレースホルダーのまま(地点3・4以降で
-   戦場熱量レベル2・3の消費/AI連動、噴気弁破壊(+1)・冷却弁操作(-1)による
+1. 燼火峡谷(第7地域)の残り5地点の本格実装(M6-B/C・M9-A〜AB方式)。地点1
+   「焼け石の入口」・地点2「熱風の棚道」・地点3「硫黄窪地」はM9-Z/M9-AA/M9-ABで
+   完了、地点4〜8は`data/regions.json`のBandit2体プレースホルダーのまま(地点4
+   以降で戦場熱量レベル2・3の消費/AI連動、噴気弁破壊(+1)・冷却弁操作(-1)による
    heatLevel変更フック、岩蜥蜴/採取団AI、地域ボス「赤背の大蜥蜴」の実装が
    必要 - `BattleState::setHeatLevel()`自体は公開済みで、Object操作からの
    呼び出し配線だけが未着手)

@@ -3187,6 +3187,77 @@ win率はDirect/Tactical共に引き続き0.0%だが、地点3以降が未実装
 以上で燼火峡谷(第7地域)は地点1・2の2地点が実コンテンツ化された。残り6地点は
 次のSlice以降で1地点ずつ本格化する。
 
+### M9-AB 燼火峡谷(第7地域): 地点3(硫黄窪地)+ ObjectiveKind::ProtectUnitの初実配線
+
+`docs/regions/ember_ravine.md`「3. 硫黄窪地」を実コンテンツ化した。M9-Zが残した
+`sulfur_hollow`のBandit x2プレースホルダーを、`guestUnits`(採取者1人)を必要とする
+ためemberRavineLedgeStage()前例どおりRegion.cppの手書き関数
+`sulfurHollowStage()`へ置き換えた(`data/regions.json`の`sulfur_hollow`エントリ自体は
+死んだまま残置)。
+
+**主目的**: 「3ラウンド防衛、または敵全滅」は`primarySurviveRoundsAlternative`
+(`SurviveRoundsMissionRule`)の直接再利用 - herb_islet(M9-G)/settlement_common_well
+(M9-U)以来証明済みのパターンをそのまま踏襲した。
+
+**副目標「採取者を撤退させない」は`ObjectiveKind::ProtectUnit`の初実配線 - 長年
+見送られてきたギャップを解消**: この副目標は黒水低湿地site3/4(M9-G/M9-H)・
+灰鉄採石場site4「灰鉄鉱脈」(M9-J、`ashironVeinStage()`のコメント参照)・
+風裂き高原で繰り返し「ゲストユニット系ギャップ」として見送られてきた
+(`Objective.hpp`の`ObjectiveKind::ProtectUnit`定義コメント自身も「何もこれを
+消費して報酬を出さない」と明記していた)。M9-I以来ゲストユニット護衛サブシステム
+(`Unit::isGuest`/`BattleMissionState::guestUnitIds`/`BattleState::allGuestsLost()`/
+`StageDescriptor::guestUnits`)は既に存在し、`ObjectiveTracker.cpp`の
+`syncObjectiveProgress()`もProtectUnit専用パス(falling-edge、Active→Failed)を
+既に持っていたが、それを**生成する**StageDescriptorフィールド/BattleFactory配線が
+一つも存在しなかった、というのが実際のギャップだった。今回`StageDescriptor::
+secondaryProtectUnitAlternative`(新規フィールド、`id`+`unitId`)を新設し、
+`BattleFactory.cpp`の`assembleScenario()`に`secondaryEscapeUnitsAlternative`と
+同型の「新規secondary group + 1 Objective」ブロックを追加して、本物の
+`ObjectiveKind::ProtectUnit` Definitionを生成するようにした。これは近似ではなく、
+コードベースで初めて`ProtectUnit`が実際に生成・トラッキングされるケースであり、
+`implementation_status.md`のM9-G/M9-H/M9-Jで「ゲストユニット系ギャップとして
+見送り」と記録していたこの副目標を、この地点に限り解消した(他地点は個別に再訪
+しない限りそのまま)。ただし正本にこの副目標専用の追加報酬は無い(「勝利: 硫黄2、
+耐熱素材1」のみ)ため、`GameApp.cpp`側の追加配線(報酬付与)は不要 - 生成・
+トラッキングのみで完結する。「採取者撤退→敗北」は`ProtectUnit`自体ではなく、
+他の護衛地点と同じ`guestUnits`のid登録による`allGuestsLost()`が引き続き担う
+(`ProtectUnit`のFailedは`evaluateBattleOutcome()`のVictory/Defeat判定に一切
+関与しないことをコード読解で確認済み)。
+
+**敵は既存の岩蜥蜴/熱地弓兵reskinを再利用**: 岩蜥蜴3体はM9-Zの
+`firstBurnNegated`付きBandit reskinをそのまま再利用、熱地弓兵1体は
+`emberRavineLedgeStage()`の熱地採取団弓兵と同じWatchArcher reskin。
+「深部まで採る」ルート専用の5体目(岩蜥蜴)をbase rosterに含め、他2ルートは
+`enemiesRemoved=1`で差し引く(`settlementCommonWellStage()`以来の加算後減算
+パターン)。新規UnitClassは追加していない。
+
+**探索3択**: ルート1「必要量だけ採る」は`startingHeatLevel:1`のみ(敵4体)。
+ルート2「深部まで採る」は`startingHeatLevel:2`(熱量2、M9-Zで実装済みだが
+このSliceで初めて実戦闘へ到達する)+敵5体+硫黄+2(勝利報酬2→4、
+`victoryRewardRules`のRouteChoice)。ルート3`[暁の衛生兵]`「安全時間を測る」は
+`scoutRouteRequiredClass = DawnChirurgeon`+`startingHeatLevel:1`+敵4体+
+耐熱素材+1(勝利報酬1→2)。
+
+`tests/test_battle.cpp`へ5件追加: 地点構成(敵構成/guestUnits/primarySurvive
+RoundsAlternative/secondaryProtectUnitAlternative/3ルートの敵数・熱量・報酬)、
+主目的のSurviveRounds単独勝利、敗北条件「採取者撤退」(`allGuestsLost()`)、
+そして副目標「採取者を撤退させない」がObjectiveKind::ProtectUnitとして実際に
+生成されActive→(採取者喪失で)Failedへ falling-edgeすることを直接検証するテスト。
+既存4テストスイート含め全成功、フルスイートを3回連続実行し新規テストを含め安定
+(既知の`test_battle.cpp:1244`非決定的Seedフレークは今回の3回では発生せず)。
+
+`jf_forest_balance --region=ember_ravine`(500 Seed)の実測(fresh-party):
+地点3(硫黄窪地) Direct win率9.8%/HP残72.3%(avg KO 1.20/5)、Tactical win率
+59.4%/HP残54.9%(avg KO 1.61/5)。[[jf_forest_balance worst-case numbers]]の
+教訓どおり実測記録のみに留め、本Sliceでは数値調整を行わない(要実プレイでの
+確認)。8地点通しのRegion clear win率はDirect/Tactical共に引き続き0.0%だが、
+地点4以降が未実装プレースホルダーのままであることによる参考値であり、地点1・
+2・3本体の問題ではない(Reachは地点3到達がDirect 6/500、Tactical 4/500 -
+地点2のEscort win率がそもそも低いための連鎖であり、地点3自体の難度とは別の話)。
+
+以上で燼火峡谷(第7地域)は地点1・2・3の3地点が実コンテンツ化された。残り5地点は
+次のSlice以降で1地点ずつ本格化する。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功

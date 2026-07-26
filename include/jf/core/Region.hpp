@@ -233,6 +233,28 @@ struct StageDescriptor {
     };
     std::optional<SecondaryEscapeUnitsRule> secondaryEscapeUnitsAlternative;
 
+    // docs/regions/ember_ravine.md「3. 硫黄窪地」's "副目標: 採取者を撤退させ
+    // ない" - the FIRST real use of ObjectiveKind::ProtectUnit (Objective.hpp's
+    // own comment: it has a dedicated non-primary pass in
+    // syncObjectiveProgress() already, but nothing ever generated a
+    // ProtectUnit ObjectiveDefinition before this). Same "push a new
+    // secondary group, one Objective under it" shape as
+    // secondaryEscapeUnitsAlternative above, just targeting an existing
+    // guestUnits id instead of a tile. Unlike SurviveRounds/EscapeUnits,
+    // ProtectUnit's own satisfied-check is a falling edge (Active until the
+    // guest is lost, then Failed - never Completed), so this does not by
+    // itself drive Victory/Defeat; the stage's actual "採取者撤退→敗北" is
+    // still `allGuestsLost()` via the same unitId being present in
+    // `guestUnits` (ObjectiveTracker::evaluateBattleOutcome() only reads
+    // allGuestsLost()/primary groups, never this Kind - confirmed by
+    // reading it). This field only makes the secondary genuinely trackable
+    // instead of an ad-hoc isPresent()-in-GameApp check.
+    struct SecondaryProtectUnitRule {
+        std::string id;
+        std::string unitId;
+    };
+    std::optional<SecondaryProtectUnitRule> secondaryProtectUnitAlternative;
+
     // Per-route outcome override (docs/regions/ashbough_forest.md: each
     // site's 3 exploration choices can have genuinely different effects, not
     // just different numbers plugged into the same shared shape). Empty

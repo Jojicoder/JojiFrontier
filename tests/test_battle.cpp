@@ -10805,6 +10805,152 @@ int main() {
     }
 
     {
+        // docs/regions/ember_ravine.md「3. 硫黄窪地」: 主目的(3ラウンド防衛、
+        // または敵全滅)・敵構成(岩蜥蜴3/熱地弓兵1、深部ルートで+1)・採取者
+        // 1人・熱量(ルート別1/2/1)・報酬(硫黄2、耐熱素材1、深部ルートで硫黄
+        // +2、衛生兵ルートで耐熱素材+1)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor emberRegion = jf::regionDescriptor(jf::RegionId::EmberRavine, *data);
+        const jf::StageDescriptor* sulfurStage = nullptr;
+        for (const jf::StageDescriptor& stage : emberRegion.stages)
+            if (stage.id == "sulfur_hollow") sulfurStage = &stage;
+        assert(sulfurStage);
+        assert(sulfurStage->enemyRoster.size() == 5);
+        // 岩蜥蜴(index 0-2, and index 4 for the deep-route 5th one): firstBurnNegated.
+        // 熱地弓兵(index 3): not affected.
+        assert(sulfurStage->enemyRoster[0].firstBurnNegated);
+        assert(sulfurStage->enemyRoster[1].firstBurnNegated);
+        assert(sulfurStage->enemyRoster[2].firstBurnNegated);
+        assert(!sulfurStage->enemyRoster[3].firstBurnNegated);
+        assert(sulfurStage->enemyRoster[4].firstBurnNegated);
+        assert(sulfurStage->guestUnits.size() == 1);
+        assert(sulfurStage->scoutRouteRequiredClass == jf::UnitClass::DawnChirurgeon);
+        assert(sulfurStage->primarySurviveRoundsAlternative &&
+              sulfurStage->primarySurviveRoundsAlternative->id == "sulfur_hollow_defense" &&
+              sulfurStage->primarySurviveRoundsAlternative->surviveUntilRound == 3);
+        assert(sulfurStage->secondaryProtectUnitAlternative &&
+              sulfurStage->secondaryProtectUnitAlternative->id == "sulfur_hollow_protect_gatherer" &&
+              sulfurStage->secondaryProtectUnitAlternative->unitId == "sulfur_hollow_gatherer");
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*sulfurStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "sulfur") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "heat_resistant_material") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "sulfur") == 4);
+        assert(findLoot(lootFor(jf::ExplorationChoice::ScoutRoute), "heat_resistant_material") == 2);
+
+        const jf::ExplorationOutcome frontalOutcome =
+            jf::stageRouteOutcome(*sulfurStage, jf::ExplorationChoice::FrontalAdvance);
+        assert(frontalOutcome.startingHeatLevel == 1 && frontalOutcome.enemiesRemoved == 1);
+        const jf::ExplorationOutcome deepOutcome =
+            jf::stageRouteOutcome(*sulfurStage, jf::ExplorationChoice::CollapsedSidePath);
+        assert(deepOutcome.startingHeatLevel == 2 && deepOutcome.enemiesRemoved == 0);
+
+        jf::BattleState frontal = jf::createScenarioBattle(*data, *sulfurStage, /*seed=*/5, frontalOutcome);
+        assert(frontal.heatLevel() == 1);
+        int frontalEnemies = 0;
+        for (const jf::Unit& unit : frontal.units())
+            if (unit.team == jf::Team::Enemy) ++frontalEnemies;
+        assert(frontalEnemies == 4);
+
+        jf::BattleState deep = jf::createScenarioBattle(*data, *sulfurStage, /*seed=*/5, deepOutcome);
+        assert(deep.heatLevel() == 2);
+        int deepEnemies = 0;
+        for (const jf::Unit& unit : deep.units())
+            if (unit.team == jf::Team::Enemy) ++deepEnemies;
+        assert(deepEnemies == 5);
+    }
+
+    {
+        // docs/regions/ember_ravine.md「3. 硫黄窪地」の主目的「3ラウンド防衛、
+        // または敵全滅」: primarySurviveRoundsAlternative wins the stage on
+        // round threshold alone, same shape as herb_islet/
+        // settlement_common_well.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor emberRegion = jf::regionDescriptor(jf::RegionId::EmberRavine, *data);
+        const jf::StageDescriptor* sulfurStage = nullptr;
+        for (const jf::StageDescriptor& stage : emberRegion.stages)
+            if (stage.id == "sulfur_hollow") sulfurStage = &stage;
+        assert(sulfurStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *sulfurStage, /*seed=*/7);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind != jf::BattleOutcomeKind::Victory);
+        while (battle.round() <= 3) {
+            battle.beginEnemyPhase();
+            battle.beginPlayerPhase();
+        }
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/ember_ravine.md「3. 硫黄窪地」敗北条件「採取者撤退」:
+        // allGuestsLost() fires Defeat independent of the player squad's own
+        // state, same shape as ember_ravine_ledge/settlement_common_well.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor emberRegion = jf::regionDescriptor(jf::RegionId::EmberRavine, *data);
+        const jf::StageDescriptor* sulfurStage = nullptr;
+        for (const jf::StageDescriptor& stage : emberRegion.stages)
+            if (stage.id == "sulfur_hollow") sulfurStage = &stage;
+        assert(sulfurStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *sulfurStage, /*seed=*/7);
+        assert(battle.missionState().guestUnitIds.size() == 1);
+        assert(!battle.allGuestsLost());
+        for (jf::Unit& unit : battle.units())
+            if (unit.isGuest) unit.currentHp = 0;
+        assert(battle.allGuestsLost());
+        assert(!battle.allPlayersDefeated());
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Defeat);
+    }
+
+    {
+        // docs/regions/ember_ravine.md「3. 硫黄窪地」副目標「採取者を撤退させ
+        // ない」: the FIRST real ObjectiveKind::ProtectUnit Definition in the
+        // codebase - Active while the gatherer is present, Failed the
+        // instant it's lost (falling edge), and does NOT itself drive
+        // Victory/Defeat (that's still allGuestsLost() above).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor emberRegion = jf::regionDescriptor(jf::RegionId::EmberRavine, *data);
+        const jf::StageDescriptor* sulfurStage = nullptr;
+        for (const jf::StageDescriptor& stage : emberRegion.stages)
+            if (stage.id == "sulfur_hollow") sulfurStage = &stage;
+        assert(sulfurStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *sulfurStage, /*seed=*/7);
+        const jf::ObjectiveDefinition* protectDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.id == "sulfur_hollow_protect_gatherer") protectDef = &def;
+        assert(protectDef && !protectDef->primary && protectDef->kind == jf::ObjectiveKind::ProtectUnit &&
+              protectDef->groupId == "sulfur_hollow_protect_gatherer" &&
+              protectDef->target.unitId == "sulfur_hollow_gatherer");
+        assert(battle.missionState().progress.at("sulfur_hollow_protect_gatherer").status ==
+              jf::ObjectiveStatus::Active);
+
+        jf::syncObjectiveProgress(battle);
+        assert(battle.missionState().progress.at("sulfur_hollow_protect_gatherer").status ==
+              jf::ObjectiveStatus::Active); // gatherer still present, still Active
+
+        jf::Unit* gatherer = battle.findUnit("sulfur_hollow_gatherer");
+        assert(gatherer);
+        gatherer->currentHp = 0;
+        jf::syncObjectiveProgress(battle);
+        assert(battle.missionState().progress.at("sulfur_hollow_protect_gatherer").status ==
+              jf::ObjectiveStatus::Failed);
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。

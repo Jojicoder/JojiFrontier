@@ -1505,6 +1505,105 @@ StageDescriptor emberRavineLedgeStage() {
     return stage;
 }
 
+// docs/regions/ember_ravine.md「3. 硫黄窪地」: hand-authored for the same
+// reason as emberRavineLedgeStage() - needs `guestUnits` (採取者1人) and, new
+// to this Slice, `secondaryProtectUnitAlternative`, neither exposed by
+// stageDescriptorFromContent()'s JSON Schema. Replaces the `sulfur_hollow`
+// Bandit x2 placeholder (data/regions.json's own entry left in place, dead/
+// unreferenced - same precedent as every other site's own dead JSON entry).
+//
+// **主目的**: 「3ラウンド防衛、または敵全滅」は`primarySurviveRoundsAlternative`
+// (`SurviveRoundsMissionRule`)の直接再利用 - herb_islet(M9-G)/
+// settlement_common_well(M9-U)以来証明済みのパターンをそのまま踏襲した。
+//
+// **副目標「採取者を撤退させない」は初のProtectUnit実配線**: ashiron_vein
+// (M9-J、Region.cppコメント参照)がJSON Schema/BattleFactoryプラミング欠如を
+// 理由に見送り、GameApp.cppのad-hoc isPresent()チェックで近似していた同じ
+// 副目標を、今回`StageDescriptor::secondaryProtectUnitAlternative`(新規
+// フィールド、上記コメント参照)を新設して本物のObjectiveKind::ProtectUnit
+// Definitionとして生成するようにした。ObjectiveTracker.cppのProtectUnit専用
+// パス(syncObjectiveProgress()、falling-edgeでActive→Failed)は既に存在して
+// いたが、それを生成するStageDescriptorフィールド/BattleFactory配線が今まで
+// 一つも無かった(Objective.hpp自身のコメントが明記する「reward-consumption
+// gap」の一部) - このSliceでその生成側ギャップを閉じた。ただし正本にこの
+// 副目標専用の追加報酬は無い(「勝利: 硫黄2、耐熱素材1」のみ)ため、
+// GameApp.cpp側の追加配線(報酬付与)は不要 - 生成/トラッキングのみで完結する。
+//
+// **敗北条件「採取者撤退」は引き続きallGuestsLost()経由**:
+// secondaryProtectUnitAlternative自体はVictory/Defeat判定に一切関与しない
+// (StageDescriptor::secondaryProtectUnitAlternativeのコメント、
+// ObjectiveTracker::evaluateBattleOutcome()の読解で確認済み) - 「採取者撤退→
+// 敗北」は他の護衛地点と同じくguestUnitsのid登録によるallGuestsLost()が担う。
+// ProtectUnitはあくまで副目標の可視化用。
+//
+// **岩蜥蜴3・熱地弓兵1(base roster、4体)、深部ルートで岩蜥蜴4体目追加(5体)**:
+// 岩蜥蜴はM9-Zの`firstBurnNegated`Bandit reskinをそのまま再利用、熱地弓兵は
+// emberRavineLedgeStage()の熱地採取団弓兵と同じWatchArcher reskin。
+//
+// **探索3択**: ルート1「必要量だけ採る」は`startingHeatLevel:1`のみ(敵4体は
+// base rosterからenemiesRemoved:1で5体目を除く)。ルート2「深部まで採る」は
+// `startingHeatLevel:2`(熱量2、M9-Zで実装済みだがこのSliceで初めて実戦闘へ
+// 到達する)+敵5体(base roster、フル)+硫黄+2(victoryRewardRulesの
+// RouteChoice、勝利報酬2→4)。ルート3`[暁の衛生兵]`「安全時間を測る」は
+// `scoutRouteRequiredClass = DawnChirurgeon`+`startingHeatLevel:1`+敵4体
+// (enemiesRemoved:1)+耐熱素材+1(勝利報酬1→2)。
+StageDescriptor sulfurHollowStage() {
+    StageDescriptor stage;
+    stage.id = "sulfur_hollow";
+    stage.terrainProfileId = "ember_ravine_entrance";
+    stage.enemyRoster = {
+        {"sulfur_hollow_lizard1", "Rock Lizard", UnitClass::Bandit, /*firstBurnNegated=*/true},
+        {"sulfur_hollow_lizard2", "Rock Lizard", UnitClass::Bandit, /*firstBurnNegated=*/true},
+        {"sulfur_hollow_lizard3", "Rock Lizard", UnitClass::Bandit, /*firstBurnNegated=*/true},
+        {"sulfur_hollow_archer1", "Heat Archer", UnitClass::WatchArcher},
+        // 「深部まで採る」ルート専用の5体目(岩蜥蜴追加) - 他2ルートは
+        // enemiesRemoved=1で差し引く(settlementCommonWellStage()以来の
+        // 加算後減算パターン)。
+        {"sulfur_hollow_lizard4", "Rock Lizard", UnitClass::Bandit, /*firstBurnNegated=*/true},
+    };
+    stage.routeOutcomes = {
+        // 「必要量だけ採る」: no condition, 熱量1, 敵4体(5体目を除く), 硫黄2.
+        {ExplorationChoice::FrontalAdvance, ExplorationOutcome{.enemiesRemoved = 1, .startingHeatLevel = 1}},
+        // 「深部まで採る」: no condition, 熱量2, 敵5体(base roster、フル), 硫黄4
+        // (victoryRewardRulesのRouteChoiceで+2).
+        {ExplorationChoice::CollapsedSidePath, ExplorationOutcome{.startingHeatLevel = 2}},
+        // `[暁の衛生兵]`「安全時間を測る」: 熱量1, 敵4体(5体目を除く), 耐熱素材+1
+        // (victoryRewardRulesのRouteChoiceで1→2).
+        {ExplorationChoice::ScoutRoute, ExplorationOutcome{.enemiesRemoved = 1, .startingHeatLevel = 1}},
+    };
+    stage.scoutRouteRequiredClass = UnitClass::DawnChirurgeon;
+
+    // 採取者1人 - windscarRelayStage()/emberRavineLedgeStage()と同じ非戦闘
+    // Escortパターン(DawnChirurgeon再利用)。allGuestsLost()経由の敗北条件
+    // 「採取者撤退」に加え、下のsecondaryProtectUnitAlternativeが同じidを
+    // ProtectUnit Objectiveのtargetとして使う。
+    stage.guestUnits = {
+        {{"sulfur_hollow_gatherer", "Gatherer", UnitClass::DawnChirurgeon}, GridPos{1, 3}},
+    };
+
+    // 主目的: 3ラウンド防衛、または敵全滅。
+    stage.primarySurviveRoundsAlternative = StageDescriptor::SurviveRoundsMissionRule{"sulfur_hollow_defense", 3};
+
+    // 副目標: 採取者を撤退させない - 初のProtectUnit実配線(上記コメント参照)。
+    stage.secondaryProtectUnitAlternative =
+        StageDescriptor::SecondaryProtectUnitRule{"sulfur_hollow_protect_gatherer", "sulfur_hollow_gatherer"};
+
+    // 敗北条件「部隊全滅」は既存allPlayersDefeated()のまま。「採取者撤退」は
+    // guestUnitsのid登録経由でallGuestsLost()に自動配線される(上記コメント
+    // 参照)。
+
+    // 勝利: 硫黄2、耐熱素材1。深部ルート: 硫黄+2。衛生兵ルート: 耐熱素材+1。
+    stage.victoryRewardRules = {
+        {RewardRule::Condition::Always, {}, {{"sulfur", 2}, {"heat_resistant_material", 1}}},
+        {RewardRule::Condition::RouteChoice, ExplorationChoice::CollapsedSidePath, {{"sulfur", 2}}},
+        {RewardRule::Condition::RouteChoice, ExplorationChoice::ScoutRoute, {{"heat_resistant_material", 1}}},
+    };
+
+    stage.missionNameEn = "Sulfur Hollow";
+    stage.missionNameJa = "硫黄窪地";
+    return stage;
+}
+
 // docs/regions/ember_ravine.md「地点構成」: 8-site skeleton + 3 camps, same
 // M6/M9 "build the skeleton once, flesh out one site at a time" pattern as
 // every prior region. Site 1 (`ember_ravine_entrance`, "焼け石の入口") is
@@ -1512,19 +1611,22 @@ StageDescriptor emberRavineLedgeStage() {
 // fits the existing JSON Schema directly, no hand-written StageDescriptor
 // fields needed, same shape as Windscar's `windwatch_station`/`plateau_relay`
 // once those needed no Region.cpp function of their own). Site 2
-// (`ember_ravine_ledge`, "熱風の棚道") is real content as of this Slice, hand-
-// authored via emberRavineLedgeStage() above (guest-escort site, same as
-// windscarRelayStage()/blackwaterCrossingStage()). Sites 3/4/5/6/7/8
+// (`ember_ravine_ledge`, "熱風の棚道") is real content as of M9-AA, hand-
+// authored via emberRavineLedgeStage() (guest-escort site, same as
+// windscarRelayStage()/blackwaterCrossingStage()). Site 3
+// (`sulfur_hollow`, "硫黄窪地") is real content as of this Slice, hand-
+// authored via sulfurHollowStage() above (SurviveRounds primary + genuine
+// ProtectUnit secondary, see that function's own comment). Sites 4/5/6/7/8
 // remain minimal Bandit x2 placeholders (`data/regions.json`'s
-// `sulfur_hollow`/`ravine_cooling_channel`/
+// `ravine_cooling_channel`/
 // `ash_crystal_shelf`/`heatwork_shop`/`ashsealed_observatory`/
 // `redheat_fissure` entries) replacing the single-site
 // `ember_ravine_outpost` M9-Y stub (left in place, dead/unreferenced - same
 // precedent as `blackwater_crossing`'s own dead JSON entry). The M9-Z
-// `ember_ravine_ledge` JSON entry is likewise left in place, now
-// dead/unreferenced since emberRavineLedgeStage() replaces it. Site 3/4's
-// "どちらを先に攻略してもよい、両方必須" branch is wired in RouteGraph.cpp
-// (emberRavineGraph()), not here.
+// `ember_ravine_ledge`/`sulfur_hollow` JSON entries are likewise left in
+// place, now dead/unreferenced since their Region.cpp functions replace
+// them. Site 3/4's "どちらを先に攻略してもよい、両方必須" branch is wired in
+// RouteGraph.cpp (emberRavineGraph()), not here.
 RegionDescriptor emberRavineRegion(const GameData& data) {
     RegionDescriptor region;
     region.id = RegionId::EmberRavine;
@@ -1532,7 +1634,7 @@ RegionDescriptor emberRavineRegion(const GameData& data) {
     region.displayNameJa = "燼火峡谷";
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("ember_ravine_entrance")));
     region.stages.push_back(emberRavineLedgeStage());
-    region.stages.push_back(stageDescriptorFromContent(data.stageContent("sulfur_hollow")));
+    region.stages.push_back(sulfurHollowStage());
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("ravine_cooling_channel")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("ash_crystal_shelf")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("heatwork_shop")));

@@ -521,6 +521,26 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
         battle.missionState().progress[escape.id] = ObjectiveProgress{escape.id};
     }
 
+    if (stage.secondaryProtectUnitAlternative) {
+        // docs/regions/ember_ravine.md「3. 硫黄窪地」's "副目標: 採取者を撤退
+        // させない" - same "push a new secondary group, one Objective under
+        // it" shape as secondaryEscapeUnitsAlternative above, with
+        // ObjectiveKind::ProtectUnit instead of EscapeUnits. See
+        // StageDescriptor::secondaryProtectUnitAlternative's own comment for
+        // why this doesn't drive Victory/Defeat itself (that's still
+        // allGuestsLost() via stage.guestUnits, unaffected by this block).
+        const auto& rule = *stage.secondaryProtectUnitAlternative;
+        battle.missionState().groups.push_back({rule.id, ObjectiveGroupRule::All});
+        ObjectiveDefinition protect;
+        protect.id = rule.id;
+        protect.kind = ObjectiveKind::ProtectUnit;
+        protect.primary = false;
+        protect.groupId = rule.id;
+        protect.target.unitId = rule.unitId;
+        battle.missionState().definitions.push_back(protect);
+        battle.missionState().progress[protect.id] = ObjectiveProgress{protect.id};
+    }
+
     std::vector<GridPos> herbTiles;
     if (stage.herbPatchGeneration) {
         // docs/regions/ashbough_forest.md "薬草の沢": "盤面中央に浅瀬と薬草地点
