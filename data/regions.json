@@ -1285,13 +1285,21 @@
       "terrainProfileId": "buried_dawn_sanctum",
       "enemyRoster": [
         { "id": "sanctum_archive_retriever1", "name": "Sanctum Retriever", "classId": "Bandit" },
-        { "id": "sanctum_archive_retriever2", "name": "Sanctum Retriever", "classId": "Bandit" }
+        { "id": "sanctum_archive_retriever2", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "sanctum_archive_retriever3", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "sanctum_archive_retriever4", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "sanctum_archive_archer1", "name": "Sanctum Retriever", "classId": "WatchArcher" }
       ],
       "baseVictoryLoot": [
-        { "id": "iron", "quantity": 1 }
+        { "id": "ruin_fragment", "quantity": 2 },
+        { "id": "stone", "quantity": 1 }
       ],
-      "missionNameEn": "Archive Vault (placeholder)",
-      "missionNameJa": "写本庫(仮実装)"
+      "scoutRouteRequiredClass": "BattleMage",
+      "surveyObjectiveId": "sanctum_archive_crate",
+      "surveyTileCount": 3,
+      "surveyTileObjectDefinitionId": "sanctum_archive_crate",
+      "missionNameEn": "Archive Vault",
+      "missionNameJa": "写本庫"
     },
     {
       "id": "sealed_passage",

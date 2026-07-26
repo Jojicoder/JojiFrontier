@@ -417,6 +417,20 @@ inline constexpr const char* kPreAshstormWatchRecordsDiscovery = "preashstorm_wa
 // group instead of a surveyObjectiveId group) and/or the region's own floor
 // top-up if still missing at region-clear time.
 inline constexpr const char* kHeatResistantProcessingRecordsDiscovery = "heat_resistant_processing_records";
+// docs/regions/buried_dawn_sanctum.md「安定ID」table: 上位魔法研究記録 ->
+// `advanced_magic_records`. Granted from 地点4「写本庫」's own public 副目標
+// "写本箱3個回収"(same all-group-members-Completed ad-hoc check as
+// kSpecialForgingRecordsDiscovery above, over the `sanctum_archive_crate`
+// surveyObjectiveId group, surveyTileCount:3). The primary's own "写本箱2個
+// 確保" is NOT modeled via this crate group at all - it is approximated as
+// standard EliminateTeam like every other crate-primary in this project
+// (ash_crystal_shelf/heatwork_shop/ashsealed_observatory/resin_grove), since
+// "確保2個 of 5 placed" would need a true ObjectiveGroupRule::All-with-partial-
+// count semantics this project's surveyObjectiveId group doesn't have (it is
+// always ObjectiveGroupRule::Any). The doc's Object row places 5 写本箱 total
+// region-wide, but only the 3 needed for the public bonus tier are modeled
+// as trackable SecureTile objectives here.
+inline constexpr const char* kAdvancedMagicResearchRecordsDiscovery = "advanced_magic_records";
 // docs/regions/ember_ravine.md「安定ID」table: 上位戦闘工作 ->
 // `advanced_fieldwork_records`. Per 地点6「旧耐熱工房」's own doc text
 // ("炉扉保全: 上位戦闘工作記録"), this is gated on an Object-durability

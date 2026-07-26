@@ -232,6 +232,31 @@ void GameApp::proceedToCamp() {
             expedition_.pendingDiscoveries.push_back(kHeatResistantProcessingRecordsDiscovery);
     }
 
+    // docs/regions/buried_dawn_sanctum.md「地点4: 写本庫」の公開副目標「写本箱3個
+    // 回収」-> 上位魔法研究記録: same all-group-members-Completed ad-hoc check as
+    // heatwork_shop's own kSpecialForgingRecordsDiscovery above, over the
+    // `sanctum_archive_crate` surveyObjectiveId group (surveyTileCount:3). The
+    // primary's own "写本箱2個確保" is intentionally NOT modeled via this group
+    // at all - it is approximated as standard EliminateTeam instead (see
+    // kAdvancedMagicResearchRecordsDiscovery's own comment for why).
+    if (!isReconnaissanceRun_ && stage.id == "sanctum_archive") {
+        const BattleMissionState& mission = battleController_->battle().missionState();
+        bool anyInGroup = false;
+        bool allCompleted = true;
+        for (const ObjectiveDefinition& def : mission.definitions) {
+            if (def.groupId != "sanctum_archive_crate") continue;
+            anyInGroup = true;
+            if (mission.progress.at(def.id).status != ObjectiveStatus::Completed) {
+                allCompleted = false;
+                break;
+            }
+        }
+        if (anyInGroup && allCompleted &&
+            std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                     kAdvancedMagicResearchRecordsDiscovery) == expedition_.pendingDiscoveries.end())
+            expedition_.pendingDiscoveries.push_back(kAdvancedMagicResearchRecordsDiscovery);
+    }
+
     // docs/regions/old_frontier_settlement.md「2. 共同井戸」の副目標「中立住民を
     // 全員避難」→ 集落証言記録: unlike blackwater_crossing/quarry_old_mine's
     // ad-hoc creditedTargetIds.size()>=N check above, this reads a REAL

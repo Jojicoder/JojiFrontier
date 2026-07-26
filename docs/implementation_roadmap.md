@@ -222,11 +222,23 @@ DawnChirurgeon`。副目標「救護台耐久6以上→医療典籍」はObject�
 と同型)。JAグリフcharsetへ「護」「室」を追加登録。詳細は
 `implementation_status.md`のM9-AJ参照。
 
+M9-AK(埋没聖堂・第8地域: 地点4「写本庫」、CAMP II到達可能)完了(2026-07)。
+`sanctum_archive`をJSON-authoredで本格化。主目的「写本箱2個確保」は他地域の
+クレート系主目的(resin_grove/ash_crystal_shelf/heatwork_shop/
+ashsealed_observatory)と同じ理由で標準`EliminateTeam`へ近似(surveyObjectiveId
+グループは常にAny、真のN-of-M主目的を表現できないため)。公開副目標「写本箱3個
+回収→上位魔法研究記録」は燼火峡谷M9-AE/AFの「グループ全メンバーCompleted」
+判定パターンを踏襲し新規Discovery`advanced_magic_records`を付与。新素材
+「遺跡片」(`ruin_fragment`)追加(M9-AI/AJで発生した`medicinal_herb`重複バグの
+再発防止として既存材料の有無を事前確認済み)。地点3・4がともに実コンテンツ化
+されたことでCAMP IIが真に到達可能になったことを確認。詳細は
+`implementation_status.md`のM9-AK参照。
+
 直近の未完了(優先度順):
 
-1. 埋没聖堂(第8地域)の残り地点(4〜6)の本格実装(M6-B/C・M9-A〜AJと同じ
-   「骨格→1地点ずつ」方式)。地域骨格+地点1「埋没参道」+地点2「崩れた礼拝堂」+
-   地点3「救護室」はM9-AH/M9-AI/M9-AJで完了済み。
+1. 埋没聖堂(第8地域)の残り地点(5〜6)の本格実装(M6-B/C・M9-A〜AKと同じ
+   「骨格→1地点ずつ」方式)。地域骨格+地点1〜4はM9-AH/AI/AJ/AKで完了済み、
+   CAMP IIも到達可能。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/

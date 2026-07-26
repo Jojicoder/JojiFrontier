@@ -4374,6 +4374,42 @@ placeholderのままであることが主因で、地点3本体の数値を示�
 CAMP IIへ合流するが、CAMP IIが真に到達可能になるのは地点4も実装された後になる。
 地点4〜6は次のSlice以降で1地点ずつ本格化する。
 
+## M9-AK 埋没聖堂(第8地域): 地点4(写本庫)、CAMP II到達可能
+
+`data/regions.json`の`sanctum_archive` placeholderエントリを実コンテンツへ差し替え
+(JSON-authored、`Region.cpp`の手書き関数は不要)。`RouteGraph.cpp`の
+`sanctum_infirmary_archive_branch`(`BranchCompletion::AllMembers`)はM9-AHの時点で
+既に地点3・4両方を配線済みのため、本Sliceでの変更は無かった。地点3(M9-AJ)に続けて
+地点4も実コンテンツ化されたことで、CAMP IIが正本どおり「地点3・4の両成果確定後」に
+真に到達可能になったことを確認した。
+
+主目的「写本箱2個確保」は、この地域(Object耐久機構が丸ごと未実装、M6-C以来の
+既知ギャップ)の他の全クレート系主目的(黒水低湿地`resin_grove`/燼火峡谷
+`ash_crystal_shelf`・`heatwork_shop`・`ashsealed_observatory`)と同じ理由で
+標準`EliminateTeam`へ近似した - `surveyObjectiveId`グループは常に
+`ObjectiveGroupRule::Any`(配置済みのうち1個で成立)であり、「5個中2個」という
+真のN-of-M主目的を表現する機構が存在しないため。公開副目標「写本箱3個回収→
+上位魔法研究記録」は、燼火峡谷M9-AE/AFで確立した「グループ全メンバーが
+Completedかどうか」を`GameApp.cpp`で判定するad-hocパターンを踏襲し、
+`sanctum_archive_crate`(`surveyObjectiveId`+`surveyTileCount:3`)3個全確保で
+新規Discovery `advanced_magic_records`(`kAdvancedMagicResearchRecordsDiscovery`)
+を付与するよう実装した。
+
+標準敵は聖堂回収団5体(Bandit/WatchArcher再利用)。勝利報酬(遺跡片2、石材1)の
+うち「遺跡片」は新規`ruin_fragment`として登録(既存に同義の材料IDが無いことを
+事前確認済み、M9-AI/AJで発生した`medicinal_herb`重複バグの再発防止として
+明示的にチェックした)。副目標「全箱損失」はObject耐久系の既知ギャップとして
+見送り。
+
+`ctest --test-dir build -j10`は4/4、フルスイートを3回連続実行し安定(フレークなし)。
+`git diff --check`成功。`jf_forest_balance --region=buried_dawn_sanctum`(500 Seed)
+実測: 地点4(写本庫)のfresh-party win率はDirect 23.4%/HP残6.6%、Tactical
+16.8%/HP残8.0%と、この地域の他地点(65〜99%)より明確に低い。標準`EliminateTeam`
+近似のため他のクレート地点(灰晶採取棚Direct 43.6%等)と同カテゴリの数値だが、
+敵5体という編成規模の影響もあり得る。[[jf_forest_balance worst-case numbers]]の
+教訓どおり実測記録のみに留め、本Sliceでの数値調整は行わない。6地点通しのRegion
+clear win率は依然0%だが、地点5・6がまだplaceholderのままであることが主因。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

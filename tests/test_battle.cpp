@@ -11455,6 +11455,65 @@ int main() {
     }
 
     {
+        // docs/regions/buried_dawn_sanctum.md「4. 写本庫」: 主目的「写本箱2個
+        // 確保」は標準EliminateTeam-primary近似(ash_crystal_shelf/
+        // heatwork_shop/ashsealed_observatoryと同型)、公開副目標「写本箱3個
+        // 回収」はsurveyObjectiveId(surveyTileCount:3)経由のsecondary/bonus
+        // パス。敵編成(回収団5)・勝利報酬(遺跡片2、石材1)・`[戦闘魔導士]`
+        // ルート要件(BattleMage)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor sanctumRegion =
+            jf::regionDescriptor(jf::RegionId::BuriedDawnSanctum, *data);
+        const jf::StageDescriptor& archiveStage = sanctumRegion.stages[3];
+        assert(archiveStage.id == "sanctum_archive");
+        assert(archiveStage.enemyRoster.size() == 5); // 回収団4+弓兵1
+        assert(archiveStage.scoutRouteRequiredClass == jf::UnitClass::BattleMage);
+        assert(archiveStage.surveyObjectiveId == "sanctum_archive_crate");
+        assert(archiveStage.surveyTileCount == 3);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(archiveStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "ruin_fragment") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "stone") == 1);
+
+        jf::BattleState archiveBattle = jf::createScenarioBattle(*data, archiveStage, /*seed=*/19);
+        const jf::ObjectiveDefinition* eliminateDef = nullptr;
+        std::vector<const jf::ObjectiveDefinition*> crateDefs;
+        for (const auto& def : archiveBattle.missionState().definitions) {
+            if (def.kind == jf::ObjectiveKind::EliminateTeam) eliminateDef = &def;
+            if (def.groupId == "sanctum_archive_crate") crateDefs.push_back(&def);
+        }
+        assert(eliminateDef && eliminateDef->primary && eliminateDef->groupId == "primary");
+        assert(crateDefs.size() == 3);
+        for (const jf::ObjectiveDefinition* def : crateDefs) assert(!def->primary);
+        bool hasCrateGroup = false;
+        for (const auto& group : archiveBattle.missionState().groups)
+            if (group.id == "sanctum_archive_crate" && group.rule == jf::ObjectiveGroupRule::Any)
+                hasCrateGroup = true;
+        assert(hasCrateGroup);
+    }
+
+    {
+        // docs/regions/buried_dawn_sanctum.md「地点と周回」: 地点3(救護室)・
+        // 地点4(写本庫)は「順序選択」ペアでCAMP IIへ合流、両方到達可能に
+        // なったことをRouteGraph経由で確認(sanctum_infirmary_archive_branch、
+        // M9-AHで既に配線済みのBranchCompletion::AllMembers)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionRouteGraph& sanctumRoute = jf::regionRouteGraph(jf::RegionId::BuriedDawnSanctum);
+        assert(jf::findRouteNode(sanctumRoute, "sanctum_infirmary"));
+        assert(jf::findRouteNode(sanctumRoute, "sanctum_archive"));
+        assert(jf::findRouteNode(sanctumRoute, "sanctum_camp2"));
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。
