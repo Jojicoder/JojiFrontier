@@ -12174,6 +12174,54 @@ int main() {
     }
 
     {
+        // docs/regions/mapped_edge.md「9地点仕様」地点3「無記録野営跡」: 主目的
+        // 「記録箱2個回収」も地点2(乾いた川床)と同型のEliminateTeam-primary近似
+        // (surveyObjectiveId/surveyTileCount:2経由のsecondary/bonusパス)。敵編成
+        // 追跡者5(Bandit reskin)・勝利報酬(遺跡片2、食料2)・`[猟兵]`ルート要件
+        // (FrontierRanger)。安定id`unrecorded_camp_catalogued`はdocs/regions/
+        // mapped_edge.mdの「安定ID」節に記載があるが、本Sliceでは地点1・2と同様
+        // 恒久成果配線自体は未実装(地域攻略Slice側の範囲)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor mappedEdgeRegion = jf::regionDescriptor(jf::RegionId::MappedEdge, *data);
+        const jf::StageDescriptor* campStage = nullptr;
+        for (const jf::StageDescriptor& stage : mappedEdgeRegion.stages)
+            if (stage.id == "mapped_edge_unrecorded_camp") campStage = &stage;
+        assert(campStage);
+        assert(campStage->enemyRoster.size() == 5); // 追跡者5
+        assert(campStage->scoutRouteRequiredClass == jf::UnitClass::FrontierRanger);
+        assert(campStage->surveyObjectiveId == "mapped_edge_unrecorded_camp_crate");
+        assert(campStage->surveyTileCount == 2);
+
+        int ruinFragment = 0;
+        int food = 0;
+        for (const auto& rule : campStage->victoryRewardRules) {
+            for (const auto& stack : rule.loot) {
+                if (stack.id == "ruin_fragment") ruinFragment += stack.quantity;
+                if (stack.id == "food") food += stack.quantity;
+            }
+        }
+        assert(ruinFragment == 2);
+        assert(food == 2);
+
+        jf::BattleState campBattle = jf::createScenarioBattle(*data, *campStage, /*seed=*/23);
+        const jf::ObjectiveDefinition* eliminateDef = nullptr;
+        std::vector<const jf::ObjectiveDefinition*> crateDefs;
+        for (const auto& def : campBattle.missionState().definitions) {
+            if (def.kind == jf::ObjectiveKind::EliminateTeam) eliminateDef = &def;
+            if (def.groupId == "mapped_edge_unrecorded_camp_crate") crateDefs.push_back(&def);
+        }
+        assert(eliminateDef && eliminateDef->primary && eliminateDef->groupId == "primary");
+        assert(crateDefs.size() == 2);
+        for (const jf::ObjectiveDefinition* def : crateDefs) assert(!def->primary);
+        bool hasCrateGroup = false;
+        for (const auto& group : campBattle.missionState().groups)
+            if (group.id == "mapped_edge_unrecorded_camp_crate" && group.rule == jf::ObjectiveGroupRule::Any)
+                hasCrateGroup = true;
+        assert(hasCrateGroup);
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。

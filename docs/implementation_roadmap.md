@@ -366,15 +366,22 @@ Wolf4体(野生獣、地点1と同じくそのまま再利用)+Bandit2体を「P
 再利用(追跡者)、報酬は既存`herb`+`rare_material`(M9-AU登録済み)のみで新規登録
 なし。`RouteGraph.cpp`は既にM9-AUの段階で地点idを配線済みだったためコード変更
 不要、`data/regions.json`のみで実装。詳細は`implementation_status.md`のM9-AV参照。
+M9-AW(地図外縁 地点3「無記録野営跡」)完了(2026-07)。地点2と同じcrate-primary
+パターンで「記録箱2個回収」を`EliminateTeam`primary近似+`surveyObjectiveId`
+(`surveyTileCount:2`)のsecondaryとして実装。敵はBandit5体を「Pursuer」表示名で
+再利用(追跡者5)、報酬は既存`ruin_fragment`+`food`のみで新規登録なし。地点3固有の
+恒久成果id`unrecorded_camp_catalogued`(正本の「安定ID」節に記載あり)は地域攻略
+Slice側の範囲として未配線のまま。詳細は`implementation_status.md`のM9-AW参照。
 
 直近の未完了(優先度順):
 
 1. 地図外縁(第10・最終地域)は地域骨格+地点1「最後の既知標識」(M9-AU)・地点2
-   「乾いた川床」(M9-AV)が完了。地点3〜9(無記録野営跡/二股の踏査路/放棄中継所/
-   石盆地/折れた見張台/帰還基点/地図外縁)はまだBandit x2プレースホルダーのまま。
-   次は地点3以降を1地点ずつ本格化し、最終戦「地図外縁」(no-fixed-bossの
-   3波ガントレット、既存敵アーキタイプのみ)まで到達させる(M9-AN〜AT/M9-AU/AVと
-   同じ「骨格→1地点ずつ」方式)。全10地域キャンペーンの最後の地域。
+   「乾いた川床」(M9-AV)・地点3「無記録野営跡」(M9-AW)が完了。地点4〜9(二股の
+   踏査路/放棄中継所/石盆地/折れた見張台/帰還基点/地図外縁)はまだBandit x2
+   プレースホルダーのまま。次は地点4(地点3との`AllMembers`順序選択のもう一方)
+   以降を1地点ずつ本格化し、最終戦「地図外縁」(no-fixed-bossの3波ガントレット、
+   既存敵アーキタイプのみ)まで到達させる(M9-AN〜AT/M9-AU/AV/AWと同じ
+   「骨格→1地点ずつ」方式)。全10地域キャンペーンの最後の地域。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/

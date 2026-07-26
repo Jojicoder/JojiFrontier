@@ -5332,6 +5332,71 @@ AllMembers`分岐自体もシミュレータのヒューリスティックには
 以上で**地図外縁 地点2「乾いた川床」が実コンテンツ化された**。地点3〜9・最終戦は
 今後のSliceへ持ち越す。
 
+## M9-AW 地図外縁 地点3(無記録野営跡)
+
+`docs/regions/mapped_edge.md`「9地点仕様」の地点3行を再確認し、M9-AV(地点2「乾いた
+川床」)と全く同じcrate-primary近似方針をそのまま踏襲した。主目的「記録箱2個回収」は
+既存デフォルトの`EliminateTeam`のみへ近似し、「記録箱2個回収」自体は`surveyObjectiveId`
+(`mapped_edge_unrecorded_camp_crate`)+`surveyTileCount:2`+
+`surveyTileObjectDefinitionId`(`mapped_edge_unrecorded_camp_crate_marker`)経由の
+secondary/bonusパスとして残した(地点2と同型、箱数2個がそのまま`surveyTileCount`)。
+探索3択「遺留品調査/退路優先/`[猟兵]`足跡判別」の行内に地点1「急行HP-2」のような
+追加の数値デルタ圧縮は無いことを正本の表セルで確認した(退路優先自体にも独立した
+`partyDamage`等の記載は無い)ため、ルート差分の追加実装は不要と判断した。恒久成果
+については、地点2と異なり本地点は正本の「安定ID」節に`unrecorded_camp_catalogued`
+という地点固有idの記載があることを確認したが、地点1・2同様に地域攻略(安全帰還)側の
+恒久登録フローそのものが本Sliceの範囲外であるため、id自体の新規発行・配線は
+見送った(コード側での取りこぼしではなく、地域攻略Slice側でまとめて対応する方針)。
+
+`data/regions.json`のJSON Schemaのみで実コンテンツ化した(`guestUnits`不要)。敵
+「追跡者5」は正本の「地形と脅威」節の指示どおりBandit5体を再利用し、表示名のみ
+M9-AVで確立済みの"Pursuer"へ変更した(新規UnitClass・新規JAグリフ登録は無し)。
+素材`ruin_fragment`(遺跡片)・`food`(食料)はどちらも既存登録(前者は折れた見張台等
+複数地域で既出、後者は地点1で確認済み)であることを`data/locales/{en,ja}.json`で
+再確認した上でそのまま再利用し、新規素材登録は無し。ルート3`[猟兵]`「足跡判別」は
+`scoutRouteRequiredClass: FrontierRanger`で表現。
+
+`RouteGraph.cpp`の`mappedEdgeGraph()`は既にM9-AUの段階で`mapped_edge_unrecorded_camp`
+という地点idへ配線済みだったため、グラフ側のコード変更は不要だった(JSON側の
+`data/regions.json`エントリを差し替えるだけで済んだ)。
+
+見送った部分(正本との差分、都度明記):
+
+- 地点4〜9はプレースホルダーのまま(次Slice以降で1地点ずつ本格化。地点4「二股の
+  踏査路」は地点3との`BranchCompletion::AllMembers`順序選択のもう一方)
+- 記録箱の耐久・操作機構(「全箱損失」敗北条件を表現する仕組み)は本セッション
+  これまでのcrate-primaryサイト全てと同様に見送り(部隊全滅は既存Engineで常時有効)
+- 地点3固有の恒久成果id`unrecorded_camp_catalogued`(正本の「安定ID」節に記載あり)
+  は、地域攻略(安全帰還)側の恒久登録フロー自体が本Sliceの範囲外のため未配線
+
+`tests/test_battle.cpp`へ1件追加: `mapped_edge_unrecorded_camp`ステージの敵編成
+(5体=追跡者5)・`scoutRouteRequiredClass`(FrontierRanger)・
+`surveyObjectiveId`/`surveyTileCount`(2)・勝利報酬(遺跡片2、食料2)・
+`createScenarioBattle()`経由でEliminateTeamがprimaryかつ`groupId=="primary"`、
+crateのObjectiveDefinitionが2件とも`primary==false`、`ObjectiveGroupRule::Any`の
+グループが存在すること(地点2のテスト形状と同型)を検証した。
+
+ビルド・`ctest --test-dir build -j10 --output-on-failure`は4/4、フルスイートを
+3回連続実行し安定(フレークなし、既知の`test_battle.cpp:1244`フレークも今回は
+発生せず)。`git diff --check`も成功。
+
+### balance実測
+
+`jf_forest_balance --region=mapped_edge`(500 Seed)の実測: 地点3(無記録野営跡)の
+fresh-party win率はDirect 12.8%/HP残3.0%(avg KO 3.80、rounds 4.76、timeouts 1)、
+Tactical 14.2%/HP残6.8%(avg KO 3.64、rounds 5.98、timeouts 8)。地点1(100%/99.8%)・
+地点2(60.4%/59.4%)と比べて明確に重く、既存地点の実測レンジ(概ね33.6%〜100%)の
+下限を下回る記録である。追跡者5体(Bandit reskin、Wolfより高いSTR/DEF帯)がWolf
+中心の地点1・2より厳しい編成であることを示すだけの記録であり、
+`[[project_forest_balance_worst_case]]`の教訓どおり実際のプレイでの確認を経ずに
+調整案は出さない(本Sliceでの数値調整は行わない)。9地点通しのRegion clear win率は
+Direct 0.0%/Tactical 0.0%だが、地点4〜9がまだプレースホルダーのままであることに
+加え、地点3・4の`BranchCompletion::AllMembers`分岐自体もシミュレータの
+ヒューリスティックには未対応のため、地点1〜3本体の数値を示すものではない。
+
+以上で**地図外縁 地点3「無記録野営跡」が実コンテンツ化された**。地点4〜9・最終戦は
+今後のSliceへ持ち越す。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

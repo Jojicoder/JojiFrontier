@@ -1636,12 +1636,22 @@
       "id": "mapped_edge_unrecorded_camp",
       "terrainProfileId": "mapped_edge",
       "enemyRoster": [
-        { "id": "mapped_edge_unrecorded_camp_bandit1", "name": "Bandit", "classId": "Bandit" },
-        { "id": "mapped_edge_unrecorded_camp_bandit2", "name": "Bandit", "classId": "Bandit" }
+        { "id": "mapped_edge_unrecorded_camp_pursuer1", "name": "Pursuer", "classId": "Bandit" },
+        { "id": "mapped_edge_unrecorded_camp_pursuer2", "name": "Pursuer", "classId": "Bandit" },
+        { "id": "mapped_edge_unrecorded_camp_pursuer3", "name": "Pursuer", "classId": "Bandit" },
+        { "id": "mapped_edge_unrecorded_camp_pursuer4", "name": "Pursuer", "classId": "Bandit" },
+        { "id": "mapped_edge_unrecorded_camp_pursuer5", "name": "Pursuer", "classId": "Bandit" }
       ],
-      "baseVictoryLoot": [{ "id": "food", "quantity": 1 }],
-      "missionNameEn": "Unrecorded Camp (placeholder)",
-      "missionNameJa": "無記録野営跡(仮実装)"
+      "baseVictoryLoot": [
+        { "id": "ruin_fragment", "quantity": 2 },
+        { "id": "food", "quantity": 2 }
+      ],
+      "scoutRouteRequiredClass": "FrontierRanger",
+      "surveyObjectiveId": "mapped_edge_unrecorded_camp_crate",
+      "surveyTileCount": 2,
+      "surveyTileObjectDefinitionId": "mapped_edge_unrecorded_camp_crate_marker",
+      "missionNameEn": "Unrecorded Camp Remains",
+      "missionNameJa": "無記録野営跡"
     },
     {
       "id": "mapped_edge_split_survey_route",
