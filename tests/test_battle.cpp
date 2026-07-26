@@ -12127,6 +12127,53 @@ int main() {
     }
 
     {
+        // docs/regions/mapped_edge.md「9地点仕様」地点2「乾いた川床」: 主目的
+        // 「水箱2個確保」は標準EliminateTeam-primary近似(sanctum_archive/
+        // fort_logistics_depotと同型)、「水箱2個確保」自体はsurveyObjectiveId
+        // (surveyTileCount:2)経由のsecondary/bonusパスとして残す。敵編成
+        // (野生獣4+追跡者2、WolfそのままとBandit reskin "Pursuer")・勝利報酬
+        // (薬草2、希少素材1)・`[衛生兵]`ルート要件(DawnChirurgeon)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor mappedEdgeRegion = jf::regionDescriptor(jf::RegionId::MappedEdge, *data);
+        const jf::StageDescriptor* riverbedStage = nullptr;
+        for (const jf::StageDescriptor& stage : mappedEdgeRegion.stages)
+            if (stage.id == "mapped_edge_dry_riverbed") riverbedStage = &stage;
+        assert(riverbedStage);
+        assert(riverbedStage->enemyRoster.size() == 6); // 野生獣4+追跡者2
+        assert(riverbedStage->scoutRouteRequiredClass == jf::UnitClass::DawnChirurgeon);
+        assert(riverbedStage->surveyObjectiveId == "mapped_edge_dry_riverbed_crate");
+        assert(riverbedStage->surveyTileCount == 2);
+
+        int herb = 0;
+        int rareMaterial = 0;
+        for (const auto& rule : riverbedStage->victoryRewardRules) {
+            for (const auto& stack : rule.loot) {
+                if (stack.id == "herb") herb += stack.quantity;
+                if (stack.id == "rare_material") rareMaterial += stack.quantity;
+            }
+        }
+        assert(herb == 2);
+        assert(rareMaterial == 1);
+
+        jf::BattleState riverbedBattle = jf::createScenarioBattle(*data, *riverbedStage, /*seed=*/23);
+        const jf::ObjectiveDefinition* eliminateDef = nullptr;
+        std::vector<const jf::ObjectiveDefinition*> crateDefs;
+        for (const auto& def : riverbedBattle.missionState().definitions) {
+            if (def.kind == jf::ObjectiveKind::EliminateTeam) eliminateDef = &def;
+            if (def.groupId == "mapped_edge_dry_riverbed_crate") crateDefs.push_back(&def);
+        }
+        assert(eliminateDef && eliminateDef->primary && eliminateDef->groupId == "primary");
+        assert(crateDefs.size() == 2);
+        for (const jf::ObjectiveDefinition* def : crateDefs) assert(!def->primary);
+        bool hasCrateGroup = false;
+        for (const auto& group : riverbedBattle.missionState().groups)
+            if (group.id == "mapped_edge_dry_riverbed_crate" && group.rule == jf::ObjectiveGroupRule::Any)
+                hasCrateGroup = true;
+        assert(hasCrateGroup);
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。

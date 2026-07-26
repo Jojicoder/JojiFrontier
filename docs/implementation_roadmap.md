@@ -359,15 +359,22 @@ M9-AN(ShatteredMarchFortの骨格+地点1Slice)と同じ「新規戦闘メカニ
 新規`rare_material`(希少素材、既存素材との重複確認済み、正本の複数地点で再利用予定)。
 新規`mapped_edge`TerrainProfileで通常床/灰地/茂み/浅瀬/通行不能障害物を既存5種地形へ
 近似。詳細は`implementation_status.md`のM9-AU参照。
+M9-AV(地図外縁 地点2「乾いた川床」)完了(2026-07)。crate-primaryの標準パターン
+(sanctum_archive/fort_logistics_depot等と同型)で「水箱2個確保」を`EliminateTeam`
+primary近似+`surveyObjectiveId`(`surveyTileCount:2`)のsecondaryとして実装。敵は
+Wolf4体(野生獣、地点1と同じくそのまま再利用)+Bandit2体を「Pursuer」表示名で
+再利用(追跡者)、報酬は既存`herb`+`rare_material`(M9-AU登録済み)のみで新規登録
+なし。`RouteGraph.cpp`は既にM9-AUの段階で地点idを配線済みだったためコード変更
+不要、`data/regions.json`のみで実装。詳細は`implementation_status.md`のM9-AV参照。
 
 直近の未完了(優先度順):
 
-1. 地図外縁(第10・最終地域)は地域骨格(9地点+4キャンプ+地点3・4の順序選択)+地点1
-   「最後の既知標識」がM9-AUで完了。地点2〜9(乾いた川床/無記録野営跡/二股の踏査路/
-   放棄中継所/石盆地/折れた見張台/帰還基点/地図外縁)はまだBandit x2プレースホルダー
-   のまま。次は地点2以降を1地点ずつ本格化し、最終戦「地図外縁」(no-fixed-bossの
-   3波ガントレット、既存敵アーキタイプのみ)まで到達させる(M9-AN〜AT/M9-AUと同じ
-   「骨格→1地点ずつ」方式)。全10地域キャンペーンの最後の地域。
+1. 地図外縁(第10・最終地域)は地域骨格+地点1「最後の既知標識」(M9-AU)・地点2
+   「乾いた川床」(M9-AV)が完了。地点3〜9(無記録野営跡/二股の踏査路/放棄中継所/
+   石盆地/折れた見張台/帰還基点/地図外縁)はまだBandit x2プレースホルダーのまま。
+   次は地点3以降を1地点ずつ本格化し、最終戦「地図外縁」(no-fixed-bossの
+   3波ガントレット、既存敵アーキタイプのみ)まで到達させる(M9-AN〜AT/M9-AU/AVと
+   同じ「骨格→1地点ずつ」方式)。全10地域キャンペーンの最後の地域。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/

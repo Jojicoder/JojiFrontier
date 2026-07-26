@@ -5263,6 +5263,75 @@ Direct 0.0%/Tactical 0.6%だが、地点2〜9がまだプレースホルダー�
 最後の地域であり、地点2〜9・最終戦「地図外縁」(no-fixed-bossの3波ガントレット)を
 今後のSliceで1地点ずつ本格化すれば、このプロジェクトの本編10地域は完結する。
 
+## M9-AV 地図外縁 地点2(乾いた川床)
+
+`docs/regions/mapped_edge.md`「9地点仕様」の地点2行を再確認し、本セッション
+これまでのcrate-primaryサイト(sanctum_archive/M9-AK、fort_logistics_depot/M9-AQ、
+ashiron_vein/blackwater_crossing等)と全く同じ近似方針をそのまま踏襲した。
+主目的「水箱2個確保」は表記上multi-Kind ANDに見えるが、Engineの
+`ObjectiveGroupRule::Any`制約(true "both required"を表現できない既知の限界)により
+既存デフォルトの`EliminateTeam`のみへ近似し、「水箱2個確保」自体は`surveyObjectiveId`
+(`mapped_edge_dry_riverbed_crate`)+`surveyTileCount:2`+`surveyTileObjectDefinitionId`
+経由のsecondary/bonusパスとして残した(sanctum_archiveの3個・blackwater_crossingの
+1個と同型、箱数がそのまま`surveyTileCount`)。全2箱がどちらもこのAny-of-2グループに
+属するため、「全部確保」を独立の公開副目標として別掲するだけの余地は無いと判断し
+(正本の主目的報酬欄にも地点1のような追加の副目標欄記載は無い)、追加のボーナス
+tierは実装しなかった。恒久成果についても正本の「今後の深層候補」節(118〜125行目)に
+本地点専用のidは記載が無く、地点1(`mapped_edge_secured`等、region全体の恒久成果)
+以外に地点2固有のstable idを正本から確認できなかったため、コミット単位のissueとして
+明記するに留め、id新規発行は見送った(ドキュメント側のギャップ)。
+
+`data/regions.json`のJSON Schemaのみで実コンテンツ化した(`guestUnits`不要)。
+敵「野生獣4、追跡者2」は正本の「地形と脅威」節(既存の大型個体・普通の野生動物・
+追跡してきた人間集団で構成する)の指示どおり、野生獣はWolf4体をそのまま(表示名も
+"Wolf"のまま、地点1と同じ再利用)、追跡者はBanditを2体再利用し表示名のみ
+"Pursuer"へ変更した(新規UnitClass・新規JAグリフ登録は無し - "Pursuer"はUI上の
+JA翻訳文字列ではなく敵ユニットの英語flavor名のみで、既存の"Sanctum Retriever"等と
+同型)。ルート3`[衛生兵]`「水質確認」は`scoutRouteRequiredClass: DawnChirurgeon`で
+表現。素材は`herb`(既存)・`rare_material`(M9-AUで新規登録済み)をどちらも
+`data/locales/{en,ja}.json`・`ui_shared.cpp`のknownセットで再確認した上でそのまま
+再利用し、新規素材登録は無し。
+
+`RouteGraph.cpp`の`mappedEdgeGraph()`は既にM9-AUの段階で`mapped_edge_dry_riverbed`
+という地点idへ配線済みだったため、グラフ側のコード変更は不要だった(JSON側の
+`data/regions.json`エントリを差し替えるだけで済んだ)。
+
+見送った部分(正本との差分、都度明記):
+
+- 地点3〜9はプレースホルダーのまま(次Slice以降で1地点ずつ本格化)
+- 水箱の耐久・操作機構(「全箱損失」敗北条件を表現する仕組み)は本セッション
+  これまでのcrate-primaryサイト全てと同様に見送り(部隊全滅は既存Engineで
+  常時有効)
+- 地点2固有の恒久成果idは正本に記載が無く未発行(上記参照)
+
+`tests/test_battle.cpp`へ1件追加: `mapped_edge_dry_riverbed`ステージの敵編成
+(6体=野生獣4+追跡者2)・`scoutRouteRequiredClass`(DawnChirurgeon)・
+`surveyObjectiveId`/`surveyTileCount`(2)・勝利報酬(`herb`2、`rare_material`1)・
+`createScenarioBattle()`経由でEliminateTeamがprimaryかつ`groupId=="primary"`、
+crateのObjectiveDefinitionが2件とも`primary==false`、`ObjectiveGroupRule::Any`の
+グループが存在すること(sanctum_archiveのテスト形状と同型)を検証した。
+
+ビルド・`ctest --test-dir build -j10 --output-on-failure`は4/4、フルスイートを
+3回連続実行し安定(フレークなし、既知の`test_battle.cpp:1244`フレークも今回は
+発生せず)。`git diff --check`も成功。
+
+### balance実測
+
+`jf_forest_balance --region=mapped_edge`(500 Seed)の実測: 地点2(乾いた川床)の
+fresh-party win率はDirect 60.4%/HP残18.2%(avg KO 2.92、rounds 5.91、timeouts 3)、
+Tactical 59.4%/HP残27.0%(avg KO 2.54、rounds 7.06、timeouts 8)。地点1(100%/99.8%)
+と比べて明確に重く、既存地点の実測レンジ(概ね33.6%〜100%)の中位〜下寄りに位置する
+だけの記録であり、6体編成(野生獣4+追跡者2)は地点1のWolf5体より数・構成ともに
+厳しいことを示すのみで、本Sliceでの数値調整は行わない(`[[project_forest_balance_
+worst_case]]`の教訓どおり、実際のプレイでの確認を経ずに調整案は出さない)。
+9地点通しのRegion clear win率はDirect 0.0%/Tactical 0.0%だが、地点3〜9が
+まだプレースホルダーのままであることに加え、地点3・4の`BranchCompletion::
+AllMembers`分岐自体もシミュレータのヒューリスティックには未対応のため、
+地点1・2本体の数値を示すものではない。
+
+以上で**地図外縁 地点2「乾いた川床」が実コンテンツ化された**。地点3〜9・最終戦は
+今後のSliceへ持ち越す。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

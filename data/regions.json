@@ -1614,12 +1614,23 @@
       "id": "mapped_edge_dry_riverbed",
       "terrainProfileId": "mapped_edge",
       "enemyRoster": [
-        { "id": "mapped_edge_dry_riverbed_bandit1", "name": "Bandit", "classId": "Bandit" },
-        { "id": "mapped_edge_dry_riverbed_bandit2", "name": "Bandit", "classId": "Bandit" }
+        { "id": "mapped_edge_dry_riverbed_wolf1", "name": "Wolf", "classId": "Wolf" },
+        { "id": "mapped_edge_dry_riverbed_wolf2", "name": "Wolf", "classId": "Wolf" },
+        { "id": "mapped_edge_dry_riverbed_wolf3", "name": "Wolf", "classId": "Wolf" },
+        { "id": "mapped_edge_dry_riverbed_wolf4", "name": "Wolf", "classId": "Wolf" },
+        { "id": "mapped_edge_dry_riverbed_pursuer1", "name": "Pursuer", "classId": "Bandit" },
+        { "id": "mapped_edge_dry_riverbed_pursuer2", "name": "Pursuer", "classId": "Bandit" }
       ],
-      "baseVictoryLoot": [{ "id": "herb", "quantity": 1 }],
-      "missionNameEn": "Dry Riverbed (placeholder)",
-      "missionNameJa": "乾いた川床(仮実装)"
+      "baseVictoryLoot": [
+        { "id": "herb", "quantity": 2 },
+        { "id": "rare_material", "quantity": 1 }
+      ],
+      "scoutRouteRequiredClass": "DawnChirurgeon",
+      "surveyObjectiveId": "mapped_edge_dry_riverbed_crate",
+      "surveyTileCount": 2,
+      "surveyTileObjectDefinitionId": "mapped_edge_dry_riverbed_crate_marker",
+      "missionNameEn": "Dry Riverbed",
+      "missionNameJa": "乾いた川床"
     },
     {
       "id": "mapped_edge_unrecorded_camp",
