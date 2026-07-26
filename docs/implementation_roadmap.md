@@ -166,17 +166,22 @@ Discovery`kEmberRavineSurveyRecordsDiscovery`/`kPreAshstormWatchRecordsDiscovery
 (round-limit-as-defeat機構・per-route surveyTileCount変更機構がこのプロジェクト
 に存在しない)として見送り。詳細は`implementation_status.md`のM9-AF参照。
 
+M9-AG(燼火峡谷・第7地域: 地点8「赤熱裂け目」/地域ボス「赤背の大蜥蜴」/地域攻略)
+完了(2026-07)。地点1〜7に続き最終地点+地域ボスを本格実装し、燼火峡谷(第7
+地域)は全8地点が実コンテンツ化された。ボスはM9-D/K/Qと同じbespoke
+`takeRedbackLizardBossTurn()`(熱砂突進/尾払い/噴気誘導)、主目的は標準
+`EliminateTeam`近似+ScriptedWithdrawal、副目標「冷却弁2個両方操作」は
+`secondaryOperateObjectiveId`で実装、「炎上状態0」は`deep_mire`と同型の
+ad-hocボーナスで`controlled_ember_formula`を付与。地域攻略・最低保証報酬フロア
+(`emberRavineMaterialsEarned`)・鍛冶場/工房の3研究ノード追加・埋没聖堂
+(第8地域、`RegionId::BuriedDawnSanctum`、最小プレースホルダー)の追加まで
+完了。これにより`paired_signal_ward`が到達可能になった。詳細は
+`implementation_status.md`のM9-AG参照。
+
 直近の未完了(優先度順):
 
-1. 燼火峡谷(第7地域)の残り1地点+地域ボスの本格実装(M6-B/C・M9-A〜AF方式)。
-   地点1「焼け石の入口」・地点2「熱風の棚道」・地点3「硫黄窪地」・地点4
-   「破損冷却水路」・地点5「灰晶採取棚」・地点6「旧耐熱工房」・地点7「灰封観測所」は
-   M9-Z/M9-AA/M9-AB/M9-AC/M9-AD/M9-AE/M9-AFで完了。地点8は`data/regions.json`の
-   Bandit2体プレースホルダーのまま(戦場熱量
-   レベル2・3の消費/AI連動、噴気弁破壊(+1)・冷却弁操作(-1)によるheatLevel
-   変更フック、岩蜥蜴/採取団AI、地域ボス「赤背の大蜥蜴」の実装が必要 -
-   `BattleState::setHeatLevel()`自体は公開済みで、Object操作からの呼び出し
-   配線だけが未着手)
+1. 埋没聖堂(第8地域)の本格実装(M6-B/C・M9-A〜AGと同じ「骨格→1地点ずつ」方式)。
+   現状は`buried_dawn_sanctum_outpost`(Bandit2体プレースホルダー)のみ。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/
@@ -184,8 +189,10 @@ Discovery`kEmberRavineSurveyRecordsDiscovery`/`kPreAshstormWatchRecordsDiscovery
    のみ意図的に未実装のまま登録(理由は`implementation_status.md`「M7項目3完了
    連携作戦」参照)。解放条件は「対応する会話2件を読み」節を落とし、指定地域の
    安全帰還完了へ近似(heavy_recruit/cavalry_recruitの「加入候補確定」近似と
-   同型)。`paired_signal_ward`は対応地域(埋没聖堂)自体が未実装のため現状到達
-   不能。特性・武器分岐の他兵種一般化(2026-07完了)・差分プレビュー(2026-07
+   同型)。`paired_signal_ward`は対応地域(埋没聖堂)自体が当時未実装のため
+   当時は到達不能だったが、M9-AGが`RegionId::BuriedDawnSanctum`を追加したことで
+   到達可能になった(詳細はM9-AG参照)。特性・武器分岐の他兵種一般化(2026-07完了)・
+   差分プレビュー(2026-07
    完了)・武器分岐の固有効果エンジン接続(全33分岐、2026-07完了)と合わせて
    M7項目3は全面完了。
 4. 風裂き高原の残バランス課題: 地点2・4・5は主目的がシミュレータの`ObjectiveKind`

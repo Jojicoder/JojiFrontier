@@ -4012,6 +4012,161 @@ Direct/Tactical共に0.0%(地点6のOperateObject盲点由来、地点7本体の
 到達可能化された。残り1地点(赤熱裂け目)+地域ボス「赤背の大蜥蜴」は次の
 Slice以降で本格化する。
 
+## M9-AG 燼火峡谷(第7地域): 地点8(赤熱裂け目)/ 地域ボス「赤背の大蜥蜴」/ 地域攻略
+
+`docs/regions/ember_ravine.md`「8. 赤熱裂け目」「地域ボス 赤背の大蜥蜴」
+「地域攻略と拠点接続」「最低保証報酬」を確認し、燼火峡谷の最終地点+地域ボス+
+地域攻略を実装した。正本の主目的1項目目「赤背の大蜥蜴をHP0にして深部へ撤退
+させる」がAND-primaryの先頭に明記された、この地域で唯一のTRUE required boss
+(M9-Yの襲撃団頭領のような「無視して勝てる」強敵とは異なる)であることを確認し、
+M9-D(灰殻穿岩虫)/M9-K(沼牙の大蛇)/M9-Q(高原運び手の隊長)と同じ、bespoke
+`takeXBossTurn()`を書く実装パターンを踏襲した(M9-Yの「強敵はgeneric AI+
+Profile調整のみ」パターンは不採用)。
+
+新規`UnitClass::RedbackLizard`(`data/classes.json`、正本どおりHP64/STR10/DEF8/
+RES3/MOV4、新規武器`lizard_claws`威力0)を追加し、`EnemyAI.cpp`へ
+`takeRedbackLizardBossTurn()`を新規実装。`takeGrubwormBossTurn()`(テレグラフ
+突進+HP50%以下一度限りの地形変化)を構造上の一次テンプレートとした。4つの
+固有行動:
+
+- **熱砂突進**: `chargeTelegraphed`/`bossRuntime.telegraph`/
+  `chargeCooldownActions`(いずれもボア専用ではない汎用フィールド、M9-D以来の
+  前例どおり再利用)+`executeGrubwormCharge()`と同型の`executeLizardCharge()`
+  (直線移動、通過ユニットへSTR+3ダメージ、Barrier系Objectへ衝突で停止)
+- **尾払い**: `boarSweepTargets()`/`serpentConstrictTargets()`と同型の前方3
+  マスパターン(STR+1、boar-sweep式の確定ダメージ、命中判定なし)、その後
+  `BattleState::applyKnockback()`(あらゆるノックバック源が使う共通機構)で
+  1マス押し出し。発動条件は正本どおり「前方3マスに味方2体以上」を直接判定する
+  (`lizardTailSweepTargets().size() >= 2`) - 沼牙の大蛇の締め付けが
+  「隣接4マスに2体以上」という別条件で近似していたのに対し、この地点では
+  正本の条件をそのまま実装できた
+- **噴気誘導**: 新規`bool bossFumeLureUsed`(`bossCollapseUsed`/
+  `bossShudderUsed`と同じ役割の1回限りフラグ)、HP50%以下で発火し、盤面の
+  空きEmber/HotSand/Floorタイル(行優先の決定的走査で先頭2マス)を
+  `TerrainType::FumeWarning`化する。この地域が既に持つ
+  `resolveEmberFumeRoundEnd()`(M9-Z)がRound Endに自動でFireFloorへ変換する
+  ため、追加のコードは一切不要だった - `triggerGrubwormCollapse()`の
+  「即時発動へ近似(予告表示は実装していない)」という判断をそのまま踏襲
+- **冷却回避**: AIパスファインディングの地形選好(CoolFloorを避ける)であり、
+  `AiSystem.cpp`にはどのユニットに対しても地形種別を考慮する経路スコアリング
+  機構が存在しない。1ボスのためだけに新設するのは過剰実装と判断し、no-opとして
+  見送った(タスク指示どおり、他のギャップより軽微なフレーバー差分と判断)
+
+行動優先順位は正本の6項目のうち、手順3「冷却弁の操作者を攻撃」を
+`takeSerpentBossTurn()`自身の手順3(「水源標識の操作者」の近似 - 「隣接する
+任意のBattle Objectの上にいるプレイヤー」)と全く同じ形で近似し、手順5
+「突進可能な孤立対象へ予告」は`grubwormChargeDirectionForTarget()`の
+低HP優先スキャンをそのまま流用(「孤立」フィルタは追加せず、灰殻穿岩虫/沼牙の
+大蛇自身の対象選択も同様に孤立を判定していない)、手順6「封鎖扉から3マス以内を
+維持」は`kPlateauRelayStationTile`と同型の固定参照タイル
+`kRedheatFissureGateTile`(Object位置トラッキング機構が無いための近似、M9-Q
+自身の記録と同じ理由)で実装した。それ以外の3項目(予告済み突進の解決、
+HP50%以下での噴気誘導、尾払い)を`takeGrubwormBossTurn()`/
+`takeSerpentBossTurn()`と同じ早期return連鎖で実装。
+
+`ObjectiveTracker.cpp`の`emitUnitDefeatedEvents()`へ`RedbackLizard`を追加し、
+既存4ボスと同じ`UnitExitReason::ScriptedWithdrawal`扱いにした。
+
+以下は正本との差分・見送り(M9-D/K/Qの判断方針を踏襲、都度明記):
+
+- 主目的の3項目AND合成(赤背の大蜥蜴撃破/冷却弁1個以上操作/封鎖扉耐久1以上)は、
+  M9-D/K/Qが繰り返し下した判断と同じ理由(1地点のためだけの汎用AND合成機構を
+  新設するのは過剰実装)で見送り、主目的は標準`EliminateTeam`のみとした。
+  ボスの撤退はScriptedWithdrawalで表現済み、封鎖扉耐久はObject耐久機構自体が
+  未実装(M6-C以来の既知ギャップ)のため見送り
+- 副目標「冷却弁2個を両方操作」は、M9-AD(灰晶採取棚)がJSON Schemaへ露出させた
+  `secondaryOperateObjectiveId`が既に使える状態だったため、タスク指示どおり
+  「安いなら実装」の判断で本物の独立Secondary Objectiveとして実装した
+  (`redheat_fissure_valves`、count 2、`ObjectiveGroupRule::Any`)。「両方」は
+  Any単独では区別できない(M9-AE/AFと同じ構造上の理由)ため、`GameApp.cpp`に
+  `heatwork_shop`の`kSpecialForgingRecordsDiscovery`と同型の
+  all-group-members-Completed ad-hocチェックを追加し、耐熱加工記録
+  (`heat_resistant_processing_records`、未取得なら)を付与する
+- 副目標「味方の炎上状態0で終了」→ 制御燃焼式は、`deep_mire`の「毒状態の
+  味方0」→`marsh_emergency_medicine`ブロックと全く同じ形(`burnRemainingProcs`
+  を走査するだけ)で`GameApp.cpp`に実装した - タスク指示どおり「安いなら実装」
+- 副目標「観測記録箱を保全」は、地点7自身のクレートが戦闘スコープの一時Object
+  であり(地点7と地点8は別battleとして生成される)、地点7側で確保・保全した
+  クレートを地点8側の戦闘へ引き継ぐ機構が無いため見送った(タスク指示どおり
+  「地点7ローカルの新規クレート」の意図であっても、cross-battleでも
+  stage-localでも、どちらの解釈でもObject耐久/引き継ぎ機構という同じ既知の
+  ギャップに帰着するため)
+- 敗北条件「封鎖扉耐久0」「熱量3で冷却弁両方破壊」はObject耐久機構未実装の
+  ため見送り(同上の既知ギャップ)
+- 探索3択ルート2「天然油へ火を移す」の「燃焼油1消費でボスHP-6」「炎上床2マス
+  追加」は、M9-D自身が古い火割り溝で下したのと全く同じ理由(アイテム消費に
+  よるルート選択ゲート機構もルート別ボスHP減算機構もper-route地形上書き機構も
+  存在しない)で、単純な報酬差分(`routeVictoryLootDelta`で硫黄+1)のみに
+  近似した
+- 探索3択ルート3`[辺境猟兵]`の「突進先を完全表示」は、既存のテレグラフが
+  1ラウンド前予告を既に表示しているため「それ以上の完全性」を表現する差分
+  自体が無く、no-opとした(タスク指示どおり)。「敵増援なし」も、この地点の
+  敵編成に`timedReinforcement`自体が最初から存在しない(正本の「敵編成」節に
+  記載が無く、他地点のような増援波の言及も無い)ため、これも文字どおり
+  no-op(元から増援が無い)
+
+`ExpeditionService.cpp`へ`emberRavineMaterialsEarned`(新規フィールド、
+`BaseState.hpp`/`SaveSystem.cpp`)を追加し、M9-K以来確立済みの地域別フロア
+top-up(耐熱素材9・硫黄6・鉄鉱石4・灰晶5のフロア、耐熱加工記録・特殊鍛造記録・
+上位戦闘工作記録・峡谷踏査記録・灰嵐以前の監視記録の5 Discovery)を実装した。
+`ember_ravine_secured`という安定ID自体は前例どおりコード上の実体は無く、
+`RegionId::EmberRavine`が`completedRegionIds`へ入ることがその実装。
+
+鍛冶場「特殊鍛造」(`special_forging`)・「耐熱加工」(`heat_resistant_processing`)、
+工房「上位戦闘工作」(`advanced_fieldwork`)の3研究ノードを新規追加した
+(`Facilities.hpp`、`pharmacology`/`trapcraft`と同型のflavor-only研究ノード -
+対応する具体的な`ItemType`/レシピはまだ無いため`effectJa`のみ)。`craft_ember_focus`
+(戦闘魔導士「残火焦点具」)は既存のSliceで既に`requiredDiscoveries:
+{"controlled_ember_formula"}`にゲートされていたため、今回`kControlledEmber
+FormulaDiscovery`を付与可能にしたことで自動的に解放対象になった(Facilities.hpp
+側の追加変更は不要)。
+
+**埋没聖堂(第8地域)**: 新規`RegionId::BuriedDawnSanctum`+
+`buried_dawn_sanctum_outpost`(`data/regions.json`、Bandit2体の最小
+プレースホルダー)で追加した。M9-K/Q/U/Yの`_outpost`プレースホルダー前例を
+完全に踏襲。`Region.cpp`の4箇所のswitch文・`regionUnlocked()`(EmberRavine
+完了で解放)・`ExpeditionService.cpp`の地域一覧・predecessorラムダ(今回は
+M9-Yが踏んだ「追加し忘れ」を繰り返さないよう最初から配線済み)を他地域と同じ
+形で配線した。これにより`Cooperation.cpp`の`paired_signal_ward`(このSlice開始
+時点で「対応するRegionIdが存在しないため常にfalse」という既知のギャップとして
+明記されていたペア)が、他の地域ゲート付きペアと全く同じ形
+(`completedRegionIds.count(RegionId::BuriedDawnSanctum) > 0`)で配線可能になり、
+到達可能になった。
+
+`tests/test_battle.cpp`へ7件追加: 尾払い(前方3マス2体以上での発動条件・
+知られる列外は無傷・ノックバック)、噴気誘導(HP50%閾値・1回限定・FumeWarning
+2マス生成)、地点8の構成検証(敵3体ロースター・`scoutRouteRequiredClass`・
+`routeOutcomes`の`startingHeatLevel:1`・`redheat_fissure_valves`グループの
+`secondaryOperateObjectiveId`配線)、地点8の勝利条件(HP0→ScriptedWithdrawal)、
+埋没聖堂の地域解放条件(`regionUnlocked()`+`regionDescriptor()`の日本語名/
+1地点構成)、`paired_signal_ward`の新しい到達可能性(既存の「Unlock gating」
+テストへ追記)。既存の地域一覧テスト(`summaries.size() == 7`)は8地域
+(BuriedDawnSanctum追加)へ更新した。既存4テストスイート
+(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/`check_localization`)
+含め全成功、フルスイートを3回連続実行し安定(新規テスト含め全パス、フレーク
+なし)。
+
+`jf_forest_balance --region=ember_ravine`(500 Seed)の実測: 地点8(赤熱裂け目)
+のfresh-party win率はDirect 85.8%/HP残22.7%(avg KO 2.23/3、rounds 8.17)、
+Tactical 73.0%/HP残40.3%(avg KO 1.48/3)。主目的が標準`EliminateTeam`のみ
+(Device操作不要)のため、M9-D/K/Qの真ボス地点と同じく本ツールのAIが
+Device操作を扱えないことによる0%張り付きが発生せず、90%前後という
+M9-D/K(Ashiron Quarry/Blackwater Lowlandsの地域ボス)に近い健全な数値が出た
+(M9-Qの高原伝令所ほど重い編成ではなくボス+2の軽い escortに抑えたため)。8地点
+通しのRegion clear win率は引き続きDirect/Tactical共に0.0%だが、これは既に
+地点4(破損冷却水路、OperateObject)側の`jf_forest_balance`未対応が原因と
+判明済み(M9-AC)であり、地点8本体のボス数値・AIが機能しないことを示す
+ものではない。[[jf_forest_balance worst-case numbers]]の教訓どおり、実測記録
+のみで数値調整は行わない。
+
+以上で燼火峡谷(第7地域)の全8地点+地域ボスが実コンテンツ化され、地域全体を
+安全帰還まで攻略可能になった(地点4/6のOperateObject自動プレイ非対応を除き、
+実プレイでのend-to-endクリアはエンジン機構としては揃っている - 部隊全滅を
+回避しつつ手動プレイすれば地点8のボスを撃破し安全帰還でき、
+`RegionId::EmberRavine`が`completedRegionIds`へ入り、最低保証報酬フロアが
+適用され、埋没聖堂(第8地域)が選択可能な状態でBase画面に追加される)。これに
+より`paired_signal_ward`(戦旗と魔導の連携作戦)も到達可能になった。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

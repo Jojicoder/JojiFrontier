@@ -191,6 +191,31 @@ void GameApp::proceedToCamp() {
         }
     }
 
+    // docs/regions/ember_ravine.md「8. 赤熱裂け目」の副目標「冷却弁2個を両方
+    // 操作」→ 耐熱加工記録(未取得なら): same all-group-members-Completed
+    // ad-hoc check as heatwork_shop's own kSpecialForgingRecordsDiscovery
+    // block above, this time over the `redheat_fissure_valves`
+    // secondaryOperateObjectiveId group (BattleFactory.cpp places 2
+    // independent OperateObject objectives sharing that group id, same shape
+    // as ash_crystal_shelf's own `ash_crystal_shelf_gather_points` group).
+    if (!isReconnaissanceRun_ && stage.id == "redheat_fissure") {
+        const BattleMissionState& mission = battleController_->battle().missionState();
+        bool anyInGroup = false;
+        bool allCompleted = true;
+        for (const ObjectiveDefinition& def : mission.definitions) {
+            if (def.groupId != "redheat_fissure_valves") continue;
+            anyInGroup = true;
+            if (mission.progress.at(def.id).status != ObjectiveStatus::Completed) {
+                allCompleted = false;
+                break;
+            }
+        }
+        if (anyInGroup && allCompleted && !baseState_.discoveryRegistry.count(kHeatResistantProcessingRecordsDiscovery) &&
+            std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                     kHeatResistantProcessingRecordsDiscovery) == expedition_.pendingDiscoveries.end())
+            expedition_.pendingDiscoveries.push_back(kHeatResistantProcessingRecordsDiscovery);
+    }
+
     // docs/regions/old_frontier_settlement.md「2. 共同井戸」の副目標「中立住民を
     // 全員避難」→ 集落証言記録: unlike blackwater_crossing/quarry_old_mine's
     // ad-hoc creditedTargetIds.size()>=N check above, this reads a REAL
@@ -288,6 +313,18 @@ void GameApp::proceedToCamp() {
             std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
                      kMarshEmergencyMedicineDiscovery) == expedition_.pendingDiscoveries.end())
             expedition_.pendingDiscoveries.push_back(kMarshEmergencyMedicineDiscovery);
+        // docs/regions/ember_ravine.md「8. 赤熱裂け目」の副目標「味方の炎上状態
+        // 0で終了」→ 制御燃焼式: same ad-hoc-secondary-bonus pattern as
+        // deep_mire's own "毒状態の味方0" -> kMarshEmergencyMedicineDiscovery
+        // check directly above, scanning burnRemainingProcs instead of
+        // poisonRemainingProcs.
+        if (stage.id == "redheat_fissure" &&
+            std::none_of(battleController_->battle().units().begin(), battleController_->battle().units().end(),
+                        [](const Unit& unit) { return unit.team == Team::Player && unit.burnRemainingProcs > 0; }) &&
+            !baseState_.discoveryRegistry.count(kControlledEmberFormulaDiscovery) &&
+            std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                     kControlledEmberFormulaDiscovery) == expedition_.pendingDiscoveries.end())
+            expedition_.pendingDiscoveries.push_back(kControlledEmberFormulaDiscovery);
         // docs/roster_design.md「加入段階」: 灰角大猪撃破(brokenwood_territory
         // 勝利)で重装兵の加入候補を記録する。安全帰還まではPending
         // (ExpeditionState::pendingRecruitCandidateIds)、敗北で失う。

@@ -1146,6 +1146,278 @@ Unit* takeCourierCaptainBossTurn(BattleState& battle, Unit& captain) {
     return nullptr;
 }
 
+// docs/regions/ember_ravine.md「地域ボス 赤背の大蜥蜴」/「行動優先順位」.
+// Structurally closest to takeGrubwormBossTurn() (telegraphed straight-line
+// charge + one-time HP<=50% terrain-mutation ability), per this Slice's own
+// plan. Approximated relative to the doc the same way M9-D/K/Q scoped down
+// their own bosses (see this function's own comments below for each spot):
+// - 冷却回避 (AI pathing preference to avoid CoolFloor tiles unless no other
+//   path exists) is a pathing-weight nuance, not a discrete ability -
+//   AiSystem.cpp's move-candidate scoring has no terrain-type-aware
+//   preference hook for any unit anywhere in the engine, and this function's
+//   own fallback movement (mirroring every other boss's) doesn't add one
+//   just for this boss. Deferred as a no-op, documented per the plan's own
+//   guidance that this is a minor flavor nuance, not core to the fight.
+// - 行動優先順位 step 3「冷却弁の操作者を攻撃」is approximated the same way
+//   takeSerpentBossTurn()'s own step 3 approximates "水源標識の操作者" -
+//   "any adjacent player currently standing on ANY Battle Object", since
+//   this engine has no per-Object "is this specifically a cooling valve"
+//   query independent of definitionId string comparison, and the existing
+//   precedent already treats "standing on an Object" as the generic marker-
+//   operator signal.
+// - 行動優先順位 step 5「突進可能な孤立対象へ予告」reuses
+//   grubwormChargeDirectionForTarget()'s own lowest-HP-then-nearest scan
+//   without an additional "isolated" (no allies adjacent) filter, the same
+//   simplification the grubworm/serpent's own charge-target selection makes
+//   (neither models isolation either).
+// - 行動優先順位 step 6「封鎖扉から3マス以内を維持」reuses the same hardcoded
+//   fixed-reference-tile leash `kRedheatFissureGateTile` that
+//   kPlateauRelayStationTile established for 高原運び手の隊長's own leash -
+//   no persistent Object-position tracking exists for "封鎖扉" as placed by
+//   this stage's data-authored layout, so a fixed tile stands in for it.
+constexpr int kLizardChargeRange = 3;
+constexpr int kLizardChargePowerBonus = 3;
+constexpr int kLizardSweepPowerBonus = 1;
+constexpr GridPos kRedheatFissureGateTile{2, kGridCols - 1};
+constexpr int kLizardLeashRadius = 3;
+
+// Mirrors computeGrubwormChargeTiles(): side-effect-free preview of
+// executeLizardCharge()'s walk, for BossTelegraph::lockedTiles.
+std::vector<GridPos> computeLizardChargeTiles(const BattleState& battle, const Unit& lizard, int direction,
+                                              int range) {
+    std::vector<GridPos> tiles;
+    const int row = lizard.position.row;
+    for (int step = 1; step <= range; ++step) {
+        int col = lizard.position.col + direction * step;
+        if (col < 0 || col >= kGridCols) break;
+        GridPos pos{row, col};
+        tiles.push_back(pos);
+        const BattleObjectState* object = battle.objectAt(pos);
+        if (object && object->state != BattleObjectStateKind::Destroyed) {
+            const BattleObjectDefinition* def = battle.objectDefinition(object->definitionId);
+            if (def && def->blocksMovement) break;
+        }
+    }
+    return tiles;
+}
+
+// Mirrors grubwormChargeDirectionForTarget(): lowest HP, then nearest, then ID.
+int lizardChargeDirectionForTarget(BattleState& battle, const Unit& lizard, int range) {
+    const Unit* best = nullptr;
+    int bestDistance = range + 1;
+    for (const Unit& unit : battle.units()) {
+        if (unit.team != Team::Player || !unit.isAlive() || unit.position.row != lizard.position.row) continue;
+        const int distance = std::abs(unit.position.col - lizard.position.col);
+        if (distance == 0 || distance > range) continue;
+        if (!best || unit.currentHp < best->currentHp ||
+            (unit.currentHp == best->currentHp && distance < bestDistance) ||
+            (unit.currentHp == best->currentHp && distance == bestDistance && unit.id < best->id)) {
+            best = &unit;
+            bestDistance = distance;
+        }
+    }
+    if (!best) return 0;
+    return best->position.col < lizard.position.col ? -1 : 1;
+}
+
+// 熱砂突進: advances up to kLizardChargeRange tiles along the current row,
+// damaging (STR+3, per the doc) every player unit passed over, stopping at
+// the board edge or a movement-blocking Battle Object.
+void executeLizardCharge(BattleState& battle, Unit& lizard) {
+    const int power = lizard.stats.strength + kLizardChargePowerBonus;
+    const int row = lizard.position.row;
+    const int direction = lizard.bossRuntime.telegraph.direction < 0 ? -1 : 1;
+    int endCol = lizard.position.col;
+
+    for (int step = 1; step <= kLizardChargeRange; ++step) {
+        int col = lizard.position.col + direction * step;
+        if (col < 0 || col >= kGridCols) break;
+        GridPos pos{row, col};
+        endCol = col;
+
+        Unit* occupant = battle.unitAt(pos);
+        if (occupant && occupant->team == Team::Player && occupant->isAlive()) {
+            int damage = std::max(power - occupant->effectiveDefense(), 1);
+            occupant->currentHp = std::max(occupant->currentHp - damage, 0);
+        }
+
+        const BattleObjectState* object = battle.objectAt(pos);
+        if (object && object->state != BattleObjectStateKind::Destroyed) {
+            const BattleObjectDefinition* def = battle.objectDefinition(object->definitionId);
+            if (def && def->blocksMovement) break;
+        }
+    }
+
+    lizard.position = GridPos{row, endCol};
+    lizard.chargeTelegraphed = false;
+    lizard.bossRuntime.telegraph.state = TelegraphState::Executed;
+    handleObjectiveEvent(battle.missionState(),
+                         {battle.issueEventId(), 0,
+                          BossTelegraphChangedEvent{lizard.id, lizard.bossRuntime.telegraph.actionId, false}});
+    lizard.bossRuntime.telegraph.clear();
+    lizard.chargeCooldownActions = 1;
+    lizard.chargesExecuted += 1;
+}
+
+// 尾払い's front-3 pattern: identical shape to boarSweepTargets()/
+// serpentConstrictTargets() (the column immediately toward the player side).
+std::vector<Unit*> lizardTailSweepTargets(BattleState& battle, const Unit& lizard) {
+    std::vector<Unit*> targets;
+    int col = lizard.position.col - 1;
+    if (col < 0) return targets;
+    for (int row = lizard.position.row - 1; row <= lizard.position.row + 1; ++row) {
+        GridPos pos{row, col};
+        if (!isInBounds(pos)) continue;
+        Unit* occupant = battle.unitAt(pos);
+        if (occupant && occupant->team == Team::Player && occupant->isAlive()) targets.push_back(occupant);
+    }
+    return targets;
+}
+
+// 尾払い: front-3 pattern, STR+1 physical (boar-sweep-style flat damage, no
+// accuracy roll, mirroring performBoarSweep()'s own shape), then a 1-tile
+// knockback (BattleState::applyKnockback(), the same mechanic every other
+// knockback source in this engine already uses) on any target still alive.
+Unit* performLizardTailSweep(BattleState& battle, Unit& lizard) {
+    std::vector<Unit*> targets = lizardTailSweepTargets(battle, lizard);
+    if (targets.empty()) return nullptr;
+    const int power = lizard.stats.strength + kLizardSweepPowerBonus;
+    const AliveSnapshot aliveBefore = captureAliveSnapshot(battle);
+    for (Unit* target : targets) {
+        const int damage = std::max(power - target->effectiveDefense(), 1);
+        target->currentHp = std::max(target->currentHp - damage, 0);
+        if (target->isAlive()) battle.applyKnockback(lizard, *target);
+    }
+    emitUnitDefeatedEvents(battle, aliveBefore);
+    return targets.front();
+}
+
+// 噴気誘導: HP<=50%, once, immediately converts up to 2 currently-empty,
+// unoccupied Ember/HotSand/Floor tiles (excluding the boss's own tile) to
+// FumeWarning - reuses TerrainType::FumeWarning exactly as this region's
+// own resolveEmberHeatRoundStart() (src/battle/BattleState.cpp) already
+// does, so the existing resolveEmberFumeRoundEnd() will convert these to
+// FireFloor at the next Round End with no further code needed here. Scan
+// order is fixed (row-major) for determinism, mirroring
+// triggerGrubwormCollapse()'s own choice. The doc's own "1ラウンド前に予告"
+// framing is for 熱砂突進's telegraph, not this ability - 噴気誘導 itself is
+// a one-time board-state change like 崩落誘発, so this fires immediately
+// (same approximation M9-D's own grubworm collapse recorded).
+void triggerLizardFumeLure(BattleState& battle, Unit& lizard) {
+    int converted = 0;
+    for (int row = 0; row < kGridRows && converted < 2; ++row) {
+        for (int col = 0; col < kGridCols && converted < 2; ++col) {
+            GridPos pos{row, col};
+            if (pos == lizard.position) continue;
+            TerrainType terrain = battle.terrainAt(pos);
+            if (terrain != TerrainType::Floor && terrain != TerrainType::EmberFloor &&
+                terrain != TerrainType::HotSand) {
+                continue;
+            }
+            if (battle.unitAt(pos)) continue;
+            if (battle.objectAt(pos)) continue;
+            battle.setTerrain(pos, TerrainType::FumeWarning);
+            ++converted;
+        }
+    }
+}
+
+Unit* takeRedbackLizardBossTurn(BattleState& battle, Unit& lizard) {
+    // 1. A telegraphed charge always executes now, before anything else.
+    if (lizard.bossRuntime.telegraph.pending()) {
+        executeLizardCharge(battle, lizard);
+        finishEnemyAction(battle, lizard, ActionKind::Attack);
+        return nullptr;
+    }
+
+    const bool chargeOnCooldown = lizard.chargeCooldownActions > 0;
+    if (chargeOnCooldown) --lizard.chargeCooldownActions;
+
+    // 2. 噴気誘導: instant, non-turn-consuming state update, checked before
+    // this turn's action decision (mirrors the grubworm/serpent's own
+    // HP<=50% one-time checks).
+    if (!lizard.bossFumeLureUsed && lizard.currentHp * 2 <= lizard.stats.maxHp) {
+        lizard.bossFumeLureUsed = true;
+        triggerLizardFumeLure(battle, lizard);
+        lizard.bossRuntime.stageIndex = 1;
+        handleObjectiveEvent(battle.missionState(),
+                             BattleEvent{battle.issueEventId(), 0,
+                                         BossStageChangedEvent{lizard.id, lizard.bossRuntime.stageIndex}});
+    }
+
+    // 3. Attack an ally currently occupying/adjacent to a Battle Object (see
+    // this function's own header comment on the "冷却弁の操作者" approximation).
+    for (const GridPos& delta : {GridPos{-1, 0}, GridPos{1, 0}, GridPos{0, -1}, GridPos{0, 1}}) {
+        GridPos pos{lizard.position.row + delta.row, lizard.position.col + delta.col};
+        if (!isInBounds(pos)) continue;
+        Unit* occupant = battle.unitAt(pos);
+        if (!occupant || occupant->team != Team::Player || !occupant->isAlive()) continue;
+        if (!battle.objectAt(pos)) continue;
+        const AliveSnapshot aliveBefore = captureAliveSnapshot(battle);
+        attackIfPossible(battle, lizard, occupant);
+        emitUnitDefeatedEvents(battle, aliveBefore);
+        finishEnemyAction(battle, lizard, ActionKind::Attack);
+        return occupant;
+    }
+
+    // 4. 尾払い whenever 2+ players are in the front-3 pattern.
+    if (lizardTailSweepTargets(battle, lizard).size() >= 2) {
+        if (Unit* hit = performLizardTailSweep(battle, lizard)) {
+            finishEnemyAction(battle, lizard, ActionKind::Attack);
+            return hit;
+        }
+    }
+
+    // 5. Telegraph a charge if a target is reachable along the current row.
+    if (!chargeOnCooldown) {
+        const int direction = lizardChargeDirectionForTarget(battle, lizard, kLizardChargeRange);
+        if (direction != 0) {
+            lizard.chargeTelegraphed = true;
+            lizard.chargeDirection = direction;
+            lizard.bossRuntime.telegraph = {"redback_lizard_charge", TelegraphShape::Line, TelegraphState::Announced,
+                                            battle.round(), battle.round() + 1, {},
+                                            computeLizardChargeTiles(battle, lizard, direction, kLizardChargeRange),
+                                            direction};
+            handleObjectiveEvent(battle.missionState(),
+                                 {battle.issueEventId(), 0,
+                                  BossTelegraphChangedEvent{lizard.id, "redback_lizard_charge", true}});
+            finishEnemyAction(battle, lizard, ActionKind::Skill);
+            return nullptr;
+        }
+    }
+
+    // 6. Otherwise, maintain position near 封鎖扉 (leash, see this function's
+    // own header comment) while closing distance toward the nearest player,
+    // then attack normally.
+    Unit* target = findNearestPlayer(battle, lizard);
+    bool moved = false;
+    if (target) {
+        std::vector<GridPos> reachable = computeReachableTiles(battle, lizard);
+        GridPos bestTile = lizard.position;
+        int bestDist = manhattanDistance(lizard.position, target->position);
+        bool leashSatisfiedAtCurrent = manhattanDistance(lizard.position, kRedheatFissureGateTile) <= kLizardLeashRadius;
+        for (const GridPos& tile : reachable) {
+            const bool withinLeash = manhattanDistance(tile, kRedheatFissureGateTile) <= kLizardLeashRadius;
+            if (!withinLeash && leashSatisfiedAtCurrent) continue;
+            int dist = manhattanDistance(tile, target->position);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestTile = tile;
+            }
+        }
+        if (bestTile != lizard.position) moved = battle.moveUnit(lizard, bestTile);
+    }
+
+    const AliveSnapshot aliveBeforeAttack = captureAliveSnapshot(battle);
+    if (Unit* attacked = attackIfPossible(battle, lizard, target)) {
+        emitUnitDefeatedEvents(battle, aliveBeforeAttack);
+        finishEnemyAction(battle, lizard, ActionKind::Attack);
+        return attacked;
+    }
+    finishEnemyAction(battle, lizard, moved ? ActionKind::Move : ActionKind::Wait);
+    return nullptr;
+}
+
 } // namespace
 
 Unit* takeEnemyTurn(BattleState& battle, Unit& enemy, AiSquadReservations* reservations) {
@@ -1154,6 +1426,7 @@ Unit* takeEnemyTurn(BattleState& battle, Unit& enemy, AiSquadReservations* reser
     if (enemy.unitClass == UnitClass::AshironGrubworm) return takeGrubwormBossTurn(battle, enemy);
     if (enemy.unitClass == UnitClass::MarshFangSerpent) return takeSerpentBossTurn(battle, enemy);
     if (enemy.unitClass == UnitClass::PlateauCourierCaptain) return takeCourierCaptainBossTurn(battle, enemy);
+    if (enemy.unitClass == UnitClass::RedbackLizard) return takeRedbackLizardBossTurn(battle, enemy);
 
     // Captured once, before anything below (including 監視弓兵`overwatch`'s
     // ambush), so a defeat from any of it fires UnitDefeatedEvent exactly

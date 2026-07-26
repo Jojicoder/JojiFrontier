@@ -178,6 +178,7 @@ std::string requiredTrainingNodeIdFor(UnitClass unitClass) {
         case UnitClass::MarshFangSerpent:
         case UnitClass::PlateauCourierCaptain:
         case UnitClass::RaidLeader:
+        case UnitClass::RedbackLizard:
             return "";
         // docs/skill_system.md「希少技術」に対応する訓練所ノードはまだ存在しない
         // (docs/class_reference.mdの通り、戦闘魔導士は訓練所だけで一般解放せず、

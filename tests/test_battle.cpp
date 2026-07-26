@@ -5809,8 +5809,10 @@ int main() {
         auto summaries = app.regionSummaries();
         // M9-Y: fixed a pre-existing gap where computeRegionSummaries()'s
         // region list stopped at WindscarPlateau (OldFrontierSettlement/
-        // EmberRavine were both missing) - now covers all 7 regions.
-        assert(summaries.size() == 7);
+        // EmberRavine were both missing) - now covers all 7 regions. This
+        // Slice added an 8th (BuriedDawnSanctum, EmberRavine's region-clear
+        // stub).
+        assert(summaries.size() == 8);
         bool sawAshboughUnlocked = false, sawCinderwatchLocked = false, sawAshironLocked = false;
         for (const auto& summary : summaries) {
             if (summary.id == jf::RegionId::AshboughForest) sawAshboughUnlocked = summary.unlocked;
@@ -10660,12 +10662,18 @@ int main() {
         // cavalry_recruit's own "加入候補確定" approximation.
         jf::BaseState base;
         assert(!jf::isCooperationUnlocked("paired_fallback_line", base));
-        assert(!jf::isCooperationUnlocked("paired_signal_ward", base)); // always false: region unimplemented
+        assert(!jf::isCooperationUnlocked("paired_signal_ward", base)); // BuriedDawnSanctum not cleared yet
         base.completedRegionIds.insert(jf::RegionId::CinderwatchGate);
         assert(jf::isCooperationUnlocked("paired_fallback_line", base));
         base.completedRegionIds.insert(jf::RegionId::WindscarPlateau);
         assert(jf::isCooperationUnlocked("paired_rapid_works", base));
-        assert(!jf::isCooperationUnlocked("paired_signal_ward", base)); // still unreachable
+        assert(!jf::isCooperationUnlocked("paired_signal_ward", base)); // still not reachable
+        // This Slice (Ember Ravine region-clear) added RegionId::
+        // BuriedDawnSanctum, resolving the "region has no enum value"
+        // blocker this pair was previously stuck on - it's now reachable
+        // the same way every other region-gated pair already is.
+        base.completedRegionIds.insert(jf::RegionId::BuriedDawnSanctum);
+        assert(jf::isCooperationUnlocked("paired_signal_ward", base));
     }
 
     {
@@ -11178,6 +11186,128 @@ int main() {
         assert(hasSulfur && hasChannel);
         const jf::RouteNodeDefinition* camp2 = jf::findRouteNode(emberRoute, "ember_ravine_camp2");
         assert(camp2 && camp2->kind == jf::RouteNodeKind::Camp);
+    }
+
+    {
+        // docs/regions/ember_ravine.md「赤背の大蜥蜴」「尾払い」: front-3
+        // pattern, STR+1 physical + 1-tile knockback, fires only once 2+
+        // players are in front of the boss (same shape as
+        // takeSerpentBossTurn()'s own 締め付け test above).
+        jf::Unit lizard = makeUnit("lizard", jf::Team::Enemy, {1, 2}, 4, jf::UnitClass::RedbackLizard);
+        lizard.stats.strength = 10;
+        lizard.stats.defense = 8;
+        lizard.stats.resistance = 3;
+        lizard.stats.maxHp = 64;
+        lizard.currentHp = 64;
+        // Both in the front-3 column (col 1, rows 0/1/2) toward the lizard's
+        // west side - kGridRows == 3, so this covers every row.
+        jf::Unit allyA = makeUnit("allyA", jf::Team::Player, {0, 1});
+        jf::Unit allyB = makeUnit("allyB", jf::Team::Player, {2, 1});
+        jf::BattleState battle({allyA, allyB, lizard});
+
+        jf::takeEnemyTurn(battle, battle.units()[2]);
+        assert(battle.units()[0].currentHp < battle.units()[0].stats.maxHp);
+        assert(battle.units()[1].currentHp < battle.units()[1].stats.maxHp);
+        assert(battle.units()[0].position != (jf::GridPos{0, 1})); // knocked back off its starting tile
+        assert(battle.units()[1].position != (jf::GridPos{2, 1})); // knocked back off its starting tile
+    }
+
+    {
+        // docs/regions/ember_ravine.md「赤背の大蜥蜴」「噴気誘導」: HP<=50%で
+        // 一度だけ、空き2マスをFumeWarning化する(同型: takeGrubwormBossTurn()の
+        // 崩落誘発/takeSerpentBossTurn()の激しい身震い)。
+        jf::Unit lizard = makeUnit("lizard", jf::Team::Enemy, {2, 2}, 4, jf::UnitClass::RedbackLizard);
+        lizard.stats.strength = 10;
+        lizard.stats.defense = 8;
+        lizard.stats.resistance = 3;
+        lizard.stats.maxHp = 64;
+        lizard.currentHp = 32; // exactly 50%
+        jf::Unit ally = makeUnit("ally", jf::Team::Player, {2, 6}); // far away, no melee interaction
+        jf::BattleState battle({ally, lizard});
+
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        assert(battle.units()[1].bossFumeLureUsed);
+        int fumeCount = 0;
+        for (int row = 0; row < jf::kGridRows; ++row)
+            for (int col = 0; col < jf::kGridCols; ++col)
+                if (battle.terrainAt({row, col}) == jf::TerrainType::FumeWarning) ++fumeCount;
+        assert(fumeCount == 2);
+
+        battle.units()[1].hasActed = false; // doesn't fire a second time
+        for (int row = 0; row < jf::kGridRows; ++row)
+            for (int col = 0; col < jf::kGridCols; ++col)
+                if (battle.terrainAt({row, col}) == jf::TerrainType::FumeWarning) battle.setTerrain({row, col}, jf::TerrainType::Floor);
+        jf::takeEnemyTurn(battle, battle.units()[1]);
+        fumeCount = 0;
+        for (int row = 0; row < jf::kGridRows; ++row)
+            for (int col = 0; col < jf::kGridCols; ++col)
+                if (battle.terrainAt({row, col}) == jf::TerrainType::FumeWarning) ++fumeCount;
+        assert(fumeCount == 0); // one-time only
+    }
+
+    {
+        // docs/regions/ember_ravine.md「8. 赤熱裂け目」/「地域ボス 赤背の
+        // 大蜥蜴」: standard EliminateTeam-primary approximation (same M9-D/
+        // K/Q precedent: no AND-composition infra for a single site's 3
+        // sub-conditions), with ScriptedWithdrawal wiring for the boss, plus
+        // the "冷却弁2個を両方操作" secondary wired as a real
+        // secondaryOperateObjectiveId group (cheap now that M9-AD exposed it
+        // to JSON Schema).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor emberRegion2 = jf::regionDescriptor(jf::RegionId::EmberRavine, *data);
+        const jf::StageDescriptor* fissureStage = nullptr;
+        for (const jf::StageDescriptor& stage : emberRegion2.stages)
+            if (stage.id == "redheat_fissure") fissureStage = &stage;
+        assert(fissureStage);
+        assert(fissureStage->enemyRoster.size() == 3); // boss + 熱地採取団2
+        assert(fissureStage->scoutRouteRequiredClass == jf::UnitClass::FrontierRanger);
+
+        const jf::ExplorationOutcome frontal =
+            jf::stageRouteOutcome(*fissureStage, jf::ExplorationChoice::FrontalAdvance);
+        assert(frontal.startingHeatLevel == 1);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *fissureStage, /*seed=*/19);
+        const jf::ObjectiveDefinition* eliminateDef = nullptr;
+        std::vector<const jf::ObjectiveDefinition*> valveDefs;
+        for (const auto& def : battle.missionState().definitions) {
+            if (def.kind == jf::ObjectiveKind::EliminateTeam) eliminateDef = &def;
+            if (def.groupId == "redheat_fissure_valves") valveDefs.push_back(&def);
+        }
+        assert(eliminateDef && eliminateDef->primary && eliminateDef->groupId == "primary");
+        assert(valveDefs.size() == 2);
+        for (const jf::ObjectiveDefinition* def : valveDefs) assert(!def->primary);
+
+        const jf::AliveSnapshot before = jf::captureAliveSnapshot(battle);
+        for (jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+        jf::emitUnitDefeatedEvents(battle, before);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+
+        const jf::Unit* boss = nullptr;
+        for (const jf::Unit& unit : battle.units())
+            if (unit.unitClass == jf::UnitClass::RedbackLizard) boss = &unit;
+        assert(boss && boss->exitReason == jf::UnitExitReason::ScriptedWithdrawal);
+    }
+
+    {
+        // docs/regions/ember_ravine.md「地域攻略と拠点接続」: committing
+        // `RegionId::EmberRavine` to completedRegionIds (the safe-return
+        // outcome of clearing all 8 sites, same generic regionCleared()/
+        // completedRegionIds mechanism every prior region's own "X_secured"
+        // stable ID already uses - `ember_ravine_secured` has no code
+        // entity of its own) unlocks BuriedDawnSanctum (the 8th region,
+        // this Slice's own region-clear stub) via regionUnlocked().
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        jf::BaseState base;
+        assert(!jf::regionUnlocked(jf::RegionId::BuriedDawnSanctum, base, *data));
+        base.completedRegionIds.insert(jf::RegionId::EmberRavine);
+        assert(jf::regionUnlocked(jf::RegionId::BuriedDawnSanctum, base, *data));
+        const jf::RegionDescriptor sanctum = jf::regionDescriptor(jf::RegionId::BuriedDawnSanctum, *data);
+        assert(sanctum.displayNameJa == "埋没聖堂");
+        assert(sanctum.stages.size() == 1); // minimal outpost placeholder, mirroring every prior region stub
     }
 
     {

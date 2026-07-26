@@ -37,7 +37,6 @@
   "ui.save_hud.saved": "Saved",
   "ui.save_hud.failed": "Save failed",
   "ui.save_hud.retry": "Retry",
-
   "class.march_captain": "March Captain",
   "class.veteran_guard": "Veteran Guard",
   "class.watch_archer": "Watch Archer",
@@ -77,7 +76,6 @@
   "class.marsh_fang_serpent.role": "Boss: venomous bite, telegraphed submerge-and-strike, and a knockback shudder at half HP.",
   "class.plateau_courier_captain.role": "Boss: pass-through strike after a straight-line charge, a telegraphed flanking order, and an escape-route buff at half HP.",
   "class.raid_leader.role": "Elite (optional): heavy axe, considers retreating at low HP. Not a scripted boss.",
-
   "item.first_aid_kit.name": "First Aid Kit",
   "item.field_treatment_kit.name": "Field Treatment Kit",
   "item.rescue_pack.name": "Rescue Pack",
@@ -90,7 +88,6 @@
   "item.camp_rations.description": "Restore 5 HP to every living ally at camp.",
   "item.protective_board.description": "Place a barrier on an adjacent empty tile.",
   "item.return_flare.description": "Secure loot and return from camp immediately.",
-
   "material.wood": "Wood",
   "material.hide": "Hide",
   "material.herb": "Herb",
@@ -120,7 +117,6 @@
   "material.heat_resistant_material": "Heat-Resistant Material",
   "material.sulfur": "Sulfur",
   "material.ash_crystal": "Ash Crystal",
-
   "weapon.iron_sword": "Iron Sword",
   "weapon.iron_lance": "Iron Lance",
   "weapon.iron_axe": "Iron Axe",
@@ -174,7 +170,6 @@
   "weapon.boar_tusks": "Tusks",
   "weapon.grubworm_mandibles": "Mandibles",
   "weapon.road_sword": "Road Sword",
-
   "character.leon": "Leon",
   "character.gareth": "Gareth",
   "character.erin": "Erin",
@@ -190,7 +185,6 @@
   "character.plateau_runner": "Plateau Runner",
   "character.deserter_spearman": "Deserter Spearman",
   "character.former_captain": "Former Captain",
-
   "terrain.floor": "Floor",
   "terrain.ash": "Ash",
   "terrain.rubble": "Rubble",
@@ -206,14 +200,12 @@
   "terrain.cool_floor": "Cool Floor",
   "terrain.fume_warning": "Fume Warning",
   "terrain.ash_smoke": "Ash Smoke",
-
   "battle_object.barrier": "Fallen log",
   "battle_object.marker": "Survey point",
   "battle_object.spawn_point": "Reinforcement point",
   "battle_object.exit_point": "Exit point",
   "battle_object.device": "Device",
   "battle_object.container": "Container",
-
   "outpost_stage.encampment": "Encampment",
   "outpost_stage.pioneer_outpost": "Pioneer Outpost",
   "outpost_stage.frontier_settlement": "Frontier Settlement",
@@ -222,13 +214,11 @@
   "outpost_stage.pioneer_outpost.short": "Outpost",
   "outpost_stage.frontier_settlement.short": "Settlement",
   "outpost_stage.pioneer_city.short": "City",
-
   "discovery.cinderwatch_recon": "Scout Network Records",
   "discovery.field_medicine": "Field Medicine Records",
   "discovery.return_signal": "Return Signal Records",
   "discovery.herb_thicket": "Herb Thicket Records",
   "discovery.ashbough_forest_survey_complete": "Ashbough Forest Survey Records",
-
   "facility.command_post.name": "Command Post",
   "facility.training_ground.name": "Training Ground",
   "facility.forge.name": "Forge",
@@ -241,7 +231,6 @@
   "facility.infirmary.role": "Improves medicine and survival\noptions used during expeditions.",
   "facility.workshop.role": "Produces exploration tools and\nbattlefield-control equipment.",
   "facility.barracks.role": "Expands recruitment, specialist\nhousing, and companion links.",
-
   "status.poison.glyph": "Po",
   "status.poison.label": "Poison",
   "status.burn.glyph": "Bu",
@@ -255,7 +244,6 @@
   "status.left": "left",
   "status.until_phase_end": "until phase end",
   "status.next_action": "next action",
-
   "battle.hit_message": "{attacker}'s attack hits {target} for {damage}!",
   "battle.miss_message": "{attacker}'s attack misses {target}!",
   "battle.low_hp_message": "{target} is on the brink of collapse!",
@@ -265,7 +253,6 @@
   "battle.object_destroyed_message": "The {object} is destroyed!",
   "battle.boss_charge_telegraphed": "The boar is lining up a charge!",
   "battle.boss_enraged": "The boar has become enraged!",
-
   "ui.prep.title": "EXPEDITION PREPARATION",
   "ui.prep.party_choose4": "Party - choose 4",
   "ui.prep.supplies": "Supplies",
@@ -275,7 +262,6 @@
   "ui.button.craft": "Craft",
   "ui.button.place_barrier": "Place barrier",
   "ui.label.bag": "Bag",
-
   "ui.battle.select_unit_prompt": "Select a unit to act.",
   "ui.button.attack": "Attack",
   "ui.button.interact": "Interact",
@@ -319,7 +305,6 @@
   "ui.button.continue_expedition": "Continue Expedition",
   "ui.unit.down": "Down",
   "ui.unit.hp_label": "HP",
-
   "ui.settings.window": "Window",
   "ui.settings.maximize_window": "Maximize Window",
   "ui.settings.restore_window": "Restore Window",
@@ -338,11 +323,9 @@
   "ui.settings.export_failed_prefix": "Export failed: ",
   "ui.settings.import_failed_prefix": "Import failed: ",
   "ui.settings.import_applied": "Import applied",
-
   "ui.battle.location_prefix": "Battle Location: {mission}",
   "item.field_treatment_kit.short_name": "Field Kit",
   "item.protective_board.short_name": "Board",
-
   "ui.exploration.title": "EXPLORATION",
   "exploration.cinderwatch_situation": "Beyond the broken gate lies an abandoned watchpost. Fresh tracks mark the main passage.",
   "exploration.frontal_advance": "Frontal Advance",
@@ -397,11 +380,9 @@
   "exploration.safe_passage_effect": "Skips battle, exploration choice, and rewards to proceed",
   "exploration.reconnaissance": "Re-scout the Danger Zone",
   "exploration.reconnaissance_effect": "New battle grants only standard materials (no first-clear rewards)",
-
   "ui.materials_label": "Required materials",
   "ui.no_material_cost": "No material cost",
   "ui.tile.blocks_movement": "Blocks movement",
-
   "ui.tile.impassable": "Impassable",
   "ui.tile.move_cost": "Move cost",
   "ui.tile.heal_5_hp": "Heal 5 HP after acting",
@@ -482,5 +463,8 @@
   "ui.forge.hover_hint": "Select or hover over an upgrade to view its\neffect and required materials.",
   "ui.forge.equipment_heading": "EQUIPMENT",
   "ui.forge.back_to_forge": "Forge",
-  "ui.facilities.back_to_list": "Facility List"
+  "ui.facilities.back_to_list": "Facility List",
+  "class.redback_lizard": "Redback Great Lizard",
+  "class.redback_lizard.role": "Boss: telegraphed sand charge (3-tile line), a 3-tile frontal tail sweep with knockback, and a one-time fume-terrain lure at half HP.",
+  "weapon.lizard_claws": "Claws"
 }

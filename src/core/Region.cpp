@@ -1645,6 +1645,20 @@ RegionDescriptor emberRavineRegion(const GameData& data) {
     return region;
 }
 
+// docs/regions/ember_ravine.md「埋没聖堂を次の遠征先へ追加」: 8th region. Same
+// minimal-outpost-stub pattern M9-K/L/Q/U/Y established for every prior
+// region's first Slice - a single-site placeholder (`buried_dawn_sanctum_
+// outpost`, Bandit x2), unlocked once EmberRavine completes. Content itself
+// is out of scope for this Slice; a later Slice fleshes it out.
+RegionDescriptor buriedDawnSanctumRegion(const GameData& data) {
+    RegionDescriptor region;
+    region.id = RegionId::BuriedDawnSanctum;
+    region.displayNameEn = "Buried Dawn Sanctum";
+    region.displayNameJa = "埋没聖堂";
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("buried_dawn_sanctum_outpost")));
+    return region;
+}
+
 } // namespace
 
 RegionDescriptor regionDescriptor(RegionId id, const GameData& data) {
@@ -1656,6 +1670,7 @@ RegionDescriptor regionDescriptor(RegionId id, const GameData& data) {
         case RegionId::WindscarPlateau: return windscarPlateauRegion(data);
         case RegionId::OldFrontierSettlement: return oldFrontierSettlementRegion(data);
         case RegionId::EmberRavine: return emberRavineRegion(data);
+        case RegionId::BuriedDawnSanctum: return buriedDawnSanctumRegion(data);
     }
     return cinderwatchGateRegion(data);
 }
@@ -1669,6 +1684,7 @@ std::string toString(RegionId id) {
         case RegionId::WindscarPlateau: return "windscar_plateau";
         case RegionId::OldFrontierSettlement: return "old_frontier_settlement";
         case RegionId::EmberRavine: return "ember_ravine";
+        case RegionId::BuriedDawnSanctum: return "buried_dawn_sanctum";
     }
     return "cinderwatch_gate";
 }
@@ -1680,6 +1696,7 @@ RegionId regionIdFromString(const std::string& id) {
     if (id == "windscar_plateau") return RegionId::WindscarPlateau;
     if (id == "old_frontier_settlement") return RegionId::OldFrontierSettlement;
     if (id == "ember_ravine") return RegionId::EmberRavine;
+    if (id == "buried_dawn_sanctum") return RegionId::BuriedDawnSanctum;
     return RegionId::CinderwatchGate;
 }
 
@@ -1691,6 +1708,7 @@ std::optional<RegionId> regionIdFromStringStrict(const std::string& id) {
     if (id == "windscar_plateau") return RegionId::WindscarPlateau;
     if (id == "old_frontier_settlement") return RegionId::OldFrontierSettlement;
     if (id == "ember_ravine") return RegionId::EmberRavine;
+    if (id == "buried_dawn_sanctum") return RegionId::BuriedDawnSanctum;
     return std::nullopt;
 }
 
@@ -1758,6 +1776,7 @@ bool regionUnlocked(RegionId regionId, const BaseState& base, const GameData& /*
         case RegionId::WindscarPlateau: return base.completedRegionIds.count(RegionId::BlackwaterLowlands) > 0;
         case RegionId::OldFrontierSettlement: return base.completedRegionIds.count(RegionId::WindscarPlateau) > 0;
         case RegionId::EmberRavine: return base.completedRegionIds.count(RegionId::OldFrontierSettlement) > 0;
+        case RegionId::BuriedDawnSanctum: return base.completedRegionIds.count(RegionId::EmberRavine) > 0;
     }
     return true;
 }

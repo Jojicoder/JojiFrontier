@@ -305,6 +305,14 @@ struct Unit {
     bool bossFlankUsed = false;
     bool bossEscapeRouteUsed = false;
 
+    // 赤背の大蜥蜴 (docs/regions/ember_ravine.md「地域ボス 赤背の大蜥蜴」)
+    // boss-only: HP<=50% one-time "噴気誘導" trigger, same role as
+    // bossEnraged/bossCollapseUsed/bossShudderUsed above. 熱砂突進's own
+    // telegraph reuses the generic chargeTelegraphed/bossRuntime.telegraph/
+    // chargeCooldownActions fields above, same reasoning as those bosses'
+    // own comments.
+    bool bossFumeLureUsed = false;
+
     // docs/boss_common_rules.md "Bossの退場理由": set once, the moment this
     // unit's HP first reaches 0 (see ObjectiveTracker.cpp's
     // emitUnitDefeatedEvents(), the one place that currently sets it -

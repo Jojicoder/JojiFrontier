@@ -37,7 +37,6 @@
   "ui.save_hud.saved": "保存済み",
   "ui.save_hud.failed": "保存失敗",
   "ui.save_hud.retry": "再試行",
-
   "class.march_captain": "行軍隊長",
   "class.veteran_guard": "古参守備兵",
   "class.watch_archer": "監視弓兵",
@@ -77,7 +76,6 @@
   "class.marsh_fang_serpent.role": "ボス。毒牙と予告水中潜行を使う。HPが半分以下で身震いによる押し出しを使う。",
   "class.plateau_courier_captain.role": "ボス。直線移動後の通り抜け攻撃、予告する迂回命令、HPが半分以下で退路確保を使う。",
   "class.raid_leader.role": "強敵(撃破は任意)。重斧を持ち、HPが低いと撤退を考える。台本化されたボスではない。",
-
   "item.first_aid_kit.name": "救急セット",
   "item.field_treatment_kit.name": "野戦治療キット",
   "item.rescue_pack.name": "救助パック",
@@ -90,7 +88,6 @@
   "item.camp_rations.description": "野営時に生存中の味方全員のHPを5回復する。",
   "item.protective_board.description": "隣接する空きマスに障害物を設置する。",
   "item.return_flare.description": "戦利品を確定し、野営から即座に帰還する。",
-
   "material.wood": "木材",
   "material.hide": "獣皮",
   "material.herb": "薬草",
@@ -120,7 +117,6 @@
   "material.heat_resistant_material": "耐熱素材",
   "material.sulfur": "硫黄",
   "material.ash_crystal": "灰晶",
-
   "weapon.iron_sword": "鉄の剣",
   "weapon.iron_lance": "鉄のランス",
   "weapon.iron_axe": "鉄の斧",
@@ -174,7 +170,6 @@
   "weapon.boar_tusks": "牙(大猪)",
   "weapon.grubworm_mandibles": "顎(穿岩虫)",
   "weapon.road_sword": "街道剣",
-
   "character.leon": "レオン",
   "character.gareth": "ガレス",
   "character.erin": "エリン",
@@ -190,7 +185,6 @@
   "character.plateau_runner": "高原運び手",
   "character.deserter_spearman": "脱走槍兵",
   "character.former_captain": "元隊長",
-
   "terrain.floor": "平地",
   "terrain.ash": "灰塵",
   "terrain.rubble": "瓦礫",
@@ -206,14 +200,12 @@
   "terrain.cool_floor": "冷却床",
   "terrain.fume_warning": "噴気予告床",
   "terrain.ash_smoke": "灰煙床",
-
   "battle_object.barrier": "倒木",
   "battle_object.marker": "踏査地点",
   "battle_object.spawn_point": "増援地点",
   "battle_object.exit_point": "離脱地点",
   "battle_object.device": "装置",
   "battle_object.container": "物資箱",
-
   "outpost_stage.encampment": "野営地",
   "outpost_stage.pioneer_outpost": "開拓拠点",
   "outpost_stage.frontier_settlement": "辺境集落",
@@ -222,13 +214,11 @@
   "outpost_stage.pioneer_outpost.short": "拠点",
   "outpost_stage.frontier_settlement.short": "集落",
   "outpost_stage.pioneer_city.short": "都市",
-
   "discovery.cinderwatch_recon": "偵察網の発見記録",
   "discovery.field_medicine": "野戦医療の記録",
   "discovery.return_signal": "帰還信号技術の記録",
   "discovery.herb_thicket": "薬草群生地の記録",
   "discovery.ashbough_forest_survey_complete": "灰枝の森踏査記録",
-
   "facility.command_post.name": "司令所",
   "facility.training_ground.name": "訓練所",
   "facility.forge.name": "鍛冶場",
@@ -241,7 +231,6 @@
   "facility.infirmary.role": "遠征中に使う治療具と救命手段を\n強化する施設。",
   "facility.workshop.role": "探索道具と盤面を操作する\n工作装備を作る施設。",
   "facility.barracks.role": "仲間の受け入れ、専門区画、\n連携機能を拡張する施設。",
-
   "status.poison.glyph": "毒",
   "status.poison.label": "毒",
   "status.burn.glyph": "炎",
@@ -255,7 +244,6 @@
   "status.left": "残り",
   "status.until_phase_end": "このPhase終了まで",
   "status.next_action": "次の行動は移動不可",
-
   "battle.hit_message": "{attacker}の攻撃が{target}に命中！{damage}ダメージ！",
   "battle.miss_message": "{attacker}の攻撃は{target}に外れた！",
   "battle.low_hp_message": "{target}が瀕死状態に！",
@@ -265,7 +253,6 @@
   "battle.object_destroyed_message": "{object}が破壊された！",
   "battle.boss_charge_telegraphed": "大猪が突進の狙いを定めている！",
   "battle.boss_enraged": "大猪が激昂した！",
-
   "ui.prep.title": "遠征準備",
   "ui.prep.party_choose4": "パーティ(4人選択)",
   "ui.prep.supplies": "物資",
@@ -275,7 +262,6 @@
   "ui.button.craft": "製作",
   "ui.button.place_barrier": "障害物を設置",
   "ui.label.bag": "荷物",
-
   "ui.battle.select_unit_prompt": "行動するユニットを選択してください。",
   "ui.button.attack": "こうげき",
   "ui.button.interact": "操作",
@@ -319,7 +305,6 @@
   "ui.button.continue_expedition": "遠征を続ける",
   "ui.unit.down": "戦闘不能",
   "ui.unit.hp_label": "体力",
-
   "ui.settings.window": "ウィンドウ",
   "ui.settings.maximize_window": "ウィンドウを最大化",
   "ui.settings.restore_window": "ウィンドウを元に戻す",
@@ -338,11 +323,9 @@
   "ui.settings.export_failed_prefix": "エクスポートに失敗しました: ",
   "ui.settings.import_failed_prefix": "インポートに失敗しました: ",
   "ui.settings.import_applied": "インポートを適用しました",
-
   "ui.battle.location_prefix": "戦闘地点: {mission}",
   "item.field_treatment_kit.short_name": "野戦",
   "item.protective_board.short_name": "防御板",
-
   "ui.exploration.title": "探索",
   "exploration.cinderwatch_situation": "崩れた門の先に放棄された監視所が見える。正面の通路には新しい足跡が残っている。",
   "exploration.frontal_advance": "正面突破",
@@ -397,11 +380,9 @@
   "exploration.safe_passage_effect": "戦闘・探索3択・報酬すべて省略して先へ進みます",
   "exploration.reconnaissance": "危険区域を再調査",
   "exploration.reconnaissance_effect": "新しい戦闘で通常素材のみ再取得できます（初回報酬は対象外）",
-
   "ui.materials_label": "必要素材",
   "ui.no_material_cost": "素材コストなし",
   "ui.tile.blocks_movement": "移動を封鎖",
-
   "ui.tile.impassable": "通行不可",
   "ui.tile.move_cost": "移動コスト",
   "ui.tile.heal_5_hp": "行動終了時にHP5回復",
@@ -482,5 +463,8 @@
   "ui.forge.hover_hint": "強化項目にカーソルを合わせると効果と必要素材が確認できます。",
   "ui.forge.equipment_heading": "装備変更",
   "ui.forge.back_to_forge": "鍛冶場へ",
-  "ui.facilities.back_to_list": "施設一覧へ"
+  "ui.facilities.back_to_list": "施設一覧へ",
+  "class.redback_lizard": "赤背の大蜥蜴",
+  "class.redback_lizard.role": "ボス。予告熱砂突進(直線3マス)と3マス前方の尾払い(押し出し付き)を使う。HPが半分以下で一度だけ噴気誘導を使う。",
+  "weapon.lizard_claws": "爪"
 }

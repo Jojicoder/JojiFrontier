@@ -309,7 +309,8 @@ void loadAppFont() {
                       "旧辺境集落風化した外柵共同井戸旧穀物庫集会家屋夜明けの共同防衛"
                       "残留住民帰還者灰道襲撃団襲撃団頭領建築材食料(仮実装)"
                       "燼火峡谷焼け石の入口熱風の棚道硫黄窪地破損冷却水路灰晶採取棚旧耐熱工房灰封観測所赤熱裂け目"
-                      "岩蜥蜴熱地採取団赤背の大蜥蜴";
+                      "岩蜥蜴熱地採取団赤背の大蜥蜴"
+                      "埋没聖堂前線拠点(仮実装)";
     for (const jf::FacilityNode& node : jf::facilityNodeRegistry()) charsetSource += node.nameJa + node.effectJa;
     for (const jf::SkillDefinition& skill : jf::skillRegistry()) charsetSource += skill.nameJa + skill.effectJa;
     for (jf::UnitClass uc : {jf::UnitClass::MarchCaptain, jf::UnitClass::VeteranGuard,
@@ -321,7 +322,7 @@ void loadAppFont() {
                               jf::UnitClass::Bandit, jf::UnitClass::Wolf,
                               jf::UnitClass::AshenhornBoar, jf::UnitClass::AshironGrubworm,
                               jf::UnitClass::MarshFangSerpent, jf::UnitClass::PlateauCourierCaptain,
-                              jf::UnitClass::RaidLeader}) {
+                              jf::UnitClass::RaidLeader, jf::UnitClass::RedbackLizard}) {
         charsetSource += jf::toString(uc);
     }
     // classNameFor()/classRoleFor()'s Japanese text is already covered by
@@ -338,7 +339,8 @@ void loadAppFont() {
                            "old_gear", "signal_core", "quality_iron", "building_material", "food"})
         charsetSource += materialNameFor(id);
     for (const char* weaponId :
-        {"wolf_bite", "boar_tusks", "grubworm_mandibles", "serpent_fangs", "road_sword", "heavy_axe"})
+        {"wolf_bite", "boar_tusks", "grubworm_mandibles", "serpent_fangs", "road_sword", "heavy_axe",
+         "lizard_claws"})
         charsetSource += weaponNameFor(weaponId, "");
     gLanguage = previousLanguage;
 
@@ -550,7 +552,7 @@ std::string weaponNameFor(const std::string& weaponId, const std::string& englis
         "iron_sword", "iron_lance", "iron_axe",  "watch_bow",   "scout_blade", "dawn_staff",
         "iron_spear", "long_spear", "heavy_spear", "guard_spear", "wolf_bite",   "boar_tusks",
         "iron_greathammer", "engineer_hammer", "messenger_sword", "hunting_bow", "banner_spear",
-        "arcane_focus", "grubworm_mandibles", "road_sword",
+        "arcane_focus", "grubworm_mandibles", "road_sword", "lizard_claws",
         // Weapon-branch generalization to the other 11 classes
         // (docs/implementation_roadmap.md "M7項目3(残り) ...特性・武器分岐の
         // 他兵種一般化").

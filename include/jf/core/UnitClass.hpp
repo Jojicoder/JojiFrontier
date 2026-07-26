@@ -76,6 +76,14 @@ enum class UnitClass {
     // 以降" round-gate has no round-aware hook in AiProfile, so this unit
     // considers retreating at HP30% from round 1, not just round 4+).
     RaidLeader,
+    // docs/regions/ember_ravine.md "赤背の大蜥蜴" (赤熱裂け目's boss, region 7's
+    // final/required boss - unlike RaidLeader above, the doc lists defeating
+    // this unit as sub-condition 1 of an AND-primary, matching the "true
+    // boss" shape of AshenhornBoar/AshironGrubworm/MarshFangSerpent/
+    // PlateauCourierCaptain, not RaidLeader's optional-elite shape). Own AI
+    // (jf/battle/EnemyAI.hpp's takeRedbackLizardBossTurn()), reuses the same
+    // generic boss-runtime Unit fields as the 4 true bosses above.
+    RedbackLizard,
 };
 
 enum class Team {

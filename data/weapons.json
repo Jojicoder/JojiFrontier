@@ -24,6 +24,7 @@
     { "id": "serpent_fangs", "name": "Fangs", "might": 0, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
     { "id": "road_sword", "name": "Road Sword", "might": 6, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
     { "id": "heavy_axe", "name": "Heavy Axe", "might": 7, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
+    { "id": "lizard_claws", "name": "Claws", "might": 0, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
 
     { "id": "command_sword", "name": "Command Sword", "might": 4, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
     { "id": "duel_sword", "name": "Duel Sword", "might": 7, "minRange": 1, "maxRange": 1, "damageType": "Physical" },

@@ -132,6 +132,13 @@
       "weaponId": "heavy_axe",
       "nameKey": "class.raid_leader",
       "roleKey": "class.raid_leader.role"
+    },
+    {
+      "id": "RedbackLizard",
+      "baseStats": { "maxHp": 64, "strength": 10, "magic": 0, "speed": 5, "defense": 8, "resistance": 3, "move": 4 },
+      "weaponId": "lizard_claws",
+      "nameKey": "class.redback_lizard",
+      "roleKey": "class.redback_lizard.role"
     }
   ]
 }

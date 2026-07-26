@@ -55,6 +55,16 @@ enum class RegionId {
     // scope here - a later Slice fleshes it out, mirroring M9-K/L/Q/U's
     // established "add the stub now, flesh it out later" split.
     EmberRavine,
+    // docs/regions/ember_ravine.md「埋没聖堂を次の遠征先へ追加」: 8th region.
+    // Added as a minimal placeholder (same role EmberRavine's own pre-M9-Z/
+    // pre-this-Slice `ember_ravine_outpost`-shaped stub played), unlocked
+    // once EmberRavine completes. Content itself is out of scope here - a
+    // later Slice fleshes it out, mirroring M9-K/L/Q/U/Y's established "add
+    // the stub now, flesh it out later" split. This also resolves
+    // Cooperation.cpp's `paired_signal_ward`'s own documented gap ("this
+    // region has no enum value/region implementation anywhere in this
+    // codebase") - see that file's own updated comment.
+    BuriedDawnSanctum,
 };
 
 using LootId = std::string;
@@ -187,6 +197,11 @@ struct BaseState {
     // cinderwatchMaterialsEarned/blackwaterMaterialsEarned/
     // windscarMaterialsEarned above, tracked independently per region.
     std::unordered_map<std::string, int> settlementMaterialsEarned;
+    // docs/regions/ember_ravine.md「最低保証報酬」: same mechanism as
+    // cinderwatchMaterialsEarned/blackwaterMaterialsEarned/
+    // windscarMaterialsEarned/settlementMaterialsEarned above, tracked
+    // independently per region.
+    std::unordered_map<std::string, int> emberRavineMaterialsEarned;
 
     // docs/item_system.md "製作単位と倉庫上限": consumables owned but not
     // currently packed into an expedition bag - crafted via GameApp::
@@ -394,6 +409,32 @@ inline constexpr const char* kSpecialForgingRecordsDiscovery = "special_forging_
 // primary objective approximated as standard EliminateTeam.
 inline constexpr const char* kEmberRavineSurveyRecordsDiscovery = "ember_ravine_survey_records";
 inline constexpr const char* kPreAshstormWatchRecordsDiscovery = "preashstorm_watch_records";
+// docs/regions/ember_ravine.md「安定ID」table: 耐熱加工 ->
+// `heat_resistant_processing_records`. Granted from 地点8「赤熱裂け目」's own
+// "冷却弁2個: 耐熱加工記録を未取得なら追加" bonus tier (same
+// creditedTargetIds.size()>=2 ad-hoc check as kSpecialForgingRecordsDiscovery
+// above, this time over `redheat_fissure_valves`'s secondaryOperateObjectiveId
+// group instead of a surveyObjectiveId group) and/or the region's own floor
+// top-up if still missing at region-clear time.
+inline constexpr const char* kHeatResistantProcessingRecordsDiscovery = "heat_resistant_processing_records";
+// docs/regions/ember_ravine.md「安定ID」table: 上位戦闘工作 ->
+// `advanced_fieldwork_records`. Per 地点6「旧耐熱工房」's own doc text
+// ("炉扉保全: 上位戦闘工作記録"), this is gated on an Object-durability
+// condition that this project doesn't implement (M6-C-era known gap) -
+// individually unreachable, same as kAdvancedFieldworkRecordsDiscovery's own
+// sibling `heat_resistant_processing_records`'s site-4 "水路保全" path. Both
+// remain reachable only via this region's floor top-up at region-clear time.
+inline constexpr const char* kAdvancedFieldworkRecordsDiscovery = "advanced_fieldwork_records";
+// docs/regions/ember_ravine.md「安定ID」table: 制御燃焼式 ->
+// `controlled_ember_formula`. Granted from 地点8「赤熱裂け目」's own副目標
+// "味方の炎上状態0で終了" - same ad-hoc end-of-battle bonus pattern as
+// deep_mire's own "毒状態の味方0" -> kMarshEmergencyMedicineDiscovery check
+// (GameApp.cpp), scanning burnRemainingProcs instead of poisonRemainingProcs.
+// Already referenced by Facilities.hpp's `craft_ember_focus` requiredDiscoveries
+// (added by an earlier Slice), so granting this Discovery immediately
+// unlocks that recipe - no Facilities.hpp change needed for this specific
+// unlock.
+inline constexpr const char* kControlledEmberFormulaDiscovery = "controlled_ember_formula";
 
 // Forge tuning traits, tracked as an id rather than a free string so a typo
 // can't silently create an unrecognized "equipped" trait.

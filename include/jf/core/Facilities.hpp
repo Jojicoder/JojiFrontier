@@ -376,6 +376,21 @@ inline const std::vector<FacilityNode>& facilityNodeRegistry() {
          "Negates the first knockback the wearer receives each battle.",
          "戦闘ごとに最初に受けるノックバックを1回無効化する。"},
 
+        // docs/regions/ember_ravine.md「鍛冶場「特殊鍛造」「耐熱加工」を研究
+        // 可能にする」: same "flavor-only research node gated on a region's own
+        // Discovery" shape as Infirmary's pharmacology/Workshop's trapcraft
+        // below (neither special forging nor heat-resistant processing has a
+        // concrete ItemType/recipe of its own in this project yet, so these
+        // nodes are effectJa-only, same known scope limit).
+        {"special_forging", FacilityId::Forge, "Special Forging", "特殊鍛造",
+         OutpostStage::FrontierSettlement, {kSpecialForgingRecordsDiscovery}, {}, {"simple_forge"}, false,
+         "Unlocks specialized forging techniques for heat-worked equipment.",
+         "耐熱装備向けの特殊鍛造技術を解放する。"},
+        {"heat_resistant_processing", FacilityId::Forge, "Heat-Resistant Processing", "耐熱加工",
+         OutpostStage::FrontierSettlement, {kHeatResistantProcessingRecordsDiscovery}, {}, {"simple_forge"}, false,
+         "Unlocks heat-resistant material processing for equipment.",
+         "装備への耐熱素材加工を解放する。"},
+
         // 4. 診療所 (Infirmary)
         {"field_infirmary", FacilityId::Infirmary, "Field Infirmary", "救護テント",
          OutpostStage::PioneerOutpost, {kHerbThicketDiscovery}, {{"wood", 2}, {"herb", 2}}, {}, true,
@@ -411,6 +426,12 @@ inline const std::vector<FacilityNode>& facilityNodeRegistry() {
          OutpostStage::FrontierSettlement, {kMarshTrapcraftDiscovery}, {}, {"workshop_bench"}, false,
          "Unlocks iron stakes and poison-trap disposal gear.",
          "鉄杭と毒罠処理道具を解放する。"},
+        // docs/regions/ember_ravine.md「工房「上位戦闘工作」を研究可能にする」:
+        // same flavor-only research node shape as trapcraft above.
+        {"advanced_fieldwork", FacilityId::Workshop, "Advanced Fieldwork", "上位戦闘工作",
+         OutpostStage::FrontierSettlement, {kAdvancedFieldworkRecordsDiscovery}, {}, {"workshop_bench"}, false,
+         "Unlocks advanced fieldwork tools for heat-hazard terrain.",
+         "熱害地形向けの上位戦闘工作道具を解放する。"},
         {"advanced_crafting", FacilityId::Workshop, "Advanced Crafting", "高度工作",
          OutpostStage::FrontierSettlement, {kReturnSignalDiscovery}, {}, {"workshop_bench"}, false,
          "Unlocks the Return Flare, Protective Case, and special ruin devices.",

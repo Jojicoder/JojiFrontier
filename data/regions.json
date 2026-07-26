@@ -1180,12 +1180,52 @@
       "id": "redheat_fissure",
       "terrainProfileId": "ember_ravine_entrance",
       "enemyRoster": [
-        { "id": "redheat_fissure_bandit1", "name": "Bandit", "classId": "Bandit" },
-        { "id": "redheat_fissure_bandit2", "name": "Bandit", "classId": "Bandit" }
+        { "id": "redheat_fissure_lizard_boss", "name": "Redback Great Lizard", "classId": "RedbackLizard" },
+        { "id": "redheat_fissure_axe1", "name": "Heat Gatherer Axeman", "classId": "Bandit" },
+        { "id": "redheat_fissure_archer1", "name": "Heat Gatherer Archer", "classId": "WatchArcher" }
       ],
-      "baseVictoryLoot": [{ "id": "heat_resistant_material", "quantity": 1 }, { "id": "iron", "quantity": 1 }],
-      "missionNameEn": "Redheat Fissure (placeholder)",
-      "missionNameJa": "赤熱裂け目(仮実装)"
+      "baseVictoryLoot": [
+        { "id": "ash_crystal", "quantity": 2 },
+        { "id": "sulfur", "quantity": 2 },
+        { "id": "heat_resistant_material", "quantity": 1 }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance", "startingHeatLevel": 1 },
+        { "choice": "CollapsedSidePath" },
+        { "choice": "ScoutRoute" }
+      ],
+      "routeVictoryLootDelta": [
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "sulfur", "quantity": 1 }] }
+      ],
+      "scoutRouteRequiredClass": "FrontierRanger",
+      "objectPlacementRules": [
+        {
+          "definition": {
+            "definitionId": "cooling_valve",
+            "kind": "Device",
+            "interaction": { "interactionId": "operate_cooling_valve", "range": 1, "maxUses": 1 },
+            "interactionResultState": "Opened"
+          },
+          "idPrefix": "cooling_valve",
+          "count": 2,
+          "zoneMinCol": 1,
+          "zoneMaxCol": 6,
+          "secondaryOperateObjectiveId": "redheat_fissure_valves"
+        }
+      ],
+      "missionNameEn": "Redheat Fissure",
+      "missionNameJa": "赤熱裂け目"
+    },
+    {
+      "id": "buried_dawn_sanctum_outpost",
+      "terrainProfileId": "old_frontier_settlement",
+      "enemyRoster": [
+        { "id": "buried_dawn_sanctum_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "buried_dawn_sanctum_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
+      "missionNameEn": "Buried Dawn Sanctum Outpost (placeholder)",
+      "missionNameJa": "埋没聖堂 前線拠点(仮実装)"
     }
   ]
 }

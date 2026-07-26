@@ -410,7 +410,8 @@ void emitUnitDefeatedEvents(BattleState& battle, const AliveSnapshot& before) {
             unit.exitReason = (unit.unitClass == UnitClass::AshenhornBoar ||
                                unit.unitClass == UnitClass::AshironGrubworm ||
                                unit.unitClass == UnitClass::MarshFangSerpent ||
-                               unit.unitClass == UnitClass::PlateauCourierCaptain)
+                               unit.unitClass == UnitClass::PlateauCourierCaptain ||
+                               unit.unitClass == UnitClass::RedbackLizard)
                                   ? UnitExitReason::ScriptedWithdrawal
                                   : UnitExitReason::Defeated;
             BattleEvent event{battle.issueEventId(), 0,

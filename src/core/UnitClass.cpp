@@ -23,6 +23,7 @@ std::string toString(UnitClass unitClass) {
         case UnitClass::MarshFangSerpent: return "Marsh-Fang Serpent / 沼牙の大蛇";
         case UnitClass::PlateauCourierCaptain: return "Courier Captain / 高原運び手の隊長";
         case UnitClass::RaidLeader: return "Raid Leader / 襲撃団頭領";
+        case UnitClass::RedbackLizard: return "Redback Great Lizard / 赤背の大蜥蜴";
     }
     return "Unknown";
 }

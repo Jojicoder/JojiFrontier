@@ -179,13 +179,18 @@ std::vector<RegionSummary> computeRegionSummaries(const GameData& data, const Ba
         // completedRegionIds check.
         if (id == RegionId::OldFrontierSettlement) return RegionId::WindscarPlateau;
         if (id == RegionId::EmberRavine) return RegionId::OldFrontierSettlement;
+        // docs/regions/ember_ravine.md「埋没聖堂を次の遠征先へ追加」: same
+        // "add the region + wire it here immediately" discipline as this
+        // Slice's own fix above for OldFrontierSettlement/EmberRavine - do
+        // it up front this time instead of leaving a repeat of that gap.
+        if (id == RegionId::BuriedDawnSanctum) return RegionId::EmberRavine;
         return std::nullopt;
     };
 
     std::vector<RegionSummary> summaries;
     for (RegionId id : {RegionId::AshboughForest, RegionId::CinderwatchGate, RegionId::AshironQuarry,
                         RegionId::BlackwaterLowlands, RegionId::WindscarPlateau, RegionId::OldFrontierSettlement,
-                        RegionId::EmberRavine}) {
+                        RegionId::EmberRavine, RegionId::BuriedDawnSanctum}) {
         RegionDescriptor region = regionDescriptor(id, data);
         bool unlocked = regionUnlocked(id, baseState, data);
         RegionSummary summary{id, region.displayNameEn, region.displayNameJa, unlocked, "", ""};
@@ -360,6 +365,36 @@ ReturnToBaseResult applyExpeditionReturnToBase(ExpeditionState& expedition, Base
             kSettlementCommandLedgerDiscovery, kCollectiveDefenseRecordsDiscovery,
         };
         for (const DiscoveryId& discovery : kSettlementKeyDiscoveries) {
+            const bool alreadyHave = baseState.discoveryRegistry.count(discovery) ||
+                                      std::find(discoveriesThisReturn.begin(), discoveriesThisReturn.end(), discovery) !=
+                                          discoveriesThisReturn.end();
+            if (!alreadyHave) discoveriesThisReturn.push_back(discovery);
+        }
+    }
+
+    // docs/regions/ember_ravine.md「最低保証報酬」: same mechanism as
+    // cinderwatchMaterialsEarned/blackwaterMaterialsEarned/
+    // windscarMaterialsEarned/settlementMaterialsEarned above, tracked
+    // independently per region.
+    const bool emberRavineStillOpen = expedition.regionId == RegionId::EmberRavine &&
+                                      !baseState.completedRegionIds.count(RegionId::EmberRavine);
+    if (emberRavineStillOpen)
+        for (const auto& [id, quantity] : materialAdds) baseState.emberRavineMaterialsEarned[id] += quantity;
+
+    if (emberRavineStillOpen && expedition.pendingRegionCompletions.count(RegionId::EmberRavine)) {
+        static const std::unordered_map<LootId, int> kEmberRavineMaterialFloor = {
+            {"heat_resistant_material", 9}, {"sulfur", 6}, {"iron", 4}, {"ash_crystal", 5},
+        };
+        for (const auto& [id, floor] : kEmberRavineMaterialFloor) {
+            const int earned = baseState.emberRavineMaterialsEarned[id];
+            if (earned < floor) materialAdds[id] += floor - earned;
+        }
+        static const std::vector<DiscoveryId> kEmberRavineKeyDiscoveries = {
+            kHeatResistantProcessingRecordsDiscovery, kSpecialForgingRecordsDiscovery,
+            kAdvancedFieldworkRecordsDiscovery, kEmberRavineSurveyRecordsDiscovery,
+            kPreAshstormWatchRecordsDiscovery,
+        };
+        for (const DiscoveryId& discovery : kEmberRavineKeyDiscoveries) {
             const bool alreadyHave = baseState.discoveryRegistry.count(discovery) ||
                                       std::find(discoveriesThisReturn.begin(), discoveriesThisReturn.end(), discovery) !=
                                           discoveriesThisReturn.end();

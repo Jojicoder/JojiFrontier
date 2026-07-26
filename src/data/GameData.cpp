@@ -55,6 +55,7 @@ std::optional<UnitClass> unitClassFromString(const std::string& name) {
         {"MarshFangSerpent", UnitClass::MarshFangSerpent},
         {"PlateauCourierCaptain", UnitClass::PlateauCourierCaptain},
         {"RaidLeader", UnitClass::RaidLeader},
+        {"RedbackLizard", UnitClass::RedbackLizard},
     };
     auto it = lookup.find(name);
     if (it == lookup.end()) return std::nullopt;
