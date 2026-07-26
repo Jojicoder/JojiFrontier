@@ -1226,6 +1226,95 @@
       "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
       "missionNameEn": "Buried Dawn Sanctum Outpost (placeholder)",
       "missionNameJa": "埋没聖堂 前線拠点(仮実装)"
+    },
+    {
+      "id": "sanctum_approach",
+      "terrainProfileId": "buried_dawn_sanctum",
+      "enemyRoster": [
+        { "id": "sanctum_approach_retriever1", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "sanctum_approach_retriever2", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "sanctum_approach_retriever3", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "sanctum_approach_archer1", "name": "Sanctum Retriever", "classId": "WatchArcher" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "building_material", "quantity": 2 },
+        { "id": "stone", "quantity": 1 }
+      ],
+      "routeOutcomes": [
+        { "choice": "CollapsedSidePath", "partyDamage": 2 }
+      ],
+      "scoutRouteRequiredClass": "HeavyInfantry",
+      "missionNameEn": "Buried Approach",
+      "missionNameJa": "埋没参道"
+    },
+    {
+      "id": "collapsed_nave",
+      "terrainProfileId": "buried_dawn_sanctum",
+      "enemyRoster": [
+        { "id": "collapsed_nave_retriever1", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "collapsed_nave_retriever2", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "collapsed_nave_beast1", "name": "Buried Beast", "classId": "Wolf" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "medicinal_herb", "quantity": 2 },
+        { "id": "iron", "quantity": 1 }
+      ],
+      "missionNameEn": "Collapsed Nave (placeholder)",
+      "missionNameJa": "崩れた礼拝堂(仮実装)"
+    },
+    {
+      "id": "sanctum_infirmary",
+      "terrainProfileId": "buried_dawn_sanctum",
+      "enemyRoster": [
+        { "id": "sanctum_infirmary_retriever1", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "sanctum_infirmary_retriever2", "name": "Sanctum Retriever", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "medicinal_herb", "quantity": 2 },
+        { "id": "building_material", "quantity": 1 }
+      ],
+      "missionNameEn": "Infirmary (placeholder)",
+      "missionNameJa": "救護室(仮実装)"
+    },
+    {
+      "id": "sanctum_archive",
+      "terrainProfileId": "buried_dawn_sanctum",
+      "enemyRoster": [
+        { "id": "sanctum_archive_retriever1", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "sanctum_archive_retriever2", "name": "Sanctum Retriever", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "iron", "quantity": 1 }
+      ],
+      "missionNameEn": "Archive Vault (placeholder)",
+      "missionNameJa": "写本庫(仮実装)"
+    },
+    {
+      "id": "sealed_passage",
+      "terrainProfileId": "buried_dawn_sanctum",
+      "enemyRoster": [
+        { "id": "sealed_passage_retriever1", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "sealed_passage_retriever2", "name": "Sanctum Retriever", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "iron", "quantity": 1 }
+      ],
+      "missionNameEn": "Sealed Cloister (placeholder)",
+      "missionNameJa": "封鎖回廊(仮実装)"
+    },
+    {
+      "id": "dawn_altar",
+      "terrainProfileId": "buried_dawn_sanctum",
+      "enemyRoster": [
+        { "id": "dawn_altar_retriever1", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "dawn_altar_retriever2", "name": "Sanctum Retriever", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "building_material", "quantity": 1 },
+        { "id": "stone", "quantity": 1 }
+      ],
+      "missionNameEn": "Dawn Altar (placeholder)",
+      "missionNameJa": "夜明け祭壇(仮実装)"
     }
   ]
 }

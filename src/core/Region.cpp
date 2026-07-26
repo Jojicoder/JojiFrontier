@@ -1645,17 +1645,34 @@ RegionDescriptor emberRavineRegion(const GameData& data) {
     return region;
 }
 
-// docs/regions/ember_ravine.md「埋没聖堂を次の遠征先へ追加」: 8th region. Same
-// minimal-outpost-stub pattern M9-K/L/Q/U/Y established for every prior
-// region's first Slice - a single-site placeholder (`buried_dawn_sanctum_
-// outpost`, Bandit x2), unlocked once EmberRavine completes. Content itself
-// is out of scope for this Slice; a later Slice fleshes it out.
+// docs/regions/buried_dawn_sanctum.md「地点と周回」: 6-site skeleton + 2 camps
+// + the site 3/4 "順序選択" (either order, both required) branch, same
+// M9-U/M9-Z "build the skeleton once" pattern as every prior region. This
+// region introduces no new terrain/battle mechanic of its own (per task
+// scope), so the site3/4 order-choice is the same `BranchCompletion::
+// AllMembers` structure Old Frontier Settlement's granary/hall and Ember
+// Ravine's sulfur_hollow/cooling_channel branches already use - the doc's
+// "順序選択" wording describes the exact same "either order, both required"
+// shape those two branches already implement, not a new mechanism.
+// Site 1 (`sanctum_approach`, "埋没参道") is real content as of this Slice,
+// JSON-authored directly (fits the existing Schema, no hand-written
+// StageDescriptor function needed, same shape as `settlement_outer_fence`).
+// Sites 2-6 (`collapsed_nave`/`sanctum_infirmary`/`sanctum_archive`/
+// `sealed_passage`/`dawn_altar`) are minimal Bandit x2(-3) placeholders,
+// replacing the single-site `buried_dawn_sanctum_outpost` M9-AG stub (left
+// in place, dead/unreferenced - same precedent as `ember_ravine_ledge`'s own
+// dead JSON entry after M9-AA superseded it).
 RegionDescriptor buriedDawnSanctumRegion(const GameData& data) {
     RegionDescriptor region;
     region.id = RegionId::BuriedDawnSanctum;
     region.displayNameEn = "Buried Dawn Sanctum";
     region.displayNameJa = "埋没聖堂";
-    region.stages.push_back(stageDescriptorFromContent(data.stageContent("buried_dawn_sanctum_outpost")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("sanctum_approach")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("collapsed_nave")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("sanctum_infirmary")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("sanctum_archive")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("sealed_passage")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("dawn_altar")));
     return region;
 }
 

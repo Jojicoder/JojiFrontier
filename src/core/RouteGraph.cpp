@@ -272,6 +272,49 @@ const RegionRouteGraph& oldFrontierSettlementGraph() {
 // Slice; sites 2-8 are placeholders (see emberRavineRegion() in Region.cpp) -
 // this graph's own wiring is unaffected by that distinction, same as every
 // prior region's skeleton Slice.
+// docs/regions/buried_dawn_sanctum.md「地点と周回」: entrance -> 1.埋没参道 ->
+// 2.崩れた礼拝堂 -> キャンプI -> (3.救護室 と 4.写本庫、順序選択、両方必須) ->
+// キャンプII -> 5.封鎖回廊 -> 6.夜明け祭壇 -> exit. The site 3/4 branch is
+// BranchCompletion::AllMembers, same shape as Old Frontier Settlement's
+// settlement_old_granary/settlement_gathering_hall branch and Ember Ravine's
+// sulfur_hollow/ravine_cooling_channel branch (both required, order-free) -
+// the doc's "順序選択" is that same shape, not a new mechanism.
+const RegionRouteGraph& buriedDawnSanctumGraph() {
+    static const RegionRouteGraph graph{
+        RegionId::BuriedDawnSanctum,
+        "buried_dawn_sanctum_main_route",
+        "buried_dawn_sanctum_entrance_node",
+        "buried_dawn_sanctum_exit",
+        {
+            {"buried_dawn_sanctum_entrance_node", RouteNodeKind::Entrance, std::nullopt},
+            {"sanctum_approach", RouteNodeKind::Site, "sanctum_approach"},
+            {"collapsed_nave", RouteNodeKind::Site, "collapsed_nave"},
+            {"sanctum_camp1", RouteNodeKind::Camp, std::nullopt},
+            {"sanctum_infirmary_archive_branch", RouteNodeKind::BranchGroup, std::nullopt,
+             {"sanctum_infirmary", "sanctum_archive"}, BranchCompletion::AllMembers},
+            {"sanctum_infirmary", RouteNodeKind::Site, "sanctum_infirmary"},
+            {"sanctum_archive", RouteNodeKind::Site, "sanctum_archive"},
+            {"sanctum_camp2", RouteNodeKind::Camp, std::nullopt},
+            {"sealed_passage", RouteNodeKind::Site, "sealed_passage"},
+            {"dawn_altar", RouteNodeKind::Site, "dawn_altar"},
+            {"buried_dawn_sanctum_exit", RouteNodeKind::Exit, std::nullopt},
+        },
+        {
+            {"buried_dawn_sanctum_entrance_node", "sanctum_approach"},
+            {"sanctum_approach", "collapsed_nave"},
+            {"collapsed_nave", "sanctum_camp1"},
+            {"sanctum_camp1", "sanctum_infirmary_archive_branch"},
+            {"sanctum_infirmary", "sanctum_infirmary_archive_branch"},
+            {"sanctum_archive", "sanctum_infirmary_archive_branch"},
+            {"sanctum_infirmary_archive_branch", "sanctum_camp2"},
+            {"sanctum_camp2", "sealed_passage"},
+            {"sealed_passage", "dawn_altar"},
+            {"dawn_altar", "buried_dawn_sanctum_exit"},
+        },
+    };
+    return graph;
+}
+
 const RegionRouteGraph& emberRavineGraph() {
     static const RegionRouteGraph graph{
         RegionId::EmberRavine,
@@ -331,6 +374,7 @@ const RegionRouteGraph& regionRouteGraph(RegionId regionId) {
     if (regionId == RegionId::WindscarPlateau) return windscarPlateauGraph();
     if (regionId == RegionId::EmberRavine) return emberRavineGraph();
     if (regionId == RegionId::OldFrontierSettlement) return oldFrontierSettlementGraph();
+    if (regionId == RegionId::BuriedDawnSanctum) return buriedDawnSanctumGraph();
     throw std::invalid_argument("region has no route graph");
 }
 

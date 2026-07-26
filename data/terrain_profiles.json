@@ -197,6 +197,21 @@
       "maxBarriersPerColumn": 1,
       "ensureHorizontalRoute": true,
       "countBounds": { "terrain": "FireFloor", "minimum": 2, "maximum": 5 }
+    },
+    {
+      "id": "buried_dawn_sanctum",
+      "generationVersion": 1,
+      "seedSalt": 15,
+      "weights": [
+        { "terrain": "Floor", "weight": 45 },
+        { "terrain": "Rubble", "weight": 20 },
+        { "terrain": "WatchPost", "weight": 12 },
+        { "terrain": "HerbPatch", "weight": 8 },
+        { "terrain": "Barrier", "weight": 15 }
+      ],
+      "signatureTerrain": "Floor",
+      "maxBarriersPerColumn": 1,
+      "ensureHorizontalRoute": true
     }
   ]
 }

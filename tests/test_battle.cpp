@@ -11297,8 +11297,10 @@ int main() {
         // outcome of clearing all 8 sites, same generic regionCleared()/
         // completedRegionIds mechanism every prior region's own "X_secured"
         // stable ID already uses - `ember_ravine_secured` has no code
-        // entity of its own) unlocks BuriedDawnSanctum (the 8th region,
-        // this Slice's own region-clear stub) via regionUnlocked().
+        // entity of its own) unlocks BuriedDawnSanctum (the 8th region) via
+        // regionUnlocked(). As of this Slice, BuriedDawnSanctum's own
+        // regionDescriptor() is the real 6-site skeleton (see the dedicated
+        // skeleton test below), not the M9-AG single-site outpost stub.
         auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
         assert(data);
         jf::BaseState base;
@@ -11307,7 +11309,66 @@ int main() {
         assert(jf::regionUnlocked(jf::RegionId::BuriedDawnSanctum, base, *data));
         const jf::RegionDescriptor sanctum = jf::regionDescriptor(jf::RegionId::BuriedDawnSanctum, *data);
         assert(sanctum.displayNameJa == "埋没聖堂");
-        assert(sanctum.stages.size() == 1); // minimal outpost placeholder, mirroring every prior region stub
+        assert(sanctum.stages.size() == 6);
+    }
+
+    {
+        // docs/regions/buried_dawn_sanctum.md「地点と周回」: 6-site skeleton +
+        // 2 camps + the site 3/4 "順序選択" (either order, both required)
+        // branch, mirror of the Old Frontier Settlement skeleton test above.
+        // This Slice replaced the single-site `buried_dawn_sanctum_outpost`
+        // M9-AG stub with the real 6-stage regionDescriptor() (the stub JSON
+        // entry itself is left in place, dead/unreferenced).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor sanctumRegion =
+            jf::regionDescriptor(jf::RegionId::BuriedDawnSanctum, *data);
+        assert(sanctumRegion.stages.size() == 6);
+        assert(sanctumRegion.stages[0].id == "sanctum_approach");
+
+        const jf::RegionRouteGraph& sanctumRoute = jf::regionRouteGraph(jf::RegionId::BuriedDawnSanctum);
+        std::string error;
+        assert(jf::validateRouteGraph(sanctumRoute, &error));
+        assert(jf::findRouteNode(sanctumRoute, "sanctum_infirmary"));
+        assert(jf::findRouteNode(sanctumRoute, "sanctum_archive"));
+        const jf::RouteNodeDefinition* branch = jf::findRouteNode(sanctumRoute, "sanctum_infirmary_archive_branch");
+        assert(branch && branch->kind == jf::RouteNodeKind::BranchGroup &&
+               branch->branchCompletion == jf::BranchCompletion::AllMembers);
+    }
+
+    {
+        // docs/regions/buried_dawn_sanctum.md「1. 埋没参道」: 主目的(聖堂回収
+        // 団4体)・勝利報酬(建築材2、石材1)・ルート2(全員HP-2で迂回)・
+        // ルート3(`[重装兵]`梁を支える)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor sanctumRegion =
+            jf::regionDescriptor(jf::RegionId::BuriedDawnSanctum, *data);
+        const jf::StageDescriptor& approachStage = sanctumRegion.stages[0];
+        assert(approachStage.enemyRoster.size() == 4);
+        assert(approachStage.scoutRouteRequiredClass == jf::UnitClass::HeavyInfantry);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(approachStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "building_material") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "stone") == 1);
+
+        jf::BattleState frontal = jf::createScenarioBattle(*data, approachStage, /*seed=*/5);
+        int enemyCount = 0;
+        for (const jf::Unit& unit : frontal.units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 4);
+
+        const jf::ExplorationOutcome* collapsedOutcome = nullptr;
+        for (const auto& [choice, outcome] : approachStage.routeOutcomes)
+            if (choice == jf::ExplorationChoice::CollapsedSidePath) collapsedOutcome = &outcome;
+        assert(collapsedOutcome && collapsedOutcome->partyDamage == 2);
     }
 
     {

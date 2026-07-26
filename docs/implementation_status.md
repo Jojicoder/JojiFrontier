@@ -4167,6 +4167,85 @@ M9-D/K(Ashiron Quarry/Blackwater Lowlandsの地域ボス)に近い健全な数�
 適用され、埋没聖堂(第8地域)が選択可能な状態でBase画面に追加される)。これに
 より`paired_signal_ward`(戦旗と魔導の連携作戦)も到達可能になった。
 
+## M9-AH 埋没聖堂(第8地域): 地域骨格 + 地点1(埋没参道)
+
+`docs/regions/buried_dawn_sanctum.md`を確認し、M6/M9の確立済みパターン(地域骨格を
+1度作り、以後1地点ずつ本格化する)を踏襲して着手した。正本自身が「新規戦闘メカニクスを
+導入しない」ことを明記しているため、6地点中新規メカニクスを持つWindscar/Ember Ravineの
+Sliceではなく、同じく新規地形メカニクスを持たないM9-U(旧辺境集落)を最も近い前例とした。
+M9-AGが追加した`RegionId::BuriedDawnSanctum`+`buried_dawn_sanctum_outpost`の1地点
+プレースホルダーを土台に、本Sliceでスコープ全体(6地点+2キャンプ+地点3・4の
+どちらを先に攻略してもよい「順序選択」)+地点1「埋没参道」の実コンテンツへ拡張した。
+
+正本の「地点と周回」節の`地点1 -> 地点2 -> CAMP I -> (地点3/地点4、順序選択) ->
+CAMP II -> 地点5 -> 地点6`という図を読み直し、「順序選択」がOld Frontier Settlementの
+`settlement_old_granary`/`settlement_gathering_hall`分岐、Ember Ravineの
+`sulfur_hollow`/`ravine_cooling_channel`分岐と全く同じ「どちらを先に攻略してもよいが
+両方必須」という意味であることを確認した。新たな分岐機構は不要と判断し、
+`RouteGraph.cpp`へ既存の`BranchCompletion::AllMembers`でそのまま配線した
+(`buriedDawnSanctumGraph()`、`sanctum_infirmary_archive_branch`)。
+
+地点1「埋没参道」は`settlement_outer_fence`と同じくJSON Schemaへ直接収まったため
+`data/regions.json`のみで実コンテンツ化した(Region.cppの手書きステージ関数は不要)。
+敵「聖堂回収団4体」はBandit3体+WatchArcher1体を「Sanctum Retriever」表示名で再利用
+(既存の英語reskin表示名の規約どおり、新規JAグリフ登録は不要)。ルート2「全員HP-2で
+迂回」は`ExplorationOutcome::partyDamage`(既存フィールド)で表現。ルート3
+`[重装兵]`「梁を支える」は`scoutRouteRequiredClass: HeavyInfantry`で表現 -
+`UnitClass::HeavyInfantry`はM7項目1で既にClassとして完全に有効(加入経路は別途
+未実装だが、`scoutRouteRequiredClass`のようなパーティ編成チェックには影響しない、
+他の`[○○兵]`ルート前例と同型)。勝利報酬(建築材2、石材1)は`building_material`/
+`stone`ともOld Frontier Settlement/Ashiron Quarryで既に`materialNameFor()`の
+knownセット・localeキーへ登録済みのため、新規登録は一切不要だった。
+
+新規`buried_dawn_sanctum`TerrainProfile(`data/terrain_profiles.json`)を追加し、
+本Sliceの全6地点で共有した。正本の地形生成表(石床35〜50%/崩土15〜25%/礼拝床
+10〜15%/薬草保管床5〜10%/封鎖床5〜10%/崩壁5〜10%)は新規TerrainTypeを追加せず
+既存5種で近似:
+
+- 石床→Floor(45)、崩土→Rubble(20、移動2)
+- 礼拝床→WatchPost(12、DEF+2) - 正本の「RES+2」をそのまま表現するterrain単位の
+  RES加算機構がプロジェクト全体に存在しない(`defenseBonus()`/`evasionBonus()`の
+  みでresistanceBonus()相当は無い)ため、M9-Uが「低い石垣→WatchPost、DEF+2が
+  防御ボーナスに一致」で下したのと同じ判断で、種別違いの防御ボーナスへ近似した
+- 薬草保管床→HerbPatch(8) - 既存の`BattleState::consumeHerbPatch()`(行動終了時
+  HP5回復、消費後Floor化=各マス1回)が正本の記述とそのまま一致
+- 封鎖床(装置操作まで通行不可)・崩壁(通行不可またはObject)→どちらもBarrier(15) -
+  「装置操作でロック解除される地形」というタスク側が予告していた小規模追加の
+  必要性を検討したが、この機構は結局「Object耐久/装置操作の結果を地形へ反映する」
+  という既存の未実装ギャップ(M6-C以来)に帰着するため、本Sliceでは新設せず、
+  単純な常時通行不可のBarrierへ両方近似した(見送り、理由は下記に集約)
+
+見送った部分(正本との差分、都度明記):
+
+- 副目標「地点1: 参道支柱2本保全 -> 建築材+1」: Object耐久機構が丸ごと未実装
+  (M6-C以来の既知ギャップ)のため、副目標自体を配線しておらず報酬側も到達不能の
+  まま未宣言で残した(M9-U以来の「到達不能な報酬は未宣言のまま残す」前例と同型)
+- 「封鎖床」の装置操作ロック解除: 上記のとおりBarrierへ近似、Object耐久/装置連動
+  機構自体が無いための既知ギャップ
+- 「聖堂回収団」のHP30%以下降伏・撤退: RaidLeader(M9-Y)のような`retreatHpPercent`
+  Profile調整は、地点1の標準敵編成(Bandit/WatchArcher reskin)に対する既存の
+  generic AI挙動で十分近似されており、この地点専用のAiProfile新設は正本が明示的な
+  強敵(聖堂回収団長、次Slice以降)向けに用意した記述と判断し、標準雑魚敵への
+  追加チューニングは見送った
+
+`tests/test_battle.cpp`へ3件追加: 地域骨格(6地点+ルートグラフ+分岐の`AllMembers`
+検証)、地点1の報酬・敵数・ルート別`partyDamage`、既存の地域解放条件テストを新6地点
+骨格へ更新(旧`stages.size() == 1`プレースホルダー検証を`== 6`へ更新)。既存4テスト
+スイート(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/`check_localization`)
+含め全成功、フルスイートを3回連続実行し安定(フレークなし)。
+
+`jf_forest_balance --region=buried_dawn_sanctum`(500 Seed)の実測: 地点1(埋没参道)
+のfresh-party win率はDirect 65.8%/HP残24.4%(avg KO 2.72、rounds 6.29)、Tactical
+56.8%/HP残33.7%(avg KO 2.22)。既存地点1の実測レンジ(33.6%〜100%)の範囲内であり
+外れ値ではない。[[jf_forest_balance worst-case numbers]]の教訓どおり実測記録のみに
+留め、本Sliceでの数値調整は行わない。6地点通しのRegion clear win率はDirect
+0.0%/Tactical 0.8%だが、これは地点2〜6がまだBandit x2(-3)プレースホルダーの
+まま(本Sliceのスコープ外)であることに加え、本ツールのAI未対応objective種別が
+残っているためで、地点1本体の数値を示すものではない。
+
+以上で埋没聖堂(第8地域)の骨格(6地点+2キャンプ+地点3・4の順序選択分岐)が到達可能に
+なり、地点1が実コンテンツ化された。地点2〜6は次のSlice以降で1地点ずつ本格化する。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

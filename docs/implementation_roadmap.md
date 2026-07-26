@@ -178,10 +178,29 @@ ad-hocボーナスで`controlled_ember_formula`を付与。地域攻略・最低
 完了。これにより`paired_signal_ward`が到達可能になった。詳細は
 `implementation_status.md`のM9-AG参照。
 
+M9-AH(埋没聖堂・第8地域: 地域骨格 + 地点1「埋没参道」)完了(2026-07)。新規
+戦闘メカニクスを導入しない地域という正本自身の明記どおり、M9-U(旧辺境集落)を
+最も近い前例として踏襲した。6地点+2キャンプ+地点3・4「順序選択」(救護室/写本庫、
+どちらを先に攻略してもよいが両方必須)を`RouteGraph.cpp`へ既存の
+`BranchCompletion::AllMembers`で配線、地点1「埋没参道」を`data/regions.json`のみで
+実コンテンツ化(聖堂回収団4体、建築材2/石材1、ルート2「全員HP-2で迂回」は
+`partyDamage`、ルート3`[重装兵]`「梁を支える」は`scoutRouteRequiredClass:
+HeavyInfantry`)。新規`buried_dawn_sanctum`TerrainProfileを追加、正本の6地形を
+既存5 TerrainTypeで近似(石床→Floor、崩土→Rubble、礼拝床→WatchPost(RES+2の
+代わりにDEF+2、地形単位のRES加算機構自体が未実装のためM9-Uの「低い石垣」近似と
+同型)、薬草保管床→HerbPatch(既存の「行動終了時HP5回復、各マス1回」機構がそのまま
+一致)、封鎖床/崩壁→Barrier(「装置操作まで通行不可」はObject耐久/装置連動機構
+自体が未実装のため、単純な通行不可Barrierへ近似))。材料は`building_material`/
+`stone`とも既存(Old Frontier Settlement/Ashiron Quarryで登録済み)のため新規登録
+不要。副目標「参道支柱2本保全」→建築材+1はObject耐久機構未実装のため見送り
+(M9-U以来の既知ギャップと同型)。地点2〜6は旧`buried_dawn_sanctum_outpost`
+単一地点スタブに代わるBandit x2(-3)最小プレースホルダー。詳細は
+`implementation_status.md`のM9-AH参照。
+
 直近の未完了(優先度順):
 
-1. 埋没聖堂(第8地域)の本格実装(M6-B/C・M9-A〜AGと同じ「骨格→1地点ずつ」方式)。
-   現状は`buried_dawn_sanctum_outpost`(Bandit2体プレースホルダー)のみ。
+1. 埋没聖堂(第8地域)の残り地点(2〜6)の本格実装(M6-B/C・M9-A〜AHと同じ
+   「骨格→1地点ずつ」方式)。地域骨格+地点1「埋没参道」はM9-AHで完了済み。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/
