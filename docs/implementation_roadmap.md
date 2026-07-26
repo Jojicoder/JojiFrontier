@@ -234,11 +234,23 @@ ashsealed_observatory)と同じ理由で標準`EliminateTeam`へ近似(surveyObj
 されたことでCAMP IIが真に到達可能になったことを確認。詳細は
 `implementation_status.md`のM9-AK参照。
 
+M9-AL(埋没聖堂・第8地域: 地点5「封鎖回廊」)完了(2026-07)。`sealed_passage`を
+JSON-authoredで本格化。主目的「封鎖輪2個操作」はM9-N(風裂き高原地点3「風見台」)が
+確立した`objectPlacementRules`/`operateObjectiveId`の2-Object AND primary
+(異なるObjective Kind同士の合成ではなく、真に2個操作が主目的なケース)を
+そのまま踏襲し実装(近似ではない)。新素材登録は不要(`sanctum_equipment`は
+M9-AIで、`quality_iron`はCinderwatch Gate関連の既存Sliceで登録済み)。JAグリフ
+charsetへ「鎖」「廊」を追加登録。敗北条件「避難扉0」・副目標「避難扉耐久8以上→
+聖堂装置記録」・恒久成果`sanctum_passage_opened`はObject耐久機構/キャンプ効果
+フック未実装のため見送り(既存の同型ギャップ)。詳細は`implementation_status.md`
+のM9-AL参照。
+
 直近の未完了(優先度順):
 
-1. 埋没聖堂(第8地域)の残り地点(5〜6)の本格実装(M6-B/C・M9-A〜AKと同じ
-   「骨格→1地点ずつ」方式)。地域骨格+地点1〜4はM9-AH/AI/AJ/AKで完了済み、
-   CAMP IIも到達可能。
+1. 埋没聖堂(第8地域)の残り地点(6)の本格実装(M6-B/C・M9-A〜ALと同じ
+   「骨格→1地点ずつ」方式)。地域骨格+地点1〜5はM9-AH/AI/AJ/AK/ALで完了済み、
+   CAMP IIも到達可能。地点6(夜明け祭壇、地域最終強敵「聖堂回収団長」)+
+   地域攻略Sliceのみ残存。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/

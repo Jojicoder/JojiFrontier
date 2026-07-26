@@ -4410,6 +4410,72 @@ Completedかどうか」を`GameApp.cpp`で判定するad-hocパターンを踏�
 教訓どおり実測記録のみに留め、本Sliceでの数値調整は行わない。6地点通しのRegion
 clear win率は依然0%だが、地点5・6がまだplaceholderのままであることが主因。
 
+## M9-AL 埋没聖堂(第8地域): 地点5(封鎖回廊)
+
+`docs/regions/buried_dawn_sanctum.md`「6地点仕様」地点5の行+対応する公開副目標の行を
+再読した。主目的「封鎖輪2個操作」は、M9-N(風裂き高原地点3「風見台」)が
+`objectPlacementRules`/`operateObjectiveId`の2-Object Schemaで実装した真のAND
+primary(2つのDevice Objectがいずれもデフォルトの`ObjectiveGroupRule::All` primary
+groupへ加算される)とまったく同型で、異なるObjective Kind同士の合成が不要な
+「真に2個操作が主目的」なケースであることを確認した。`sunken_sluice`/
+`ravine_cooling_channel`/`heatwork_shop`のような単一Object近似ではなく、
+`windwatch_station`と同じ2-Object構成をそのまま`data/regions.json`の
+`sealed_passage`プレースホルダーへ実装した(`sealed_passage_ring_west`/
+`sealed_passage_ring_east`、列0-3/4-7でゾーン分割、`interactionId: operate_ring`)。
+`Region.cpp`の手書き関数・`RouteGraph.cpp`の配線とも変更不要(M9-AHの時点で
+`sealed_passage`ノードは既に`sanctum_camp2`直後・`dawn_altar`直前へ配線済み)。
+
+敵は正本どおり回収団4・野生獣2で、この地域の既存reskin規約(Bandit/WatchArcher =
+「Sanctum Retriever」、Wolf = 「Buried Beast」)をそのまま再利用した(新規JAグリフ
+登録は敵名について不要)。探索3択のうちルート1「輪を順番操作」/ルート2「敵排除後
+操作」は正本の表セルに数値差分の記述が無いため無条件・base rosterのまま、ルート3
+`[工兵]`「連動軸補修」は`scoutRouteRequiredClass: FrontierEngineer`のクラス要件のみ
+とした(`FrontierEngineer`はM7項目1で既にClassとして確立済み、`ashsealed_observatory`
+等の`[辺境工兵]`ルート前例と同型)。
+
+勝利報酬「聖堂器材2、高品質鉄材1」は両方とも既存materialで新規登録は不要だった -
+`sanctum_equipment`はM9-AI(地点2)で既に登録済み、`quality_iron`は
+`data/locales/{en,ja}.json`の`material.quality_iron`にCinderwatch Gate関連の
+既存Sliceで登録済みであることを事前確認した([[JA glyph coverage / no
+ID-collision on JA text]]および直近の`medicinal_herb`/`ruin_fragment`重複防止
+チェックの教訓どおり)。ミッション名JA「封鎖回廊」は「鎖」「廊」の2字が
+`ui_shared.cpp`のJAグリフcharsetに未登録だったため追加登録した(「封」「回」は
+既存の「灰封観測所」「回復」から登録済み)。
+
+見送った部分(正本との差分、既存の記録済みギャップと同型):
+
+- 敗北条件「避難扉0」: Object耐久機構が丸ごと未実装(M6-C以来の既知ギャップ)のため
+  未配線。「部隊全滅」は`allPlayersDefeated()`が常時有効なため追加配線不要。
+- 公開副目標「避難扉耐久8以上→聖堂装置記録」: 同じくObject耐久機構が無いため
+  配線せず、報酬側も到達不能のまま未宣言で残した(M9-AH地点1以来の「到達不能な
+  報酬は未宣言のまま残す」前例と同型)。`sanctum_device_records`は正本の最低保証
+  節が地域攻略時の保証枠として別途要求しており、その穴埋め配線は地域攻略Sliceで
+  別途必要になる(`medical_codex`/M9-AJで既に記録済みの同型の宿題)。
+- 恒久成果`sanctum_passage_opened`(地点5を安全通過): キャンプ/地点再訪時の効果
+  発動フック自体がプロジェクトに存在しない(`sanctum_infirmary_restored`等と同一
+  理由)ため見送り。
+
+`tests/test_battle.cpp`へ1件追加(`windwatch_station`の2-Object OperateObjectテストと
+同型): 敵全滅+片方の封鎖輪のみ操作ではVictoryが成立しないこと、両方操作して初めて
+Victoryが成立することを直接`BattleState`で検証。地点5の敵構成(6体)・報酬
+(聖堂器材2/高品質鉄材1)・`scoutRouteRequiredClass`も同テスト内でアサート。既存4
+テストスイート(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/
+`check_localization`)含め全成功、フルスイートを3回連続実行し安定(フレークなし、
+既知の`test_battle.cpp:1244`フレークは今回発生せず)。`git diff --check`成功。
+
+`jf_forest_balance --region=buried_dawn_sanctum`(500 Seed)の実測: 地点5(封鎖回廊)の
+fresh-party win率はDirect/Tactical共に0.0%(timeoutのみ、Direct HP残3.3%/timeout
+64件、Tactical HP残5.4%/timeout 70件)。これは[[jf_forest_balance worst-case
+numbers]]・`windwatch_station`(M9-N)自身の実測が既に記録した既知のシミュレータ
+盲点そのもの - このシミュレータは`ObjectiveKind`を一切認識せず常にEliminateTeam
+前提で動くため、主目的がOperateObjectのステージでは敵を全滅させても勝利条件を
+満たさず必ずtimeoutで敗北扱いになる。数値調整は行わない。6地点通しのRegion
+clear win率は依然0%だが、地点5がOperateObjectのシミュレータ盲点であることと
+地点6がまだplaceholderのままであることの両方が主因。
+
+以上で埋没聖堂(第8地域)の地点5が実コンテンツ化された。地点6(夜明け祭壇、地域最終
+強敵「聖堂回収団長」)を実装すれば正本の6地点すべてが揃う。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

@@ -312,7 +312,8 @@ void loadAppFont() {
                       "岩蜥蜴熱地採取団赤背の大蜥蜴"
                       "埋没聖堂前線拠点(仮実装)"
                       "崩れた礼拝堂避難者"
-                      "写本庫遺跡片";
+                      "写本庫遺跡片"
+                      "封鎖回廊聖堂器材高品質鉄材";
     for (const jf::FacilityNode& node : jf::facilityNodeRegistry()) charsetSource += node.nameJa + node.effectJa;
     for (const jf::SkillDefinition& skill : jf::skillRegistry()) charsetSource += skill.nameJa + skill.effectJa;
     for (jf::UnitClass uc : {jf::UnitClass::MarchCaptain, jf::UnitClass::VeteranGuard,

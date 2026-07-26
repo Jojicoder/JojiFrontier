@@ -1306,13 +1306,47 @@
       "terrainProfileId": "buried_dawn_sanctum",
       "enemyRoster": [
         { "id": "sealed_passage_retriever1", "name": "Sanctum Retriever", "classId": "Bandit" },
-        { "id": "sealed_passage_retriever2", "name": "Sanctum Retriever", "classId": "Bandit" }
+        { "id": "sealed_passage_retriever2", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "sealed_passage_retriever3", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "sealed_passage_archer1", "name": "Sanctum Retriever", "classId": "WatchArcher" },
+        { "id": "sealed_passage_beast1", "name": "Buried Beast", "classId": "Wolf" },
+        { "id": "sealed_passage_beast2", "name": "Buried Beast", "classId": "Wolf" }
       ],
       "baseVictoryLoot": [
-        { "id": "iron", "quantity": 1 }
+        { "id": "sanctum_equipment", "quantity": 2 },
+        { "id": "quality_iron", "quantity": 1 }
       ],
-      "missionNameEn": "Sealed Cloister (placeholder)",
-      "missionNameJa": "封鎖回廊(仮実装)"
+      "scoutRouteRequiredClass": "FrontierEngineer",
+      "objectPlacementRules": [
+        {
+          "definition": {
+            "definitionId": "sealed_passage_ring_west",
+            "kind": "Device",
+            "interaction": { "interactionId": "operate_ring", "range": 1, "maxUses": 1 },
+            "interactionResultState": "Opened"
+          },
+          "idPrefix": "sealed_passage_ring_west",
+          "count": 1,
+          "zoneMinCol": 0,
+          "zoneMaxCol": 3,
+          "operateObjectiveId": "operate_sealed_passage_ring_west"
+        },
+        {
+          "definition": {
+            "definitionId": "sealed_passage_ring_east",
+            "kind": "Device",
+            "interaction": { "interactionId": "operate_ring", "range": 1, "maxUses": 1 },
+            "interactionResultState": "Opened"
+          },
+          "idPrefix": "sealed_passage_ring_east",
+          "count": 1,
+          "zoneMinCol": 4,
+          "zoneMaxCol": 7,
+          "operateObjectiveId": "operate_sealed_passage_ring_east"
+        }
+      ],
+      "missionNameEn": "Sealed Cloister",
+      "missionNameJa": "封鎖回廊"
     },
     {
       "id": "dawn_altar",

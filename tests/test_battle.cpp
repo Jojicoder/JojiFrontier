@@ -11514,6 +11514,59 @@ int main() {
     }
 
     {
+        // docs/regions/buried_dawn_sanctum.md「地点5: 封鎖回廊」: primary is
+        // 2 OperateObject Objectives (封鎖輪2個操作), mirroring
+        // windwatch_station's own dual-panel shape (windscar_plateau.md
+        // 「3. 風見台」) via the same objectPlacementRules/operateObjectiveId
+        // JSON Schema - defeating every enemy without operating both rings
+        // must NOT win, operating only one must NOT win either, only both
+        // together wins.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor sanctumRegion =
+            jf::regionDescriptor(jf::RegionId::BuriedDawnSanctum, *data);
+        const jf::StageDescriptor* sealedPassageStage = nullptr;
+        for (const jf::StageDescriptor& stage : sanctumRegion.stages)
+            if (stage.id == "sealed_passage") sealedPassageStage = &stage;
+        assert(sealedPassageStage);
+        assert(sealedPassageStage->enemyRoster.size() == 6);
+        assert(sealedPassageStage->scoutRouteRequiredClass == jf::UnitClass::FrontierEngineer);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*sealedPassageStage, choice,
+                                                /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "sanctum_equipment") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "quality_iron") == 1);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *sealedPassageStage, /*seed=*/13);
+        int enemyCount = 0;
+        for (const jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 6);
+
+        for (jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+
+        jf::BattleObjectState* westRing = battle.findObject("sealed_passage_ring_west_1");
+        assert(westRing != nullptr);
+        westRing->interactionCount = 1; // only ONE of the 2 rings operated
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind != jf::BattleOutcomeKind::Victory);
+
+        jf::BattleObjectState* eastRing = battle.findObject("sealed_passage_ring_east_1");
+        assert(eastRing != nullptr);
+        eastRing->interactionCount = 1; // both rings now operated
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。
