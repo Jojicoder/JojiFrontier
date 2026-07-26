@@ -96,6 +96,16 @@ enum class UnitClass {
     // no round/Object-aware hook in AiProfile, so only the HP threshold is
     // modeled, same simplification RaidLeader's own comment already made.
     SanctumRetrievalLeader,
+    // docs/regions/shattered_march_fort.md "残留砦隊長" (切離命令庫の最終強敵).
+    // Same optional-elite shape as RaidLeader/SanctumRetrievalLeader above
+    // (正本「隊長撃破を必須にしない」/不変条件「隊長撃破を必須にしない」): no
+    // bespoke EnemyAI.cpp turn function, just the generic
+    // takeEnemyTurn()/generateAiCandidates() path with AiSystem.cpp's
+    // profileFor() giving it a tuned retreatHpPercent (25, matching the doc's
+    // "HP25%以下...撤退"). The doc's 3 bespoke abilities (交互防衛/壁際指揮/
+    // 記録封鎖) and the retreat condition's additional "命令箱2個保全" clause
+    // are all deferred - see AiSystem.cpp's own comment for this class.
+    FortGarrisonCaptain,
 };
 
 enum class Team {

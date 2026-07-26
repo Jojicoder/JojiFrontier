@@ -90,6 +90,16 @@ AiProfile profileFor(const Unit& unit) {
     // for the same "optional elite, not a true boss" reasoning.
     if (unit.unitClass == UnitClass::SanctumRetrievalLeader)
         return {AiProfileId::Human, 40, 1500, 12, 20, 20, 20, 1, 6, 25};
+    // docs/regions/shattered_march_fort.md「最終強敵 残留砦隊長」's 降伏条件:
+    // "HP25%以下かつ命令箱2個保全なら撤退" - same simplification as RaidLeader/
+    // SanctumRetrievalLeader above (no round/Object-aware hook exists on
+    // AiProfile), only the HP threshold is modeled. Explicitly not a bespoke
+    // takeXBossTurn() for the same "optional elite, not a true boss"
+    // reasoning; the doc's other 3 bespoke abilities (交互防衛/壁際指揮/
+    // 記録封鎖) are deferred entirely (see this class's own comment in
+    // UnitClass.hpp).
+    if (unit.unitClass == UnitClass::FortGarrisonCaptain)
+        return {AiProfileId::Human, 40, 1500, 12, 20, 20, 20, 1, 6, 25};
     return {AiProfileId::Human, 40, 1500, 12, 20, 20, 20, 1, 6};
 }
 

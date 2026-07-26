@@ -1553,12 +1553,30 @@
       "id": "fort_severance_order_archive",
       "terrainProfileId": "shattered_march_fort",
       "enemyRoster": [
-        { "id": "fort_severance_order_archive_bandit1", "name": "Fort Retainer", "classId": "Bandit" },
-        { "id": "fort_severance_order_archive_bandit2", "name": "Fort Retainer", "classId": "Bandit" }
+        { "id": "fort_severance_order_archive_captain", "name": "Fort Garrison Captain", "classId": "FortGarrisonCaptain" },
+        { "id": "fort_severance_order_archive_garrison1", "name": "Fort Garrison", "classId": "Bandit" },
+        { "id": "fort_severance_order_archive_garrison2", "name": "Fort Garrison", "classId": "Bandit" },
+        { "id": "fort_severance_order_archive_garrison3", "name": "Fort Garrison", "classId": "Bandit" },
+        { "id": "fort_severance_order_archive_archer1", "name": "Fort Garrison", "classId": "WatchArcher" },
+        { "id": "fort_severance_order_archive_archer2", "name": "Fort Garrison", "classId": "WatchArcher" },
+        { "id": "fort_severance_order_archive_archer3", "name": "Fort Garrison", "classId": "WatchArcher" }
       ],
-      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
-      "missionNameEn": "Severance Order Archive (placeholder)",
-      "missionNameJa": "切離命令庫(仮実装)"
+      "baseVictoryLoot": [
+        { "id": "quality_iron", "quantity": 2 },
+        { "id": "military_supplies", "quantity": 2 },
+        { "id": "stone", "quantity": 1 }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath" },
+        { "choice": "ScoutRoute" }
+      ],
+      "scoutRouteRequiredClass": "MarchCaptain",
+      "primarySurviveRoundsAlternative": { "id": "fort_severance_order_archive_defense", "surviveUntilRound": 5 },
+      "surveyObjectiveId": "fort_severance_order_archive_crate",
+      "surveyTileCount": 2,
+      "missionNameEn": "Severance Order Archive",
+      "missionNameJa": "切離命令庫"
     },
     {
       "id": "shattered_march_fort_outpost",
@@ -1570,6 +1588,17 @@
       "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
       "missionNameEn": "Shattered March Fort Outpost (placeholder)",
       "missionNameJa": "破砕された前線砦 前線拠点(仮実装)"
+    },
+    {
+      "id": "mapped_edge_outpost",
+      "terrainProfileId": "old_frontier_settlement",
+      "enemyRoster": [
+        { "id": "mapped_edge_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "mapped_edge_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
+      "missionNameEn": "Mapped Edge Outpost (placeholder)",
+      "missionNameJa": "地図外縁 前線拠点(仮実装)"
     }
   ]
 }

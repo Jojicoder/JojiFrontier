@@ -72,6 +72,14 @@ enum class RegionId {
     // it out, mirroring M9-K/L/Q/U/Y/AG's established "add the stub now,
     // flesh it out later" split.
     ShatteredMarchFort,
+    // docs/regions/shattered_march_fort.md「地図外縁を解放」: 10th and FINAL
+    // region of the whole campaign. Added as a minimal placeholder (same role
+    // every prior region's own pre-fleshed-out stub played - M9-K/Q/Y/AG/AM),
+    // unlocked once ShatteredMarchFort completes. Content itself is out of
+    // scope here - a later Slice fleshes it out. Per every prior region's own
+    // precedent, a stub region does NOT get a real RouteGraph entry (
+    // `usesRouteGraph()`) until its own first content Slice builds one.
+    MappedEdge,
 };
 
 using LootId = std::string;
@@ -214,6 +222,12 @@ struct BaseState {
     // windscarMaterialsEarned/settlementMaterialsEarned/emberRavineMaterialsEarned
     // above, tracked independently per region.
     std::unordered_map<std::string, int> buriedDawnSanctumMaterialsEarned;
+    // docs/regions/shattered_march_fort.md「最低保証」: same mechanism as
+    // cinderwatchMaterialsEarned/blackwaterMaterialsEarned/
+    // windscarMaterialsEarned/settlementMaterialsEarned/
+    // emberRavineMaterialsEarned/buriedDawnSanctumMaterialsEarned above,
+    // tracked independently per region.
+    std::unordered_map<std::string, int> shatteredMarchFortMaterialsEarned;
 
     // docs/item_system.md "製作単位と倉庫上限": consumables owned but not
     // currently packed into an expedition bag - crafted via GameApp::
@@ -472,6 +486,22 @@ inline constexpr const char* kMedicalCodexDiscovery = "medical_codex";
 // (同じObject耐久ギャップ、M9-AL) から個別には到達不能。medical_codex同様、
 // 地域の最低保証フロア底上げでのみ到達可能。
 inline constexpr const char* kSanctumDeviceRecordsDiscovery = "sanctum_device_records";
+// docs/regions/shattered_march_fort.md「安定ID」table: 砦指揮記録 ->
+// `fort_command_records`。地点7「切離命令庫」の公開副目標「命令箱2個」で
+// 断片(kSeveranceOrderFragmentsDiscovery)と同時に付与される(正本の
+// EmberRavine地点7「2個とも回収」-> 2 Discovery同時付与と同型、GameApp.cpp)。
+// 地域の最低保証フロアにも同名の1個枠があるため、未取得ならフロア底上げでも
+// 到達可能にする。
+inline constexpr const char* kFortCommandRecordsDiscovery = "fort_command_records";
+// docs/regions/shattered_march_fort.md「安定ID」table: 防衛技術資料 ->
+// `fort_defense_technology`。地点2「崩れ門」の副目標「城門耐久10以上」
+// (Object耐久ギャップ、M9-AO)から個別には到達不能。medical_codex/
+// sanctum_device_records同様、地域の最低保証フロア底上げでのみ到達可能。
+inline constexpr const char* kFortDefenseTechnologyDiscovery = "fort_defense_technology";
+// docs/regions/shattered_march_fort.md「安定ID」table: 切離命令断片 ->
+// `severance_order_fragments`。kFortCommandRecordsDiscoveryと同じ地点7
+// 「命令箱2個」ボーナスで同時付与される。
+inline constexpr const char* kSeveranceOrderFragmentsDiscovery = "severance_order_fragments";
 
 // docs/regions/buried_dawn_sanctum.md「公開副目標」地点2「崩れた礼拝堂」の
 // "避難者全員脱出 -> 野戦救護記録": the doc's own「安定ID」table doesn't list an

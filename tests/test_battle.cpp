@@ -5812,8 +5812,10 @@ int main() {
         // EmberRavine were both missing) - now covers all 7 regions. M9-AG
         // added an 8th (BuriedDawnSanctum, EmberRavine's region-clear stub);
         // this Slice added a 9th (ShatteredMarchFort, BuriedDawnSanctum's own
-        // region-clear stub).
-        assert(summaries.size() == 9);
+        // region-clear stub). A later Slice added a 10th (MappedEdge,
+        // ShatteredMarchFort's own region-clear stub - the 10th and FINAL
+        // region of the whole campaign).
+        assert(summaries.size() == 10);
         bool sawAshboughUnlocked = false, sawCinderwatchLocked = false, sawAshironLocked = false;
         for (const auto& summary : summaries) {
             if (summary.id == jf::RegionId::AshboughForest) sawAshboughUnlocked = summary.unlocked;
@@ -12005,6 +12007,80 @@ int main() {
         }
         jf::syncObjectiveProgress(defense);
         assert(jf::evaluateBattleOutcome(defense).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/shattered_march_fort.md「地点7: 切離命令庫」: this
+        // region's final site. Primary is SurviveRounds(5)
+        // (sanctum_infirmary/herb_islet/fort_reserve_wall同型). 敵「隊長1、
+        // 残留隊6」: `UnitClass::FortGarrisonCaptain`(HP48/STR10/DEF9/RES5/
+        // MOV4) + Fort Garrison(Bandit3+WatchArcher3), matching the doc's
+        // 隊長「隊長撃破を必須にしない」optional-elite shape (generic AI +
+        // AiSystem.cpp's retreatHpPercent=25 tuning only, no bespoke
+        // EnemyAI.cpp turn function - see UnitClass.hpp's own comment for
+        // this class for the 3 deferred bespoke abilities).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor fortRegion = jf::regionDescriptor(jf::RegionId::ShatteredMarchFort, *data);
+        const jf::StageDescriptor* archiveStage = nullptr;
+        for (const jf::StageDescriptor& stage : fortRegion.stages)
+            if (stage.id == "fort_severance_order_archive") archiveStage = &stage;
+        assert(archiveStage);
+        // Explicit roster-size assertion (M9-AM's 3rd fix's own lesson: a new
+        // UnitClass silently vanishing from a roster with no error must be
+        // caught by an explicit size check, not just "it built").
+        assert(archiveStage->enemyRoster.size() == 7);
+        assert(archiveStage->enemyRoster.front().classId == jf::UnitClass::FortGarrisonCaptain);
+        assert(archiveStage->scoutRouteRequiredClass == jf::UnitClass::MarchCaptain);
+        assert(archiveStage->primarySurviveRoundsAlternative &&
+              archiveStage->primarySurviveRoundsAlternative->id == "fort_severance_order_archive_defense" &&
+              archiveStage->primarySurviveRoundsAlternative->surviveUntilRound == 5);
+        assert(archiveStage->surveyObjectiveId && *archiveStage->surveyObjectiveId == "fort_severance_order_archive_crate");
+        assert(archiveStage->surveyTileCount == 2);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*archiveStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "quality_iron") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "military_supplies") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "stone") == 1);
+
+        // 主目的: 5ラウンド生存(EliminateTeamとのOR)。隊長を1体も倒さなくても
+        // 5ラウンド生存でVictory(「隊長撃破を必須にしない」)。
+        jf::BattleState defense = jf::createScenarioBattle(*data, *archiveStage, /*seed=*/11);
+        jf::syncObjectiveProgress(defense);
+        assert(jf::evaluateBattleOutcome(defense).kind != jf::BattleOutcomeKind::Victory);
+        while (defense.round() <= 5) {
+            defense.beginEnemyPhase();
+            defense.beginPlayerPhase();
+        }
+        jf::syncObjectiveProgress(defense);
+        assert(jf::evaluateBattleOutcome(defense).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/shattered_march_fort.md「地図外縁を解放」: RegionId::
+        // MappedEdge (10th and FINAL region of the whole campaign) exists,
+        // is registered in regionUnlocked()/regionDescriptor(), and is only
+        // unlocked once ShatteredMarchFort is in completedRegionIds - same
+        // direct-BaseState-manipulation test shape as M9-AM's own
+        // ShatteredMarchFort-unlock test above (full E2E through all 9 prior
+        // regions is impractical). Per every prior stub region's own
+        // precedent, MappedEdge does NOT get a RouteGraph entry yet.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        jf::BaseState base;
+        assert(!jf::regionUnlocked(jf::RegionId::MappedEdge, base, *data));
+        base.completedRegionIds.insert(jf::RegionId::ShatteredMarchFort);
+        assert(jf::regionUnlocked(jf::RegionId::MappedEdge, base, *data));
+        const jf::RegionDescriptor mappedEdgeRegion = jf::regionDescriptor(jf::RegionId::MappedEdge, *data);
+        assert(!mappedEdgeRegion.stages.empty());
+        assert(!jf::usesRouteGraph(jf::RegionId::MappedEdge));
     }
 
     {

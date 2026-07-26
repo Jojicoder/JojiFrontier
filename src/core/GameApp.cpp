@@ -294,6 +294,35 @@ void GameApp::proceedToCamp() {
             expedition_.pendingDiscoveries.push_back(kAdvancedMagicResearchRecordsDiscovery);
     }
 
+    // docs/regions/shattered_march_fort.md「切離命令庫」の公開副目標「命令箱2個」
+    // -> 砦指揮記録、切離命令断片: same all-group-members-Completed ad-hoc check
+    // as ember_ravine's own ashsealed_observatory block above ("2個とも回収" ->
+    // 2 Discoveries at once, M9-AF's own precedent this doc explicitly points
+    // to), granting both Discoveries together over the
+    // `fort_severance_order_archive_crate` surveyObjectiveId group
+    // (surveyTileCount:2).
+    if (!isReconnaissanceRun_ && stage.id == "fort_severance_order_archive") {
+        const BattleMissionState& mission = battleController_->battle().missionState();
+        bool anyInGroup = false;
+        bool allCompleted = true;
+        for (const ObjectiveDefinition& def : mission.definitions) {
+            if (def.groupId != "fort_severance_order_archive_crate") continue;
+            anyInGroup = true;
+            if (mission.progress.at(def.id).status != ObjectiveStatus::Completed) {
+                allCompleted = false;
+                break;
+            }
+        }
+        if (anyInGroup && allCompleted) {
+            if (std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                         kFortCommandRecordsDiscovery) == expedition_.pendingDiscoveries.end())
+                expedition_.pendingDiscoveries.push_back(kFortCommandRecordsDiscovery);
+            if (std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                         kSeveranceOrderFragmentsDiscovery) == expedition_.pendingDiscoveries.end())
+                expedition_.pendingDiscoveries.push_back(kSeveranceOrderFragmentsDiscovery);
+        }
+    }
+
     // docs/regions/old_frontier_settlement.md「2. 共同井戸」の副目標「中立住民を
     // 全員避難」→ 集落証言記録: unlike blackwater_crossing/quarry_old_mine's
     // ad-hoc creditedTargetIds.size()>=N check above, this reads a REAL

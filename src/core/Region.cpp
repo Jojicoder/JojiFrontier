@@ -1932,6 +1932,20 @@ RegionDescriptor shatteredMarchFortRegion(const GameData& data) {
     return region;
 }
 
+// docs/regions/shattered_march_fort.md「地図外縁を解放」: 10th and FINAL region
+// of the whole campaign, added as a minimal 1-site placeholder stub - same
+// role every prior region's own pre-fleshed-out stub played (M9-K/Q/Y/AG/AM/
+// AN). Content itself is out of scope for this Slice; a later Slice fleshes
+// it out.
+RegionDescriptor mappedEdgeRegion(const GameData& data) {
+    RegionDescriptor region;
+    region.id = RegionId::MappedEdge;
+    region.displayNameEn = "Mapped Edge";
+    region.displayNameJa = "地図外縁";
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_outpost")));
+    return region;
+}
+
 } // namespace
 
 RegionDescriptor regionDescriptor(RegionId id, const GameData& data) {
@@ -1945,6 +1959,7 @@ RegionDescriptor regionDescriptor(RegionId id, const GameData& data) {
         case RegionId::EmberRavine: return emberRavineRegion(data);
         case RegionId::BuriedDawnSanctum: return buriedDawnSanctumRegion(data);
         case RegionId::ShatteredMarchFort: return shatteredMarchFortRegion(data);
+        case RegionId::MappedEdge: return mappedEdgeRegion(data);
     }
     return cinderwatchGateRegion(data);
 }
@@ -1960,6 +1975,7 @@ std::string toString(RegionId id) {
         case RegionId::EmberRavine: return "ember_ravine";
         case RegionId::BuriedDawnSanctum: return "buried_dawn_sanctum";
         case RegionId::ShatteredMarchFort: return "shattered_march_fort";
+        case RegionId::MappedEdge: return "mapped_edge";
     }
     return "cinderwatch_gate";
 }
@@ -1973,6 +1989,7 @@ RegionId regionIdFromString(const std::string& id) {
     if (id == "ember_ravine") return RegionId::EmberRavine;
     if (id == "buried_dawn_sanctum") return RegionId::BuriedDawnSanctum;
     if (id == "shattered_march_fort") return RegionId::ShatteredMarchFort;
+    if (id == "mapped_edge") return RegionId::MappedEdge;
     return RegionId::CinderwatchGate;
 }
 
@@ -1986,6 +2003,7 @@ std::optional<RegionId> regionIdFromStringStrict(const std::string& id) {
     if (id == "ember_ravine") return RegionId::EmberRavine;
     if (id == "buried_dawn_sanctum") return RegionId::BuriedDawnSanctum;
     if (id == "shattered_march_fort") return RegionId::ShatteredMarchFort;
+    if (id == "mapped_edge") return RegionId::MappedEdge;
     return std::nullopt;
 }
 
@@ -2055,6 +2073,7 @@ bool regionUnlocked(RegionId regionId, const BaseState& base, const GameData& /*
         case RegionId::EmberRavine: return base.completedRegionIds.count(RegionId::OldFrontierSettlement) > 0;
         case RegionId::BuriedDawnSanctum: return base.completedRegionIds.count(RegionId::EmberRavine) > 0;
         case RegionId::ShatteredMarchFort: return base.completedRegionIds.count(RegionId::BuriedDawnSanctum) > 0;
+        case RegionId::MappedEdge: return base.completedRegionIds.count(RegionId::ShatteredMarchFort) > 0;
     }
     return true;
 }

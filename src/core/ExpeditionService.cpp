@@ -188,13 +188,17 @@ std::vector<RegionSummary> computeRegionSummaries(const GameData& data, const Ba
         // "add + wire predecessor here immediately" discipline as the fixes
         // above.
         if (id == RegionId::ShatteredMarchFort) return RegionId::BuriedDawnSanctum;
+        // docs/regions/shattered_march_fort.md「地図外縁を解放」: same "add +
+        // wire predecessor here immediately" discipline as the fixes above.
+        if (id == RegionId::MappedEdge) return RegionId::ShatteredMarchFort;
         return std::nullopt;
     };
 
     std::vector<RegionSummary> summaries;
     for (RegionId id : {RegionId::AshboughForest, RegionId::CinderwatchGate, RegionId::AshironQuarry,
                         RegionId::BlackwaterLowlands, RegionId::WindscarPlateau, RegionId::OldFrontierSettlement,
-                        RegionId::EmberRavine, RegionId::BuriedDawnSanctum, RegionId::ShatteredMarchFort}) {
+                        RegionId::EmberRavine, RegionId::BuriedDawnSanctum, RegionId::ShatteredMarchFort,
+                        RegionId::MappedEdge}) {
         RegionDescriptor region = regionDescriptor(id, data);
         bool unlocked = regionUnlocked(id, baseState, data);
         RegionSummary summary{id, region.displayNameEn, region.displayNameJa, unlocked, "", ""};
@@ -432,6 +436,41 @@ ReturnToBaseResult applyExpeditionReturnToBase(ExpeditionState& expedition, Base
             kMedicalCodexDiscovery, kSanctumDeviceRecordsDiscovery,
         };
         for (const DiscoveryId& discovery : kBuriedDawnSanctumKeyDiscoveries) {
+            const bool alreadyHave = baseState.discoveryRegistry.count(discovery) ||
+                                      std::find(discoveriesThisReturn.begin(), discoveriesThisReturn.end(), discovery) !=
+                                          discoveriesThisReturn.end();
+            if (!alreadyHave) discoveriesThisReturn.push_back(discovery);
+        }
+    }
+
+    // docs/regions/shattered_march_fort.md「最低保証」: same mechanism as
+    // cinderwatchMaterialsEarned/blackwaterMaterialsEarned/
+    // windscarMaterialsEarned/settlementMaterialsEarned/
+    // emberRavineMaterialsEarned/buriedDawnSanctumMaterialsEarned above,
+    // tracked independently per region.
+    const bool shatteredMarchFortStillOpen = expedition.regionId == RegionId::ShatteredMarchFort &&
+                                             !baseState.completedRegionIds.count(RegionId::ShatteredMarchFort);
+    if (shatteredMarchFortStillOpen)
+        for (const auto& [id, quantity] : materialAdds) baseState.shatteredMarchFortMaterialsEarned[id] += quantity;
+
+    if (shatteredMarchFortStillOpen && expedition.pendingRegionCompletions.count(RegionId::ShatteredMarchFort)) {
+        static const std::unordered_map<LootId, int> kShatteredMarchFortMaterialFloor = {
+            {"quality_iron", 5}, {"stone", 8}, {"military_supplies", 7}, {"cloth", 2},
+        };
+        for (const auto& [id, floor] : kShatteredMarchFortMaterialFloor) {
+            const int earned = baseState.shatteredMarchFortMaterialsEarned[id];
+            if (earned < floor) materialAdds[id] += floor - earned;
+        }
+        // 防衛技術資料(地点2「崩れ門」の副目標「城門耐久10以上」、Object耐久ギャップ、
+        // M9-AO)はmedical_codex/sanctum_device_records同様個別に到達不能なため、
+        // この地域自身のフロア底上げで初めて到達可能にする。砦指揮記録・切離命令断片は
+        // 地点7「切離命令庫」の公開副目標「命令箱2個」(GameApp.cpp)で通常到達可能だが、
+        // 正本の「最低保証」節がこの3件をそれぞれ1個ずつ保証枠として要求しているため、
+        // 未取得分をここでも保証する。
+        static const std::vector<DiscoveryId> kShatteredMarchFortKeyDiscoveries = {
+            kFortDefenseTechnologyDiscovery, kFortCommandRecordsDiscovery, kSeveranceOrderFragmentsDiscovery,
+        };
+        for (const DiscoveryId& discovery : kShatteredMarchFortKeyDiscoveries) {
             const bool alreadyHave = baseState.discoveryRegistry.count(discovery) ||
                                       std::find(discoveriesThisReturn.begin(), discoveriesThisReturn.end(), discovery) !=
                                           discoveriesThisReturn.end();

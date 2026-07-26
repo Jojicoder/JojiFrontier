@@ -472,5 +472,7 @@
   "weapon.lizard_claws": "Claws",
   "class.sanctum_retrieval_leader": "Sanctum Retrieval Leader",
   "class.sanctum_retrieval_leader.role": "Elite (optional): prioritizes units near the archive boxes, considers surrendering at low HP. Not a scripted boss.",
+  "class.fort_garrison_captain": "Fort Garrison Captain",
+  "class.fort_garrison_captain.role": "Elite (optional): defends the order crates, considers retreating at low HP. Not a scripted boss.",
   "weapon.sanctum_glaive": "Sanctum Glaive"
 }

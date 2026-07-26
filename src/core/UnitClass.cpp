@@ -24,6 +24,13 @@ std::string toString(UnitClass unitClass) {
         case UnitClass::PlateauCourierCaptain: return "Courier Captain / 高原運び手の隊長";
         case UnitClass::RaidLeader: return "Raid Leader / 襲撃団頭領";
         case UnitClass::RedbackLizard: return "Redback Great Lizard / 赤背の大蜥蜴";
+        // SanctumRetrievalLeader was added to the enum (M9-AM) without a
+        // matching case here, silently falling through to "Unknown" below -
+        // fixed as part of this Slice while adding FortGarrisonCaptain's own
+        // case (same file, same class of omission the M9-AM write-up already
+        // flagged once for unitClassFromString()).
+        case UnitClass::SanctumRetrievalLeader: return "Sanctum Retrieval Leader / 聖堂回収団長";
+        case UnitClass::FortGarrisonCaptain: return "Fort Garrison Captain / 残留砦隊長";
     }
     return "Unknown";
 }

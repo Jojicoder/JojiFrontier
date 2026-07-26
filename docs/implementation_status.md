@@ -5051,6 +5051,122 @@ OperateObject盲点に加え地点7(切離命令庫)+地域ボス「残留砦隊
 CAMP IIIへ実質的に到達可能になった(グラフ配線自体はM9-ANから既に機能済み)。
 残り地点7(切離命令庫)+地域ボス「残留砦隊長」は次のSlice以降で本格化する。
 
+## M9-AT 破砕された前線砦(第9地域): 地点7(切離命令庫)/ 強敵「残留砦隊長」/ 地域攻略 / 地図外縁(第10・最終地域)
+
+M9-AN〜AS(骨格+地点1〜6)に続き、地点7「切離命令庫」(この地域の最終地点)を実
+コンテンツ化し、地域攻略〜次地域「地図外縁」解放まで通しで配線した。地図外縁は
+`docs/campaign_regions.md`/地域マスターリスト確認どおり全10地域キャンペーンの
+**第10・最終地域**。
+
+強敵「残留砦隊長」は`old_frontier_settlement`の`RaidLeader`(M9-Y)/
+`buried_dawn_sanctum`の`SanctumRetrievalLeader`(M9-AM)と全く同じ「撃破は最終
+攻略に不要な任意強敵」の扱い(正本「隊長撃破を必須にしない」/不変条件「隊長撃破を
+必須にしない」)とし、専用`EnemyAI.cpp`ボスAI関数は作らず、新規
+`UnitClass::FortGarrisonCaptain`(HP48/STR10/DEF9/RES5/MOV4、`heavy_axe`
+(既存武器)射程1)を汎用敵AI経路にそのまま乗せ、`AiSystem.cpp`の`profileFor()`へ
+`retreatHpPercent=25`を追加しただけで正本の「HP25%以下...撤退する」を近似した。
+正本の3つの固有行動はすべて見送った: **交互防衛**(2波の`timedReinforcement`は
+`std::optional`単一フィールドという既知の制限、M9-Y/M9-ASに続き3件目の同種
+ギャップだが、そもそも本Sliceでは2波構成自体を採用せず単一エンカウンターとした
+ため実質不要)、**壁際指揮**(地形隣接条件でのAI側味方バフという前例のない新規
+インフラ、`RaidLeader`/`SanctumRetrievalLeader`と同じ節度で見送り)、**記録封鎖**
+(敵の存在がプレイヤーのObject操作を封じるという前例のない新規インフラ、同様に
+見送り)。降伏条件の「命令箱2個保全」サブ条件もRaidLeader/SanctumRetrievalLeader
+と同じ理由(AiProfileにRound/Object認識フックが無い)でHP閾値のみへ近似した。
+これら3能力すべてを見送った結果、隊長固有の行動優先順位も実装不要(汎用AI+
+撤退閾値のみが実装範囲全体)。
+
+主目的「命令箱2個保全して隊長撤退または5Round」は、`fort_reserve_wall`(M9-AS)
+自身が確立した`primarySurviveRoundsAlternative`(`surviveUntilRound=5`)のみへ
+近似し、命令箱保全半分・隊長撤退の代替勝利パスの両方をObject耐久/AND-OR合成の
+既知ギャップとして見送った(本セッションのM9-D/J/Y/AC/AE/AG/AM/ARと同型の
+compound-primary近似)。敵編成「隊長1、残留隊6」はFortGarrisonCaptain1体+
+Bandit3体+WatchArcher3体を、M9-AO〜ASが確立済みの本地域「残留砦隊」専用
+フレーバー名「Fort Garrison」で再利用(新規JAグリフ登録は不要)。探索3択
+「記録開示要求」/「箱搬出優先」(共に無条件)/`[行軍隊長]`「責任保証」
+(`scoutRouteRequiredClass: MarchCaptain`)を配線 - 正本の7地点表の当該行に
+追加数値デルタの記載が無いことを確認したうえで、`routeOutcomes`は選択肢の列挙
+のみとした。主目的報酬(高品質鉄材2、軍需品2、石材1)はすべて既存reuse
+(`quality_iron`/`military_supplies`/`stone`)、`data/regions.json`全体を検索し
+重複が無いことを確認したうえで再利用した。
+
+公開副目標「命令箱2個 -> 砦指揮記録、切離命令断片」は`surveyObjectiveId`
+(`fort_severance_order_archive_crate`、`surveyTileCount: 2`)+`GameApp.cpp`の
+all-group-members-Completedチェックで、EmberRavine地点7「灰封観測所」の
+「2個とも回収 -> 峡谷踏査記録、灰嵐以前の監視記録」(M9-AF)と全く同型に、2件の
+新規Discovery(`kFortCommandRecordsDiscovery`=`fort_command_records`、
+`kSeveranceOrderFragmentsDiscovery`=`severance_order_fragments`)を同時付与する
+形で配線した。
+
+### 地域攻略〜地図外縁(第10・最終地域)配線
+
+`buried_dawn_sanctum_secured`(M9-AM)と同じく、`shattered_march_fort_secured`/
+`severance_order_archive_preserved`のような「安定ID」表の地域完了/地点完了系
+idはこのプロジェクトでは一貫して実体を持たない(`BaseState::completedRegionIds`
+のcount自体・`siteAccess`のSecured到達自体がそのまま「secured」outcomeとして
+機能する)ため、追加コードは不要 - `computeWouldRegionBeCleared()`が地点7の
+Secured到達を検出した時点で自動的に成立する。
+
+`RegionId::MappedEdge`(第10地域「地図外縁」、全10地域キャンペーンの最終地域)を
+`shattered_march_fort_outpost`と同型の2-Bandit placeholderスタブとして追加、
+`Region.cpp`の5箇所のswitch文(`regionDescriptor()`/`toString()`/
+`regionIdFromString()`/`regionIdFromStringStrict()`/`regionUnlocked()`)・
+`ExpeditionService.cpp`の地域リスト+predecessorマップへそれぞれ配線した。
+**`usesRouteGraph()`へは追加していない**(すべての先行地域が「まず
+RouteGraphなしでスタブ化し、自地域の最初の本コンテンツSliceで初めて追加する」
+という前例に従う、正本の指示どおり)。
+
+`shatteredMarchFortMaterialsEarned`フロア(`buriedDawnSanctumMaterialsEarned`と
+同型、`SaveSystem.cpp`の永続化含む)を新設し、地点2「崩れ門」(M9-AO)で個別
+到達不能のまま残っていた`fort_defense_technology`(防衛技術資料、Object耐久
+ギャップ)を地域攻略時のフロア底上げで初めて到達可能にした。地点7自身の
+「命令箱2個」ボーナスで通常到達可能な`fort_command_records`/
+`severance_order_fragments`も、正本の「最低保証」節が明示的に1個ずつ要求して
+いるため、未取得分の安全網としてフロアにも含めた。フロア数値(正本の
+「最低保証」節どおり): 高品質鉄材5、石材8、軍需品7、織物2、砦指揮記録1、
+防衛技術資料1、切離命令断片1。「防衛技術資料で全施設の最終分岐候補」「砦指揮記録
+で上位訓練候補」は現行`Facilities.hpp`にまだ無い将来の施設ノード概念を指しており、
+`buried_dawn_sanctum.md`の「開拓都市への発展候補」(M9-AM)と同じく本Sliceの範囲外
+として着手しなかった。
+
+### テスト・ビルド
+
+`UnitClass.cpp`の`toString()`switchに`SanctumRetrievalLeader`のcaseが
+M9-AM以来ずっと欠落していたこと(`unitClassFromString()`側の欠落とは別種の
+見落とし、フォールスルーで"Unknown"を返すのみで実害は限定的だったが今回
+`FortGarrisonCaptain`のcase追加と同じ箇所のため合わせて修正)を発見・修正した。
+`data/classes.json`・`unitClassFromString()`(`GameData.cpp`)の両方に
+`FortGarrisonCaptain`を追加したことをビルド後の`jf_content_tests`通過で確認し、
+M9-AMの3件目のバグ(classId無警告消失)が再発していないことを確認した。
+
+`tests/test_battle.cpp`へ3件追加: 地点7の敵編成(7体、先頭が
+`FortGarrisonCaptain`、明示的な`enemyRoster.size()==7`アサーション込み)・
+`scoutRouteRequiredClass`・`primarySurviveRoundsAlternative`(`surviveUntilRound=5`)・
+`surveyObjectiveId`/`surveyTileCount`・勝利報酬を検証し、隊長を1体も倒さず5ラウンド
+生存でVictoryが成立することを確認するテスト、`regionSummaries()`のサイズを
+9→10へ更新、`RegionId::MappedEdge`が`ShatteredMarchFort`完了時にのみ
+`regionUnlocked()`でtrueになること・`regionDescriptor()`が空でないスタブ地域を
+返すこと・`usesRouteGraph()`がfalseのままであることを直接`BaseState`操作で
+検証するテスト。`ctest --test-dir build -j10`は4/4、フルスイートを3回連続実行し
+安定(フレークなし)。`git diff --check`成功。
+
+### balance実測
+
+`jf_forest_balance --region=shattered_march_fort`(500 Seed)の実測: 地点7
+(切離命令庫)のfresh-party win率はDirect 3.4%/HP残0.5%、Tactical 15.6%/HP残
+4.2%(avg KO 3.7〜4.0/4、隊長込みの7体編成は本地域で最大の敵数のため、
+`fort_reserve_wall`(4体、win 99%超)より大幅に低い - シミュレータが撤退プランニング
+を持たないヒューリスティックで7体へ力押しする既知の傾向、[[jf_forest_balance
+worst-case numbers]]の教訓どおり実測記録のみに留め、本Sliceでの数値調整は行わない)。
+他地点はM9-ASまでの数値から変化なし。7地点通しのRegion clear win率は引き続き
+Direct/Tactical共に0.0%だが、地点2・5のOperateObject Objectiveシミュレータ盲点
+(M9-AO以来の既知の盲点)が主因。
+
+以上で**破砕された前線砦(第9地域)は全7地点+最終強敵「残留砦隊長」が実コンテンツ化
+され、地域攻略〜次地域「地図外縁」(第10・最終地域)解放まで通しでプレイ可能**に
+なった。地図外縁は全10地域キャンペーンの最後の地域であり、今後のSliceで
+7地点構成へ肉付けされれば、このプロジェクトの地域コンテンツは完結する。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

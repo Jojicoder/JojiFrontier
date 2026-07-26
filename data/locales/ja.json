@@ -472,5 +472,7 @@
   "weapon.lizard_claws": "爪",
   "class.sanctum_retrieval_leader": "聖堂回収団長",
   "class.sanctum_retrieval_leader.role": "強敵(撃破は任意)。写本箱へ近づくUnitを優先し、HPが低いと降伏を考える。台本化されたボスではない。",
+  "class.fort_garrison_captain": "残留砦隊長",
+  "class.fort_garrison_captain.role": "強敵(撃破は任意)。命令箱を守り、HPが低いと撤退を考える。台本化されたボスではない。",
   "weapon.sanctum_glaive": "聖堂大薙刀"
 }

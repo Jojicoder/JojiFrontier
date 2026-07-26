@@ -321,6 +321,21 @@ Garrison」表示名で再利用、報酬(`quality_iron`/`stone`)は既存materi
 恒久成果「予備壁確保→最終戦へ防護壁2個追加」は地点をまたいだ永続効果というM9-ARとは
 別の新しいギャップカテゴリとして記録(未実装)。CAMP IIIへ実質到達可能になった。
 詳細は`implementation_status.md`のM9-AS参照。
+M9-AT(破砕された前線砦・第9地域: 地点7「切離命令庫」/ 強敵「残留砦隊長」/ 地域攻略 /
+地図外縁(第10・最終地域))完了(2026-07)。主目的「5Round防衛」を`fort_reserve_wall`
+(M9-AS)と同じ`primarySurviveRoundsAlternative`へ再利用。強敵「残留砦隊長」は
+`RaidLeader`(M9-Y)/`SanctumRetrievalLeader`(M9-AM)と全く同じ任意強敵の扱いで新規
+`UnitClass::FortGarrisonCaptain`(HP48/STR10/DEF9/RES5/MOV4)を汎用AI+
+`retreatHpPercent=25`のみへ近似、正本の3固有能力(交互防衛/壁際指揮/記録封鎖)は
+すべて前例のない新規インフラとして見送り。公開副目標「命令箱2個」→2 Discovery同時
+付与(`fort_command_records`/`severance_order_fragments`)はEmberRavine地点7(M9-AF)
+と同型。`RegionId::MappedEdge`(第10・最終地域「地図外縁」)を2-Bandit
+placeholderスタブとして追加(`usesRouteGraph()`へは未登録、次Sliceで本コンテンツ化
+する際に追加)。`shatteredMarchFortMaterialsEarned`フロアで`fort_defense_technology`
+(M9-AOの既知ギャップ)を含む最低保証(高品質鉄材5/石材8/軍需品7/織物2/砦指揮記録1/
+防衛技術資料1/切離命令断片1)を保証。これで**破砕された前線砦(第9地域)は全7地点が
+完成し、次地域「地図外縁」(全10地域キャンペーンの最終地域)へ進行可能**になった。
+詳細は`implementation_status.md`のM9-AT参照。
 M9-AHと同じ「新規戦闘メカニクス無し」地域として、地域骨格全体(7地点+3キャンプ+
 地点3・4「順序選択」)+地点1を1Sliceで実装。`RouteGraph.cpp`へ`shatteredMarchFortGraph()`
 を追加し、**同じコミット単位で`usesRouteGraph()`へ`RegionId::ShatteredMarchFort`を
@@ -336,11 +351,10 @@ M9-AN参照。
 
 直近の未完了(優先度順):
 
-1. 破砕された前線砦(第9地域)の本格実装の続き(地点2「崩れ門」はM9-AO、地点3
-   「旧兵舎」はM9-AP、地点4「兵站庫」はM9-AQ、地点5「信号庭」はM9-AR、地点6
-   「予備壁」はM9-ASで完了、CAMP IIIへ実質到達可能。残り地点7: 切離命令庫、
-   まだBandit x2(-3)プレースホルダー)+最終強敵「残留砦隊長」+地域攻略配線
-   (M6-B/C・M9-A〜ASと同じ「骨格→1地点ずつ」方式)。
+1. 破砕された前線砦(第9地域)は全7地点+最終強敵「残留砦隊長」+地域攻略配線が
+   M9-AN〜ATで完了。次は地図外縁(第10・最終地域、現状1地点プレースホルダー
+   スタブのみ)の本格実装(M6-B/C・M9-A〜ATと同じ「骨格→1地点ずつ」方式)。
+   全10地域キャンペーンの最後の地域。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/
