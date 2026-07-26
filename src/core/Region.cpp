@@ -42,7 +42,7 @@ StageDescriptor stageDescriptorFromContent(const StageContentData& content) {
     for (const auto& rule : content.objectPlacementRules) {
         stage.objectPlacementRules.push_back(StageDescriptor::ObjectPlacementRule{
             rule.definition, rule.idPrefix, rule.count, rule.scalesWithExtraBarrierOutcome, rule.zoneMinCol,
-            rule.zoneMaxCol, rule.avoidFirstEnemyRow, rule.operateObjectiveId});
+            rule.zoneMaxCol, rule.avoidFirstEnemyRow, rule.operateObjectiveId, rule.secondaryOperateObjectiveId});
     }
     stage.enemyCountOverride = content.enemyCountOverride;
     stage.enemyZoneWidth = content.enemyZoneWidth;

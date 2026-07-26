@@ -137,14 +137,22 @@ windscarRelayStage()前例のRegion.cpp手書き)、敵勢力「熱地採取団�
 主目的のSurviveRounds(2)とのAND合成・副目標「水路耐久8以上」・敗北条件
 「水路耐久0」はObject耐久追跡機構の欠如により見送り。地点3・4の両方が完了した
 ことで`ember_ravine_camp2`(キャンプII)が実際に到達可能になった。詳細は
-`implementation_status.md`のM9-AC参照。
+`implementation_status.md`のM9-AC参照。M9-AD(地点5「灰晶採取棚」)完了。
+主目的「灰晶箱1個以上を確保」はM9-H(黒水低湿地地点4)と同型のcrate-primary
+近似(標準EliminateTeam+`surveyObjectiveId`のsecondary/bonus-reward)、副目標
+「採取地点2個を操作」は`ObjectPlacementRule::secondaryOperateObjectiveId`
+(M9-Yで新設・Region.cpp手書き専用だった)を初めてJSON Schema
+(`GameData.hpp`/`GameData.cpp`)へ露出させて配線した。新素材`ash_crystal`
+(灰晶)追加。深部ルート専用の「大型個体」はper-unit stat補正機構が無いため
+同stat5体目の追加で近似、噴気予告1回無効(ルート3)は前例のないper-route
+無効化機構のため見送り(no-op)。詳細は`implementation_status.md`のM9-AD参照。
 
 直近の未完了(優先度順):
 
-1. 燼火峡谷(第7地域)の残り4地点+地域ボスの本格実装(M6-B/C・M9-A〜AC方式)。
+1. 燼火峡谷(第7地域)の残り3地点+地域ボスの本格実装(M6-B/C・M9-A〜AD方式)。
    地点1「焼け石の入口」・地点2「熱風の棚道」・地点3「硫黄窪地」・地点4
-   「破損冷却水路」はM9-Z/M9-AA/M9-AB/M9-ACで完了、キャンプIIまで到達可能。
-   地点5〜8は`data/regions.json`のBandit2体プレースホルダーのまま(戦場熱量
+   「破損冷却水路」・地点5「灰晶採取棚」はM9-Z/M9-AA/M9-AB/M9-AC/M9-ADで完了。
+   地点6〜8は`data/regions.json`のBandit2体プレースホルダーのまま(戦場熱量
    レベル2・3の消費/AI連動、噴気弁破壊(+1)・冷却弁操作(-1)によるheatLevel
    変更フック、岩蜥蜴/採取団AI、地域ボス「赤背の大蜥蜴」の実装が必要 -
    `BattleState::setHeatLevel()`自体は公開済みで、Object操作からの呼び出し

@@ -3332,6 +3332,101 @@ Region clear win率はDirect/Tactical共に引き続き0.0%だが、地点4のOp
 以上で燼火峡谷(第7地域)は地点1・2・3・4の4地点が実コンテンツ化され、キャンプII
 まで到達可能になった。残り4地点+地域ボスは次のSlice以降で本格化する。
 
+### M9-AD 燼火峡谷(第7地域): 地点5(灰晶採取棚)+ `secondaryOperateObjectiveId`のJSON Schema初露出
+
+`docs/regions/ember_ravine.md`「5. 灰晶採取棚」を実コンテンツ化した。この地点は
+`guestUnits`等の未対応フィールドを必要としないため、M9-AC(`ravine_cooling_channel`)
+と同じ形で`data/regions.json`の`ash_crystal_shelf`プレースホルダー(Bandit x2)
+エントリを直接書き換え、JSON-authoredのまま実装した。
+
+**主目的「灰晶箱1個以上を確保」はM9-H(黒水低湿地地点4「樹脂箱2個のうち1個以上」)
+と全く同じcrate-primary近似**: 標準`EliminateTeam`を主目的として維持し、灰晶箱は
+`surveyObjectiveId: "ash_crystal_shelf_crate"`+`surveyTileCount: 1`経由の
+secondary/bonus-rewardパス(`ObjectiveGroupRule::Any`)として配置した。正本の
+「1個以上」は複数箱からの選択的確保を示唆する黒水低湿地とは異なり配置数自体が
+1個のみのため、`surveyTileCount: 1`で「唯一の箱を確保する」ことがそのまま
+「1個以上」を満たす形になる。
+
+**副目標「採取地点2個を操作」で`ObjectPlacementRule::secondaryOperateObjectiveId`
+を初めてJSON Schema経由で配線した**: この新規フィールド自体はM9-Y(旧辺境集落
+地点5「夜明けの共同防衛」の警鐘副目標)がRegion.cpp手書き専用として既に導入
+済みだったが、JSON Schema(`StageContentData::ObjectPlacementRuleData`/
+`GameData.cpp`)には一度も露出していなかった。今回`operateObjectiveId`の既存
+パース経路(Device+interaction必須のバリデーション含む)と同型で
+`secondaryOperateObjectiveId`をJSON側へ追加し(`include/jf/data/GameData.hpp`/
+`src/data/GameData.cpp`)、`Region.cpp`の`stageDescriptorFromContent()`が
+そのまま`StageDescriptor::ObjectPlacementRule`へ転送するようにした。これで
+JSON-authoredのステージでもsecondaryOperateObjectiveIdが使えるようになった
+(コード自体はM9-Yの時点で完成済みで、今回はSchemaの穴を埋めただけ)。
+
+**実装中に踏んだ落とし穴 - 複数`objectPlacementRules`エントリで同じ
+`secondaryOperateObjectiveId`を共有すると壊れる**: 当初「採取地点2個」を
+idPrefixの異なる2つの`ObjectPlacementRule`(各count:1)として書いたところ、
+`BattleFactory.cpp`の生成ループが各ルールごとに`battle.missionState().groups`
+へ同じgroup idを重複push、かつ`index`カウンタをルールごとにリセットするため
+`duplicate group id`/`duplicate objective id`のバリデーションエラーになった
+(`jf_forest_balance`実行時に検出)。`operateObjectiveId`(主目的側)・
+`secondaryOperateObjectiveId`(副目的側)いずれも「1つの`ObjectPlacementRule`
+(単一idPrefix、`count`で複数配置)」を前提にした実装であることをコード読解で
+確認し、`old_frontier_settlement`の警鐘(count:2、単一ルール)と同じ形の
+単一ルール・`count: 2`へ修正した。この制約(複数ルールでのgroup id共有不可)は
+ドキュメント化されていなかったため、今回の記録に残す。
+
+**敵は岩蜥蜴4+深部ルート専用の大型個体1、「大型個体」は同stat近似**: 正本の
+「岩蜥蜴4。深部ルートは大型個体1追加」について、`UnitTemplate`にはper-unitの
+個別ステータス補正フィールドが`firstBurnNegated`以外存在せず、stage単位の
+`boostedFirstEnemy`は全ルート共通で効いてしまうため深部ルート限定の補正には
+使えない。指示どおり「同stat5体目を追加するだけの近似」を採用し、base roster
+5体(岩蜥蜴4+表示名のみ違う`Large Rock Lizard`1体、いずれもBandit reskin+
+firstBurnNegated)を配置し、ルート1「外側の結晶だけ採る」・ルート3
+`[戦闘魔導士]`「反応を安定させる」はそれぞれ`enemiesRemoved: 1`で4体へ、
+ルート2「噴気近くまで進む」のみ5体のまま(`startingHeatLevel: 2`)とした。
+新規`UnitClass`は追加していない。
+
+**ルート3「噴気予告1回無効」は前例が無いため見送り(no-op)**: 「特定ルートで
+特定効果を1回だけ無効化する」per-route機構は`Region.hpp`/`StageDescriptor`の
+どこにも存在しない(Windscarの強風地形も含め、既存の「ルート単位の地形上書き」
+機構は`extraBarrierCount`のような加算/配置数変更止まりで、既存の噴気予告→
+炎上変換フロー`resolveEmberFumeRoundEnd()`自体を条件付きでスキップする仕組みは
+無い)。`scoutRouteRequiredClass: BattleMage`のみ配線し、噴気予告無効化効果
+自体はno-op(既存の記録済みギャップと同型: M9-Zの`ember_ravine_ledge`「MOV
+低下なし」等、打ち消す対象/表現手段が無い差異は注記のみに留める前例)。
+
+**敗北条件「灰晶箱をすべて失う」は見送り(既知ギャップ)**: M6-C以来一貫した
+Object耐久追跡機構の欠如の同型繰り返し。
+
+**新素材`ash_crystal`(灰晶)**: `materialNameFor()`のknownセット
+(`src/ui_shared.cpp`)+`data/locales/{en,ja}.json`(`material.ash_crystal`)へ
+追加。既存`heat_resistant_material`/`sulfur`同様、JA文字列は`loadAppFont()`の
+`allJapaneseGlyphText()`自動収集経由で追加のcharset手動編集は不要。
+
+`tests/test_battle.cpp`へ1件追加: 地点5の構成(敵5体/`scoutRouteRequiredClass`
+/`surveyObjectiveId`/`objectPlacementRules`が単一ルール・count 2・
+`secondaryOperateObjectiveId`を持つこと/3ルートの`enemiesRemoved`・
+`startingHeatLevel`・報酬)、戦闘生成時に主目的`EliminateTeam`(`groupId:
+"primary"`)がそのまま維持され、`ash_crystal_shelf_gather_points`グループへ
+`OperateObject`(`primary=false`)が2件生成され、対応するgroupが
+`ObjectiveGroupRule::Any`で登録されることを直接検証する
+crate-secondary/secondaryOperateObjectiveId混在パターンのテスト。既存4テスト
+スイート含め全成功、フルスイートを3回連続実行し新規テストを含め安定(既知の
+`test_battle.cpp:1244`非決定的Seedフレークは今回の3回では発生せず)。
+
+`jf_forest_balance --region=ember_ravine`(500 Seed)の実測(fresh-party):
+地点5(灰晶採取棚) Direct win率43.6%/HP残9.7%(avg KO 3.34/5)、Tactical win率
+22.6%/HP残9.4%(avg KO 3.44/5) - 地点1(焼け石の入口)と全く同一の数値。これは
+バグではなく、地点5が地点1と同じ`terrainProfileId`(`ember_ravine_entrance`)+
+同じbase roster(岩蜥蜴4体、Bandit reskin+firstBurnNegated)を持つため
+(シミュレータのfresh-party per-siteモードはルート分岐を考慮しないデフォルト
+roster/terrainのみを回すため、同一構成なら同一結果になるのは想定どおり)。
+[[jf_forest_balance worst-case numbers]]の教訓どおり実測記録のみに留め、
+本Sliceでは数値調整を行わない。8地点通しのRegion clear win率はDirect/Tactical
+共に引き続き0.0%だが、地点4(破損冷却水路)のOperateObject盲点(M9-AC記録済み)
+が伝播した参考値であり、地点5本体の問題ではない。
+
+以上で燼火峡谷(第7地域)は地点1・2・3・4・5の5地点が実コンテンツ化された。
+残り3地点(旧耐熱工房、灰封観測所、赤熱裂け目)+地域ボスは次のSlice以降で
+本格化する。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功

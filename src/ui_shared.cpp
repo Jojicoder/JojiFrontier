@@ -526,7 +526,7 @@ std::string materialNameFor(const std::string& id) {
         "captains_seal", jf::kAshveilFangMaterial, jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment",
         "iron", "stone", "old_gear", "signal_core", "quality_iron", "combustion_oil", "ashiron_shell",
         "wetland_resin", "poison_material", "hardwood", "cloth", "riding_gear",
-        "building_material", "food", "heat_resistant_material", "sulfur",
+        "building_material", "food", "heat_resistant_material", "sulfur", "ash_crystal",
     };
     return known.count(id) ? tr("material." + id) : id;
 }

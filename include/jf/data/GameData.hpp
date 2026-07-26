@@ -134,6 +134,12 @@ struct StageContentData {
         int zoneMaxCol = kGridCols - 1;
         bool avoidFirstEnemyRow = false;
         std::optional<std::string> operateObjectiveId;
+        // docs/regions/ember_ravine.md「5. 灰晶採取棚」副目標「採取地点2個を操作」:
+        // mirrors StageDescriptor::ObjectPlacementRule::secondaryOperateObjectiveId
+        // (old_frontier_settlement's 警鐘, previously C++-only/Region.cpp-authored)
+        // - first JSON Schema exposure of that field, same "push an
+        // independent, non-primary group" semantics.
+        std::optional<std::string> secondaryOperateObjectiveId;
     };
     std::vector<ObjectPlacementRuleData> objectPlacementRules;
     std::optional<std::size_t> enemyCountOverride;

@@ -10992,6 +10992,69 @@ int main() {
     }
 
     {
+        // docs/regions/ember_ravine.md「5. 灰晶採取棚」: 主目的「灰晶箱1個以上を
+        // 確保」はM9-H(黒水低湿地地点4「樹脂箱2個のうち1個以上」)と同じ
+        // crate-primary-approximation - 標準EliminateTeamへ近似し、灰晶箱は
+        // surveyObjectiveId経由の secondary/bonus-reward パスとして残す。副目標
+        // 「採取地点2個を操作」は初めてJSON Schema経由で配線した
+        // secondaryOperateObjectiveIdの実例(old_frontier_settlementの警鐘は
+        // これまでRegion.cpp手書き専用だった)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor emberRegion = jf::regionDescriptor(jf::RegionId::EmberRavine, *data);
+        const jf::StageDescriptor* shelfStage = nullptr;
+        for (const jf::StageDescriptor& stage : emberRegion.stages)
+            if (stage.id == "ash_crystal_shelf") shelfStage = &stage;
+        assert(shelfStage);
+        assert(shelfStage->enemyRoster.size() == 5); // 岩蜥蜴4 + 深部ルート専用の大型個体1
+        assert(shelfStage->scoutRouteRequiredClass == jf::UnitClass::BattleMage);
+        assert(shelfStage->surveyObjectiveId == "ash_crystal_shelf_crate");
+        assert(shelfStage->objectPlacementRules.size() == 1);
+        assert(shelfStage->objectPlacementRules[0].count == 2);
+        assert(shelfStage->objectPlacementRules[0].secondaryOperateObjectiveId ==
+               "ash_crystal_shelf_gather_points");
+
+        const jf::ExplorationOutcome frontal =
+            jf::stageRouteOutcome(*shelfStage, jf::ExplorationChoice::FrontalAdvance);
+        assert(frontal.enemiesRemoved == 1); // 敵5-1=4体
+        const jf::ExplorationOutcome deep =
+            jf::stageRouteOutcome(*shelfStage, jf::ExplorationChoice::CollapsedSidePath);
+        assert(deep.enemiesRemoved == 0 && deep.startingHeatLevel == 2); // 熱量2、敵5体
+        const jf::ExplorationOutcome scout =
+            jf::stageRouteOutcome(*shelfStage, jf::ExplorationChoice::ScoutRoute);
+        assert(scout.enemiesRemoved == 1); // 敵4体、噴気予告1回無効はno-op(前例なしのため見送り)
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*shelfStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "ash_crystal") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "sulfur") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "ash_crystal") == 4);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *shelfStage, /*seed=*/11);
+        const jf::ObjectiveDefinition* eliminateDef = nullptr;
+        std::vector<const jf::ObjectiveDefinition*> gatherDefs;
+        for (const auto& def : battle.missionState().definitions) {
+            if (def.kind == jf::ObjectiveKind::EliminateTeam) eliminateDef = &def;
+            if (def.kind == jf::ObjectiveKind::OperateObject && def.groupId == "ash_crystal_shelf_gather_points")
+                gatherDefs.push_back(&def);
+        }
+        assert(eliminateDef && eliminateDef->primary && eliminateDef->groupId == "primary");
+        assert(gatherDefs.size() == 2);
+        for (const jf::ObjectiveDefinition* def : gatherDefs) assert(!def->primary);
+        bool hasGroup = false;
+        for (const auto& group : battle.missionState().groups)
+            if (group.id == "ash_crystal_shelf_gather_points" && group.rule == jf::ObjectiveGroupRule::Any)
+                hasGroup = true;
+        assert(hasGroup);
+    }
+
+    {
         // docs/regions/ember_ravine.md「地点構成」: 地点3・地点4は"どちらを
         // 先に攻略してもよい、両方必須"の either-order branch - completing
         // BOTH members gates Camp II, mirroring every prior region's own

@@ -464,10 +464,22 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
                             return std::nullopt;
                         }
                     }
+                    std::optional<std::string> secondaryOperateObjectiveId;
+                    if (r.contains("secondaryOperateObjectiveId")) {
+                        secondaryOperateObjectiveId = r.at("secondaryOperateObjectiveId").get<std::string>();
+                        if (definition.kind != BattleObjectKind::Device || !definition.interaction) {
+                            std::cerr << "Stage " << stage.id
+                                      << " has secondaryOperateObjectiveId on a rule whose definition isn't an "
+                                         "interactable Device"
+                                      << std::endl;
+                            return std::nullopt;
+                        }
+                    }
                     stage.objectPlacementRules.push_back(StageContentData::ObjectPlacementRuleData{
                         definition, r.at("idPrefix").get<std::string>(), r.value("count", 1),
                         r.value("scalesWithExtraBarrierOutcome", false), r.value("zoneMinCol", 0),
-                        r.value("zoneMaxCol", kGridCols - 1), r.value("avoidFirstEnemyRow", false), operateObjectiveId});
+                        r.value("zoneMaxCol", kGridCols - 1), r.value("avoidFirstEnemyRow", false), operateObjectiveId,
+                        secondaryOperateObjectiveId});
                 }
             }
             if (s.contains("enemyCountOverride")) stage.enemyCountOverride = s.at("enemyCountOverride").get<std::size_t>();
