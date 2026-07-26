@@ -245,12 +245,32 @@ charsetへ「鎖」「廊」を追加登録。敗北条件「避難扉0」・副
 フック未実装のため見送り(既存の同型ギャップ)。詳細は`implementation_status.md`
 のM9-AL参照。
 
+M9-AM(埋没聖堂・第8地域: 地点6「夜明け祭壇」/ 強敵「聖堂回収団長」/ 地域攻略)
+完了(2026-07)。強敵は`RaidLeader`(M9-Y)と同じ「撃破不要の任意強敵」扱いで
+専用ボスAI関数を作らず、新規`UnitClass::SanctumRetrievalLeader`を汎用敵AI+
+`AiSystem.cpp`の`retreatHpPercent=25`チューニングのみで実装。主目的「記録箱2個
+保全して4Round」は`settlement_dawn_defense`と同じ理由で`primarySurviveRoundsAlternative`
+(surviveUntilRound=4)のみへ近似。地域攻略配線として`RegionId::ShatteredMarchFort`
+(第9地域「破砕された前線砦」)スタブを追加、`buriedDawnSanctumMaterialsEarned`
+フロアで地点3・5それぞれ個別到達不能だった`medical_codex`/`sanctum_device_records`
+を地域攻略時に初めて到達可能にした。実装中に既存バグ3件を発見・修正: (1)
+`RouteGraph.cpp`の`usesRouteGraph()`にBuriedDawnSanctumがM9-AH以来ずっと
+漏れており、起動時グラフ検証と遠征開始時のルート進行状態初期化が一度も
+行われていなかった、(2)地点2・3の`medicinal_herb`重複素材ID(M9-AJで既に
+記録済み)、(3)`GameData.cpp`が未知の`classId`を無診断で握りつぶす仕様により
+`SanctumRetrievalLeader`追加時に敵編成からユニット1体が消えていた(診断
+`std::cerr`警告を追加して再発防止)。バックグラウンドエージェントが2回連続で
+中断(1回目はenum追加のみで停止、2回目はwiring未着手のまま停止)したため、
+以降はメインで直接実装を引き継いだ。詳細は`implementation_status.md`のM9-AM参照。
+
+以上で**埋没聖堂(第8地域)は全6地点+最終強敵+地域攻略配線が完了**し、次地域
+「破砕された前線砦」(第9地域、現状プレースホルダー)へ進行可能になった。
+
 直近の未完了(優先度順):
 
-1. 埋没聖堂(第8地域)の残り地点(6)の本格実装(M6-B/C・M9-A〜ALと同じ
-   「骨格→1地点ずつ」方式)。地域骨格+地点1〜5はM9-AH/AI/AJ/AK/ALで完了済み、
-   CAMP IIも到達可能。地点6(夜明け祭壇、地域最終強敵「聖堂回収団長」)+
-   地域攻略Sliceのみ残存。
+1. 破砕された前線砦(第9地域)の本格実装(M6-B/C・M9-A〜AMと同じ
+   「骨格→1地点ずつ」方式)。現状`RegionId::ShatteredMarchFort`のプレースホルダー
+   1地点のみ。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/

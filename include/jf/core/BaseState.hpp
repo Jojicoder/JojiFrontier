@@ -65,6 +65,13 @@ enum class RegionId {
     // region has no enum value/region implementation anywhere in this
     // codebase") - see that file's own updated comment.
     BuriedDawnSanctum,
+    // docs/regions/buried_dawn_sanctum.md「破砕された前線砦を解放」: 9th region.
+    // Added as a minimal placeholder (same role every prior region's own
+    // pre-fleshed-out stub played), unlocked once BuriedDawnSanctum
+    // completes. Content itself is out of scope here - a later Slice fleshes
+    // it out, mirroring M9-K/L/Q/U/Y/AG's established "add the stub now,
+    // flesh it out later" split.
+    ShatteredMarchFort,
 };
 
 using LootId = std::string;
@@ -202,6 +209,11 @@ struct BaseState {
     // windscarMaterialsEarned/settlementMaterialsEarned above, tracked
     // independently per region.
     std::unordered_map<std::string, int> emberRavineMaterialsEarned;
+    // docs/regions/buried_dawn_sanctum.md「最低保証」: same mechanism as
+    // cinderwatchMaterialsEarned/blackwaterMaterialsEarned/
+    // windscarMaterialsEarned/settlementMaterialsEarned/emberRavineMaterialsEarned
+    // above, tracked independently per region.
+    std::unordered_map<std::string, int> buriedDawnSanctumMaterialsEarned;
 
     // docs/item_system.md "製作単位と倉庫上限": consumables owned but not
     // currently packed into an expedition bag - crafted via GameApp::
@@ -449,6 +461,17 @@ inline constexpr const char* kAdvancedFieldworkRecordsDiscovery = "advanced_fiel
 // unlocks that recipe - no Facilities.hpp change needed for this specific
 // unlock.
 inline constexpr const char* kControlledEmberFormulaDiscovery = "controlled_ember_formula";
+// docs/regions/buried_dawn_sanctum.md「安定ID」table: 医療典籍 ->
+// `medical_codex`. Per 地点3「救護室」の副目標 "救護台耐久6以上" (Object-
+// durability gap, M6-C以来の既知ギャップ) は個別に到達不能なまま(M9-AJ)。
+// この地域自身の「最低保証」節も医療典籍1を保証枠として要求しているため、
+// 地域攻略時のフロア底上げでのみ到達可能。
+inline constexpr const char* kMedicalCodexDiscovery = "medical_codex";
+// docs/regions/buried_dawn_sanctum.md「安定ID」table: 聖堂装置記録 ->
+// `sanctum_device_records`。地点5「封鎖回廊」の副目標 "避難扉耐久8以上"
+// (同じObject耐久ギャップ、M9-AL) から個別には到達不能。medical_codex同様、
+// 地域の最低保証フロア底上げでのみ到達可能。
+inline constexpr const char* kSanctumDeviceRecordsDiscovery = "sanctum_device_records";
 
 // docs/regions/buried_dawn_sanctum.md「公開副目標」地点2「崩れた礼拝堂」の
 // "避難者全員脱出 -> 野戦救護記録": the doc's own「安定ID」table doesn't list an

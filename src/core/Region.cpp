@@ -1784,6 +1784,19 @@ RegionDescriptor buriedDawnSanctumRegion(const GameData& data) {
     return region;
 }
 
+// docs/regions/buried_dawn_sanctum.md「破砕された前線砦を解放」: 9th region,
+// minimal placeholder stub (same role every prior region's own pre-fleshed-
+// out stub played, e.g. `ember_ravine_outpost`/M9-Y) - unlocked once
+// BuriedDawnSanctum completes. Content itself is a future Slice's scope.
+RegionDescriptor shatteredMarchFortRegion(const GameData& data) {
+    RegionDescriptor region;
+    region.id = RegionId::ShatteredMarchFort;
+    region.displayNameEn = "Shattered March Fort";
+    region.displayNameJa = "破砕された前線砦";
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("shattered_march_fort_outpost")));
+    return region;
+}
+
 } // namespace
 
 RegionDescriptor regionDescriptor(RegionId id, const GameData& data) {
@@ -1796,6 +1809,7 @@ RegionDescriptor regionDescriptor(RegionId id, const GameData& data) {
         case RegionId::OldFrontierSettlement: return oldFrontierSettlementRegion(data);
         case RegionId::EmberRavine: return emberRavineRegion(data);
         case RegionId::BuriedDawnSanctum: return buriedDawnSanctumRegion(data);
+        case RegionId::ShatteredMarchFort: return shatteredMarchFortRegion(data);
     }
     return cinderwatchGateRegion(data);
 }
@@ -1810,6 +1824,7 @@ std::string toString(RegionId id) {
         case RegionId::OldFrontierSettlement: return "old_frontier_settlement";
         case RegionId::EmberRavine: return "ember_ravine";
         case RegionId::BuriedDawnSanctum: return "buried_dawn_sanctum";
+        case RegionId::ShatteredMarchFort: return "shattered_march_fort";
     }
     return "cinderwatch_gate";
 }
@@ -1822,6 +1837,7 @@ RegionId regionIdFromString(const std::string& id) {
     if (id == "old_frontier_settlement") return RegionId::OldFrontierSettlement;
     if (id == "ember_ravine") return RegionId::EmberRavine;
     if (id == "buried_dawn_sanctum") return RegionId::BuriedDawnSanctum;
+    if (id == "shattered_march_fort") return RegionId::ShatteredMarchFort;
     return RegionId::CinderwatchGate;
 }
 
@@ -1834,6 +1850,7 @@ std::optional<RegionId> regionIdFromStringStrict(const std::string& id) {
     if (id == "old_frontier_settlement") return RegionId::OldFrontierSettlement;
     if (id == "ember_ravine") return RegionId::EmberRavine;
     if (id == "buried_dawn_sanctum") return RegionId::BuriedDawnSanctum;
+    if (id == "shattered_march_fort") return RegionId::ShatteredMarchFort;
     return std::nullopt;
 }
 
@@ -1902,6 +1919,7 @@ bool regionUnlocked(RegionId regionId, const BaseState& base, const GameData& /*
         case RegionId::OldFrontierSettlement: return base.completedRegionIds.count(RegionId::WindscarPlateau) > 0;
         case RegionId::EmberRavine: return base.completedRegionIds.count(RegionId::OldFrontierSettlement) > 0;
         case RegionId::BuriedDawnSanctum: return base.completedRegionIds.count(RegionId::EmberRavine) > 0;
+        case RegionId::ShatteredMarchFort: return base.completedRegionIds.count(RegionId::BuriedDawnSanctum) > 0;
     }
     return true;
 }

@@ -363,7 +363,7 @@ bool usesRouteGraph(RegionId regionId) {
     return regionId == RegionId::AshboughForest || regionId == RegionId::CinderwatchGate ||
            regionId == RegionId::AshironQuarry || regionId == RegionId::BlackwaterLowlands ||
            regionId == RegionId::WindscarPlateau || regionId == RegionId::OldFrontierSettlement ||
-           regionId == RegionId::EmberRavine;
+           regionId == RegionId::EmberRavine || regionId == RegionId::BuriedDawnSanctum;
 }
 
 const RegionRouteGraph& regionRouteGraph(RegionId regionId) {

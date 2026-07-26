@@ -56,6 +56,7 @@ std::optional<UnitClass> unitClassFromString(const std::string& name) {
         {"PlateauCourierCaptain", UnitClass::PlateauCourierCaptain},
         {"RaidLeader", UnitClass::RaidLeader},
         {"RedbackLizard", UnitClass::RedbackLizard},
+        {"SanctumRetrievalLeader", UnitClass::SanctumRetrievalLeader},
     };
     auto it = lookup.find(name);
     if (it == lookup.end()) return std::nullopt;
@@ -243,8 +244,18 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
     auto readTemplates = [](const json& arr) {
         std::vector<UnitTemplate> result;
         for (const auto& u : arr) {
-            auto classId = unitClassFromString(u.at("classId").get<std::string>());
-            if (!classId) continue;
+            const std::string classIdStr = u.at("classId").get<std::string>();
+            auto classId = unitClassFromString(classIdStr);
+            if (!classId) {
+                // A typo'd/unregistered classId here previously vanished the
+                // unit entirely with no diagnostic (e.g. a whole enemy
+                // silently missing from a roster) - warn loudly instead so a
+                // future unitClassFromString() gap doesn't go unnoticed
+                // again the way `SanctumRetrievalLeader`'s own omission did.
+                std::cerr << "Unknown unit classId \"" << classIdStr << "\" for unit \""
+                          << u.value("id", std::string("?")) << "\" - unit skipped" << std::endl;
+                continue;
+            }
             UnitTemplate t;
             t.id = u.at("id").get<std::string>();
             t.name = u.at("name").get<std::string>();

@@ -468,5 +468,8 @@
   "ui.facilities.back_to_list": "施設一覧へ",
   "class.redback_lizard": "赤背の大蜥蜴",
   "class.redback_lizard.role": "ボス。予告熱砂突進(直線3マス)と3マス前方の尾払い(押し出し付き)を使う。HPが半分以下で一度だけ噴気誘導を使う。",
-  "weapon.lizard_claws": "爪"
+  "weapon.lizard_claws": "爪",
+  "class.sanctum_retrieval_leader": "聖堂回収団長",
+  "class.sanctum_retrieval_leader.role": "強敵(撃破は任意)。写本箱へ近づくUnitを優先し、HPが低いと降伏を考える。台本化されたボスではない。",
+  "weapon.sanctum_glaive": "聖堂大薙刀"
 }

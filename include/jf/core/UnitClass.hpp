@@ -84,6 +84,18 @@ enum class UnitClass {
     // (jf/battle/EnemyAI.hpp's takeRedbackLizardBossTurn()), reuses the same
     // generic boss-runtime Unit fields as the 4 true bosses above.
     RedbackLizard,
+    // docs/regions/buried_dawn_sanctum.md "聖堂回収団長" (夜明け祭壇's elite
+    // enemy). Same optional-elite shape as RaidLeader above (the doc is
+    // explicit "強敵撃破は最終攻略に撃破不要" - the primary is a
+    // SurviveRounds/crate-preservation objective the party can complete
+    // whether or not this unit is ever engaged): no bespoke EnemyAI.cpp
+    // turn function, just the generic takeEnemyTurn()/generateAiCandidates()
+    // path with AiSystem.cpp's profileFor() giving it a tuned
+    // retreatHpPercent (25, matching the doc's "HP25%以下...降伏する") - the
+    // doc's additional retreat sub-conditions ("記録箱2個保全、退路あり") have
+    // no round/Object-aware hook in AiProfile, so only the HP threshold is
+    // modeled, same simplification RaidLeader's own comment already made.
+    SanctumRetrievalLeader,
 };
 
 enum class Team {

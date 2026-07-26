@@ -1352,15 +1352,34 @@
       "id": "dawn_altar",
       "terrainProfileId": "buried_dawn_sanctum",
       "enemyRoster": [
+        { "id": "dawn_altar_leader", "name": "Sanctum Retrieval Leader", "classId": "SanctumRetrievalLeader" },
         { "id": "dawn_altar_retriever1", "name": "Sanctum Retriever", "classId": "Bandit" },
-        { "id": "dawn_altar_retriever2", "name": "Sanctum Retriever", "classId": "Bandit" }
+        { "id": "dawn_altar_retriever2", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "dawn_altar_retriever3", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "dawn_altar_archer1", "name": "Sanctum Retriever", "classId": "WatchArcher" },
+        { "id": "dawn_altar_archer2", "name": "Sanctum Retriever", "classId": "WatchArcher" }
       ],
       "baseVictoryLoot": [
-        { "id": "building_material", "quantity": 1 },
-        { "id": "stone", "quantity": 1 }
+        { "id": "building_material", "quantity": 3 },
+        { "id": "stone", "quantity": 2 },
+        { "id": "quality_iron", "quantity": 1 },
+        { "id": "ruin_fragment", "quantity": 2 }
       ],
-      "missionNameEn": "Dawn Altar (placeholder)",
-      "missionNameJa": "夜明け祭壇(仮実装)"
+      "scoutRouteRequiredClass": "MarchCaptain",
+      "primarySurviveRoundsAlternative": { "id": "dawn_altar_defense", "surviveUntilRound": 4 },
+      "missionNameEn": "Dawn Altar",
+      "missionNameJa": "夜明け祭壇"
+    },
+    {
+      "id": "shattered_march_fort_outpost",
+      "terrainProfileId": "old_frontier_settlement",
+      "enemyRoster": [
+        { "id": "shattered_march_fort_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "shattered_march_fort_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
+      "missionNameEn": "Shattered March Fort Outpost (placeholder)",
+      "missionNameJa": "破砕された前線砦 前線拠点(仮実装)"
     }
   ]
 }

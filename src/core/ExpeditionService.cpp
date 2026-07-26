@@ -184,13 +184,17 @@ std::vector<RegionSummary> computeRegionSummaries(const GameData& data, const Ba
         // Slice's own fix above for OldFrontierSettlement/EmberRavine - do
         // it up front this time instead of leaving a repeat of that gap.
         if (id == RegionId::BuriedDawnSanctum) return RegionId::EmberRavine;
+        // docs/regions/buried_dawn_sanctum.md「破砕された前線砦を解放」: same
+        // "add + wire predecessor here immediately" discipline as the fixes
+        // above.
+        if (id == RegionId::ShatteredMarchFort) return RegionId::BuriedDawnSanctum;
         return std::nullopt;
     };
 
     std::vector<RegionSummary> summaries;
     for (RegionId id : {RegionId::AshboughForest, RegionId::CinderwatchGate, RegionId::AshironQuarry,
                         RegionId::BlackwaterLowlands, RegionId::WindscarPlateau, RegionId::OldFrontierSettlement,
-                        RegionId::EmberRavine, RegionId::BuriedDawnSanctum}) {
+                        RegionId::EmberRavine, RegionId::BuriedDawnSanctum, RegionId::ShatteredMarchFort}) {
         RegionDescriptor region = regionDescriptor(id, data);
         bool unlocked = regionUnlocked(id, baseState, data);
         RegionSummary summary{id, region.displayNameEn, region.displayNameJa, unlocked, "", ""};
@@ -395,6 +399,39 @@ ReturnToBaseResult applyExpeditionReturnToBase(ExpeditionState& expedition, Base
             kPreAshstormWatchRecordsDiscovery,
         };
         for (const DiscoveryId& discovery : kEmberRavineKeyDiscoveries) {
+            const bool alreadyHave = baseState.discoveryRegistry.count(discovery) ||
+                                      std::find(discoveriesThisReturn.begin(), discoveriesThisReturn.end(), discovery) !=
+                                          discoveriesThisReturn.end();
+            if (!alreadyHave) discoveriesThisReturn.push_back(discovery);
+        }
+    }
+
+    // docs/regions/buried_dawn_sanctum.md「最低保証」: same mechanism as
+    // cinderwatchMaterialsEarned/blackwaterMaterialsEarned/
+    // windscarMaterialsEarned/settlementMaterialsEarned/
+    // emberRavineMaterialsEarned above, tracked independently per region.
+    const bool buriedDawnSanctumStillOpen = expedition.regionId == RegionId::BuriedDawnSanctum &&
+                                            !baseState.completedRegionIds.count(RegionId::BuriedDawnSanctum);
+    if (buriedDawnSanctumStillOpen)
+        for (const auto& [id, quantity] : materialAdds) baseState.buriedDawnSanctumMaterialsEarned[id] += quantity;
+
+    if (buriedDawnSanctumStillOpen && expedition.pendingRegionCompletions.count(RegionId::BuriedDawnSanctum)) {
+        static const std::unordered_map<LootId, int> kBuriedDawnSanctumMaterialFloor = {
+            {"building_material", 6}, {"stone", 4}, {"quality_iron", 2}, {"herb", 4},
+            {"sanctum_equipment", 3}, {"ruin_fragment", 4},
+        };
+        for (const auto& [id, floor] : kBuriedDawnSanctumMaterialFloor) {
+            const int earned = baseState.buriedDawnSanctumMaterialsEarned[id];
+            if (earned < floor) materialAdds[id] += floor - earned;
+        }
+        // 医療典籍(地点3「救護室」)・聖堂装置記録(地点5「封鎖回廊」)はいずれも
+        // Object耐久ギャップにより個別到達不能(M9-AJ/AL)だったため、この地域の
+        // フロア底上げで初めて到達可能にする。上位魔法研究記録は地点4「写本庫」の
+        // 副目標(M9-AK)で既に到達可能なため、ここには含めない。
+        static const std::vector<DiscoveryId> kBuriedDawnSanctumKeyDiscoveries = {
+            kMedicalCodexDiscovery, kSanctumDeviceRecordsDiscovery,
+        };
+        for (const DiscoveryId& discovery : kBuriedDawnSanctumKeyDiscoveries) {
             const bool alreadyHave = baseState.discoveryRegistry.count(discovery) ||
                                       std::find(discoveriesThisReturn.begin(), discoveriesThisReturn.end(), discovery) !=
                                           discoveriesThisReturn.end();

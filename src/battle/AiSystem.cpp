@@ -83,6 +83,13 @@ AiProfile profileFor(const Unit& unit) {
     // existing generic profile is the intended level of investment.
     if (unit.unitClass == UnitClass::RaidLeader)
         return {AiProfileId::Human, 40, 1500, 12, 20, 20, 20, 1, 6, 30};
+    // docs/regions/buried_dawn_sanctum.md "最終強敵 聖堂回収団長"'s 降伏条件:
+    // "HP25%以下、記録箱2個保全、退路ありなら降伏する" - same simplification as
+    // RaidLeader above (no round/Object-aware hook exists on AiProfile), only
+    // the HP threshold is modeled. Explicitly not a bespoke takeXBossTurn()
+    // for the same "optional elite, not a true boss" reasoning.
+    if (unit.unitClass == UnitClass::SanctumRetrievalLeader)
+        return {AiProfileId::Human, 40, 1500, 12, 20, 20, 20, 1, 6, 25};
     return {AiProfileId::Human, 40, 1500, 12, 20, 20, 20, 1, 6};
 }
 

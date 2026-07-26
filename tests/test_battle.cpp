@@ -5809,10 +5809,11 @@ int main() {
         auto summaries = app.regionSummaries();
         // M9-Y: fixed a pre-existing gap where computeRegionSummaries()'s
         // region list stopped at WindscarPlateau (OldFrontierSettlement/
-        // EmberRavine were both missing) - now covers all 7 regions. This
-        // Slice added an 8th (BuriedDawnSanctum, EmberRavine's region-clear
-        // stub).
-        assert(summaries.size() == 8);
+        // EmberRavine were both missing) - now covers all 7 regions. M9-AG
+        // added an 8th (BuriedDawnSanctum, EmberRavine's region-clear stub);
+        // this Slice added a 9th (ShatteredMarchFort, BuriedDawnSanctum's own
+        // region-clear stub).
+        assert(summaries.size() == 9);
         bool sawAshboughUnlocked = false, sawCinderwatchLocked = false, sawAshironLocked = false;
         for (const auto& summary : summaries) {
             if (summary.id == jf::RegionId::AshboughForest) sawAshboughUnlocked = summary.unlocked;
@@ -11564,6 +11565,60 @@ int main() {
         eastRing->interactionCount = 1; // both rings now operated
         jf::syncObjectiveProgress(battle);
         assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+    {
+        // M9-AM: 埋没聖堂 地点6「夜明け祭壇」/ 強敵「聖堂回収団長」/ 地域攻略.
+        // Primary approximated as primarySurviveRoundsAlternative(4), same
+        // "headline sub-condition as primary" reasoning as
+        // settlement_dawn_defense's own SurviveRounds(5) - the elite leader
+        // is an optional retreat-tuned unit (AiSystem.cpp's
+        // retreatHpPercent=25), NOT a scripted boss.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor sanctumRegion =
+            jf::regionDescriptor(jf::RegionId::BuriedDawnSanctum, *data);
+        const jf::StageDescriptor* dawnAltarStage = nullptr;
+        for (const jf::StageDescriptor& stage : sanctumRegion.stages)
+            if (stage.id == "dawn_altar") dawnAltarStage = &stage;
+        assert(dawnAltarStage);
+        assert(dawnAltarStage->enemyRoster.size() == 6);
+        assert(dawnAltarStage->enemyRoster[0].classId == jf::UnitClass::SanctumRetrievalLeader);
+        assert(dawnAltarStage->scoutRouteRequiredClass == jf::UnitClass::MarchCaptain);
+        assert(dawnAltarStage->primarySurviveRoundsAlternative.has_value() &&
+              dawnAltarStage->primarySurviveRoundsAlternative->surviveUntilRound == 4);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*dawnAltarStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "building_material") == 3);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "ruin_fragment") == 2);
+
+        // Victory via SurviveRounds alone, regardless of the elite's fate.
+        jf::BattleState battle = jf::createScenarioBattle(*data, *dawnAltarStage, /*seed=*/7);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind != jf::BattleOutcomeKind::Victory);
+        while (battle.round() <= 4) {
+            battle.beginEnemyPhase();
+            battle.beginPlayerPhase();
+        }
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+
+        // Region-clear: RegionId::ShatteredMarchFort exists, is registered in
+        // the region list, and unlocks exactly on BuriedDawnSanctum's own
+        // completion (direct BaseState check - a full E2E playthrough
+        // through all 8 prior regions is impractical here).
+        jf::BaseState base;
+        assert(!jf::regionUnlocked(jf::RegionId::ShatteredMarchFort, base, *data));
+        base.completedRegionIds.insert(jf::RegionId::BuriedDawnSanctum);
+        assert(jf::regionUnlocked(jf::RegionId::ShatteredMarchFort, base, *data));
+        const jf::RegionDescriptor fortRegion = jf::regionDescriptor(jf::RegionId::ShatteredMarchFort, *data);
+        assert(!fortRegion.stages.empty());
     }
 
     {

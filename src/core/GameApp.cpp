@@ -324,6 +324,17 @@ void GameApp::proceedToCamp() {
             expedition_.pendingLoot.push_back({"iron", 1});
     }
 
+    // docs/regions/buried_dawn_sanctum.md「6. 夜明け祭壇」の公開副目標「団長を
+    // 降伏させる: 聖堂器材+1。撃破は不要」: same single-named-unit generic
+    // enemy AI retreat pattern as settlement_dawn_defense's own RaidLeader
+    // bonus above (`AiSystem.cpp`'s `retreatHpPercent=25` for
+    // `SanctumRetrievalLeader` sets `exitReason=Retreated` on that path).
+    if (!isReconnaissanceRun_ && stage.id == "dawn_altar") {
+        const Unit* leader = battleController_->battle().findUnit("dawn_altar_leader");
+        if (leader != nullptr && leader->exitReason == UnitExitReason::Retreated)
+            expedition_.pendingLoot.push_back({"sanctum_equipment", 1});
+    }
+
     if (!isReconnaissanceRun_ && stage.id == "plateau_relay") {
         int retreatedEnemies = 0;
         for (const Unit& unit : battleController_->battle().units())

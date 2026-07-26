@@ -468,5 +468,8 @@
   "ui.facilities.back_to_list": "Facility List",
   "class.redback_lizard": "Redback Great Lizard",
   "class.redback_lizard.role": "Boss: telegraphed sand charge (3-tile line), a 3-tile frontal tail sweep with knockback, and a one-time fume-terrain lure at half HP.",
-  "weapon.lizard_claws": "Claws"
+  "weapon.lizard_claws": "Claws",
+  "class.sanctum_retrieval_leader": "Sanctum Retrieval Leader",
+  "class.sanctum_retrieval_leader.role": "Elite (optional): prioritizes units near the archive boxes, considers surrendering at low HP. Not a scripted boss.",
+  "weapon.sanctum_glaive": "Sanctum Glaive"
 }

@@ -4476,6 +4476,99 @@ clear win率は依然0%だが、地点5がOperateObjectのシミュレータ盲�
 以上で埋没聖堂(第8地域)の地点5が実コンテンツ化された。地点6(夜明け祭壇、地域最終
 強敵「聖堂回収団長」)を実装すれば正本の6地点すべてが揃う。
 
+## M9-AM 埋没聖堂(第8地域): 地点6(夜明け祭壇)/ 強敵「聖堂回収団長」/ 地域攻略
+
+バックグラウンドエージェントが2回連続でセッション上限・stallにより中断した
+(1回目は`UnitClass::SanctumRetrievalLeader`のenum追加のみで停止、2回目は
+それ以降のwiring着手前に停止)ため、以降はメインで直接実装を引き継いだ。
+
+強敵「聖堂回収団長」は`old_frontier_settlement`の`RaidLeader`(M9-Y)と全く同じ
+「撃破は最終攻略に不要な任意強敵」の扱い(正本「強敵撃破は最終攻略に撃破不要」/
+「不変条件: 強敵撃破を必須にしない」)とし、専用`EnemyAI.cpp`ボスAI関数は作らず、
+新規`UnitClass::SanctumRetrievalLeader`(HP44/STR9/DEF7/RES6/MOV4、新規武器
+`sanctum_glaive`威力6射程1)を汎用敵AI経路(`takeEnemyTurn()`/
+`generateAiCandidates()`)にそのまま乗せ、`AiSystem.cpp`の`profileFor()`へ
+`retreatHpPercent=25`を追加しただけで正本の「HP25%以下...降伏する」を近似した
+(「記録箱2個保全、退路あり」の追加条件はAiProfileにRound/Object認識フックが無い
+ため`RaidLeader`と同じ理由で見送り)。
+
+主目的「記録箱2個保全して4Round」は、`settlement_dawn_defense`(M9-Y)が
+「5ラウンド生存(または敵全滅)」を主目的の見出しサブ条件として選んだのと同じ理由で
+`primarySurviveRoundsAlternative`(`surviveUntilRound=4`)のみへ近似し、記録箱保全
+半分はObject耐久系の既知ギャップとして見送った。敵編成は団長1+回収団5
+(Bandit3体+WatchArcher2体、"Sanctum Retriever"表示名で再利用)。`data/regions.json`の
+`dawn_altar` placeholderエントリを実コンテンツへ差し替え(JSON-authored、
+`RouteGraph.cpp`の配線はM9-AHの時点で既に完了済みのため変更不要)。
+`scoutRouteRequiredClass: MarchCaptain`で`[行軍隊長]`「退路保証」ルートを表現。
+勝利報酬(建築材3、石材2、高品質鉄材1、遺跡片2)はすべて既存material。公開副目標
+「団長を降伏させる: 聖堂器材+1」は`settlement_dawn_defense`の「頭領撤退: 鉄材1」
+(M9-Y)と同型の`UnitExitReason::Retreated`ベースのad-hoc `GameApp.cpp`チェックを
+そのまま踏襲した(単一の名前付きUnit `dawn_altar_leader`のexitReasonを直接参照)。
+
+地域攻略配線: `RegionId::ShatteredMarchFort`(第9地域「破砕された前線砦」)を
+`ember_ravine_outpost`と同型の2-Bandit placeholderスタブとして追加、
+`Region.cpp`の4箇所のswitch文(`regionDescriptor()`/`toString()`/
+`regionIdFromString()`/`regionIdFromStringStrict()`/`regionUnlocked()`、計5箇所)・
+`ExpeditionService.cpp`の地域リスト+predecessorマップへそれぞれ配線。
+`buriedDawnSanctumMaterialsEarned`フロア(建築材6/石材4/高品質鉄材2/薬草4/
+聖堂器材3/遺跡片4)を`emberRavineMaterialsEarned`と同型で新設し
+(`SaveSystem.cpp`の永続化も追加)、地点3「救護室」(M9-AJ)・地点5「封鎖回廊」
+(M9-AL)でそれぞれ個別到達不能のまま残っていた`medical_codex`(医療典籍)・
+`sanctum_device_records`(聖堂装置記録)を地域攻略時のフロア底上げで初めて到達
+可能にした(上位魔法研究記録は地点4の副目標(M9-AK)で既に到達可能なため対象外)。
+「開拓都市への発展候補」は現行の`OutpostStage`にまだ無い将来ステージを指しており、
+本Sliceの範囲外として着手しなかった。
+
+### 実装中に発見・修正した既存バグ3件
+
+1. **`RouteGraph.cpp`の`usesRouteGraph()`にBuriedDawnSanctumが漏れていた**:
+   `regionRouteGraph()`は`buriedDawnSanctumGraph()`を正しく返すが、
+   `usesRouteGraph()`のOR条件にM9-AH以来ずっと`RegionId::BuriedDawnSanctum`が
+   含まれておらず、`GameData.cpp`の起動時グラフ検証(`validateRouteGraph()`)が
+   この地域のグラフを一度も検証しないまま、かつ`GameApp.cpp`が
+   `expedition_.routeProgress`をこの地域の遠征開始時に初期化しないまま、地点6
+   まで実装が進んでいた。地点3・4の「順序選択」分岐が実プレイで正しく機能する
+   保証が無い状態だったため、テストの通過状況とは無関係に修正した(グラフ自体は
+   修正後の`jf_content_tests`検証を素通りしたため構造的には健全だったが、
+   「検証されていなかった」こと自体がリスクだった)。
+2. **地点2・3で新規`medicinal_herb`という重複素材IDが混入**(M9-AJで発見・修正済み、
+   既存記録どおり)。
+3. **`GameData.cpp`のUnit読み込みが未知の`classId`を無警告で握りつぶす**:
+   `SanctumRetrievalLeader`をenumへ追加した直後、`data/classes.json`・
+   `data/regions.json`の両方を用意したにもかかわらず`unitClassFromString()`の
+   文字列→enumマップへの追加を1箇所忘れており、`dawn_altar`の敵編成から団長
+   ユニットだけが診断メッセージ無しで消えていた(`enemyRoster.size()`が6ではなく
+   5になっていることをテストが検出)。マップへ追加して修正した上で、今後同種の
+   見落としが再び無診断で発生しないよう、`readTemplates()`に`std::cerr`警告
+   (未知のclassIdとUnit idを出力)を追加した - この診断自体は既存の他の読み込み
+   エラー(`std::cerr`)と同じ様式。
+
+### テスト・ビルド
+
+`tests/test_battle.cpp`へ2件追加: 地点6の敵編成(6体、先頭が
+`SanctumRetrievalLeader`)・`scoutRouteRequiredClass`・
+`primarySurviveRoundsAlternative`(id/`surviveUntilRound=4`)・勝利報酬を検証し、
+実際に4ラウンド経過でVictoryが成立することを確認するテスト、および
+`RegionId::ShatteredMarchFort`が`BuriedDawnSanctum`完了時にのみ`regionUnlocked()`
+でtrueになること・`regionDescriptor()`が空でないスタブ地域を返すことを直接
+`BaseState`操作で検証するテスト(全8地域を通しでプレイする完全E2Eは非現実的な
+ため、直接呼び出しで検証)。`ctest --test-dir build -j10`は4/4、フルスイートを
+複数のチェックポイントで3回連続実行し安定(フレークなし、既知の
+`test_battle.cpp:1244`フレークは今回発生せず)。`git diff --check`成功。
+
+### balance実測
+
+`jf_forest_balance --region=buried_dawn_sanctum`(500 Seed): 地点6(夜明け祭壇)の
+fresh-party win率はDirect 42.8%/HP残6.4%、Tactical 69.4%/HP残18.6%(avg KO
+3.49/3、団長込みの6体編成をシミュレータが力押しで全滅させようとするため)。
+`primarySurviveRoundsAlternative`型主目的のため、シミュレータの`ObjectiveKind`
+盲点には該当しない実測値。[[jf_forest_balance worst-case numbers]]の教訓どおり
+記録のみに留め、本Sliceでの数値調整は行わない。6地点通しのRegion clear win率は
+依然0%だが、地点5がOperateObjectのシミュレータ盲点であることが主因。
+
+以上で**埋没聖堂(第8地域)は全6地点+最終強敵が実コンテンツ化され、地域攻略〜
+次地域「破砕された前線砦」解放まで通しでプレイ可能**になった。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

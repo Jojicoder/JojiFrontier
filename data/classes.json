@@ -139,6 +139,13 @@
       "weaponId": "lizard_claws",
       "nameKey": "class.redback_lizard",
       "roleKey": "class.redback_lizard.role"
+    },
+    {
+      "id": "SanctumRetrievalLeader",
+      "baseStats": { "maxHp": 44, "strength": 9, "magic": 0, "speed": 6, "defense": 7, "resistance": 6, "move": 4 },
+      "weaponId": "sanctum_glaive",
+      "nameKey": "class.sanctum_retrieval_leader",
+      "roleKey": "class.sanctum_retrieval_leader.role"
     }
   ]
 }
