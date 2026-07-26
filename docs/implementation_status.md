@@ -4793,6 +4793,100 @@ win率は引き続きDirect/Tactical共に0.0%だが、地点2のOperateObject�
 以上で破砕された前線砦(第9地域)は地点1・2・3が実コンテンツ化された。地点4が本格化
 すればCAMP IIへ実質的に到達可能になる。地点4〜7は次のSlice以降で1地点ずつ本格化する。
 
+## M9-AQ 破砕された前線砦(第9地域): 地点4(兵站庫)/ CAMP II実質到達可能化
+
+M9-AN(骨格+地点1)/M9-AO(地点2)/M9-AP(地点3)に続き、地点4「兵站庫」を実コンテンツ化
+した。`guestUnits`等の未対応フィールドを必要としないため、`sanctum_archive`(M9-AK)と
+全く同じ形で`data/regions.json`の`fort_logistics_depot`プレースホルダー(Bandit x2)
+エントリを直接書き換え、JSON-authoredのまま実装した。`RouteGraph.cpp`の
+`shatteredMarchFortGraph()`はM9-ANの時点で地点4・CAMP IIまで含む全体骨格を配線済みの
+ため、この Sliceでのグラフ変更は不要。
+
+**主目的「箱2個確保」は`sanctum_archive`(M9-AK)と全く同じEliminateTeam-primary
+近似**: 「箱2個」を`ObjectiveGroupRule::All`相当の「両方必須」として素朴に表現しようと
+すると、`surveyObjectiveId`のグループは常に`ObjectiveGroupRule::Any`(M9-Xの確認済み
+調査どおり、N個のうちどれか1個で成立)であり、真の「N個ある箱のうち全部必須」という
+Kindはこのプロジェクトに存在しない既知ギャップ(M9-D以来繰り返し記録済み)。指示どおり、
+標準`EliminateTeam`(`groupId: "primary"`)のみを主目的とし、「箱2個確保」自体は
+`surveyObjectiveId: "fort_logistics_depot_crate"`+`surveyTileCount: 2`経由の
+secondary/bonus-rewardパスへ回した(`sanctum_archive`の「写本箱2個確保」と全く同型の
+近似、`ash_crystal_shelf`/`heatwork_shop`/`ashsealed_observatory`とも同カテゴリ)。
+
+**「兵站箱全保全 -> 軍需管理記録」ボーナス階層は`heatwork_shop`(M9-AE)の
+`kSpecialForgingRecordsDiscovery`と全く同型の新規ad-hocチェックで実装**:
+`surveyTileCount`が`Any`である以上、副目標「1個以上」(既存`surveySucceeded`+
+RewardRuleで処理済み)と「2個とも」ボーナスを単一グループだけでは区別できないため、
+`GameApp.cpp`終戦ボーナスブロックへ`mission.definitions`を`groupId ==
+"fort_logistics_depot_crate"`でスキャンし全メンバーが`Completed`であることを直接
+確認する同型チェックを追加した。新規Discovery定数`kLogisticsManagementRecordsDiscovery`
+(`fort_logistics_depot_management_records`、正本の安定ID一覧に専用idの記載が無いため
+`kGroupTriageRecordsDiscovery`等と同じ`<region-site>_..._records`命名規則で新規採番)を
+`include/jf/core/BaseState.hpp`へ追加した。
+
+**敵は軍需回収団4+弓兵1、地点1が確立した「Fort Retriever」reskinをそのまま再利用**:
+M9-ANが確立した「軍需回収団」専用フレーバー名(残留砦隊の「Fort Retainer」/
+プレースホルダー群の「Fort Retriever」との命名衝突が無いことを確認済み)をそのまま
+踏襲し、正本「敵勢力」節の「軍需回収団: 物資を持って撤退。砦防衛はしない」という
+フレーバーが兵站庫襲撃に合致することを確認したうえで採用した(地点3の残留砦隊/
+「Fort Garrison」とは意図的に区別)。新規JAグリフ登録は不要(既存英語reskin表示名の
+規約どおり)。
+
+探索3択「食料箱優先」/「武器箱優先」(いずれも無条件)/`[伝令騎兵]`「両区画伝達」
+(`scoutRouteRequiredClass: MessengerCavalry`)を配線。正本の7地点表の当該行には
+追加数値デルタの記載が無いことを確認したうえで、`routeOutcomes`は選択肢の列挙のみ
+とした。
+
+主目的報酬(高品質鉄材1、軍需品2)は共に既存reuse: `quality_iron`/`military_supplies`
+いずれも既に登録済み(`data/locales/en.json`/`ja.json`を検索し重複が無いことを確認)。
+
+**恒久成果「兵站庫確保」(CAMP IIで軍需品1補充)は見送り**: `sanctum_infirmary_restored`
+(M9-AJ)の「CAMP IIで救急セット補充」と全く同じ理由による既知ギャップ。
+`ExpeditionService.cpp`のキャンプ到着処理は施設アクセス/回復UI提示のみで、
+キャンプ到達時にインベントリへ素材を書き込むフック自体が存在しない。正本の安定ID
+一覧にもこの効果専用のidは記載が無い(地域/キャンプレベルのidのみ)ため、新規
+インフラを組まずドキュメントのみのギャップとして記録するに留めた。
+
+敗北条件「全箱損失」は他の全crate-primary地点と同じくObject耐久追跡機構の欠如
+(M9-D以来の既知ギャップ)のため見送り。
+
+`tests/test_battle.cpp`へ4件追加: (1) `sanctum_archive`同型のEliminateTeam-primary+
+crate-secondary検証(敵編成5体・`scoutRouteRequiredClass`・主目的報酬の`quality_iron`/
+`military_supplies`数量・`surveyTileCount:2`・crateグループが`ObjectiveGroupRule::Any`
+であること)、(2)両crate Objective完了で`kLogisticsManagementRecordsDiscovery`が
+成立する前提条件テスト、(3)地点3・4双方が実コンテンツ(空でない`enemyRoster`)になり
+CAMP II(`fort_camp2`)がRouteGraph上で到達可能になったことの直接検証。既存スイート
+含め全成功、フルスイートを3回連続実行し安定(フレークなし、`test_battle.cpp:1244`の
+既知RNGフレークも今回の3回では発生せず)。
+
+`jf_forest_balance --region=shattered_march_fort`(500 Seed)の実測: Logistics Depot
+(兵站庫)はDirect win 17.8%・Tactical win 14.2%(敵5体構成の破砕外郭(29.2%/21.4%)より
+低いが、`any KO`98%台・HP残量5〜7%台という「敵を全滅させる前にほぼ壊滅する」典型的な
+fresh-party per-siteの厳しい数値で、[[jf_forest_balance worst-case numbers]]の教訓
+どおり実測記録に留め本Sliceでは数値調整を行わない)。地点1(破砕外郭)は引き続き
+Direct 29.2%/Tactical 21.4%で変化なし、地点2(崩れ門)は引き続きOperateObject
+Objective種別に対するAI未対応によりwin率0.0%(M9-AO記録済みの既知の盲点)。7地点通しの
+Region clear win率は引き続きDirect/Tactical共に0.0%だが、地点2のOperateObject盲点に
+加え地点5〜7がまだプレースホルダーのままであるため。
+
+**CAMP II実質到達可能化**: `RouteGraph.cpp`は元々`fort_barracks_logistics_branch`
+(`BranchCompletion::AllMembers`、地点3・4両方が対象)→`fort_camp2`を配線済みのため、
+地点3(M9-AP)に続き地点4もこのSliceで実コンテンツ化したことで、CAMP IIは骨格上の
+配線だけでなく実質的にも到達可能になった(`findRouteNode(fortRoute, "fort_camp2")`の
+直接検証、および両地点が空でない`enemyRoster`を持つことの確認をテストへ追加)。
+
+見送った部分(正本との差分、都度明記):
+
+- 恒久成果「兵站庫確保」(CAMP IIで軍需品1補充): キャンプ到着時インベントリ書換フック
+  自体が未実装(上記参照、M9-AJ「救護室」以来の既知ギャップと同カテゴリ)
+- 主目的「箱2個確保」の`ObjectiveGroupRule::All`相当の「両方必須」表現、敗北条件
+  「全箱損失」(Object耐久追跡機構の欠如、M9-D以来の既知ギャップと同カテゴリ)
+- 地点5〜7(信号庭/予備壁/切離命令庫)は引き続きBandit x2(-3)最小プレースホルダーの
+  まま(次Slice以降で1地点ずつ本格化)
+
+以上で破砕された前線砦(第9地域)は地点1・2・3・4が実コンテンツ化され、CAMP IIが
+実質的に到達可能になった。地点5〜7(信号庭/予備壁/切離命令庫)+地域ボス「残留砦隊長」
+は次のSlice以降で本格化する。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

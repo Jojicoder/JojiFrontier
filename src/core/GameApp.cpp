@@ -197,6 +197,27 @@ void GameApp::proceedToCamp() {
             expedition_.pendingDiscoveries.push_back(kSpecialForgingRecordsDiscovery);
     }
 
+    // docs/regions/shattered_march_fort.md「兵站庫」の「兵站箱全保全 -> 軍需管理
+    // 記録」: same all-group-members-Completed ad-hoc check as heatwork_shop's
+    // kSpecialForgingRecordsDiscovery above.
+    if (!isReconnaissanceRun_ && stage.id == "fort_logistics_depot") {
+        const BattleMissionState& mission = battleController_->battle().missionState();
+        bool anyInGroup = false;
+        bool allCompleted = true;
+        for (const ObjectiveDefinition& def : mission.definitions) {
+            if (def.groupId != "fort_logistics_depot_crate") continue;
+            anyInGroup = true;
+            if (mission.progress.at(def.id).status != ObjectiveStatus::Completed) {
+                allCompleted = false;
+                break;
+            }
+        }
+        if (anyInGroup && allCompleted &&
+            std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                     kLogisticsManagementRecordsDiscovery) == expedition_.pendingDiscoveries.end())
+            expedition_.pendingDiscoveries.push_back(kLogisticsManagementRecordsDiscovery);
+    }
+
     // docs/regions/ember_ravine.md「7. 灰封観測所」の「記録箱2個: 峡谷踏査記録、
     // 灰嵐以前の監視記録」: same all-group-members-Completed ad-hoc check as
     // heatwork_shop's kSpecialForgingRecordsDiscovery above, granting both

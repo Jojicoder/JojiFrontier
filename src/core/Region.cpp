@@ -1912,8 +1912,11 @@ StageDescriptor fortOldBarracksStage() {
 // `sanctum_approach`/`settlement_outer_fence`). Site 2 (`fort_broken_gate`,
 // "崩れ門") is real content as of M9-AO, also JSON-authored (single
 // OperateObject Objective). Site 3 (`fort_old_barracks`, "旧兵舎") is real
-// content as of this Slice, hand-authored via fortOldBarracksStage() above
-// (guest-escort site, see that function's own comment).
+// content as of M9-AP, hand-authored via fortOldBarracksStage() above
+// (guest-escort site, see that function's own comment). Site 4
+// (`fort_logistics_depot`, "兵站庫") is real content as of this Slice, also
+// JSON-authored (EliminateTeam-primary + crate-secondary, same shape as
+// `sanctum_archive`).
 RegionDescriptor shatteredMarchFortRegion(const GameData& data) {
     RegionDescriptor region;
     region.id = RegionId::ShatteredMarchFort;

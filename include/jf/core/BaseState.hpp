@@ -493,6 +493,14 @@ inline constexpr const char* kFieldMedicalRecordsDiscovery = "collapsed_nave_fie
 // "2人とも脱出" bonus (GameApp.cpp), adapted here for 2 wounded soldiers.
 inline constexpr const char* kGroupTriageRecordsDiscovery = "fort_old_barracks_group_triage_records";
 
+// docs/regions/shattered_march_fort.md「副目標と重要発見」地点4「兵站庫」の
+// "兵站箱全保全 -> 軍需管理記録": same all-group-members-Completed ad-hoc check
+// as ember_ravine's kSpecialForgingRecordsDiscovery("記録箱2個とも") - the doc's
+// own「安定ID」table doesn't list an id for this record either, so this follows
+// the same `<region-site>_..._records` naming convention as
+// kGroupTriageRecordsDiscovery above.
+inline constexpr const char* kLogisticsManagementRecordsDiscovery = "fort_logistics_depot_management_records";
+
 // Forge tuning traits, tracked as an id rather than a free string so a typo
 // can't silently create an unrecognized "equipped" trait.
 enum class TuningTraitId {

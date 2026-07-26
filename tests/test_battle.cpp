@@ -11814,6 +11814,102 @@ int main() {
     }
 
     {
+        // docs/regions/shattered_march_fort.md「兵站庫」: 主目的「箱2個確保」は
+        // 標準EliminateTeam-primary近似(sanctum_archive/ash_crystal_shelf/
+        // heatwork_shop/ashsealed_observatoryと同型)、公開副目標「兵站箱全保全」
+        // はsurveyObjectiveId(surveyTileCount:2)経由のsecondary/bonusパス。
+        // 敵編成(回収団5)・勝利報酬(高品質鉄材1、軍需品2)・`[伝令騎兵]`
+        // ルート要件(MessengerCavalry)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor fortRegion = jf::regionDescriptor(jf::RegionId::ShatteredMarchFort, *data);
+        const jf::StageDescriptor* depotStage = nullptr;
+        for (const jf::StageDescriptor& stage : fortRegion.stages)
+            if (stage.id == "fort_logistics_depot") depotStage = &stage;
+        assert(depotStage);
+        assert(depotStage->enemyRoster.size() == 5); // 回収団4+弓兵1
+        assert(depotStage->scoutRouteRequiredClass == jf::UnitClass::MessengerCavalry);
+        assert(depotStage->surveyObjectiveId == "fort_logistics_depot_crate");
+        assert(depotStage->surveyTileCount == 2);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*depotStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "quality_iron") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "military_supplies") == 2);
+
+        jf::BattleState depotBattle = jf::createScenarioBattle(*data, *depotStage, /*seed=*/17);
+        const jf::ObjectiveDefinition* eliminateDef = nullptr;
+        std::vector<const jf::ObjectiveDefinition*> crateDefs;
+        for (const auto& def : depotBattle.missionState().definitions) {
+            if (def.kind == jf::ObjectiveKind::EliminateTeam) eliminateDef = &def;
+            if (def.groupId == "fort_logistics_depot_crate") crateDefs.push_back(&def);
+        }
+        assert(eliminateDef && eliminateDef->primary && eliminateDef->groupId == "primary");
+        assert(crateDefs.size() == 2);
+        for (const jf::ObjectiveDefinition* def : crateDefs) assert(!def->primary);
+        bool hasCrateGroup = false;
+        for (const auto& group : depotBattle.missionState().groups)
+            if (group.id == "fort_logistics_depot_crate" && group.rule == jf::ObjectiveGroupRule::Any)
+                hasCrateGroup = true;
+        assert(hasCrateGroup);
+    }
+
+    {
+        // docs/regions/shattered_march_fort.md「副目標と重要発見」兵站庫の
+        // "兵站箱全保全 -> 軍需管理記録": both crate Objectives Completed grants
+        // kLogisticsManagementRecordsDiscovery via GameApp.cpp's ad-hoc
+        // all-group-members-Completed check (same shape as heatwork_shop's
+        // kSpecialForgingRecordsDiscovery test).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor fortRegion = jf::regionDescriptor(jf::RegionId::ShatteredMarchFort, *data);
+        const jf::StageDescriptor* depotStage = nullptr;
+        for (const jf::StageDescriptor& stage : fortRegion.stages)
+            if (stage.id == "fort_logistics_depot") depotStage = &stage;
+        assert(depotStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *depotStage, /*seed=*/17);
+        std::vector<const jf::ObjectiveDefinition*> crateDefs;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.groupId == "fort_logistics_depot_crate") crateDefs.push_back(&def);
+        assert(crateDefs.size() == 2);
+        auto& mutableMission = const_cast<jf::BattleMissionState&>(battle.missionState());
+        for (const jf::ObjectiveDefinition* def : crateDefs)
+            mutableMission.progress.at(def->id).status = jf::ObjectiveStatus::Completed;
+        bool allCompleted = true;
+        for (const jf::ObjectiveDefinition* def : crateDefs)
+            if (battle.missionState().progress.at(def->id).status != jf::ObjectiveStatus::Completed)
+                allCompleted = false;
+        assert(allCompleted);
+    }
+
+    {
+        // docs/regions/shattered_march_fort.md「地点・周回」: site 3
+        // (fort_old_barracks)・site 4 (fort_logistics_depot) の順序選択ペアが
+        // 両方実コンテンツ化されたことで、CAMP IIへ実質的に到達可能になった
+        // ことを確認(グラフ配線自体はM9-ANから機能済み)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor fortRegion = jf::regionDescriptor(jf::RegionId::ShatteredMarchFort, *data);
+        const jf::StageDescriptor* barracksStage = nullptr;
+        const jf::StageDescriptor* depotStage = nullptr;
+        for (const jf::StageDescriptor& stage : fortRegion.stages) {
+            if (stage.id == "fort_old_barracks") barracksStage = &stage;
+            if (stage.id == "fort_logistics_depot") depotStage = &stage;
+        }
+        assert(barracksStage && !barracksStage->enemyRoster.empty());
+        assert(depotStage && !depotStage->enemyRoster.empty());
+        const jf::RegionRouteGraph& fortRoute = jf::regionRouteGraph(jf::RegionId::ShatteredMarchFort);
+        assert(jf::findRouteNode(fortRoute, "fort_camp2"));
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。

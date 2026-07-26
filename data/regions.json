@@ -1443,12 +1443,26 @@
       "id": "fort_logistics_depot",
       "terrainProfileId": "shattered_march_fort",
       "enemyRoster": [
-        { "id": "fort_logistics_depot_bandit1", "name": "Fort Retriever", "classId": "Bandit" },
-        { "id": "fort_logistics_depot_bandit2", "name": "Fort Retriever", "classId": "Bandit" }
+        { "id": "fort_logistics_depot_retriever1", "name": "Fort Retriever", "classId": "Bandit" },
+        { "id": "fort_logistics_depot_retriever2", "name": "Fort Retriever", "classId": "Bandit" },
+        { "id": "fort_logistics_depot_retriever3", "name": "Fort Retriever", "classId": "Bandit" },
+        { "id": "fort_logistics_depot_retriever4", "name": "Fort Retriever", "classId": "Bandit" },
+        { "id": "fort_logistics_depot_archer1", "name": "Fort Retriever", "classId": "WatchArcher" }
       ],
-      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
-      "missionNameEn": "Logistics Depot (placeholder)",
-      "missionNameJa": "兵站庫(仮実装)"
+      "baseVictoryLoot": [
+        { "id": "quality_iron", "quantity": 1 },
+        { "id": "military_supplies", "quantity": 2 }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath" },
+        { "choice": "ScoutRoute" }
+      ],
+      "scoutRouteRequiredClass": "MessengerCavalry",
+      "surveyObjectiveId": "fort_logistics_depot_crate",
+      "surveyTileCount": 2,
+      "missionNameEn": "Logistics Depot",
+      "missionNameJa": "兵站庫"
     },
     {
       "id": "fort_signal_yard",

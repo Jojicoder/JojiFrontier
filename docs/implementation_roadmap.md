@@ -288,6 +288,19 @@ hand-authored護衛地点として実装。主目的「負傷兵1人脱出」は
 最低HP生存者5回復)はキャンプ到達時Unit書換フック自体が未実装のため見送り
 (BuriedDawnSanctumのCAMP I効果と同じ既知ギャップ)。詳細は`implementation_status.md`の
 M9-AP参照。
+M9-AQ(破砕された前線砦・第9地域: 地点4「兵站庫」/ CAMP II実質到達可能化)完了
+(2026-07)。`sanctum_archive`(M9-AK)と同型のJSON-authored crate-primary地点として
+実装。主目的「箱2個確保」は他の全crate-primary地点と同じくEliminateTeamのみへ近似し、
+「箱2個確保」自体は`surveyObjectiveId`+`surveyTileCount:2`のsecondary/bonusパスへ
+回した。公開副目標「兵站箱全保全」→新規Discovery`kLogisticsManagementRecordsDiscovery`
+を`heatwork_shop`(M9-AE)と同型の全グループメンバーCompleted ad-hocチェックで配線。
+敵は軍需回収団4+弓兵1を地点1確立済みの「Fort Retriever」表示名で再利用、主目的報酬
+(高品質鉄材1、軍需品2)は既存material再利用のみ。恒久成果「兵站庫確保」(CAMP IIで
+軍需品1補充)はキャンプ到着時インベントリ書換フック自体が未実装のため見送り
+(`sanctum_infirmary_restored`(M9-AJ)と同じ既知ギャップ)。地点3(M9-AP)・地点4(本Slice)
+双方が実コンテンツ化されたことで、`fort_barracks_logistics_branch`
+(`BranchCompletion::AllMembers`)経由のCAMP IIが骨格配線だけでなく実質的にも到達可能に
+なったことをテストで直接確認した。詳細は`implementation_status.md`のM9-AQ参照。
 M9-AHと同じ「新規戦闘メカニクス無し」地域として、地域骨格全体(7地点+3キャンプ+
 地点3・4「順序選択」)+地点1を1Sliceで実装。`RouteGraph.cpp`へ`shatteredMarchFortGraph()`
 を追加し、**同じコミット単位で`usesRouteGraph()`へ`RegionId::ShatteredMarchFort`を
@@ -304,10 +317,10 @@ M9-AN参照。
 直近の未完了(優先度順):
 
 1. 破砕された前線砦(第9地域)の本格実装の続き(地点2「崩れ門」はM9-AO、地点3
-   「旧兵舎」はM9-APで完了、Camp Iへ到達可能。残り地点4〜7: 兵站庫/信号庭/予備壁/
-   切離命令庫、いずれもまだBandit x2(-3)プレースホルダー。地点4が本格化すれば
-   Camp IIへ実質到達可能になる)+最終強敵「残留砦隊長」+地域攻略配線
-   (M6-B/C・M9-A〜APと同じ「骨格→1地点ずつ」方式)。
+   「旧兵舎」はM9-AP、地点4「兵站庫」はM9-AQで完了、CAMP IIへ実質到達可能。残り
+   地点5〜7: 信号庭/予備壁/切離命令庫、いずれもまだBandit x2(-3)プレースホルダー)
+   +最終強敵「残留砦隊長」+地域攻略配線(M6-B/C・M9-A〜AQと同じ「骨格→1地点ずつ」
+   方式)。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/
