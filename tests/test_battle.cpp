@@ -10951,6 +10951,66 @@ int main() {
     }
 
     {
+        // docs/regions/ember_ravine.md「4. 破損冷却水路」: JSON-authored via
+        // stageDescriptorFromContent(), same operateObjectiveId pattern as
+        // sunken_sluice (M9-J) - primary approximated as OperateObject-only,
+        // the "OperateObject AND SurviveRounds(2)" AND-composition is
+        // deferred (same category of gap M9-J/M9-D/M9-M already recorded).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor emberRegion = jf::regionDescriptor(jf::RegionId::EmberRavine, *data);
+        const jf::StageDescriptor* channelStage = nullptr;
+        for (const jf::StageDescriptor& stage : emberRegion.stages)
+            if (stage.id == "ravine_cooling_channel") channelStage = &stage;
+        assert(channelStage);
+        assert(channelStage->enemyRoster.size() == 5);
+        assert(channelStage->scoutRouteRequiredClass == jf::UnitClass::FrontierEngineer);
+        assert(channelStage->objectPlacementRules.size() == 1);
+        assert(channelStage->objectPlacementRules[0].operateObjectiveId == "operate_cooling_valve");
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*channelStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "iron") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "heat_resistant_material") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "iron") == 1); // 鉄鉱石-1
+
+        const jf::ExplorationOutcome breakOutcome =
+            jf::stageRouteOutcome(*channelStage, jf::ExplorationChoice::CollapsedSidePath);
+        assert(breakOutcome.startingHeatLevel == 0); // 熱量を即座に0
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *channelStage, /*seed=*/9);
+        const jf::ObjectiveDefinition* operateDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.kind == jf::ObjectiveKind::OperateObject) operateDef = &def;
+        assert(operateDef && operateDef->primary && operateDef->groupId == "primary");
+    }
+
+    {
+        // docs/regions/ember_ravine.md「地点構成」: 地点3・地点4は"どちらを
+        // 先に攻略してもよい、両方必須"の either-order branch - completing
+        // BOTH members gates Camp II, mirroring every prior region's own
+        // either-order-branch gate (e.g. Blackwater/Old Frontier Settlement).
+        const jf::RegionRouteGraph& emberRoute = jf::regionRouteGraph(jf::RegionId::EmberRavine);
+        const jf::RouteNodeDefinition* branch = jf::findRouteNode(emberRoute, "ember_ravine_sulfur_channel_branch");
+        assert(branch && branch->branchCompletion == jf::BranchCompletion::AllMembers);
+        assert(branch->branchMembers.size() == 2);
+        bool hasSulfur = false, hasChannel = false;
+        for (const std::string& member : branch->branchMembers) {
+            if (member == "sulfur_hollow") hasSulfur = true;
+            if (member == "ravine_cooling_channel") hasChannel = true;
+        }
+        assert(hasSulfur && hasChannel);
+        const jf::RouteNodeDefinition* camp2 = jf::findRouteNode(emberRoute, "ember_ravine_camp2");
+        assert(camp2 && camp2->kind == jf::RouteNodeKind::Camp);
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。

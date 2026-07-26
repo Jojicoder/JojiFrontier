@@ -3258,6 +3258,80 @@ RoundsAlternative/secondaryProtectUnitAlternative/3ルートの敵数・熱量�
 以上で燼火峡谷(第7地域)は地点1・2・3の3地点が実コンテンツ化された。残り5地点は
 次のSlice以降で1地点ずつ本格化する。
 
+### M9-AC 燼火峡谷(第7地域): 地点4(破損冷却水路)+ キャンプII到達可能化
+
+`docs/regions/ember_ravine.md`「4. 破損冷却水路」を実コンテンツ化した。この地点は
+`guestUnits`等の未対応フィールドを必要としないため、`sunken_sluice`(M9-J、
+Windscar「沈没水門」)と全く同じ形で`data/regions.json`の`ravine_cooling_channel`
+プレースホルダー(Bandit x2)エントリを直接書き換え、`stageDescriptorFromContent()`
+経由でJSON-authoredのまま実装した(`Region.cpp`側の呼び出し自体はM9-Zから変更なし)。
+
+**主目的「冷却弁を操作して2ラウンド防衛」はOperateObject単独へ近似、
+SurviveRounds(2)とのAND合成は見送り**: これは`sunken_sluice`(M9-J)自身が
+「水門を操作しつつ2ラウンド防衛」で下した近似と全く同じ判断であり、異なる
+ObjectiveKind同士(OperateObject AND SurviveRounds)を合成する機構自体が
+このプロジェクトに存在しない、M9-D/M9-H/M9-J/M9-M以来繰り返し記録済みの
+既知ギャップに当たる。`objectPlacementRules`に`cooling_valve_wheel`
+(Device、`operate_cooling_valve`、maxUses:1)を1個配置し、`sunken_sluice`の
+`sluice_gate_wheel`と同型のOperateObject主目的として生成させた。地点名の
+「二つの弁」・ルート1の「操作2回」/ルート2・3の「操作1回」という操作回数の
+ルートごとの差異は、Object配置数がルート非依存であるためのモデル化されない
+仕様ディテールとして見送った(`ember_ravine_ledge`のMOV低下ルート前例と同型の
+「打ち消す対象/表現手段が無い差異は注記のみに留める」判断)。
+
+**副目標「水路耐久8以上」・敗北条件「水路耐久0」・ルート3「水路耐久+4」は
+Object耐久追跡機構の欠如によりまとめて見送り**: M6-C以来一貫した既知ギャップ
+(Objectの`durability`を戦闘中に追跡・敗北条件へ結び付ける仕組みが未実装)の
+同型繰り返し。ルート3`[辺境工兵]`は`scoutRouteRequiredClass = FrontierEngineer`
+のみ配線し、耐久+4効果自体はno-op(効果を持たない、敵構成・報酬は他ルートと同一)。
+
+**ルート2「水路壁を壊して流す」の`熱量を即座に0`は`startingHeatLevel: 0`の
+直接再利用**: M9-Zで実装済みの既存フィールドがそのまま「熱量を戦闘開始時に
+指定値へ設定する」を表現しており、新規プラミングは不要だった(値0を明示設定、
+デフォルトと同値のため実質的にはno-opだが仕様の記述どおり明示した)。
+同ルートの鉄鉱石-1は`routeVictoryLootDelta`のRouteChoiceで表現(既存の
+負quantity前例と同型)。
+
+**敵は既存の熱地採取団reskinを再利用**: `emberRavineLedgeStage()`が確立した
+「斧兵/工兵型はBandit reskin、弓兵はWatchArcher reskin」パターンをそのまま
+踏襲し、斧兵2・弓兵2・工兵型1の計5体(base roster、ルートによる増減なし)。
+新規UnitClassは追加していない。
+
+**副目標「水路保全: 耐熱加工記録」は現状到達不可のまま未配線**: 対応する
+副目標(水路耐久8以上)自体を見送ったため、`heat_resistant_processing_records`
+Discoveryはこの地点のどのルートにも配線していない(安定IDテーブル自体には
+`docs/regions/ember_ravine.md`で既に記載済みのため変更なし、コード側で
+未到達のまま残る旨をここに記録する)。
+
+**キャンプII到達可能性を確認**: `RouteGraph.cpp`の`emberRavineGraph()`は
+M9-Zの時点で`ember_ravine_sulfur_channel_branch`(`{"sulfur_hollow",
+"ravine_cooling_channel"}`、`BranchCompletion::AllMembers`)を既に配線済み
+であり、地点3(M9-AB)・地点4(本Slice)の両方が実コンテンツ化されたことで、
+両地点をクリアして`ember_ravine_camp2`へ到達する経路が実際に機能するように
+なった(グラフ配線自体は変更不要、コード読解+新規テストで再確認した)。
+
+`tests/test_battle.cpp`へ2件追加: 地点4の構成(敵5体/`scoutRouteRequiredClass`
+/`objectPlacementRules`の`operateObjectiveId`/3ルートの報酬・`startingHeatLevel`
+/戦闘生成時に実際にOperateObject主目的が1件生成されること)を検証するテスト、
+および地点3・4の両方が`ember_ravine_sulfur_channel_branch`の`branchMembers`に
+`AllMembers`で登録されており`ember_ravine_camp2`が直後のCampノードであることを
+検証するCamp II到達可能性テスト。既存4テストスイート含め全成功、フルスイートを
+3回連続実行し新規テストを含め安定(既知の`test_battle.cpp:1244`非決定的Seed
+フレークは今回の3回では発生せず)。
+
+`jf_forest_balance --region=ember_ravine`(500 Seed)の実測(fresh-party):
+地点4(破損冷却水路) Direct win率0.0%/HP残2.3%(avg KO 3.81/5、timeouts 75)、
+Tactical win率0.0%/HP残3.9%(avg KO 3.74/5、timeouts 82)。これは
+[[jf_forest_balance worst-case numbers]]の教訓・`sunken_sluice`(M9-J)自身の
+実測が既に示すとおり「シミュレータがOperateObject主目的(Device操作)を理解
+しない」ことによる既知の盲点であり、実際のバランス信号ではない。8地点通しの
+Region clear win率はDirect/Tactical共に引き続き0.0%だが、地点4のOperateObject
+盲点がそのまま伝播した参考値であり、地点5以降が未実装プレースホルダーのままで
+あることと合わせて地点1-4本体の問題ではない。
+
+以上で燼火峡谷(第7地域)は地点1・2・3・4の4地点が実コンテンツ化され、キャンプII
+まで到達可能になった。残り4地点+地域ボスは次のSlice以降で本格化する。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功

@@ -1030,12 +1030,39 @@
       "id": "ravine_cooling_channel",
       "terrainProfileId": "ember_ravine_entrance",
       "enemyRoster": [
-        { "id": "cooling_channel_bandit1", "name": "Bandit", "classId": "Bandit" },
-        { "id": "cooling_channel_bandit2", "name": "Bandit", "classId": "Bandit" }
+        { "id": "cooling_channel_axe1", "name": "Heat Gatherer Axeman", "classId": "Bandit" },
+        { "id": "cooling_channel_axe2", "name": "Heat Gatherer Axeman", "classId": "Bandit" },
+        { "id": "cooling_channel_archer1", "name": "Heat Gatherer Archer", "classId": "WatchArcher" },
+        { "id": "cooling_channel_archer2", "name": "Heat Gatherer Archer", "classId": "WatchArcher" },
+        { "id": "cooling_channel_engineer1", "name": "Heat Gatherer Engineer", "classId": "Bandit" }
       ],
-      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
-      "missionNameEn": "Broken Cooling Channel (placeholder)",
-      "missionNameJa": "破損冷却水路(仮実装)"
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 2 }, { "id": "heat_resistant_material", "quantity": 1 }],
+      "routeVictoryLootDelta": [
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "iron", "quantity": -1 }] }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath", "startingHeatLevel": 0 },
+        { "choice": "ScoutRoute" }
+      ],
+      "scoutRouteRequiredClass": "FrontierEngineer",
+      "objectPlacementRules": [
+        {
+          "definition": {
+            "definitionId": "cooling_valve_wheel",
+            "kind": "Device",
+            "interaction": { "interactionId": "operate_cooling_valve", "range": 1, "maxUses": 1 },
+            "interactionResultState": "Opened"
+          },
+          "idPrefix": "cooling_valve_wheel",
+          "count": 1,
+          "zoneMinCol": 3,
+          "zoneMaxCol": 5,
+          "operateObjectiveId": "operate_cooling_valve"
+        }
+      ],
+      "missionNameEn": "Broken Cooling Channel",
+      "missionNameJa": "破損冷却水路"
     },
     {
       "id": "ash_crystal_shelf",
