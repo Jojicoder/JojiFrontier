@@ -139,6 +139,32 @@ void GameApp::proceedToCamp() {
         }
     }
 
+    // docs/regions/ember_ravine.md「6. 旧耐熱工房」の「記録箱2個: 特殊鍛造記録」:
+    // surveyObjectiveId's group is always ObjectiveGroupRule::Any, so it
+    // can't itself distinguish "1個以上"(primary-adjacent secondary, already
+    // handled via surveySucceeded/RewardRule above) from "2個とも"(this
+    // bonus). Scan every individual objective under the group id directly
+    // and require them ALL to be Completed - kSpecialForgingRecordsDiscovery's
+    // own comment explains why this needs the ad-hoc check instead of a
+    // RewardRule::Condition.
+    if (!isReconnaissanceRun_ && stage.id == "heatwork_shop") {
+        const BattleMissionState& mission = battleController_->battle().missionState();
+        bool anyInGroup = false;
+        bool allCompleted = true;
+        for (const ObjectiveDefinition& def : mission.definitions) {
+            if (def.groupId != "heatwork_shop_crate") continue;
+            anyInGroup = true;
+            if (mission.progress.at(def.id).status != ObjectiveStatus::Completed) {
+                allCompleted = false;
+                break;
+            }
+        }
+        if (anyInGroup && allCompleted &&
+            std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                     kSpecialForgingRecordsDiscovery) == expedition_.pendingDiscoveries.end())
+            expedition_.pendingDiscoveries.push_back(kSpecialForgingRecordsDiscovery);
+    }
+
     // docs/regions/old_frontier_settlement.md「2. 共同井戸」の副目標「中立住民を
     // 全員避難」→ 集落証言記録: unlike blackwater_crossing/quarry_old_mine's
     // ad-hoc creditedTargetIds.size()>=N check above, this reads a REAL

@@ -3427,6 +3427,109 @@ roster/terrainのみを回すため、同一構成なら同一結果になるの
 残り3地点(旧耐熱工房、灰封観測所、赤熱裂け目)+地域ボスは次のSlice以降で
 本格化する。
 
+### M9-AE 燼火峡谷(第7地域): 地点6(旧耐熱工房)+ キャンプIII到達可能化
+
+`docs/regions/ember_ravine.md`「6. 旧耐熱工房」を実コンテンツ化した。この地点も
+`guestUnits`等の未対応フィールドを必要としないため、M9-AC/M9-AD
+(`ravine_cooling_channel`/`ash_crystal_shelf`)と同じ形で`data/regions.json`の
+`heatwork_shop`プレースホルダー(Bandit x2)エントリを直接書き換え、
+JSON-authoredのまま実装した。`RouteGraph.cpp`の`emberRavineGraph()`は
+M9-Zの時点で地点6・キャンプIIIまで含む全体骨格を配線済みだったため、この
+Sliceでの変更は不要(グラフ側は最初からsite6到達可能)。
+
+**主目的「冷却炉を停止し、記録箱1個以上を確保」は`sunken_sluice`(M9-J)・
+`ravine_cooling_channel`(M9-AC)と全く同じOperateObject-primary近似**:
+Kindの異なるOperateObject+crateのAND合成はこのプロジェクトに存在しない
+既知ギャップ(M9-D/M9-H/M9-J/M9-M以来繰り返し記録済み)のため、指示どおり
+「炉を操作する」半分を主目的(標準`operateObjectiveId`、`groupId: "primary"`)
+として残し、記録箱は`surveyObjectiveId: "heatwork_shop_crate"`+
+`surveyTileCount: 2`経由のsecondary/bonus-rewardパスへ回した
+(`ash_crystal_shelf`自身のcrate-secondary扱いと同型)。
+
+**「記録箱2個: 特殊鍛造記録」ボーナス階層は`creditedTargetIds.size()>=2`と
+同型の新規ad-hocチェックで実装**: `surveyTileCount`は`ObjectiveGroupRule::
+Any`(N個のうちどれか1個で成立、M9-Xの調査どおり)なので、1個で満たされる
+主目的隣接の副目標("1個以上")と2個そろって初めて満たされるボーナス階層
+("2個とも")を単一の`surveyObjectiveId`グループだけでは区別できない。
+Blackwater地点5(M9-I)の「2人とも脱出」ボーナスが`creditedTargetIds.
+size()>=2`のad-hocチェックだったのと同じ構造上の理由のため、`GameApp.cpp`
+の終戦ボーナスブロックへ同型の新規チェックを追加した: `creditedTargetIds`
+はEscape系Objectiveでしか埋まらずSecureTile系(crateはこちら)には使えない
+ため、代わりに`mission.definitions`を`groupId == "heatwork_shop_crate"`で
+スキャンし、そのグループに属する全Objectiveが`Completed`であることを直接
+確認する形にした(`old_frontier_settlement`地点2の集落証言記録ボーナスが
+グループ完了を読む形と同系統、ただし判定基準は「全メンバーCompleted」)。
+新規Discovery定数`kSpecialForgingRecordsDiscovery`
+(`special_forging_records`、安定ID表どおり)を`include/jf/core/BaseState.hpp`
+へ追加した。
+
+**ルート3`[重装兵]`「炉扉を固定する」の「炉扉耐久+5」は見送り(no-op、既知
+ギャップ)**: M6-C以来一貫したObject耐久追跡機構の欠如の同型繰り返し。
+`scoutRouteRequiredClass: HeavyInfantry`のみ配線し、耐久加算自体は表現手段が
+ないため注記のみ(`ash_crystal_shelf`のルート3「噴気予告1回無効」no-op前例と
+同型)。
+
+**副目標「炉扉耐久6以上」・敗北条件「記録箱全損」「炉扉耐久0」はいずれも
+見送り(既知ギャップ)**: 同じくObject耐久追跡機構の欠如(`ash_crystal_shelf`
+自身の「灰晶箱をすべて失う」と同型)。
+
+**敵は熱地採取団の斧兵2・弓兵2・工兵型1、既存reskinをそのまま再利用**:
+`ravine_cooling_channel`が確立した「Heat Gatherer Axeman/Archer/Engineer」
+(Bandit/WatchArcher/Bandit reskin)命名・クラス割当をそのまま踏襲した。
+ルート別`enemiesRemoved`: ルート1「加工記録を先に運ぶ」は0(敵5体のまま)、
+ルート2「冷却炉を先に止める」は1(敵4体)+`startingHeatLevel: 0`、ルート3
+「炉扉を固定する」も0(敵5体)。**正本のルート別記録箱数(ルート1は2個、
+ルート2は1個)はステージ全体で単一の`surveyTileCount`しか持てないため
+表現できず**(ravine_cooling_channel/ash_crystal_shelfと同じ「ルート単位の
+crate数変更フィールドが存在しない」既知ギャップ)、ステージ全体を
+`surveyTileCount: 2`(最も充実したルート1相当)に固定した。これにより
+「記録箱2個: 特殊鍛造記録」ボーナス階層自体は常に到達可能になる。
+
+**キャンプIII到達可能化**: `RouteGraph.cpp`は元々`heatwork_shop`→
+`ember_ravine_camp3`を配線済みのため、地点6の実コンテンツ化だけで
+到達可能性は自動的に成立する。**キャンプIIIの効果本文「耐熱工房復旧後、
+以後の戦闘開始熱量を1下げる(0未満にはしない)」は見送り(新種の既知
+ギャップとして記録)**: `RouteGraph.cpp`のCamp処理・`ExpeditionService.cpp`
+を確認したが、Windscar/Blackwaterの各キャンプ効果はいずれも「到達可能性を
+ゲートする」「1回きりの回復を付与する」の2種のみで、「以後の全戦闘へ持ち
+越される数値修飾」を保持する仕組みはこのプロジェクトに存在しない
+(`ExpeditionState`に該当のcross-battle修飾フィールドが無い)。これは
+これまでのObject耐久・ゲストユニット・per-route地形上書き等の既知ギャップ
+とは種類が異なる「遠征スコープで持続する数値修飾」という新規カテゴリの
+ギャップであり、1つのキャンプ効果のためだけの新規インフラ構築は指示どおり
+見送った。恒久成果`heatwork_shop_restored`自体は勝利報酬に含めていない
+(このプロジェクトでは恒久成果は基本的にキャンプ到達可能性やRegion clear
+floorで扱われる既存パターンに委ねる)。
+
+**新規Discovery`special_forging_records`**: `include/jf/core/BaseState.hpp`
+へ`kSpecialForgingRecordsDiscovery`として追加(表示名未配線の既知ギャップ、
+`kMiningTechniqueRecordsDiscovery`等と同型)。
+
+`tests/test_battle.cpp`へ1件追加: 地点6の構成(敵5体/`scoutRouteRequiredClass`
+/`surveyObjectiveId`+`surveyTileCount:2`/`objectPlacementRules`が
+`operateObjectiveId`を持つ単一ルールであること)、3ルートの`enemiesRemoved`・
+`startingHeatLevel`・報酬、戦闘生成時に主目的`OperateObject`(`groupId:
+"primary"`)が生成され`heatwork_shop_crate`グループへ`SecureTile`系
+Objectiveが`ObjectiveGroupRule::Any`で2件登録されることを直接検証する
+`ravine_cooling_channel`(OperateObject-primary)+`ash_crystal_shelf`
+(crate-secondary)混合パターンのテスト。既存4テストスイート含め全成功、
+フルスイートを3回連続実行し新規テストを含め安定(`test_battle.cpp:1244`の
+既知フレークは今回の3回では発生せず)。
+
+`jf_forest_balance --region=ember_ravine`(500 Seed)の実測(fresh-party):
+地点6(旧耐熱工房) Direct/Tactical共にwin率0.0%(地点4「破損冷却水路」と
+全く同一の数値)。これはバグではなく、シミュレータのOperateObject盲点
+(M9-AC記録済み、fresh-party per-siteモードがOperateObject主目的を満たす
+手段を持たないため必ずタイムアウトする)がそのまま同型の主目的構成を持つ
+地点6へも伝播した結果。[[jf_forest_balance worst-case numbers]]の教訓どおり
+実測記録のみに留め、本Sliceでは数値調整を行わない。8地点通しのRegion clear
+win率はDirect/Tactical共に引き続き0.0%(地点4のOperateObject盲点由来、
+地点6本体の問題ではない)。
+
+以上で燼火峡谷(第7地域)は地点1〜6の6地点+キャンプI〜IIIが実コンテンツ化・
+到達可能化された。残り2地点(灰封観測所、赤熱裂け目)+地域ボスは次のSlice
+以降で本格化する。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功

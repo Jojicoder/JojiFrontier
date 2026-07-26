@@ -1616,11 +1616,13 @@ StageDescriptor sulfurHollowStage() {
 // windscarRelayStage()/blackwaterCrossingStage()). Site 3
 // (`sulfur_hollow`, "硫黄窪地") is real content as of this Slice, hand-
 // authored via sulfurHollowStage() above (SurviveRounds primary + genuine
-// ProtectUnit secondary, see that function's own comment). Sites 4/5/6/7/8
-// remain minimal Bandit x2 placeholders (`data/regions.json`'s
-// `ravine_cooling_channel`/
-// `ash_crystal_shelf`/`heatwork_shop`/`ashsealed_observatory`/
-// `redheat_fissure` entries) replacing the single-site
+// ProtectUnit secondary, see that function's own comment). Sites 4
+// (`ravine_cooling_channel`) and 5 (`ash_crystal_shelf`) are real content as
+// of M9-AC/M9-AD, and site 6 (`heatwork_shop`, "旧耐熱工房") is real content
+// as of this Slice, all three still JSON-authored directly in
+// `data/regions.json` (no hand-written StageDescriptor function needed).
+// Sites 7/8 remain minimal Bandit x2 placeholders (`data/regions.json`'s
+// `ashsealed_observatory`/`redheat_fissure` entries) replacing the single-site
 // `ember_ravine_outpost` M9-Y stub (left in place, dead/unreferenced - same
 // precedent as `blackwater_crossing`'s own dead JSON entry). The M9-Z
 // `ember_ravine_ledge`/`sulfur_hollow` JSON entries are likewise left in

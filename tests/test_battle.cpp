@@ -11055,6 +11055,64 @@ int main() {
     }
 
     {
+        // docs/regions/ember_ravine.md「6. 旧耐熱工房」: 主目的「冷却炉を
+        // 停止し、記録箱1個以上を確保」はsunken_sluice(M9-J)/
+        // ravine_cooling_channel(M9-AC)と同型のOperateObject-primary近似
+        // (crateとのAND合成は見送り、記録箱はsurveyObjectiveId経由の
+        // secondary/bonusパスへ)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor emberRegion = jf::regionDescriptor(jf::RegionId::EmberRavine, *data);
+        const jf::StageDescriptor* shopStage = nullptr;
+        for (const jf::StageDescriptor& stage : emberRegion.stages)
+            if (stage.id == "heatwork_shop") shopStage = &stage;
+        assert(shopStage);
+        assert(shopStage->enemyRoster.size() == 5); // 斧兵2+弓兵2+工兵型1
+        assert(shopStage->scoutRouteRequiredClass == jf::UnitClass::HeavyInfantry);
+        assert(shopStage->surveyObjectiveId == "heatwork_shop_crate");
+        assert(shopStage->surveyTileCount == 2);
+        assert(shopStage->objectPlacementRules.size() == 1);
+        assert(shopStage->objectPlacementRules[0].operateObjectiveId == "operate_cooling_furnace");
+
+        const jf::ExplorationOutcome frontal =
+            jf::stageRouteOutcome(*shopStage, jf::ExplorationChoice::FrontalAdvance);
+        assert(frontal.enemiesRemoved == 0); // 敵5体
+        const jf::ExplorationOutcome coolFirst =
+            jf::stageRouteOutcome(*shopStage, jf::ExplorationChoice::CollapsedSidePath);
+        assert(coolFirst.enemiesRemoved == 1 && coolFirst.startingHeatLevel == 0); // 熱量0、敵4体
+        const jf::ExplorationOutcome brace =
+            jf::stageRouteOutcome(*shopStage, jf::ExplorationChoice::ScoutRoute);
+        assert(brace.enemiesRemoved == 0); // 敵5体、炉扉耐久+5はObject耐久ギャップでno-op
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*shopStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "heat_resistant_material") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "iron") == 1);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *shopStage, /*seed=*/13);
+        const jf::ObjectiveDefinition* operateDef = nullptr;
+        std::vector<const jf::ObjectiveDefinition*> crateDefs;
+        for (const auto& def : battle.missionState().definitions) {
+            if (def.kind == jf::ObjectiveKind::OperateObject) operateDef = &def;
+            if (def.groupId == "heatwork_shop_crate") crateDefs.push_back(&def);
+        }
+        assert(operateDef && operateDef->primary && operateDef->groupId == "primary");
+        assert(crateDefs.size() == 2);
+        for (const jf::ObjectiveDefinition* def : crateDefs) assert(!def->primary);
+        bool hasCrateGroup = false;
+        for (const auto& group : battle.missionState().groups)
+            if (group.id == "heatwork_shop_crate" && group.rule == jf::ObjectiveGroupRule::Any)
+                hasCrateGroup = true;
+        assert(hasCrateGroup);
+    }
+
+    {
         // docs/regions/ember_ravine.md「地点構成」: 地点3・地点4は"どちらを
         // 先に攻略してもよい、両方必須"の either-order branch - completing
         // BOTH members gates Camp II, mirroring every prior region's own

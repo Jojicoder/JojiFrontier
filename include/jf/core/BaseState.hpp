@@ -366,6 +366,19 @@ inline constexpr const char* kSettlementCommandLedgerDiscovery = "settlement_com
 // region-clear" shape as kMiningTechniqueRecordsDiscovery's own gap, just
 // resolved by the floor instead of left fully stranded).
 inline constexpr const char* kCollectiveDefenseRecordsDiscovery = "collective_defense_records";
+// docs/regions/ember_ravine.md「6. 旧耐熱工房」の「記録箱2個: 特殊鍛造記録」
+// (id from that doc's own「安定ID」table). Not expressible via a standard
+// SurveySuccess RewardRule the way the primary's "1個以上" secondary
+// (surveyObjectiveId/surveyTileCount) already is, because a single
+// surveyObjectiveId group is always ObjectiveGroupRule::Any (satisfied by
+// ANY 1 of N placed tiles - see M9-X's own investigation) and can't also
+// express a stricter "ALL N" tier. Granted ad-hoc from GameApp's
+// end-of-battle bonus block by checking every individual survey objective
+// under `heatwork_shop_crate`'s group is Completed, the same
+// ad-hoc-secondary-bonus pattern as kAnomalousVeinRecordsDiscovery above
+// (just checking group-membership completion instead of
+// creditedTargetIds.size()).
+inline constexpr const char* kSpecialForgingRecordsDiscovery = "special_forging_records";
 
 // Forge tuning traits, tracked as an id rather than a free string so a typo
 // can't silently create an unrecognized "equipped" trait.

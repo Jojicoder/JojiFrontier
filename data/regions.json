@@ -1109,12 +1109,46 @@
       "id": "heatwork_shop",
       "terrainProfileId": "ember_ravine_entrance",
       "enemyRoster": [
-        { "id": "heatwork_shop_bandit1", "name": "Bandit", "classId": "Bandit" },
-        { "id": "heatwork_shop_bandit2", "name": "Bandit", "classId": "Bandit" }
+        { "id": "heatwork_shop_axe1", "name": "Heat Gatherer Axeman", "classId": "Bandit" },
+        { "id": "heatwork_shop_axe2", "name": "Heat Gatherer Axeman", "classId": "Bandit" },
+        { "id": "heatwork_shop_archer1", "name": "Heat Gatherer Archer", "classId": "WatchArcher" },
+        { "id": "heatwork_shop_archer2", "name": "Heat Gatherer Archer", "classId": "WatchArcher" },
+        { "id": "heatwork_shop_engineer1", "name": "Heat Gatherer Engineer", "classId": "Bandit" }
       ],
-      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
-      "missionNameEn": "Old Heatwork Shop (placeholder)",
-      "missionNameJa": "旧耐熱工房(仮実装)"
+      "baseVictoryLoot": [
+        { "id": "heat_resistant_material", "quantity": 2 },
+        { "id": "iron", "quantity": 1 }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath", "startingHeatLevel": 0, "enemiesRemoved": 1 },
+        { "choice": "ScoutRoute" }
+      ],
+      "scoutRouteRequiredClass": "HeavyInfantry",
+      "objectPlacementRules": [
+        {
+          "definition": {
+            "definitionId": "cooling_furnace_valve",
+            "kind": "Device",
+            "interaction": {
+              "interactionId": "operate_cooling_furnace",
+              "range": 1,
+              "maxUses": 1
+            },
+            "interactionResultState": "Opened"
+          },
+          "idPrefix": "cooling_furnace_valve",
+          "count": 1,
+          "zoneMinCol": 3,
+          "zoneMaxCol": 5,
+          "operateObjectiveId": "operate_cooling_furnace"
+        }
+      ],
+      "surveyObjectiveId": "heatwork_shop_crate",
+      "surveyTileCount": 2,
+      "surveyTileObjectDefinitionId": "heatwork_shop_crate",
+      "missionNameEn": "Old Heatwork Shop",
+      "missionNameJa": "旧耐熱工房"
     },
     {
       "id": "ashsealed_observatory",

@@ -146,13 +146,25 @@ windscarRelayStage()前例のRegion.cpp手書き)、敵勢力「熱地採取団�
 (灰晶)追加。深部ルート専用の「大型個体」はper-unit stat補正機構が無いため
 同stat5体目の追加で近似、噴気予告1回無効(ルート3)は前例のないper-route
 無効化機構のため見送り(no-op)。詳細は`implementation_status.md`のM9-AD参照。
+M9-AE(地点6「旧耐熱工房」+ キャンプIII到達可能化)完了。主目的「冷却炉を
+停止し、記録箱1個以上を確保」はM9-AC/`sunken_sluice`と同型のOperateObject
+単独近似、「記録箱2個: 特殊鍛造記録」ボーナス階層はBlackwater地点5(M9-I)の
+`creditedTargetIds.size()>=2`と同型のad-hocチェック(crateはSecureTile系の
+ためグループ完了スキャンへ読み替え)で新規Discovery
+`kSpecialForgingRecordsDiscovery`を付与。地点3・4・6が実装済みとなった
+ことで`ember_ravine_camp3`(キャンプIII)が実際に到達可能になった。
+キャンプIIIの「以後の戦闘開始熱量を1下げる」効果は、既存キャンプがいずれも
+「到達ゲート」か「1回きりの回復」止まりで「遠征スコープで持続する数値修飾」を
+保持する仕組みがこのプロジェクトに存在しないため、新規ギャップカテゴリとして
+見送り。詳細は`implementation_status.md`のM9-AE参照。
 
 直近の未完了(優先度順):
 
-1. 燼火峡谷(第7地域)の残り3地点+地域ボスの本格実装(M6-B/C・M9-A〜AD方式)。
+1. 燼火峡谷(第7地域)の残り2地点+地域ボスの本格実装(M6-B/C・M9-A〜AE方式)。
    地点1「焼け石の入口」・地点2「熱風の棚道」・地点3「硫黄窪地」・地点4
-   「破損冷却水路」・地点5「灰晶採取棚」はM9-Z/M9-AA/M9-AB/M9-AC/M9-ADで完了。
-   地点6〜8は`data/regions.json`のBandit2体プレースホルダーのまま(戦場熱量
+   「破損冷却水路」・地点5「灰晶採取棚」・地点6「旧耐熱工房」はM9-Z/M9-AA/
+   M9-AB/M9-AC/M9-AD/M9-AEで完了。地点7〜8は`data/regions.json`の
+   Bandit2体プレースホルダーのまま(戦場熱量
    レベル2・3の消費/AI連動、噴気弁破壊(+1)・冷却弁操作(-1)によるheatLevel
    変更フック、岩蜥蜴/採取団AI、地域ボス「赤背の大蜥蜴」の実装が必要 -
    `BattleState::setHeatLevel()`自体は公開済みで、Object操作からの呼び出し
