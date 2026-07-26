@@ -4652,6 +4652,80 @@ logistics_branch`のAllMembers検証+`usesRouteGraph()`直接assert)、地点1�
 到達可能になり、地点1が実コンテンツ化された。地点2〜7は次のSlice以降で1地点ずつ
 本格化する。
 
+## M9-AO 破砕された前線砦(第9地域): 地点2(崩れ門)
+
+M9-AN(骨格+地点1)に続き、地点2「崩れ門」を実コンテンツ化した。`sunken_sluice`
+(M9-J)/`ravine_cooling_channel`(M9-AC)/`heatwork_shop`(M9-AE)と全く同じ、単一
+`Device` Objectの`operateObjectiveId`のみで表現するJSON-authored形(`guestUnits`等の
+未対応フィールドを必要としないため、`stageDescriptorFromContent()`のみで`data/
+regions.json`から直接組み立て、`Region.cpp`側の手書きステージ関数は不要)。
+
+**主目的「城門操作後2Round防衛」はOperateObject-onlyへ近似**: 正本のAND
+(OperateObject + SurviveRounds(2))を合成する機構はこのプロジェクトに存在せず、
+M9-D/M9-H/M9-J/M9-M/M9-AC/M9-AEが繰り返し記録済みの既知ギャップと同じカテゴリの
+ため、指示どおり同一の近似(`operate_fort_gate`のOperateObject定義のみを`primary`
+グループへ配線)を採用し、「操作後2Round防衛」自体は未実装のまま本Sliceの差分として
+明記する。**敗北条件「城門0」もObject耐久機構が未実装のため同様に見送り**(部隊全滅は
+既存Engineデフォルトのまま常時有効であることを確認、他地域と同じ結論)。
+
+探索3択「城門修復」/「敵排除優先」(いずれも無条件)/`[工兵]`「蝶番補修」
+(`scoutRouteRequiredClass: FrontierEngineer`)を配線。正本の7地点表の当該行には
+`fort_outer_wall`(地点1)のような追加数値デルタ(HP-2等)の記載が無いことを確認した
+うえで、`routeOutcomes`は選択肢の列挙のみとした。
+
+敵「残留隊5」はBandit3体+WatchArcher2体を「Fort Garrison」表示名で再利用した。
+正本の「敵勢力」節にある「残留砦隊: 訓練済み。防壁、射撃台、兵站箱を守り、役割分担
+する」に対応する専用フレーバー名で、地点1の「Fort Retriever」(軍需回収団)・
+placeholder群の「Fort Retainer」とは意図的に区別した。新規JAグリフ登録は不要
+(既存英語reskin表示名の規約どおり)。
+
+主目的報酬(石材2、軍需品1)のうち`stone`は既存reuse(Ashiron Quarry)。**「軍需品」
+(military supplies)はこのセッションで初出のため、新規`material.military_supplies`
+として`data/locales/{en,ja}.json`・`ui_shared.cpp`の`materialNameFor()`known setへ
+登録する前に、`data/locales/en.json`/`ja.json`・`data/regions.json`全体を検索して
+既存の同義素材id(`gate_tools`等のCinderwatch Gate由来の資材系素材含む)との重複が
+無いことを確認した**(本セッション2回の重複素材IDバグを踏まえた確認、指示どおり)。
+重複なしを確認のうえ新規登録した。
+
+公開副目標「城門耐久10以上 -> 防衛技術資料」はObject耐久機構自体が未実装のため
+本Sliceでは配線せず見送った。安定ID一覧に`fort_defense_technology`が既出であり、
+BuriedDawnSanctumの`medical_codex`/`sanctum_device_records`と同じく「将来Object耐久
+機構が実装され次第、地域最低保証Discoveryとしてバックフィルが必要」という既知ギャップ
+として明記する。恒久成果の安定ID`fort_gate_restored`(正本の周回短縮表「崩れ門復旧
+-> 地点2通過、増援口1つ封鎖」に対応)は、他地域の同種安定ID(`fort_outer_line_secured`
+等)同様、現時点ではコード側で参照されないドキュメント専用IDとして扱う(このプロジェクト
+の安定ID全般がまだ周回短縮/セーブ側機構に配線されていない現状に合わせた扱い)。
+
+Camp Iゲートは`RouteGraph.cpp`の`shatteredMarchFortGraph()`がM9-ANの時点で既に
+`fort_broken_gate -> fort_camp1`を配線済みであることを確認した(本Sliceでの追加配線
+は不要)。
+
+`tests/test_battle.cpp`へ1件追加: `sunken_sluice`/`ravine_cooling_channel`/
+`heatwork_shop`と同型のOperateObject主目的検証(敵編成5体・`scoutRouteRequiredClass`・
+`objectPlacementRules`1件・`operateObjectiveId`・勝利報酬の`stone`/`military_supplies`
+数量・`ObjectiveDefinition`が`primary`グループのOperateObjectであること)。既存4テスト
+スイート含め全成功、フルスイートを3回連続実行し安定(フレークなし)。
+
+`jf_forest_balance --region=shattered_march_fort`(500 Seed)の実測: Broken Gate
+(崩れ門)はDirect/Tactical双方でwin率0.0%・timeout多数(本ツールのOperateObject
+Objective種別に対するAI未対応が原因、`sunken_sluice`(M9-J)自身の実測と同じ既知の
+盲点であり地点2本体の数値・敵編成バランスを示すものではない)。地点1(破砕外郭)の
+実測はM9-AN記録の数値からほぼ変化なし(Direct win 29.2%、Tactical win 21.4%)。
+7地点通しのRegion clear win率は引き続きDirect/Tactical共に0.0%だが、地点2の
+OperateObject盲点(本Slice)に加え地点3〜7がまだプレースホルダーのままであるため。
+
+見送った部分(正本との差分、都度明記):
+
+- 「城門操作後2Round防衛」のAND合成、敗北条件「城門0」(Object耐久機構自体が未実装、
+  上記の既知ギャップ)
+- 公開副目標「城門耐久10以上 -> 防衛技術資料」(同上のObject耐久機構に依存、未配線)
+- 地点3〜7(旧兵舎/兵站庫/信号庭/予備壁/切離命令庫)は引き続きBandit x2(-3)最小
+  プレースホルダーのまま(次Slice以降で1地点ずつ本格化)
+
+以上で破砕された前線砦(第9地域)は地点1・2が実コンテンツ化され、Camp Iへ実質的に
+到達可能になった(グラフ配線自体はM9-ANから既に機能済み)。地点3〜7は次のSlice以降で
+1地点ずつ本格化する。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

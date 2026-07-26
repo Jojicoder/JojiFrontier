@@ -11694,6 +11694,46 @@ int main() {
     }
 
     {
+        // docs/regions/shattered_march_fort.md「崩れ門」: JSON-authored via
+        // stageDescriptorFromContent(), same operateObjectiveId pattern as
+        // sunken_sluice(M9-J)/ravine_cooling_channel(M9-AC)/heatwork_shop
+        // (M9-AE) - primary approximated as OperateObject-only, the
+        // "OperateObject AND SurviveRounds(2)" AND-composition (「城門操作後
+        // 2Round防衛」) is deferred as the same category of gap those three
+        // sites already recorded. 敗北条件「城門0」もObject耐久が未実装のため
+        // 同様に見送り(部隊全滅は既存Engineデフォルトのまま常時有効)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor fortRegion =
+            jf::regionDescriptor(jf::RegionId::ShatteredMarchFort, *data);
+        const jf::StageDescriptor* gateStage = nullptr;
+        for (const jf::StageDescriptor& stage : fortRegion.stages)
+            if (stage.id == "fort_broken_gate") gateStage = &stage;
+        assert(gateStage);
+        assert(gateStage->enemyRoster.size() == 5);
+        assert(gateStage->scoutRouteRequiredClass == jf::UnitClass::FrontierEngineer);
+        assert(gateStage->objectPlacementRules.size() == 1);
+        assert(gateStage->objectPlacementRules[0].operateObjectiveId == "operate_fort_gate");
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*gateStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "stone") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "military_supplies") == 1);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *gateStage, /*seed=*/11);
+        const jf::ObjectiveDefinition* operateDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.kind == jf::ObjectiveKind::OperateObject) operateDef = &def;
+        assert(operateDef && operateDef->primary && operateDef->groupId == "primary");
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。

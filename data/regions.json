@@ -1397,12 +1397,36 @@
       "id": "fort_broken_gate",
       "terrainProfileId": "shattered_march_fort",
       "enemyRoster": [
-        { "id": "fort_broken_gate_bandit1", "name": "Fort Retainer", "classId": "Bandit" },
-        { "id": "fort_broken_gate_bandit2", "name": "Fort Retainer", "classId": "Bandit" }
+        { "id": "fort_broken_gate_garrison1", "name": "Fort Garrison", "classId": "Bandit" },
+        { "id": "fort_broken_gate_garrison2", "name": "Fort Garrison", "classId": "Bandit" },
+        { "id": "fort_broken_gate_garrison3", "name": "Fort Garrison", "classId": "Bandit" },
+        { "id": "fort_broken_gate_archer1", "name": "Fort Garrison", "classId": "WatchArcher" },
+        { "id": "fort_broken_gate_archer2", "name": "Fort Garrison", "classId": "WatchArcher" }
       ],
-      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
-      "missionNameEn": "Broken Gate (placeholder)",
-      "missionNameJa": "崩れ門(仮実装)"
+      "baseVictoryLoot": [{ "id": "stone", "quantity": 2 }, { "id": "military_supplies", "quantity": 1 }],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath" },
+        { "choice": "ScoutRoute" }
+      ],
+      "scoutRouteRequiredClass": "FrontierEngineer",
+      "objectPlacementRules": [
+        {
+          "definition": {
+            "definitionId": "fort_gate",
+            "kind": "Device",
+            "interaction": { "interactionId": "operate_fort_gate", "range": 1, "maxUses": 1 },
+            "interactionResultState": "Opened"
+          },
+          "idPrefix": "fort_gate",
+          "count": 1,
+          "zoneMinCol": 3,
+          "zoneMaxCol": 5,
+          "operateObjectiveId": "operate_fort_gate"
+        }
+      ],
+      "missionNameEn": "Broken Gate",
+      "missionNameJa": "崩れ門"
     },
     {
       "id": "fort_old_barracks",

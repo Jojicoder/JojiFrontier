@@ -267,6 +267,15 @@ M9-AM(埋没聖堂・第8地域: 地点6「夜明け祭壇」/ 強敵「聖堂�
 「破砕された前線砦」(第9地域、現状プレースホルダー)へ進行可能になった。
 
 M9-AN(破砕された前線砦・第9地域: 地域骨格 + 地点1「破砕外郭」)完了(2026-07)。
+M9-AO(破砕された前線砦・第9地域: 地点2「崩れ門」)完了(2026-07)。`sunken_sluice`
+(M9-J)/`ravine_cooling_channel`(M9-AC)/`heatwork_shop`(M9-AE)と同型の単一Device
+OperateObject-onlyへ主目的を近似(「操作後2Round防衛」のAND、敗北条件「城門0」、
+公開副目標「城門耐久10以上」はいずれもObject耐久機構未実装のため見送り)。敵は
+Bandit3+WatchArcher2を「Fort Garrison」表示名で再利用、新規`material.
+military_supplies`(軍需品)を既存素材との重複無し確認のうえ新規登録。Camp Iゲート
+(`fort_broken_gate -> fort_camp1`)はM9-ANの`shatteredMarchFortGraph()`で既に配線
+済みであることを確認、実質的に到達可能。詳細は`implementation_status.md`のM9-AO
+参照。
 M9-AHと同じ「新規戦闘メカニクス無し」地域として、地域骨格全体(7地点+3キャンプ+
 地点3・4「順序選択」)+地点1を1Sliceで実装。`RouteGraph.cpp`へ`shatteredMarchFortGraph()`
 を追加し、**同じコミット単位で`usesRouteGraph()`へ`RegionId::ShatteredMarchFort`を
@@ -282,9 +291,10 @@ M9-AN参照。
 
 直近の未完了(優先度順):
 
-1. 破砕された前線砦(第9地域)の本格実装の続き(地点2〜7: 崩れ門/旧兵舎/兵站庫/
-   信号庭/予備壁/切離命令庫、いずれもまだBandit x2(-3)プレースホルダー)+最終強敵
-   「残留砦隊長」+地域攻略配線(M6-B/C・M9-A〜ANと同じ「骨格→1地点ずつ」方式)。
+1. 破砕された前線砦(第9地域)の本格実装の続き(地点2「崩れ門」はM9-AOで完了、
+   Camp Iへ到達可能。残り地点3〜7: 旧兵舎/兵站庫/信号庭/予備壁/切離命令庫、いずれも
+   まだBandit x2(-3)プレースホルダー)+最終強敵「残留砦隊長」+地域攻略配線
+   (M6-B/C・M9-A〜AOと同じ「骨格→1地点ずつ」方式)。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/
