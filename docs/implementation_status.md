@@ -4887,6 +4887,84 @@ Region clear win率は引き続きDirect/Tactical共に0.0%だが、地点2のOp
 実質的に到達可能になった。地点5〜7(信号庭/予備壁/切離命令庫)+地域ボス「残留砦隊長」
 は次のSlice以降で本格化する。
 
+## M9-AR 破砕された前線砦(第9地域): 地点5(信号庭)
+
+M9-AN(骨格+地点1)/M9-AO(地点2)/M9-AP(地点3)/M9-AQ(地点4)に続き、地点5「信号庭」を
+実コンテンツ化した。`data/regions.json`の`fort_signal_yard`プレースホルダー
+(Bandit x2)エントリを直接書き換え、`windwatch_station`(Windscar Plateau地点3、
+M9-N)/`sealed_passage`(Buried Dawn Sanctum地点5、M9-AL)と全く同じJSON-authored形
+(`stageDescriptorFromContent()`のみ、`Region.cpp`側の手書きステージ関数は不要)。
+`RouteGraph.cpp`の`shatteredMarchFortGraph()`はM9-ANの時点で地点5・CAMP II→地点5→
+地点6の配線まで含めて全体骨格を配線済みのため、本Sliceでのグラフ変更は不要。
+
+**主目的「信号盤2個操作」はgenuineな2-Object AND primaryとして実装(近似ではない)**:
+正本の主目的はOR/AND合成の要らない、単に「2個ともDevice Objectを操作」という形
+そのものであるため、`windwatch_station`/`sealed_passage`が証明済みの
+`objectPlacementRules`+`operateObjectiveId`の2-Object Schemaへそのまま収まった。
+`fort_signal_yard_panel_west`(列0-3)/`fort_signal_yard_panel_east`(列4-7)の2
+Device Objectを配置し、それぞれ独立した`operateObjectiveId`
+(`operate_fort_signal_yard_panel_west`/`_east`)を持たせ、いずれもデフォルトの
+`primary`グループ・`ObjectiveGroupRule::All`(AND)へ加算される。`fort_broken_gate`
+(M9-AO)/`fort_logistics_depot`(M9-AQ)のような「異なるKind同士のAND」「N個のうち
+全部必須の`surveyObjectiveId`」近似が必要だった地点とは異なり、この地点の主目的は
+最初から単一Kind(OperateObject)の多重AND そのものであるため、近似を挟まず
+`windwatch_station`/`sealed_passage`の前例を字面どおり複製するだけで正本を過不足なく
+表現できた。
+
+探索3択「盤を順番操作」/「警鐘優先」(いずれも無条件)/`[旗手]`「信号統一」
+(`scoutRouteRequiredClass: BannerBearer`)を配線。正本の7地点表の当該行には追加数値
+デルタの記載が無いことを確認したうえで、`routeOutcomes`は選択肢の列挙のみとした。
+
+敵「残留隊6」はBandit3体+WatchArcher3体を、M9-AO/AP/AQが確立済みの本地域「残留砦隊」
+専用フレーバー名「Fort Garrison」で再利用した(軍需回収団の「Fort Retriever」/
+placeholder群の「Fort Retainer」とは意図的に区別、正本「敵勢力」節の「残留砦隊:
+訓練済み。防壁、射撃台、兵站箱を守り、役割分担する」に対応)。新規JAグリフ登録は
+不要(既存英語reskin表示名の規約どおり)。
+
+主目的報酬(石材1、軍需品1)は共に既存reuse: `stone`はAshiron Quarry由来、
+`military_supplies`はM9-AOで新規登録済み。`data/locales/en.json`/`ja.json`・
+`data/regions.json`全体を検索し重複が無いことを確認したうえで再利用した
+(本セッションの重複素材IDバグ再発防止の確認)。
+
+見送った部分(正本との差分、都度明記):
+
+- 敗北条件「両盤0」: Object耐久機構自体が未実装、M6-C以来繰り返し記録済みの既知
+  ギャップ。部隊全滅は既存Engineデフォルトのまま常時有効であることを確認(他地域と
+  同じ結論)。
+- 公開副目標「信号盤・警鐘保全 -> 増援運用記録」: 同上のObject耐久機構に依存するため
+  未配線。正本の安定ID一覧に対応するid記載が無いが、`fort_defense_technology`
+  (M9-AO)と同じく「将来Object耐久機構が実装され次第、地域最低保証Discoveryとして
+  バックフィルが必要」という既知ギャップとして明記する。
+- 恒久成果「信号庭復旧」(全増援を2Round前表示)は見送り: 既存`timedReinforcement`は
+  `announceRoundsBefore`フィールドを持つがステージごとの固定値であり、「特定の
+  永続成果が達成済みなら以後の全戦闘のこの値を条件付きで底上げする」というクロス
+  戦闘の状態参照フックが存在しない。これはキャンプ到達時の書換フック欠如
+  (M9-AI/AJ/AP等)とは別種の、新しいカテゴリのギャップ(恒久成果が将来の戦闘の
+  パラメータへ影響する経路そのものが未実装)であるため、新規インフラを組まず
+  ドキュメントのみのギャップとして記録するに留めた。
+
+`tests/test_battle.cpp`へ1件追加: `sealed_passage`/`windwatch_station`と同型の
+2-Object OperateObject AND検証(敵編成6体・`scoutRouteRequiredClass`・主目的報酬の
+`stone`/`military_supplies`数量、敵全滅+片方の信号盤のみ操作ではVictoryが成立しない
+こと、両方操作して初めてVictoryが成立することを直接`BattleState`で検証)。既存
+スイート含め全成功、フルスイートを3回連続実行し安定(フレークなし、
+`test_battle.cpp:1244`の既知RNGフレークも今回の3回では発生せず)。
+
+`jf_forest_balance --region=shattered_march_fort`(500 Seed)の実測: Signal Yard
+(信号庭)はDirect/Tactical双方でwin率0.0%・timeout多数(any KO 99.4〜100%、HP残
+1.2〜2.5%)。これは`windwatch_station`/`sealed_passage`自身の実測が既に記録した
+既知のシミュレータ盲点そのもの - このシミュレータは`ObjectiveKind`を一切認識せず、
+常にEliminateTeam前提のヒューリスティックで動くため、主目的がOperateObjectの
+ステージでは(敵を全滅させても勝利条件を満たさないため)必ずtimeoutで敗北扱いになる。
+数値調整は行わない。地点1(破砕外郭)はDirect 29.2%/Tactical 21.4%、地点3(旧兵舎)は
+Direct 66.6%/Tactical 61.8%、地点4(兵站庫)はDirect 17.8%/Tactical 14.2%でいずれも
+変化なし、地点2(崩れ門)は引き続きOperateObject盲点によりwin率0.0%。7地点通しの
+Region clear win率は引き続きDirect/Tactical共に0.0%だが、地点2・5のOperateObject
+盲点に加え地点6〜7がまだプレースホルダーのままであるため。
+
+以上で破砕された前線砦(第9地域)は地点1・2・3・4・5が実コンテンツ化された。
+地点6〜7(予備壁/切離命令庫)+地域ボス「残留砦隊長」は次のSlice以降で本格化する。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

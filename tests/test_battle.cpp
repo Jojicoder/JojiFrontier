@@ -11910,6 +11910,58 @@ int main() {
     }
 
     {
+        // docs/regions/shattered_march_fort.md「地点5: 信号庭」: primary is
+        // 2 genuine OperateObject Objectives (信号盤2個操作), mirroring
+        // windwatch_station (M9-N)/sealed_passage (M9-AL)'s own dual-panel
+        // shape via the same objectPlacementRules/operateObjectiveId JSON
+        // Schema - defeating every enemy without operating both panels must
+        // NOT win, operating only one must NOT win either, only both
+        // together wins.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor fortRegion = jf::regionDescriptor(jf::RegionId::ShatteredMarchFort, *data);
+        const jf::StageDescriptor* signalYardStage = nullptr;
+        for (const jf::StageDescriptor& stage : fortRegion.stages)
+            if (stage.id == "fort_signal_yard") signalYardStage = &stage;
+        assert(signalYardStage);
+        assert(signalYardStage->enemyRoster.size() == 6);
+        assert(signalYardStage->scoutRouteRequiredClass == jf::UnitClass::BannerBearer);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*signalYardStage, choice,
+                                                /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "stone") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "military_supplies") == 1);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *signalYardStage, /*seed=*/17);
+        int enemyCount = 0;
+        for (const jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 6);
+
+        for (jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+
+        jf::BattleObjectState* westPanel = battle.findObject("fort_signal_yard_panel_west_1");
+        assert(westPanel != nullptr);
+        westPanel->interactionCount = 1; // only ONE of the 2 panels operated
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind != jf::BattleOutcomeKind::Victory);
+
+        jf::BattleObjectState* eastPanel = battle.findObject("fort_signal_yard_panel_east_1");
+        assert(eastPanel != nullptr);
+        eastPanel->interactionCount = 1; // both panels now operated
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。
