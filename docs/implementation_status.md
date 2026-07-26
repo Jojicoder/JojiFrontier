@@ -3921,6 +3921,97 @@ battle-scoped、保存されない)。
 `ctest --test-dir build -j10 --output-on-failure`は3回連続実行で4/4 Pass
 (フレーキーなし)。`git diff --check`成功。
 
+## M9-AF 燼火峡谷(第7地域): 地点7(灰封観測所)
+
+`docs/regions/ember_ravine.md`「7. 灰封観測所」を実コンテンツ化した。この地点も
+`guestUnits`等の未対応フィールドを必要としないため、`data/regions.json`の
+`ashsealed_observatory`プレースホルダー(Bandit x2)エントリを直接書き換え、
+JSON-authoredのまま実装した。`RouteGraph.cpp`の`emberRavineGraph()`はM9-Zの
+時点で地点7まで含む全体骨格を配線済みだったため、このSliceでの変更は不要。
+
+**主目的「観測記録箱2個のうち1個以上を左端へ運ぶ」は`ash_crystal_shelf`
+(M9-AD)/`heatwork_shop`(M9-AE)と全く同じEliminateTeam-primary + crate
+secondary近似**: 「運ぶ」(特定ゾーンへの搬送)を表現するObject移動機構は
+このプロジェクトに一切存在しない(前例なし)ため、指示どおり簡略化(b)を採用
+した - 標準`EliminateTeam`を主目的として維持し、記録箱は
+`surveyObjectiveId: "ashsealed_observatory_crate"`+`surveyTileCount: 2`
+(`ObjectiveGroupRule::Any`、2個のうちどちらか1個で「1個以上」を満たす)経由の
+secondary/bonus-rewardパスへ回した。「運ぶ」ではなく「確保/接触」のみを
+モデル化している点を明記する。
+
+**副目標「2個とも回収」は`heatwork_shop`(M9-AE)の`creditedTargetIds.
+size()>=2`と同型のad-hocグループ完了スキャンで実装、ただしDiscovery2件を
+同時付与**: `surveyObjectiveId`のグループは常に`ObjectiveGroupRule::Any`の
+ため、1個で満たす「1個以上」と2個そろって初めて満たす「2個とも」を単一
+グループだけでは区別できない(M9-AEと同じ構造上の理由)。`GameApp.cpp`の
+終戦ボーナスブロックへ、`mission.definitions`を`groupId ==
+"ashsealed_observatory_crate"`でスキャンし全メンバーが`Completed`であることを
+確認するチェックを追加、正本が箱2個それぞれに紐づけている2つの記録名
+(峡谷踏査記録・灰嵐以前の監視記録)にあわせて新規Discovery定数を2つとも
+付与する(`kSpecialForgingRecordsDiscovery`が1件だけ付与するのに対し、
+本Sliceでは2件同時付与という点だけが異なる)。新規Discovery定数
+`kEmberRavineSurveyRecordsDiscovery`(`ember_ravine_survey_records`、
+正本の「安定ID」表どおり)・`kPreAshstormWatchRecordsDiscovery`
+(`preashstorm_watch_records`、安定ID表に記載が無いため
+`kSpecialForgingRecordsDiscovery`と同じ命名慣習で新規選定)を
+`include/jf/core/BaseState.hpp`へ追加した。
+
+**ルート別「6ラウンド制限」(ルート1)・「記録箱1個減少」(ルート2)は
+見送り(既知ギャップ)**: 6ラウンド制限をDEFEAT条件として扱う機構は
+Cinderwatchの同種ギャップ以来このプロジェクトに一貫して存在しない
+(`ravine_cooling_channel`/`ash_crystal_shelf`/`heatwork_shop`いずれも
+同型のround-limit-as-defeatギャップを記録済み)。ルート単位で
+`surveyTileCount`自体を変える機構も`heatwork_shop`(M9-AE)で「ステージ全体で
+単一の`surveyTileCount`しか持てない」と記録済みの同じギャップのため、
+記録箱は全ルートで2個のまま固定した。
+
+**ルート2「熱量-1」は絶対値`startingHeatLevel: 0`で近似**: `startingHeatLevel`
+は絶対値フィールドであり相対減算を表現できない(M9-Z以来の既知の性質)。他の
+2ルートに熱量指定が無い(=JSON省略時のデフォルト0)状況で「そこから-1」を
+表現する手段が無いため、既存キャンプ効果の「0未満にはしない」floorパターンと
+同じ考え方で0を採用した。
+
+**ルート3`[戦闘魔導士]`「計測器を読む」の「敵配置と噴気を全公開」は
+no-op**: このプロジェクトにfog-of-warが一切存在しないため、既に常に真
+(`ash_crystal_shelf`/`ravine_cooling_channel`等、毎回記録済みの同型no-op)。
+
+**敵は岩蜥蜴3(`ash_crystal_shelf`と同じRock Lizard/Bandit reskin+
+firstBurnNegated)+熱地採取団2(`heatwork_shop`/`ravine_cooling_channel`と
+同じHeat Gatherer Axeman/Archer、Bandit/WatchArcher reskin)、計5体**:
+正本の3択表で敵数の言及があるのはルート1の「敵5体」のみで、ルート2・3には
+差分の記載が無いため、全ルート共通のbase roster(5体)をそのまま使う
+(`enemiesRemoved`なし)近似とした。
+
+**敗北条件「記録箱全損」「制限超過」は見送り(既知ギャップ)**: 前者は
+Object耐久追跡機構の欠如(`ash_crystal_shelf`/`heatwork_shop`と同型)、
+後者は上記のround-limit-as-defeatギャップと同型。
+
+`tests/test_battle.cpp`へ1件追加: 地点7の構成(敵5体/`scoutRouteRequiredClass`
+/`surveyObjectiveId`+`surveyTileCount:2`)、3ルートの`enemiesRemoved`・
+`startingHeatLevel`、戦闘生成時に主目的`EliminateTeam`(`groupId: "primary"`)
+が維持されたまま`ashsealed_observatory_crate`グループへ`SecureTile`系
+Objectiveが`ObjectiveGroupRule::Any`で2件登録されることを検証する
+`ash_crystal_shelf`/`heatwork_shop`と同型のテスト(GameApp側の2-Discovery
+付与ロジック自体は、`heatwork_shop`の`kSpecialForgingRecordsDiscovery`にも
+同種の直接テストが無い前例に倣い、フルの遠征シーケンスを要するE2Eテストは
+追加していない)。`cmake --build build -j10`成功、`ctest --test-dir build -j10
+--output-on-failure`は3回連続実行で4/4 Pass(既知の`test_battle.cpp:1244`
+フレークは今回の3回では発生せず)。`git diff --check`成功。
+
+`jf_forest_balance --region=ember_ravine`(500 Seed)の実測(fresh-party):
+地点7(灰封観測所) Direct win率11.0%/HP残2.0%(avg KO 3.86/5、rounds 4.06)、
+Tactical win率5.8%/HP残2.4%(avg KO 3.84/5)。地点1・地点5(同一terrain
+profile・敵数だが異なる敵構成)より厳しい数値だが、これは地点7が新たに
+`heat_gatherer`2体を含む混成roster(近接3+遠隔2)であるため。地点6
+(OperateObject盲点)以外の8地点通しのRegion clear win率は引き続き
+Direct/Tactical共に0.0%(地点6のOperateObject盲点由来、地点7本体の問題では
+ない、[[jf_forest_balance worst-case numbers]]の教訓どおり実測記録のみに
+留め本Sliceでは数値調整を行わない)。
+
+以上で燼火峡谷(第7地域)は地点1〜7の7地点+キャンプI〜IIIが実コンテンツ化・
+到達可能化された。残り1地点(赤熱裂け目)+地域ボス「赤背の大蜥蜴」は次の
+Slice以降で本格化する。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

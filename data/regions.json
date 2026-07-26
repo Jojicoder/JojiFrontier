@@ -1154,12 +1154,27 @@
       "id": "ashsealed_observatory",
       "terrainProfileId": "ember_ravine_entrance",
       "enemyRoster": [
-        { "id": "ashsealed_observatory_bandit1", "name": "Bandit", "classId": "Bandit" },
-        { "id": "ashsealed_observatory_bandit2", "name": "Bandit", "classId": "Bandit" }
+        { "id": "ashsealed_observatory_lizard1", "name": "Rock Lizard", "classId": "Bandit", "firstBurnNegated": true },
+        { "id": "ashsealed_observatory_lizard2", "name": "Rock Lizard", "classId": "Bandit", "firstBurnNegated": true },
+        { "id": "ashsealed_observatory_lizard3", "name": "Rock Lizard", "classId": "Bandit", "firstBurnNegated": true },
+        { "id": "ashsealed_observatory_axe1", "name": "Heat Gatherer Axeman", "classId": "Bandit" },
+        { "id": "ashsealed_observatory_archer1", "name": "Heat Gatherer Archer", "classId": "WatchArcher" }
       ],
-      "baseVictoryLoot": [{ "id": "heat_resistant_material", "quantity": 1 }],
-      "missionNameEn": "Ash-Sealed Observatory (placeholder)",
-      "missionNameJa": "灰封観測所(仮実装)"
+      "baseVictoryLoot": [
+        { "id": "ash_crystal", "quantity": 1 },
+        { "id": "heat_resistant_material", "quantity": 1 }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath", "startingHeatLevel": 0 },
+        { "choice": "ScoutRoute" }
+      ],
+      "scoutRouteRequiredClass": "BattleMage",
+      "surveyObjectiveId": "ashsealed_observatory_crate",
+      "surveyTileCount": 2,
+      "surveyTileObjectDefinitionId": "ashsealed_observatory_crate",
+      "missionNameEn": "Ash-Sealed Observatory",
+      "missionNameJa": "灰封観測所"
     },
     {
       "id": "redheat_fissure",

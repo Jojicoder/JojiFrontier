@@ -11113,6 +11113,55 @@ int main() {
     }
 
     {
+        // docs/regions/ember_ravine.md「7. 灰封観測所」: 主目的「記録箱2個の
+        // うち1個以上を左端へ運ぶ」は標準EliminateTeam-primary + crate
+        // secondary近似(ash_crystal_shelf/heatwork_shopと同型)。「運ぶ」は
+        // 未実装、「確保」のみモデル化。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor emberRegion = jf::regionDescriptor(jf::RegionId::EmberRavine, *data);
+        const jf::StageDescriptor* obsStage = nullptr;
+        for (const jf::StageDescriptor& stage : emberRegion.stages)
+            if (stage.id == "ashsealed_observatory") obsStage = &stage;
+        assert(obsStage);
+        assert(obsStage->enemyRoster.size() == 5); // 岩蜥蜴3+採取団2
+        assert(obsStage->scoutRouteRequiredClass == jf::UnitClass::BattleMage);
+        assert(obsStage->surveyObjectiveId == "ashsealed_observatory_crate");
+        assert(obsStage->surveyTileCount == 2);
+
+        const jf::ExplorationOutcome frontal =
+            jf::stageRouteOutcome(*obsStage, jf::ExplorationChoice::FrontalAdvance);
+        assert(frontal.enemiesRemoved == 0); // 敵5体、6ラウンド制限はround-limit
+                                              // defeatギャップとしてno-op
+        const jf::ExplorationOutcome windowFirst =
+            jf::stageRouteOutcome(*obsStage, jf::ExplorationChoice::CollapsedSidePath);
+        assert(windowFirst.startingHeatLevel == 0); // 熱量-1の近似(0が床)、
+                                                     // 記録箱1個減少は
+                                                     // per-route箱数ギャップで
+                                                     // no-op(箱は常に2個)
+        const jf::ExplorationOutcome reading =
+            jf::stageRouteOutcome(*obsStage, jf::ExplorationChoice::ScoutRoute);
+        assert(reading.enemiesRemoved == 0); // 敵配置全公開は元々fog-of-war
+                                              // 皆無でno-op、記録箱2個は元々一致
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *obsStage, /*seed=*/17);
+        const jf::ObjectiveDefinition* eliminateDef = nullptr;
+        std::vector<const jf::ObjectiveDefinition*> crateDefs;
+        for (const auto& def : battle.missionState().definitions) {
+            if (def.kind == jf::ObjectiveKind::EliminateTeam) eliminateDef = &def;
+            if (def.groupId == "ashsealed_observatory_crate") crateDefs.push_back(&def);
+        }
+        assert(eliminateDef && eliminateDef->primary && eliminateDef->groupId == "primary");
+        assert(crateDefs.size() == 2);
+        for (const jf::ObjectiveDefinition* def : crateDefs) assert(!def->primary);
+        bool hasCrateGroup = false;
+        for (const auto& group : battle.missionState().groups)
+            if (group.id == "ashsealed_observatory_crate" && group.rule == jf::ObjectiveGroupRule::Any)
+                hasCrateGroup = true;
+        assert(hasCrateGroup);
+    }
+
+    {
         // docs/regions/ember_ravine.md「地点構成」: 地点3・地点4は"どちらを
         // 先に攻略してもよい、両方必須"の either-order branch - completing
         // BOTH members gates Camp II, mirroring every prior region's own

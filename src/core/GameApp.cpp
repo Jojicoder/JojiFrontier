@@ -165,6 +165,32 @@ void GameApp::proceedToCamp() {
             expedition_.pendingDiscoveries.push_back(kSpecialForgingRecordsDiscovery);
     }
 
+    // docs/regions/ember_ravine.md「7. 灰封観測所」の「記録箱2個: 峡谷踏査記録、
+    // 灰嵐以前の監視記録」: same all-group-members-Completed ad-hoc check as
+    // heatwork_shop's kSpecialForgingRecordsDiscovery above, granting both
+    // Discoveries when the "2個とも回収" bonus tier is met.
+    if (!isReconnaissanceRun_ && stage.id == "ashsealed_observatory") {
+        const BattleMissionState& mission = battleController_->battle().missionState();
+        bool anyInGroup = false;
+        bool allCompleted = true;
+        for (const ObjectiveDefinition& def : mission.definitions) {
+            if (def.groupId != "ashsealed_observatory_crate") continue;
+            anyInGroup = true;
+            if (mission.progress.at(def.id).status != ObjectiveStatus::Completed) {
+                allCompleted = false;
+                break;
+            }
+        }
+        if (anyInGroup && allCompleted) {
+            if (std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                         kEmberRavineSurveyRecordsDiscovery) == expedition_.pendingDiscoveries.end())
+                expedition_.pendingDiscoveries.push_back(kEmberRavineSurveyRecordsDiscovery);
+            if (std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                         kPreAshstormWatchRecordsDiscovery) == expedition_.pendingDiscoveries.end())
+                expedition_.pendingDiscoveries.push_back(kPreAshstormWatchRecordsDiscovery);
+        }
+    }
+
     // docs/regions/old_frontier_settlement.md「2. 共同井戸」の副目標「中立住民を
     // 全員避難」→ 集落証言記録: unlike blackwater_crossing/quarry_old_mine's
     // ad-hoc creditedTargetIds.size()>=N check above, this reads a REAL

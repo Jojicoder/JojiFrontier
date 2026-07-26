@@ -157,13 +157,21 @@ M9-AE(地点6「旧耐熱工房」+ キャンプIII到達可能化)完了。主�
 「到達ゲート」か「1回きりの回復」止まりで「遠征スコープで持続する数値修飾」を
 保持する仕組みがこのプロジェクトに存在しないため、新規ギャップカテゴリとして
 見送り。詳細は`implementation_status.md`のM9-AE参照。
+M9-AF(地点7「灰封観測所」)完了。主目的「観測記録箱2個のうち1個以上を左端へ
+運ぶ」は`ash_crystal_shelf`/`heatwork_shop`と同型のEliminateTeam-primary +
+crate secondary近似(「運ぶ」は未実装、「確保」のみモデル化)、「2個とも
+回収」ボーナス階層はM9-AEと同型のad-hocグループ完了スキャンで、新規
+Discovery`kEmberRavineSurveyRecordsDiscovery`/`kPreAshstormWatchRecordsDiscovery`
+の2件を同時付与。6ラウンド制限・ルート別記録箱数変更はいずれも既知ギャップ
+(round-limit-as-defeat機構・per-route surveyTileCount変更機構がこのプロジェクト
+に存在しない)として見送り。詳細は`implementation_status.md`のM9-AF参照。
 
 直近の未完了(優先度順):
 
-1. 燼火峡谷(第7地域)の残り2地点+地域ボスの本格実装(M6-B/C・M9-A〜AE方式)。
+1. 燼火峡谷(第7地域)の残り1地点+地域ボスの本格実装(M6-B/C・M9-A〜AF方式)。
    地点1「焼け石の入口」・地点2「熱風の棚道」・地点3「硫黄窪地」・地点4
-   「破損冷却水路」・地点5「灰晶採取棚」・地点6「旧耐熱工房」はM9-Z/M9-AA/
-   M9-AB/M9-AC/M9-AD/M9-AEで完了。地点7〜8は`data/regions.json`の
+   「破損冷却水路」・地点5「灰晶採取棚」・地点6「旧耐熱工房」・地点7「灰封観測所」は
+   M9-Z/M9-AA/M9-AB/M9-AC/M9-AD/M9-AE/M9-AFで完了。地点8は`data/regions.json`の
    Bandit2体プレースホルダーのまま(戦場熱量
    レベル2・3の消費/AI連動、噴気弁破壊(+1)・冷却弁操作(-1)によるheatLevel
    変更フック、岩蜥蜴/採取団AI、地域ボス「赤背の大蜥蜴」の実装が必要 -

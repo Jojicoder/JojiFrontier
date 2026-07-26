@@ -379,6 +379,21 @@ inline constexpr const char* kCollectiveDefenseRecordsDiscovery = "collective_de
 // (just checking group-membership completion instead of
 // creditedTargetIds.size()).
 inline constexpr const char* kSpecialForgingRecordsDiscovery = "special_forging_records";
+// docs/regions/ember_ravine.md「7. 灰封観測所」の「記録箱2個: 峡谷踏査記録、
+// 灰嵐以前の監視記録」(id from that doc's own「安定ID」table - only
+// 峡谷踏査 is listed there as `ember_ravine_survey_records`;「灰嵐以前の監視
+// 記録」has no doc-listed id, so it follows the same `<region>_..._records`
+// naming convention as kSpecialForgingRecordsDiscovery above). Same
+// all-group-members-Completed ad-hoc check as kSpecialForgingRecordsDiscovery
+// (「2個とも回収」bonus tier), just granting 2 Discoveries instead of 1 since
+// the doc lists 2 distinct record names for the 2 crates. The primary's
+// "1個以上を左端へ運ぶ" is NOT modeled as carrying to a zone - only
+// "securing/touching" the crate is (surveyObjectiveId/surveyTileCount:2's
+// ObjectiveGroupRule::Any, satisfied by any 1 of the 2 - same crate-primary
+// simplification as ash_crystal_shelf/heatwork_shop above), with the actual
+// primary objective approximated as standard EliminateTeam.
+inline constexpr const char* kEmberRavineSurveyRecordsDiscovery = "ember_ravine_survey_records";
+inline constexpr const char* kPreAshstormWatchRecordsDiscovery = "preashstorm_watch_records";
 
 // Forge tuning traits, tracked as an id rather than a free string so a typo
 // can't silently create an unrecognized "equipped" trait.
