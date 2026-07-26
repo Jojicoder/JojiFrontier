@@ -11962,6 +11962,52 @@ int main() {
     }
 
     {
+        // docs/regions/shattered_march_fort.md「地点6: 予備壁」: primary is
+        // SurviveRounds(4) (sanctum_infirmary/herb_islet同型のSurviveRoundsMissionRule
+        // 再利用), 敵「2波計7」は`StageDescriptor::timedReinforcement`が単一
+        // `std::optional`である既知の制限(M9-Y "settlement_dawn_defense"で記録済み)
+        // のため4初期+3増援1波へ近似。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor fortRegion = jf::regionDescriptor(jf::RegionId::ShatteredMarchFort, *data);
+        const jf::StageDescriptor* reserveWallStage = nullptr;
+        for (const jf::StageDescriptor& stage : fortRegion.stages)
+            if (stage.id == "fort_reserve_wall") reserveWallStage = &stage;
+        assert(reserveWallStage);
+        assert(reserveWallStage->enemyRoster.size() == 4);
+        assert(reserveWallStage->scoutRouteRequiredClass == jf::UnitClass::VeteranGuard);
+        assert(reserveWallStage->primarySurviveRoundsAlternative &&
+              reserveWallStage->primarySurviveRoundsAlternative->id == "fort_reserve_wall_defense" &&
+              reserveWallStage->primarySurviveRoundsAlternative->surviveUntilRound == 4);
+        assert(reserveWallStage->timedReinforcement && reserveWallStage->timedReinforcement->spawnRound == 2 &&
+              reserveWallStage->timedReinforcement->units.size() == 3);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*reserveWallStage, choice,
+                                                /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "quality_iron") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "stone") == 2);
+
+        // 主目的: 4ラウンド終了まで避難所を守る(SurviveRoundsをそのまま再利用、
+        // EliminateTeamとのOR)。敵を1体も倒さなくても4ラウンド生存でVictory。
+        jf::BattleState defense = jf::createScenarioBattle(*data, *reserveWallStage, /*seed=*/9);
+        jf::syncObjectiveProgress(defense);
+        assert(jf::evaluateBattleOutcome(defense).kind != jf::BattleOutcomeKind::Victory);
+        while (defense.round() <= 4) {
+            defense.beginEnemyPhase();
+            defense.beginPlayerPhase();
+        }
+        jf::syncObjectiveProgress(defense);
+        assert(jf::evaluateBattleOutcome(defense).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。

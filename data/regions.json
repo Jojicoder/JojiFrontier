@@ -1519,12 +1519,35 @@
       "id": "fort_reserve_wall",
       "terrainProfileId": "shattered_march_fort",
       "enemyRoster": [
-        { "id": "fort_reserve_wall_bandit1", "name": "Fort Retainer", "classId": "Bandit" },
-        { "id": "fort_reserve_wall_bandit2", "name": "Fort Retainer", "classId": "Bandit" }
+        { "id": "fort_reserve_wall_garrison1", "name": "Fort Garrison", "classId": "Bandit" },
+        { "id": "fort_reserve_wall_garrison2", "name": "Fort Garrison", "classId": "Bandit" },
+        { "id": "fort_reserve_wall_archer1", "name": "Fort Garrison", "classId": "WatchArcher" },
+        { "id": "fort_reserve_wall_archer2", "name": "Fort Garrison", "classId": "WatchArcher" }
       ],
-      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
-      "missionNameEn": "Reserve Wall (placeholder)",
-      "missionNameJa": "予備壁(仮実装)"
+      "baseVictoryLoot": [
+        { "id": "quality_iron", "quantity": 1 },
+        { "id": "stone", "quantity": 2 }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath" }
+      ],
+      "scoutRouteRequiredClass": "VeteranGuard",
+      "primarySurviveRoundsAlternative": { "id": "fort_reserve_wall_defense", "surviveUntilRound": 4 },
+      "timedReinforcement": {
+        "id": "fort_reserve_wall_reinforcement_wave1",
+        "spawnRound": 2,
+        "announceRoundsBefore": 1,
+        "requiredForElimination": true,
+        "units": [
+          { "id": "fort_reserve_wall_reinforcement_bandit1", "name": "Fort Garrison", "classId": "Bandit" },
+          { "id": "fort_reserve_wall_reinforcement_archer1", "name": "Fort Garrison", "classId": "WatchArcher" },
+          { "id": "fort_reserve_wall_reinforcement_archer2", "name": "Fort Garrison", "classId": "WatchArcher" }
+        ],
+        "orderedSpawnCandidates": [{ "row": 0, "col": 7 }, { "row": 1, "col": 7 }, { "row": 2, "col": 7 }]
+      },
+      "missionNameEn": "Reserve Wall",
+      "missionNameJa": "予備壁"
     },
     {
       "id": "fort_severance_order_archive",

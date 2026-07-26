@@ -4965,6 +4965,92 @@ Region clear win率は引き続きDirect/Tactical共に0.0%だが、地点2・5�
 以上で破砕された前線砦(第9地域)は地点1・2・3・4・5が実コンテンツ化された。
 地点6〜7(予備壁/切離命令庫)+地域ボス「残留砦隊長」は次のSlice以降で本格化する。
 
+## M9-AS 破砕された前線砦(第9地域): 地点6(予備壁)
+
+M9-AN(骨格+地点1)/M9-AO(地点2)/M9-AP(地点3)/M9-AQ(地点4)/M9-AR(地点5)に続き、
+地点6「予備壁」を実コンテンツ化した。`data/regions.json`の`fort_reserve_wall`
+プレースホルダー(Bandit x2)エントリを直接書き換え、`sanctum_infirmary`(M9-AH)/
+`herb_islet`(黒水低湿地)と同じ`primarySurviveRoundsAlternative`
+(`SurviveRoundsMissionRule`)のJSON-authored形。`RouteGraph.cpp`の
+`shatteredMarchFortGraph()`はM9-ANの時点で地点6・CAMP III(`fort_signal_yard ->
+fort_reserve_wall -> fort_camp3`)まで含めて全体骨格を配線済みのため、本Sliceでの
+グラフ変更は不要 - Camp IIIゲートは既に機能済みであることを確認した。
+
+**主目的「4Round防衛」は`primarySurviveRoundsAlternative`(surviveUntilRound=4)へ
+そのまま再利用**: `sanctum_infirmary`/`herb_islet`が証明済みの、EliminateTeamとの
+OR(敵全滅でも4Round生存でもVictory)というこのプロジェクト一貫のSurviveRounds実装
+そのままで正本を過不足なく表現できた。
+
+**敵「2波計7」は指示どおり事前確認のうえ4初期+3増援の単一波へ近似**: `Region.hpp`の
+`StageDescriptor::timedReinforcement`が`std::optional<TimedReinforcement>`単一
+フィールドであること(`include/jf/core/Region.hpp:66`)、`BattleFactory.cpp`
+(`stage.timedReinforcement`の単一参照、`:720-721`)・`GameData.cpp`(`timedReinforcement`
+JSONキーも単数、`:378-379`)双方が単一波のみを前提にしていることをコード読解で直接
+確認した。これはM9-Y(`settlement_dawn_defense`、旧最前線居留地地域ボス)が
+「複数`timedReinforcement`が同時に必要になったのはこの地点が初めて」として記録した
+既知の制限と全く同じカテゴリで、本地点が2件目の遭遇。M9-Yに倣い、Bandit2+WatchArcher2
+の初期4体編成に対し、2ラウンド目(1ラウンド前予告)にBandit1+WatchArcher2の3体増援
+1波を配線し、「2波計7」の合計数自体は維持しつつ波の分割は1波へ近似した。
+
+探索3択「中央防衛」/「住民退避優先」(いずれも無条件)/`[古参守備兵]`「破孔封鎖」
+(`scoutRouteRequiredClass: VeteranGuard`)を配線。正本の7地点表の当該行には追加数値
+デルタの記載が無いことを確認したうえで、`routeOutcomes`は選択肢の列挙のみとした。
+
+敵「残留隊」はBandit2+WatchArcher2(初期)+Bandit1+WatchArcher2(増援)を、
+M9-AO/AP/AQ/ARが確立済みの本地域「残留砦隊」専用フレーバー名「Fort Garrison」で
+再利用した(軍需回収団の「Fort Retriever」/placeholder群の「Fort Retainer」とは
+意図的に区別)。新規JAグリフ登録は不要(既存英語reskin表示名の規約どおり)。
+
+主目的報酬(高品質鉄材1、石材2)は共に既存reuse: `quality_iron`はCinderwatch Gate由来、
+`stone`はAshiron Quarry由来。`data/locales/en.json`/`ja.json`・`data/regions.json`
+全体を検索し重複が無いことを確認したうえで再利用した(本セッションの重複素材IDバグ
+再発防止の確認)。
+
+見送った部分(正本との差分、都度明記):
+
+- 敗北条件「避難所0」: Object耐久機構自体が未実装、M6-C以来繰り返し記録済みの既知
+  ギャップ。部隊全滅は既存Engineデフォルトのまま常時有効であることを確認(他地域と
+  同じ結論)。
+- 公開副目標「予備壁2枚保全 -> 上位防衛訓練記録」: 同上のObject耐久機構に依存する
+  ため未配線。正本の安定ID一覧に対応するid記載が無いが、`fort_defense_technology`
+  (M9-AO)と同じく「将来Object耐久機構が実装され次第、地域最低保証Discoveryとして
+  バックフィルが必要」という既知ギャップとして明記する。
+- 恒久成果「予備壁確保 -> 最終戦へ防護壁2個追加」: これはM9-AR「信号庭復旧」が記録
+  した「クロス戦闘の状態参照フックが存在しない」ギャップとは異なる、**さらに新しい
+  カテゴリ**(この地点自身の完了が別の・後で戦われる地点7の`extraBarrierCount`
+  相当パラメータへ持続的に加算される、地点をまたいだ永続効果)。既存の
+  `extraBarrierCount`/`scalesWithExtraBarrierOutcome`は同一戦闘内の探索ルート選択が
+  同一戦闘のBarrier数を決めるだけの機構で、「別の戦闘の完了が今の戦闘のBarrier数を
+  変える」という戦闘をまたいだ永続状態の参照経路(セーブデータ側のフラグ管理+
+  ステージ構築時の条件分岐)がこのプロジェクトに一切存在しない。新規インフラを
+  組まず、M9-ARの「信号庭復旧」と同じ「新しいギャップカテゴリ」としてドキュメント
+  のみで記録するに留めた(地点7実装時に再度参照されるべき既知の未解決事項)。
+- 「2波計7」の波分割そのもの(上記参照、`timedReinforcement`単一`std::optional`の
+  制限、M9-Y以来2件目の既知ギャップ)。
+
+`tests/test_battle.cpp`へ1件追加: `sanctum_infirmary`/`herb_islet`と同型の
+SurviveRounds(4)主目的検証(敵編成4体・`scoutRouteRequiredClass`・主目的報酬の
+`quality_iron`/`stone`数量・`timedReinforcement`のspawnRound/増援3体・敵を1体も
+倒さずに4ラウンド生存でVictoryが成立することを直接`BattleState`で検証)。既存
+スイート含め全成功、フルスイートを3回連続実行し安定(フレークなし、
+`test_battle.cpp:1244`の既知RNGフレークも今回の3回では発生せず)。
+
+`jf_forest_balance --region=shattered_march_fort`(500 Seed)の実測: Reserve Wall
+(予備壁)はDirect win 99.4%・Tactical win 92.2%(SurviveRoundsが主目的の地点は
+このシミュレータのヒューリスティックにとって元々有利 - `sanctum_infirmary`/
+`herb_islet`自身の実測と同じ傾向、[[jf_forest_balance worst-case numbers]]の
+教訓どおり実測記録のみに留める)。地点1(破砕外郭)はDirect 29.2%/Tactical 21.4%、
+地点3(旧兵舎)はDirect 66.6%/Tactical 61.8%、地点4(兵站庫)はDirect 17.8%/
+Tactical 14.2%でいずれも変化なし、地点2(崩れ門)・地点5(信号庭)は引き続き
+OperateObject Objective種別に対するAI未対応によりwin率0.0%(既知の盲点)。
+7地点通しのRegion clear win率は引き続きDirect/Tactical共に0.0%だが、地点2・5の
+OperateObject盲点に加え地点7(切離命令庫)+地域ボス「残留砦隊長」がまだ
+プレースホルダーのままであるため。
+
+以上で破砕された前線砦(第9地域)は地点1・2・3・4・5・6が実コンテンツ化され、
+CAMP IIIへ実質的に到達可能になった(グラフ配線自体はM9-ANから既に機能済み)。
+残り地点7(切離命令庫)+地域ボス「残留砦隊長」は次のSlice以降で本格化する。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

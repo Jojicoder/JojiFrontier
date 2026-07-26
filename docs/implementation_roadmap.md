@@ -312,6 +312,15 @@ M9-AR(破砕された前線砦・第9地域: 地点5「信号庭」)完了(2026-
 機構/増援タイミングの条件付き上書きフック未実装のため見送り(前者2つは`fort_defense_
 technology`と同型の将来バックフィル対象、後者は新種のクロス戦闘挙動修飾子ギャップとして
 記録)。詳細は`implementation_status.md`のM9-AR参照。
+M9-AS(破砕された前線砦・第9地域: 地点6「予備壁」)完了(2026-07)。主目的「4Round防衛」を
+`sanctum_infirmary`/`herb_islet`と同じ`primarySurviveRoundsAlternative`へ再利用。
+「2波計7」は`timedReinforcement`が単一`std::optional`である既知の制限(M9-Y以来
+2件目の同種ギャップ)のため4初期+3増援1波へ近似。敵はBandit/WatchArcherを「Fort
+Garrison」表示名で再利用、報酬(`quality_iron`/`stone`)は既存material再利用のみ。
+敗北条件「避難所0」・公開副目標「上位防衛訓練記録」はObject耐久機構未実装のため見送り。
+恒久成果「予備壁確保→最終戦へ防護壁2個追加」は地点をまたいだ永続効果というM9-ARとは
+別の新しいギャップカテゴリとして記録(未実装)。CAMP IIIへ実質到達可能になった。
+詳細は`implementation_status.md`のM9-AS参照。
 M9-AHと同じ「新規戦闘メカニクス無し」地域として、地域骨格全体(7地点+3キャンプ+
 地点3・4「順序選択」)+地点1を1Sliceで実装。`RouteGraph.cpp`へ`shatteredMarchFortGraph()`
 を追加し、**同じコミット単位で`usesRouteGraph()`へ`RegionId::ShatteredMarchFort`を
@@ -328,10 +337,10 @@ M9-AN参照。
 直近の未完了(優先度順):
 
 1. 破砕された前線砦(第9地域)の本格実装の続き(地点2「崩れ門」はM9-AO、地点3
-   「旧兵舎」はM9-AP、地点4「兵站庫」はM9-AQ、地点5「信号庭」はM9-ARで完了。
-   残り地点6〜7: 予備壁/切離命令庫、いずれもまだBandit x2(-3)プレースホルダー)
-   +最終強敵「残留砦隊長」+地域攻略配線(M6-B/C・M9-A〜ARと同じ「骨格→1地点ずつ」
-   方式)。
+   「旧兵舎」はM9-AP、地点4「兵站庫」はM9-AQ、地点5「信号庭」はM9-AR、地点6
+   「予備壁」はM9-ASで完了、CAMP IIIへ実質到達可能。残り地点7: 切離命令庫、
+   まだBandit x2(-3)プレースホルダー)+最終強敵「残留砦隊長」+地域攻略配線
+   (M6-B/C・M9-A〜ASと同じ「骨格→1地点ずつ」方式)。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/
