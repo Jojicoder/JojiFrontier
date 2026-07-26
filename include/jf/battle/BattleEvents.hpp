@@ -21,7 +21,13 @@ using ActionId = std::uint64_t;
 
 // Only the values SecureTile's "攻撃、スキル、アイテム、待機のいずれかを確定"
 // eligibility needs to distinguish today.
-enum class ActionKind { Move, Attack, Skill, Item, Wait, Interact };
+// `Cooperation` (docs/character_progression.md「連携作戦」): deliberately not
+// folded into `Skill` - unlike an equipped skill it doesn't consume either
+// of the 2 equip slots and its own dedicated command
+// (BattleController::chooseCooperation()) has a distinct availability gate
+// (a squad-wide equipped id, both paired units present within distance 2,
+// once per battle) that a skill-slot check can't express.
+enum class ActionKind { Move, Attack, Skill, Item, Wait, Interact, Cooperation };
 
 struct ActionResolvedEvent {
     ActionId actionId;

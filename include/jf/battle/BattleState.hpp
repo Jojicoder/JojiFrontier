@@ -160,6 +160,19 @@ public:
     void setWindGust(std::optional<WindGustConfig> config) { windGust_ = config; }
     const std::optional<WindGustConfig>& windGust() const { return windGust_; }
 
+    // 連携作戦(docs/character_progression.md「連携作戦」): squad-wide, not
+    // per-unit - one slot for the whole party (set once at battle assembly
+    // from SaveData::equippedCooperationId, mirrors how other squad-wide
+    // battle-scoped state, e.g. collectedHerbPatches_/
+    // bossCollidedWithBarrier_ above, lives directly on BattleState rather
+    // than any per-unit field). Empty string means none equipped.
+    const std::string& equippedCooperationId() const { return equippedCooperationId_; }
+    void setEquippedCooperationId(std::string id) { equippedCooperationId_ = std::move(id); }
+    // "戦闘中1回だけ使用可能...戦闘終了で回数を回復する" - battle-scoped, reset
+    // by simply constructing a new BattleState per battle (never persisted).
+    bool cooperationUsedThisBattle() const { return cooperationUsedThisBattle_; }
+    void markCooperationUsed() { cooperationUsedThisBattle_ = true; }
+
 private:
     std::vector<Unit> units_;
     std::array<TerrainType, kGridRows * kGridCols> terrain_{};
@@ -175,6 +188,8 @@ private:
     std::vector<GridPos> trailblazedTiles_;
     std::vector<ReinforcementWave> reinforcementWaves_;
     std::optional<WindGustConfig> windGust_;
+    std::string equippedCooperationId_;
+    bool cooperationUsedThisBattle_ = false;
 };
 
 // docs/regions/windscar_plateau.md "強風ルール": called at Round End (same

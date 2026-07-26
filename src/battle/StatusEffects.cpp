@@ -168,6 +168,12 @@ void clearSkillBuffsAtEnemyPhaseEnd(BattleState& battle) {
         unit.provokedByUnitId.clear();
         unit.quarryRevealed = false; // 辺境猟兵`read_quarry`: "次のEnemy Phase終了まで"
         unit.rallyingBannerActive = false; // 旗手`rallying_banner`: 同じく"次のEnemy Phase終了まで"
+        // 連携作戦(docs/character_progression.md「連携作戦」): all 3 active
+        // battle-effect pairs use the same "次のEnemy Phase終了まで" lifecycle
+        // as rallyingBannerActive above.
+        unit.pairedFallbackLineActive = false;
+        unit.pairedSignalWardActive = false;
+        unit.pairedBracedBreakthroughActive = false;
     }
 }
 

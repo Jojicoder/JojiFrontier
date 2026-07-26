@@ -10516,6 +10516,158 @@ int main() {
         assert(controller.inputState() == jf::BattleInputState::EnemyTurn);
     }
 
+    // 連携作戦(docs/character_progression.md「連携作戦」)
+    {
+        // paired_fallback_line: DEF+2 to both paired units and everyone
+        // adjacent to either, until the next Enemy Phase ends; partner isn't
+        // marked acted; once per battle.
+        jf::Unit leon = makeUnit("leon", jf::Team::Player, {1, 0});
+        jf::Unit gareth = makeUnit("gareth", jf::Team::Player, {1, 1});
+        jf::Unit adjacentAlly = makeUnit("adjacent_ally", jf::Team::Player, {1, 2}); // adjacent to gareth
+        jf::Unit farAlly = makeUnit("far_ally", jf::Team::Player, {5, 5});
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {6, 6});
+        jf::BattleController controller(jf::BattleState({leon, gareth, adjacentAlly, farAlly, enemy}));
+        controller.battle().setEquippedCooperationId("paired_fallback_line");
+        controller.selectUnit(controller.battle().units()[0]); // leon
+        controller.selectMoveTile(controller.battle().units()[0].position); // stay put
+        assert(controller.canUseCooperation());
+        controller.chooseCooperation();
+        assert(controller.battle().units()[0].pairedFallbackLineActive); // leon
+        assert(controller.battle().units()[1].pairedFallbackLineActive); // gareth
+        assert(controller.battle().units()[2].pairedFallbackLineActive); // adjacent_ally
+        assert(!controller.battle().units()[3].pairedFallbackLineActive); // far_ally untouched
+        assert(controller.battle().units()[0].effectiveDefense() ==
+               controller.battle().units()[0].stats.defense + 2);
+        assert(!controller.battle().units()[1].hasActed); // partner not marked acted
+        assert(controller.battle().units()[0].hasActed); // actor is
+        assert(controller.battle().cooperationUsedThisBattle());
+        assert(controller.inputState() == jf::BattleInputState::SelectUnit);
+
+        // Second unit's turn: already used this battle, so unavailable even
+        // though gareth is also one of the pair.
+        controller.selectUnit(controller.battle().units()[1]); // gareth
+        assert(!controller.canUseCooperation());
+    }
+    {
+        // paired_braced_breakthrough: forced-move immunity + DEF+2 vs an
+        // attacker that moved 2+ tiles this action, for both paired units.
+        jf::Unit spear = makeUnit("spear_reserve", jf::Team::Player, {1, 0}, 4, jf::UnitClass::Spearman);
+        jf::Unit heavy = makeUnit("heavy_recruit", jf::Team::Player, {1, 1});
+        jf::BattleController controller(jf::BattleState({spear, heavy}));
+        controller.battle().setEquippedCooperationId("paired_braced_breakthrough");
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseCooperation();
+        assert(controller.battle().units()[0].pairedBracedBreakthroughActive);
+        assert(controller.battle().units()[1].pairedBracedBreakthroughActive);
+
+        jf::Unit charger = makeUnit("charger", jf::Team::Enemy, {1, 5}, 6);
+        jf::Unit plainHeavy = makeUnit("heavy_plain", jf::Team::Player, {1, 1}); // no flag, for comparison
+        jf::BattleState combatCheck({controller.battle().units()[1], plainHeavy, charger});
+        combatCheck.units()[0].pairedBracedBreakthroughActive = true; // heavy (flagged)
+        combatCheck.units()[2].tilesMovedThisAction = 3; // charger moved 2+ tiles this action
+        const int flaggedDefense = combatCheck.combatDefenseBonus(combatCheck.units()[0], combatCheck.units()[2]);
+        const int plainDefense = combatCheck.combatDefenseBonus(combatCheck.units()[1], combatCheck.units()[2]);
+        assert(flaggedDefense == plainDefense + 2);
+
+        jf::Unit knockAttacker = makeUnit("knock_attacker", jf::Team::Enemy, {1, 0});
+        jf::BattleState knockCheck({heavy, knockAttacker});
+        knockCheck.units()[0].pairedBracedBreakthroughActive = true;
+        const jf::GridPos before = knockCheck.units()[0].position;
+        knockCheck.applyKnockback(knockCheck.units()[1], knockCheck.units()[0]);
+        assert(knockCheck.units()[0].position == before); // immune
+    }
+    {
+        // paired_field_recovery: heal 8 + cure poison (present) within
+        // distance 2; partner not marked acted.
+        jf::Unit mira = makeUnit("mira", jf::Team::Player, {1, 0});
+        jf::Unit ranger = makeUnit("ranger_recruit", jf::Team::Player, {1, 1});
+        jf::Unit wounded = makeUnit("wounded_ally", jf::Team::Player, {1, 2});
+        wounded.currentHp = 5;
+        wounded.poisonRemainingProcs = 3;
+        wounded.burnRemainingProcs = 2;
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {5, 5}); // keeps the battle from auto-Victory
+        jf::BattleController controller(jf::BattleState({mira, ranger, wounded, enemy}));
+        controller.battle().setEquippedCooperationId("paired_field_recovery");
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        controller.chooseCooperation();
+        assert(controller.inputState() == jf::BattleInputState::SelectCooperationTarget);
+        assert(contains(controller.cooperationTargetTiles(), {1, 2}));
+        controller.selectCooperationTarget({1, 2});
+        assert(controller.battle().units()[2].currentHp == 13); // 5 + 8
+        assert(controller.battle().units()[2].poisonRemainingProcs == 0); // cured (poison prioritized)
+        assert(controller.battle().units()[2].burnRemainingProcs == 2); // burn left uncured (doc doesn't specify both)
+        assert(!controller.battle().units()[1].hasActed);
+        assert(controller.battle().cooperationUsedThisBattle());
+        assert(controller.inputState() == jf::BattleInputState::SelectUnit);
+    }
+    {
+        // paired_rapid_works: places a durability-6 barrier within distance 2
+        // and grants cavalry_recruit a normal re-move, regardless of which of
+        // the pair acted.
+        jf::Unit engineer = makeUnit("engineer_recruit", jf::Team::Player, {1, 0});
+        jf::Unit cavalry = makeUnit("cavalry_recruit", jf::Team::Player, {1, 2});
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {6, 6}); // keeps the battle from auto-Victory
+        jf::BattleController controller(jf::BattleState({engineer, cavalry, enemy}));
+        controller.battle().registerObjectDefinition(
+            jf::BattleObjectDefinition{.definitionId = "rapid_barricade", .kind = jf::BattleObjectKind::Barrier,
+                                       .maxDurability = 6, .blocksMovement = true, .canBeAttacked = true,
+                                       .canBeRepaired = true});
+        controller.battle().setEquippedCooperationId("paired_rapid_works");
+        controller.selectUnit(controller.battle().units()[0]); // engineer (the actor)
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        assert(controller.canUseCooperation());
+        controller.chooseCooperation();
+        assert(controller.inputState() == jf::BattleInputState::SelectCooperationTarget);
+        assert(!controller.cooperationTargetTiles().empty());
+        const jf::GridPos barrierPos = controller.cooperationTargetTiles().front();
+        controller.selectCooperationTarget(barrierPos);
+        const jf::BattleObjectState* placed = controller.battle().objectAt(barrierPos);
+        assert(placed != nullptr);
+        assert(placed->definitionId == "rapid_barricade");
+        assert(placed->durability == 6);
+        // cavalry_recruit (the OTHER paired unit, not the actor) gets the re-move
+        assert(controller.inputState() == jf::BattleInputState::SelectCooperationCavalryReMoveTarget);
+        assert(!controller.battle().findUnit("cavalry_recruit")->hasActed);
+        const jf::GridPos cavalryBefore = controller.battle().findUnit("cavalry_recruit")->position;
+        assert(!controller.cooperationCavalryReMoveTiles().empty());
+        const jf::GridPos cavalryDest = controller.cooperationCavalryReMoveTiles().front();
+        controller.selectCooperationCavalryReMoveTarget(cavalryDest);
+        if (cavalryDest != cavalryBefore)
+            assert(controller.battle().findUnit("cavalry_recruit")->position == cavalryDest);
+        assert(!controller.battle().findUnit("cavalry_recruit")->hasActed); // re-move never marks acted
+        assert(controller.battle().findUnit("engineer_recruit")->hasActed); // actor's own action did conclude
+        assert(controller.inputState() == jf::BattleInputState::SelectUnit);
+    }
+    {
+        // paired_cross_observation stays registered but never resolves to a
+        // battle effect (deferred gap - see Cooperation.hpp's own comment).
+        jf::Unit erin = makeUnit("erin", jf::Team::Player, {1, 0}, 4, jf::UnitClass::WatchArcher);
+        jf::Unit scoutReserve = makeUnit("scout_reserve", jf::Team::Player, {1, 1}, 4, jf::UnitClass::FrontierScout);
+        jf::BattleController controller(jf::BattleState({erin, scoutReserve}));
+        controller.battle().setEquippedCooperationId("paired_cross_observation");
+        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectMoveTile(controller.battle().units()[0].position);
+        assert(!controller.canUseCooperation());
+        controller.chooseCooperation(); // no-op
+        assert(controller.inputState() == jf::BattleInputState::SelectAction);
+        assert(!controller.battle().cooperationUsedThisBattle());
+    }
+    {
+        // Unlock gating (jf::isCooperationUnlocked()): approximated onto
+        // region safe-return completion, same style as heavy_recruit/
+        // cavalry_recruit's own "加入候補確定" approximation.
+        jf::BaseState base;
+        assert(!jf::isCooperationUnlocked("paired_fallback_line", base));
+        assert(!jf::isCooperationUnlocked("paired_signal_ward", base)); // always false: region unimplemented
+        base.completedRegionIds.insert(jf::RegionId::CinderwatchGate);
+        assert(jf::isCooperationUnlocked("paired_fallback_line", base));
+        base.completedRegionIds.insert(jf::RegionId::WindscarPlateau);
+        assert(jf::isCooperationUnlocked("paired_rapid_works", base));
+        assert(!jf::isCooperationUnlocked("paired_signal_ward", base)); // still unreachable
+    }
+
     std::cout << "Battle tests PASSED\n";
     return 0;
 }

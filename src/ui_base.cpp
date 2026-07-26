@@ -191,7 +191,24 @@ void drawBaseBagAndExpedition(jf::GameApp& app, Vector2 mouse, bool clicked, std
         } else disabledButton(slot, tr("ui.prep.empty_slot"));
         y += 45;
     }
-    Rectangle start{830, 430, 370, 58};
+    // docs/character_progression.md「連携作戦」: squad-wide single slot,
+    // cycles through {none, every unlocked pair with a battle effect} on
+    // click (no dedicated picker screen for just 1 slot / up to 5 choices -
+    // `paired_cross_observation` is never offered since it has no battle
+    // effect to select for, see Cooperation.hpp's own comment).
+    drawSectionHeading(tr("ui.prep.cooperation_label"), 830, 402, 18);
+    Rectangle cooperationSlot{830, 425, 370, 40};
+    std::vector<std::string> selectableIds = {""};
+    for (const jf::CooperationDefinition& def : jf::cooperationDefinitions()) {
+        if (def.hasBattleEffect && jf::isCooperationUnlocked(def.id, app.baseState())) selectableIds.push_back(def.id);
+    }
+    if (button(cooperationSlot, cooperationNameFor(app.equippedCooperationId()), "", mouse, clicked)) {
+        auto it = std::find(selectableIds.begin(), selectableIds.end(), app.equippedCooperationId());
+        std::size_t nextIndex = (it == selectableIds.end()) ? 0 : (static_cast<std::size_t>(it - selectableIds.begin()) + 1) % selectableIds.size();
+        app.equipCooperation(selectableIds[nextIndex]);
+    }
+
+    Rectangle start{830, 478, 370, 58};
     if (app.selectedPartyIds().size() == 4) {
         if (button(start, tr("ui.button.begin_expedition"), mouse, clicked)) {
             jf::RegionId toStart = app.isRegionUnlocked(gBaseScreen.selectedRegionId) ? gBaseScreen.selectedRegionId : jf::RegionId::AshboughForest;

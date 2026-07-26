@@ -115,6 +115,7 @@ std::string unitDisplayNameFor(const std::string& englishName);
 std::string outpostStageNameFor(jf::OutpostStage stage);
 std::string outpostStageShortNameFor(jf::OutpostStage stage);
 std::string discoveryNameFor(const jf::DiscoveryId& id);
+std::string cooperationNameFor(const std::string& id);
 
 // Status-effect UI (docs/status_effects.md "UI"): one badge per currently
 // active effect, in the doc's fixed display order.

@@ -307,6 +307,10 @@ void GameApp::continueExpedition() {
         createScenarioContinuationBattle(data_, survivors, currentStage(), expeditionSeed_));
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
+    // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
+    // onto the fresh BattleState at every real-battle entry point, same as
+    // applyEquipmentTraits()/applyEquippedSkills() above.
+    battleController_->battle().setEquippedCooperationId(equippedCooperationId_);
     screen_ = Screen::Battle;
 }
 
@@ -556,6 +560,10 @@ bool GameApp::chooseSafePassage() {
     }
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
+    // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
+    // onto the fresh BattleState at every real-battle entry point, same as
+    // applyEquipmentTraits()/applyEquippedSkills() above.
+    battleController_->battle().setEquippedCooperationId(equippedCooperationId_);
     // No battle fought - straight to Camp with no loot/discoveries (docs/
     // regions/ashbough_forest.md: "狼戦と探索3択を省略。報酬なし").
     if (expedition_.routeProgress) {
@@ -583,6 +591,10 @@ bool GameApp::chooseReconnaissance() {
     }
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
+    // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
+    // onto the fresh BattleState at every real-battle entry point, same as
+    // applyEquipmentTraits()/applyEquippedSkills() above.
+    battleController_->battle().setEquippedCooperationId(equippedCooperationId_);
     screen_ = Screen::Battle;
     return true;
 }
@@ -607,6 +619,10 @@ int GameApp::bulkPassSecuredSites() {
     }
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
+    // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
+    // onto the fresh BattleState at every real-battle entry point, same as
+    // applyEquipmentTraits()/applyEquippedSkills() above.
+    battleController_->battle().setEquippedCooperationId(equippedCooperationId_);
     lastExplorationChoice_ = ExplorationChoice::FrontalAdvance;
     isReconnaissanceRun_ = false;
     justSecuredLoot_ = false;
@@ -660,6 +676,10 @@ bool GameApp::chooseExplorationRoute(ExplorationChoice choice) {
         activeExpeditionData_, expeditionPartyUnits_, stage, expeditionSeed_, outcome));
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
+    // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
+    // onto the fresh BattleState at every real-battle entry point, same as
+    // applyEquipmentTraits()/applyEquippedSkills() above.
+    battleController_->battle().setEquippedCooperationId(equippedCooperationId_);
     screen_ = Screen::Battle;
     return true;
 }
@@ -693,6 +713,10 @@ bool GameApp::confirmDeployment() {
         activeExpeditionData_, expeditionPartyUnits_, currentStage(), expeditionSeed_, deploymentOutcome_, &positions));
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
+    // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
+    // onto the fresh BattleState at every real-battle entry point, same as
+    // applyEquipmentTraits()/applyEquippedSkills() above.
+    battleController_->battle().setEquippedCooperationId(equippedCooperationId_);
     screen_ = Screen::Battle;
     deploymentPlayers_.clear();
     deploymentPlaced_.clear();
@@ -757,6 +781,20 @@ bool GameApp::equipSkillForUnit(const std::string& unitId, int slotIndex, const 
     if (requiredNode.empty() || !baseState_.unlockedNodeIds.count(requiredNode)) return false;
 
     equippedSkills_[unitId].equippedSkillIds[static_cast<std::size_t>(slotIndex)] = skillId;
+    markPersistentStateChanged();
+    return true;
+}
+
+bool GameApp::equipCooperation(const std::string& cooperationId) {
+    if (screen_ != Screen::Base) return false;
+    if (cooperationId.empty()) {
+        equippedCooperationId_.clear();
+        markPersistentStateChanged();
+        return true;
+    }
+    const CooperationDefinition* definition = findCooperationDefinition(cooperationId);
+    if (!definition || !isCooperationUnlocked(cooperationId, baseState_)) return false;
+    equippedCooperationId_ = cooperationId;
     markPersistentStateChanged();
     return true;
 }
@@ -873,6 +911,7 @@ SaveData GameApp::createSaveData(const std::string& language) const {
     }
     save.language = language;
     save.expedition = expeditionCheckpoint_;
+    save.equippedCooperationId = equippedCooperationId_;
     return save;
 }
 
@@ -988,11 +1027,22 @@ bool GameApp::applySaveData(const SaveData& save) {
     loadSkillSlot(save.unitEquippedSkillsSlot0, 0);
     loadSkillSlot(save.unitEquippedSkillsSlot1, 1);
 
+    // docs/character_progression.md「連携作戦」: re-validate against
+    // loadedBase (not baseState_, still the pre-load value here) the same
+    // way loadedTraits/loadedSkills above do - a save from before its region
+    // was completed, or a hand-edited/foreign save, must not resurrect an
+    // id that isn't actually unlocked.
+    std::string loadedCooperationId;
+    if (!save.equippedCooperationId.empty() && findCooperationDefinition(save.equippedCooperationId) &&
+        isCooperationUnlocked(save.equippedCooperationId, loadedBase))
+        loadedCooperationId = save.equippedCooperationId;
+
     baseState_ = std::move(loadedBase);
     selectedPartyIds_ = std::move(loadedParty);
     weaponOverrides_ = std::move(loadedWeapons);
     equippedTraits_ = std::move(loadedTraits);
     equippedSkills_ = std::move(loadedSkills);
+    equippedCooperationId_ = std::move(loadedCooperationId);
     persistentRevision_ = 0;
     expeditionCheckpoint_.reset();
     expeditionRevision_ = 0;

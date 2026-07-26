@@ -624,6 +624,21 @@ std::string discoveryNameFor(const jf::DiscoveryId& id) {
     return id;
 }
 
+// docs/character_progression.md「連携作戦」: display-language lookup for the
+// 5 implemented pairs, same pattern as discoveryNameFor() above.
+// `paired_cross_observation` deliberately has no entry here - the
+// expedition-prep selector (drawBaseCooperationSelector()) never offers it
+// (see that function's own comment for why).
+std::string cooperationNameFor(const std::string& id) {
+    if (id.empty()) return tr("ui.cooperation.none");
+    if (id == "paired_fallback_line") return tr("ui.cooperation.paired_fallback_line");
+    if (id == "paired_signal_ward") return tr("ui.cooperation.paired_signal_ward");
+    if (id == "paired_field_recovery") return tr("ui.cooperation.paired_field_recovery");
+    if (id == "paired_braced_breakthrough") return tr("ui.cooperation.paired_braced_breakthrough");
+    if (id == "paired_rapid_works") return tr("ui.cooperation.paired_rapid_works");
+    return id;
+}
+
 bool button(Rectangle rect, const std::string& labelEn, const std::string& labelJa, Vector2 mouse,
             bool mousePressed) {
     bool hovered = CheckCollisionPointRec(mouse, rect);

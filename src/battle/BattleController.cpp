@@ -568,6 +568,169 @@ void BattleController::selectReMoveTarget(GridPos pos) {
     evaluateOutcome();
 }
 
+bool BattleController::canUseCooperation() const {
+    if (inputState_ != BattleInputState::SelectAction || !selectedUnit_) return false;
+    if (battle_.equippedCooperationId().empty() || battle_.cooperationUsedThisBattle()) return false;
+    const CooperationDefinition* def = findCooperationDefinition(battle_.equippedCooperationId());
+    if (!def || !def->hasBattleEffect) return false; // paired_cross_observation: deferred, no battle effect
+    std::string partnerId;
+    if (def->unitAId == selectedUnit_->id) partnerId = def->unitBId;
+    else if (def->unitBId == selectedUnit_->id) partnerId = def->unitAId;
+    else return false; // selected unit isn't one of this pair
+    const Unit* partner = battle_.findUnit(partnerId);
+    if (!partner || !partner->isPresent()) return false;
+    return manhattanDistance(selectedUnit_->position, partner->position) <= 2;
+}
+
+void BattleController::chooseCooperation() {
+    if (!canUseCooperation()) return;
+    const std::string id = battle_.equippedCooperationId();
+    const CooperationDefinition* def = findCooperationDefinition(id);
+    const std::string partnerId = def->unitAId == selectedUnit_->id ? def->unitBId : def->unitAId;
+    Unit* partner = battle_.findUnit(partnerId);
+    Unit& actor = *selectedUnit_;
+
+    if (id == "paired_fallback_line") {
+        // 帰還線: 両者(actor+partner)と、そのどちらかに隣接(距離1)する味方全員へ
+        // DEF+2、次のEnemy Phase終了まで。
+        for (Unit& ally : battle_.units()) {
+            if (!ally.isAlive() || ally.team != actor.team) continue;
+            if (&ally == &actor || &ally == partner || manhattanDistance(ally.position, actor.position) == 1 ||
+                manhattanDistance(ally.position, partner->position) == 1)
+                ally.pairedFallbackLineActive = true;
+        }
+    } else if (id == "paired_signal_ward") {
+        // 灯火の結界: どちらかの paired unit から距離2以内の味方全員へRES+2、
+        // 同じく次のEnemy Phase終了まで。現状は解放条件(埋没聖堂)が未実装の
+        // ため到達不能だが、効果自体はここに実装済み。
+        for (Unit& ally : battle_.units()) {
+            if (!ally.isAlive() || ally.team != actor.team) continue;
+            if (manhattanDistance(ally.position, actor.position) <= 2 ||
+                manhattanDistance(ally.position, partner->position) <= 2)
+                ally.pairedSignalWardActive = true;
+        }
+    } else if (id == "paired_braced_breakthrough") {
+        // 支え合う突破: 両者へ強制移動無効(BattleState::applyKnockback()等が
+        // 参照)と、突撃してきた敵へのDEF+2(BattleState::combatDefenseBonus()
+        // が参照)を付与、次のEnemy Phase終了まで。
+        actor.pairedBracedBreakthroughActive = true;
+        partner->pairedBracedBreakthroughActive = true;
+    } else if (id == "paired_field_recovery") {
+        // 野外救護: 距離2以内の味方1人を対象選択させる - SelectHealTargetと同じ
+        // "対象がいなければ何もしない" ガード。
+        cooperationTargetTiles_.clear();
+        for (const Unit& ally : battle_.units()) {
+            if (!ally.isAlive() || ally.team != actor.team) continue;
+            if (manhattanDistance(ally.position, actor.position) > 2) continue;
+            if (ally.currentHp >= ally.stats.maxHp && ally.poisonRemainingProcs == 0 &&
+                ally.burnRemainingProcs == 0)
+                continue; // 回復もHP以外の解除も無意味な対象は選ばせない
+            cooperationTargetTiles_.push_back(ally.position);
+        }
+        if (cooperationTargetTiles_.empty()) return;
+        pendingCooperationId_ = id;
+        inputState_ = BattleInputState::SelectCooperationTarget;
+        return;
+    } else if (id == "paired_rapid_works") {
+        // 迅速工作: 発動者から距離2以内の空きマスを対象選択させる - 辺境工兵
+        // `rapid_barricade`と全く同じ空きタイル収集基準(passable、Unit/Object
+        // 無し)、半径だけ2に拡張。
+        cooperationTargetTiles_.clear();
+        for (int rowDelta = -2; rowDelta <= 2; ++rowDelta) {
+            for (int colDelta = -2; colDelta <= 2; ++colDelta) {
+                if (std::abs(rowDelta) + std::abs(colDelta) > 2) continue;
+                GridPos pos{actor.position.row + rowDelta, actor.position.col + colDelta};
+                if (!isInBounds(pos) || !isPassable(battle_.terrainAt(pos))) continue;
+                if (battle_.unitAt(pos) || battle_.objectAt(pos)) continue;
+                cooperationTargetTiles_.push_back(pos);
+            }
+        }
+        if (cooperationTargetTiles_.empty()) return;
+        pendingCooperationId_ = id;
+        inputState_ = BattleInputState::SelectCooperationTarget;
+        return;
+    } else {
+        return; // paired_cross_observation (unreachable - hasBattleEffect already false above) or unknown id
+    }
+
+    battle_.markCooperationUsed();
+    if (!finishPlayerAction(actor, ActionKind::Cooperation)) return;
+    selectedUnit_ = nullptr;
+    reachableTiles_.clear();
+    attackRangeTiles_.clear();
+    inputState_ = BattleInputState::SelectUnit;
+    evaluateOutcome();
+}
+
+void BattleController::selectCooperationTarget(GridPos pos) {
+    if (inputState_ != BattleInputState::SelectCooperationTarget || !selectedUnit_) return;
+    if (std::find(cooperationTargetTiles_.begin(), cooperationTargetTiles_.end(), pos) ==
+        cooperationTargetTiles_.end()) return;
+
+    const std::string cooperationId = pendingCooperationId_;
+    if (cooperationId == "paired_field_recovery") {
+        Unit* target = battle_.unitAt(pos);
+        if (!target || target->team != selectedUnit_->team) return;
+        target->currentHp = std::min(target->currentHp + 8, target->stats.maxHp);
+        // 「毒か炎上のどちらか1つを解除」: doc doesn't specify which when both
+        // are present - poison is cured first (documented approximation
+        // choice), burn only if poison wasn't present.
+        if (target->poisonRemainingProcs > 0) target->poisonRemainingProcs = 0;
+        else if (target->burnRemainingProcs > 0) target->burnRemainingProcs = 0;
+    } else if (cooperationId == "paired_rapid_works") {
+        BattleObjectTeam team =
+            selectedUnit_->team == Team::Player ? BattleObjectTeam::Player : BattleObjectTeam::Enemy;
+        battle_.placeObject({selectedUnit_->id + "_cooperation_barrier_" + std::to_string(battle_.issueEventId()),
+                             "rapid_barricade", pos, team, BattleObjectStateKind::Active, 0, 0});
+    } else {
+        return;
+    }
+
+    battle_.markCooperationUsed();
+    Unit& actor = *selectedUnit_;
+    pendingCooperationId_.clear();
+    cooperationTargetTiles_.clear();
+    if (!finishPlayerAction(actor, ActionKind::Cooperation)) return;
+
+    // `paired_rapid_works`「カエルは通常の再移動だけ行える」: granted to
+    // cavalry_recruit specifically regardless of which of the pair actually
+    // triggered this action - can't reuse SelectReMoveTarget's
+    // markActionResolved()-on-completion tail (that would wrongly mark
+    // cavalry_recruit as acted when it's the non-acting partner), so this is
+    // its own dedicated state/method instead.
+    if (cooperationId == "paired_rapid_works") {
+        if (Unit* cavalry = battle_.findUnit("cavalry_recruit"); cavalry != nullptr && cavalry->isPresent()) {
+            cooperationCavalryReMoveTiles_ = computeReMoveTiles(battle_, *cavalry, 2);
+            if (!cooperationCavalryReMoveTiles_.empty()) {
+                cooperationCavalryReMoveUnit_ = cavalry;
+                selectedUnit_ = nullptr;
+                reachableTiles_.clear();
+                attackRangeTiles_.clear();
+                inputState_ = BattleInputState::SelectCooperationCavalryReMoveTarget;
+                return;
+            }
+        }
+    }
+
+    selectedUnit_ = nullptr;
+    reachableTiles_.clear();
+    attackRangeTiles_.clear();
+    inputState_ = BattleInputState::SelectUnit;
+    evaluateOutcome();
+}
+
+void BattleController::selectCooperationCavalryReMoveTarget(GridPos pos) {
+    if (inputState_ != BattleInputState::SelectCooperationCavalryReMoveTarget || !cooperationCavalryReMoveUnit_)
+        return;
+    if (std::find(cooperationCavalryReMoveTiles_.begin(), cooperationCavalryReMoveTiles_.end(), pos) ==
+        cooperationCavalryReMoveTiles_.end()) return;
+    if (pos != cooperationCavalryReMoveUnit_->position) battle_.moveUnit(*cooperationCavalryReMoveUnit_, pos);
+    cooperationCavalryReMoveUnit_ = nullptr;
+    cooperationCavalryReMoveTiles_.clear();
+    inputState_ = BattleInputState::SelectUnit;
+    evaluateOutcome();
+}
+
 void BattleController::selectUnit(Unit& unit) {
     if (inputState_ != BattleInputState::SelectUnit) return;
     if (unit.team != Team::Player || !unit.isAlive() || unit.hasActed) return;
@@ -1542,6 +1705,7 @@ void BattleController::cancelAttackSelection() {
          inputState_ != BattleInputState::SelectBoardTarget &&
          inputState_ != BattleInputState::SelectSkillTarget &&
          inputState_ != BattleInputState::SelectInteractTarget &&
+         inputState_ != BattleInputState::SelectCooperationTarget &&
          inputState_ != BattleInputState::ConfirmAttack &&
          inputState_ != BattleInputState::ConfirmSkillAttack &&
          inputState_ != BattleInputState::ConfirmObjectAttack) ||
@@ -1560,6 +1724,8 @@ void BattleController::cancelAttackSelection() {
     boardTargetTiles_.clear();
     skillTargetTiles_.clear();
     pendingSkillSlot_ = -1;
+    cooperationTargetTiles_.clear();
+    pendingCooperationId_.clear();
     inputState_ = BattleInputState::SelectAction;
 }
 

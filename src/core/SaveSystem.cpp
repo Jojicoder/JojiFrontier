@@ -345,6 +345,7 @@ std::string serializeSave(const SaveData& save) {
         {"unitEquippedSkillsSlot1", save.unitEquippedSkillsSlot1},
         {"settings", {{"language", save.language}}},
         {"expedition", save.expedition ? expeditionToJson(*save.expedition) : json(nullptr)},
+        {"equippedCooperationId", save.equippedCooperationId},
     };
     return root.dump(2);
 }
@@ -435,6 +436,7 @@ std::optional<SaveData> deserializeSave(const std::string& jsonText, std::string
         if (save.language != "en" && save.language != "ja") save.language = "en";
         if (root.contains("expedition") && root["expedition"].is_object())
             save.expedition = expeditionFromJson(root["expedition"]);
+        save.equippedCooperationId = root.value("equippedCooperationId", std::string{});
         return save;
     } catch (const std::exception& exception) {
         setError(error, exception.what());
@@ -453,6 +455,14 @@ SaveData migrateSave(SaveData save) {
             // version number itself and to give the migration loop a real
             // first iteration to run through.
             save.schemaVersion = 2;
+            continue;
+        }
+        if (save.schemaVersion == 2) {
+            // v2 -> v3: adds SaveData::equippedCooperationId (docs/
+            // character_progression.md「連携作戦」). deserializeSave() already
+            // defaults it to "" (none equipped) via `.value()`, so this step
+            // just advances the version number, same as v1->v2 above.
+            save.schemaVersion = 3;
             continue;
         }
         break;  // Unknown version below current: leave as-is rather than loop forever.

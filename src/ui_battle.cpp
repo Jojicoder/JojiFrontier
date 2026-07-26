@@ -447,6 +447,10 @@ void drawBoardTiles(const jf::BattleController& controller, const std::vector<jf
                 DrawRectangleRec(rect, Color{90, 200, 235, 165});
             if (containsTile(controller.objectInteractableTiles(), pos))
                 DrawRectangleRec(rect, Color{190, 150, 235, 165});
+            if (containsTile(controller.cooperationTargetTiles(), pos))
+                DrawRectangleRec(rect, Color{235, 130, 235, 165});
+            if (containsTile(controller.cooperationCavalryReMoveTiles(), pos))
+                DrawRectangleRec(rect, Color{58, 155, 255, 125});
             if (containsTile(telegraphDangerTiles, pos))
                 DrawRectangleRec(rect, Color{235, 150, 60, 140});
         }
@@ -817,6 +821,17 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
                            tr("ui.button.interact"), mouse, clicked)) {
                     controller.chooseInteract();
                 }
+                // 連携作戦(docs/character_progression.md「連携作戦」): shares
+                // the same conditional 6th slot as Interact above (mutually
+                // exclusive in practice - no shipped stage has an
+                // Interactable Object AND a usable Cooperation on the same
+                // unit's turn at once) rather than widening the fixed action
+                // row for a 7th slot.
+                if (!controller.canInteract() && controller.canUseCooperation() &&
+                    button(Rectangle{static_cast<float>(sixthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
+                           tr("ui.button.cooperation"), mouse, clicked)) {
+                    controller.chooseCooperation();
+                }
                 if (button(Rectangle{static_cast<float>(firstActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
                            tr("ui.button.attack"), mouse, clicked)) {
                     controller.chooseAttack();
@@ -1010,6 +1025,7 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
         case jf::BattleInputState::SelectBoardTarget:
         case jf::BattleInputState::SelectSkillTarget:
         case jf::BattleInputState::SelectInteractTarget:
+        case jf::BattleInputState::SelectCooperationTarget:
             if (button(Rectangle{static_cast<float>(fourthActionX), hudTop + 29.0f, static_cast<float>(buttonWidth), static_cast<float>(buttonHeight)},
                        tr("ui.button.back"), mouse, clicked))
                 controller.cancelAttackSelection();
@@ -1101,6 +1117,10 @@ void drawBattleHud(jf::GameApp& app, Vector2 mouse, bool clicked) {
             break;
         case jf::BattleInputState::SelectInteractTarget:
             stepLabel = tr("ui.button.interact");
+            break;
+        case jf::BattleInputState::SelectCooperationTarget:
+        case jf::BattleInputState::SelectCooperationCavalryReMoveTarget:
+            stepLabel = tr("ui.button.cooperation");
             break;
         default:
             break;

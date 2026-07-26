@@ -220,6 +220,38 @@ struct Unit {
     bool bulwarkMaulActive = false;
     bool bulwarkMaulJustGranted = false;
 
+    // 連携作戦(docs/character_progression.md「連携作戦」) - each pair gets its
+    // own dedicated flag rather than reusing an existing one whose magnitude
+    // doesn't match (same reasoning as rallyingBannerActive's own comment
+    // above: e.g. defenseUpActive is +2 but resistanceUpActive is +3, neither
+    // matches this Slice's +2/+2 shape exactly, and overloading them would
+    // couple two independently-tuned effects together).
+    // `paired_fallback_line`(帰還線, ライダン+マエラ): DEF+2, granted to both
+    // paired units AND every ally within radius 1 of either paired unit.
+    // "次のEnemy Phase終了まで" - same lifecycle as rallyingBannerActive,
+    // cleared by clearSkillBuffsAtEnemyPhaseEnd().
+    bool pairedFallbackLineActive = false;
+    // `paired_signal_ward`(灯火の結界, レッサ+イリエン): RES+2 to every ally
+    // within distance 2 of either paired unit. Same "次のEnemy Phase終了まで"
+    // lifecycle as pairedFallbackLineActive above. Currently unreachable in
+    // play (see jf::isCooperationUnlocked()'s own comment - its region,
+    // 埋没聖堂/Buried Dawn Sanctum, isn't implemented) but the flag/effect
+    // exist so nothing else needs revisiting once that region ships.
+    bool pairedSignalWardActive = false;
+    // `paired_braced_breakthrough`(支え合う突破, コレン+ハドリク): grants both
+    // paired units forced-move immunity (consulted by the same
+    // hasHeavyArmor()/braceForImpactActive checks in BattleState::
+    // applyKnockback()/applyPull()/resolveWindGustRoundEnd()) AND DEF+2
+    // specifically against an attacker who moved 2+ tiles this action
+    // (consumed by BattleState::combatDefenseBonus(), the same "Brace"-style
+    // tilesMovedThisAction>=2 check hasBrace()/weapon.braceBoost/
+    // braceSkillActive already use - kept as its own flag since its
+    // lifecycle, "次のEnemy Phase終了まで", differs from braceSkillActive's
+    // own single-action lifecycle). Same clearSkillBuffsAtEnemyPhaseEnd()
+    // lifecycle as the two flags above.
+    bool pairedBracedBreakthroughActive = false;
+
+
     // The 2 equipped-skill slots (docs/skill_system.md). See
     // jf/battle/SkillCharges.hpp for lifecycle management.
     std::array<SkillSlotState, 2> skillSlots{};
@@ -321,6 +353,7 @@ struct Unit {
         if (rallyingBannerActive) def += 1; // 旗手`rallying_banner`
         if (patrolLanceReadyDefenseActive) def += 2; // 巡回槍
         if (bulwarkMaulActive) def += 2; // 防壁槌
+        if (pairedFallbackLineActive) def += 2; // 連携作戦`paired_fallback_line`
         if (defenseDownActive) def = std::max(def - statusDefenseDownAmount(isBoss), 0);
         return def;
     }
@@ -331,6 +364,7 @@ struct Unit {
         int res = stats.resistance;
         if (resistanceUpActive) res += 3;
         if (rallyingBannerActive) res += 1; // 旗手`rallying_banner`
+        if (pairedSignalWardActive) res += 2; // 連携作戦`paired_signal_ward`
         return res;
     }
 };

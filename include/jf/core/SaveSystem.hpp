@@ -17,7 +17,7 @@
 
 namespace jf {
 
-inline constexpr int kCurrentSaveSchemaVersion = 2;
+inline constexpr int kCurrentSaveSchemaVersion = 3;
 
 // Mid-expedition checkpoint (docs/save_system.md "遠征中断セーブ"). Only two
 // resumable checkpoints are persisted - Exploration (party/bag locked in,
@@ -81,6 +81,11 @@ struct SaveData {
     std::unordered_map<std::string, std::string> unitEquippedSkillsSlot1;
     std::string language = "en";
     std::optional<ExpeditionCheckpoint> expedition;
+    // docs/character_progression.md「連携作戦」: squad-wide, exactly one slot
+    // for the whole party (unlike unitWeaponOverrides/unitEquippedTraits,
+    // which are per-unit maps) - empty string means none equipped. Holds a
+    // `paired_*` Cooperation id (see jf::CooperationRegistry).
+    std::string equippedCooperationId;
 };
 
 std::string serializeSave(const SaveData& save);

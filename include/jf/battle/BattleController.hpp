@@ -6,6 +6,7 @@
 
 #include "jf/battle/BattleEvents.hpp"
 #include "jf/battle/BattleObject.hpp"
+#include "jf/battle/Cooperation.hpp"
 #include "jf/battle/BattleObjectResolver.hpp"
 #include "jf/battle/BattleState.hpp"
 #include "jf/battle/CombatResolver.hpp"
@@ -55,6 +56,18 @@ enum class BattleInputState {
     // まだmarkActed/ActionResolvedEvent未発行) - selectReMoveTarget()が
     // 移動先(現在地=移動しない、も含む)を確定させて初めて行動が終了する。
     SelectReMoveTarget,
+    // 連携作戦(docs/character_progression.md「連携作戦」): only entered by
+    // `paired_field_recovery` (ally-heal target) and `paired_rapid_works`
+    // (empty barrier-placement tile) - the other 3 implemented pairs resolve
+    // immediately with no target selection, same as hold_formation/
+    // rallying_banner's selfAndAllAdjacent buff skills.
+    SelectCooperationTarget,
+    // `paired_rapid_works`「カエルは通常の再移動だけ行える」: entered right
+    // after that pair's effect resolves, targeting cavalry_recruit
+    // specifically (not necessarily the actor) - see
+    // selectCooperationTarget()'s own comment for why this can't reuse
+    // SelectReMoveTarget's markActionResolved()-on-completion tail.
+    SelectCooperationCavalryReMoveTarget,
     EnemyTurn,
     Victory,
     Defeat
@@ -110,6 +123,12 @@ public:
     const std::vector<GridPos>& itemTargetTiles() const { return itemTargetTiles_; }
     const std::vector<GridPos>& boardTargetTiles() const { return boardTargetTiles_; }
     const std::vector<GridPos>& skillTargetTiles() const { return skillTargetTiles_; }
+    // 連携作戦: valid targets while in SelectCooperationTarget (ally heal
+    // targets for paired_field_recovery, empty barrier tiles for
+    // paired_rapid_works); valid re-move tiles for cavalry_recruit while in
+    // SelectCooperationCavalryReMoveTarget.
+    const std::vector<GridPos>& cooperationTargetTiles() const { return cooperationTargetTiles_; }
+    const std::vector<GridPos>& cooperationCavalryReMoveTiles() const { return cooperationCavalryReMoveTiles_; }
     // docs/skill_system.md "使用不能スキルは非表示にせず、理由付きで無効表示":
     // both equip slots' current availability, straight from SkillCharges'
     // charge/cooldown bookkeeping (doesn't know about "already acted this
@@ -171,6 +190,21 @@ public:
     // finishPlayerAction() (see BattleInputState::SelectReMoveTarget). No-op
     // outside that state or on an invalid target.
     void selectReMoveTarget(GridPos pos);
+    // 連携作戦(docs/character_progression.md「連携作戦」): read-only query for
+    // the front end to decide whether to even show the action, without
+    // mutating state - true iff a Cooperation id is equipped, unused this
+    // battle, has a battle effect (excludes `paired_cross_observation`), the
+    // selected unit is one of its 2 paired units, and the partner is
+    // present within distance 2.
+    bool canUseCooperation() const;
+    // SelectAction -> either resolves immediately (paired_fallback_line/
+    // paired_signal_ward/paired_braced_breakthrough - no target to choose)
+    // or transitions to SelectCooperationTarget (paired_field_recovery/
+    // paired_rapid_works). No-op (stays in SelectAction) if canUseCooperation()
+    // is false or the chosen pair has no eligible target this time.
+    void chooseCooperation();
+    void selectCooperationTarget(GridPos pos);
+    void selectCooperationCavalryReMoveTarget(GridPos pos);
     bool useHealingItem(int amount);
     bool chooseHealingItemTarget(int amount);
     bool selectHealingItemTarget(GridPos pos);
@@ -257,6 +291,11 @@ private:
     // selectReMoveTarget().
     std::vector<GridPos> reMoveTiles_;
     ActionKind pendingReMoveActionKind_ = ActionKind::Wait;
+    // 連携作戦
+    std::vector<GridPos> cooperationTargetTiles_;
+    std::string pendingCooperationId_;
+    Unit* cooperationCavalryReMoveUnit_ = nullptr;
+    std::vector<GridPos> cooperationCavalryReMoveTiles_;
 
     float enemyActionTimer_ = 0.0f;
     AiSquadReservations enemyReservations_;

@@ -114,16 +114,17 @@ Milestone進行(M0〜M6は完了/概ね完了、M8-Aは未実装、詳細は各�
    M9-Yで全5地点+地域攻略が完了し、燼火峡谷は`RegionId::EmberRavine`+
    `ember_ravine_outpost`の最小プレースホルダーとして追加済み(選択可能、内容は
    Bandit2体の仮実装のみ)
-3. M7項目3(残り) ユニットページ本体(連携作戦)のみ。特性・武器分岐の他兵種
-   一般化(2026-07完了、全12兵種のレシピ・武器データ・UIハードコード解消)・差分
-   プレビュー(2026-07完了、詳細は`implementation_status.md`「M7項目3続き
-   差分プレビュー」参照)・武器分岐の固有効果エンジン接続(全33分岐、2026-07完了
-   - 基礎〜中程度Tier17分岐+高コストTier8分岐、詳細は`implementation_status.md`
-   「M7項目3続き 武器分岐固有効果(基礎〜中程度Tier/高コストTier)」参照)は
-   いずれも完了。特性は選択UI自体が無いため差分プレビューの対象外のまま。
-   残るのは連携作戦(新規戦闘メカニクス、`docs/character_progression.md`)の
-   ユニットページ表示・変更UIおよびその前提となる戦闘システム本体 - 単なるUI
-   拡張ではなく新規サブシステムのため、着手時は改めて規模を検討する
+3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
+   `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
+   (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/
+   `paired_braced_breakthrough`/`paired_rapid_works`)、`paired_cross_observation`
+   のみ意図的に未実装のまま登録(理由は`implementation_status.md`「M7項目3完了
+   連携作戦」参照)。解放条件は「対応する会話2件を読み」節を落とし、指定地域の
+   安全帰還完了へ近似(heavy_recruit/cavalry_recruitの「加入候補確定」近似と
+   同型)。`paired_signal_ward`は対応地域(埋没聖堂)自体が未実装のため現状到達
+   不能。特性・武器分岐の他兵種一般化(2026-07完了)・差分プレビュー(2026-07
+   完了)・武器分岐の固有効果エンジン接続(全33分岐、2026-07完了)と合わせて
+   M7項目3は全面完了。
 4. 風裂き高原の残バランス課題: 地点2・4・5は主目的がシミュレータの`ObjectiveKind`
    盲点[EscapeUnits]に、地点3・6(OperateObject補助部分)は[OperateObject]に
    該当するため、実測win率が実プレイより低く出る既知の構造的偏り(地点1・地点6

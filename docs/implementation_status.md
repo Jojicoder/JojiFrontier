@@ -3285,6 +3285,99 @@ profile.distanceWeight`の符号反転でオーバーフローしていた。UBS
 build -j10`は4/4 Pass(5回連続実行で安定を確認)、UBSan/ASanビルドでも
 クリーン。`git diff --check`成功。
 
+## M7項目3完了 連携作戦(2026-07)
+
+`docs/character_progression.md`「連携作戦」を実装し、M7項目3を完了させた。
+
+### 解放条件の近似
+
+正本の解放条件「交流区画で対応する会話2件を読み、指定地域成果を安全帰還させる」は、
+このコードベースに会話/交流区画システムが一切存在しないため、`heavy_recruit`/
+`cavalry_recruit`の「加入候補確定」近似(M7項目2、`docs/implementation_status.md`
+「M7 12兵種・仲間・会話 実装詳細」参照)と全く同じ簡略化パターンで、「対応する
+会話2件を読み」節を落とし、指定地域の安全帰還完了(`BaseState::completedRegionIds`)
+のみで判定する(`jf::isCooperationUnlocked()`、`src/battle/Cooperation.cpp`)。
+`quarters_social_wing`施設や会話追跡の実装は今回のスコープ外。
+
+| ID | 対応地域 | 到達可能性 |
+|---|---|---|
+| `paired_fallback_line` | シンダーウォッチ関門(`CinderwatchGate`) | 到達可能 |
+| `paired_braced_breakthrough` | 灰鉄採石場(`AshironQuarry`) | 到達可能 |
+| `paired_field_recovery` | 黒水低湿地(`BlackwaterLowlands`) - 地点3「薬草洲」単位ではなく地域全体の安全帰還へ近似(地点単位の実績追跡が既存コードに無いため) | 到達可能 |
+| `paired_rapid_works` | 風裂き高原(`WindscarPlateau`) | 到達可能 |
+| `paired_signal_ward` | 埋没聖堂(Buried Dawn Sanctum) | **到達不能** - `RegionId`自体がこのコードベースに存在せず、地域が全く未実装のため。効果自体は実装済みで、地域が実装され次第そのまま機能する |
+| `paired_cross_observation` | 風裂き高原(解放条件のみ) | 実装対象外(下記) |
+
+### `paired_cross_observation`の意図的な未実装
+
+「敵1体を標的指定し、その敵の次回行動候補を同時公開」という効果は、このコード
+ベースのどこにも前例が無い。`include/jf/core/Unit.hpp`の`quarryRevealed`
+(辺境猟兵`read_quarry`)自身のコメントが、既存の出荷済みスキルでさえ敵AI行動
+候補のプレイヤー露出を意図的にスコープ外にしたと明記しており、今回さらに大きい
+同種の露出を新規実装するのはこのSliceの規模に見合わない。`jf::CooperationDefinition`
+には`hasBattleEffect=false`で登録済み(ID自体は実在・選択可能)だが、
+`BattleController::chooseCooperation()`は効果を持たないIDとしてno-opする
+(`canUseCooperation()`も`hasBattleEffect`を見て常にfalseを返す)。UIの
+連携作戦選択セレクター(下記)もこのIDを候補から除外している。
+
+### 実装した5ペアの効果
+
+- `paired_fallback_line`(帰還線): 両者+どちらかに隣接(距離1)する味方全員へ
+  DEF+2、次のEnemy Phase終了まで。専用フラグ`Unit::pairedFallbackLineActive`
+  (`rallyingBannerActive`と同型、数値が異なるため使い回さず新設)。
+- `paired_signal_ward`(灯火の結界): どちらかのペアから距離2以内の味方全員へ
+  RES+2、同じく次のEnemy Phase終了まで。専用フラグ`pairedSignalWardActive`。
+- `paired_field_recovery`(野外救護): 距離2以内の味方1人を8回復し、毒か炎上の
+  どちらか1つを解除。両方存在する場合はどちらを優先するか正本が指定していない
+  ため、毒を優先する近似を採用(ドキュメント化済み)。既存のHeal解決パス
+  (`canHeal()`/`selectHealTarget()`)とは別の専用コマンドとして実装(装備
+  スキル2枠を消費しないため)。
+- `paired_braced_breakthrough`(支え合う突破): 両者へ強制移動無効
+  (`BattleState::applyKnockback()`/`applyPull()`/`resolveWindGustRoundEnd()`の
+  既存`hasHeavyArmor()`/`braceForImpactActive`チェックへ新規フラグ
+  `pairedBracedBreakthroughActive`を追加)と、突撃してきた敵(`tilesMovedThisAction
+  >=2`)へのDEF+2(`BattleState::combatDefenseBonus()`の既存Brace系チェックと
+  同じトリガー、独立加算)を付与、次のEnemy Phase終了まで。
+- `paired_rapid_works`(迅速工作): 発動者から距離2以内の空きマスへ、既存の
+  `rapid_barricade`Definition(辺境工兵「野戦補修」と共有、耐久6)をそのまま
+  `BattleState::placeObject()`で戦闘中に新規配置。カエル(`cavalry_recruit`)が
+  正本の指示どおり(発動者がどちらであっても)通常の再移動(予算2)を行える -
+  既存の`SelectReMoveTarget`(`markActionResolved()`で行動済み化する)は再利用
+  できない(相方が行動済みになってしまう)ため、専用の
+  `BattleInputState::SelectCooperationCavalryReMoveTarget`
+  /`selectCooperationCavalryReMoveTarget()`を新設し、移動のみ行い行動済み化
+  しない。
+
+### 保存データ・戦闘スコープ
+
+`SaveData::equippedCooperationId`(squad-wide、単一スロット - `unitWeaponOverrides`
+等の人物別mapとは別扱い)をSchema v2→v3として追加(`kCurrentSaveSchemaVersion`を
+3へ、`migrateSave()`に空文字列defaultのv2→v3ステップを追加)。戦闘中の使用済み
+判定は`BattleState::cooperationUsedThisBattle()`(`collectedHerbPatches_`等と同じ
+battle-scoped、保存されない)。
+
+### UI
+
+- 戦闘: 既存のInteract用6番目Slotを共有する形で「連携作戦」ボタンを追加
+  (`ui_battle.cpp`) - Interactが使える時はそちらを優先表示(同一ターンで両方
+  使えるコンテンツが無いため実害なし)。対象選択が必要な2ペア
+  (`paired_field_recovery`/`paired_rapid_works`)は専用のタイル強調表示、
+  Backボタンで`cancelAttackSelection()`へ復帰できるよう同関数の許可Stateへ
+  `SelectCooperationTarget`を追加。
+- 遠征前準備: `ui_base.cpp`の`drawBaseBagAndExpedition()`にBag欄の下へ
+  「連携作戦」1行セレクターを追加 - クリックで{未装備, 解放済みかつ
+  `hasBattleEffect`なペア}を巡回選択する(選択肢が最大5+未装備の6択のため、
+  専用ピッカー画面は今回作らなかった)。
+
+### テスト・ビルド
+
+`tests/test_battle.cpp`へ、5ペアの効果(帰還線のDEF+2波及、支え合う突破の
+ノックバック無効+対Brace DEF+2、野外救護の回復+状態解除、迅速工作の
+バリア設置+カエル専用再移動)・`paired_cross_observation`のno-op・
+`isCooperationUnlocked()`の地域ゲーティングを検証するテストを追加。
+`ctest --test-dir build -j10 --output-on-failure`は3回連続実行で4/4 Pass
+(フレーキーなし)。`git diff --check`成功。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

@@ -80,6 +80,12 @@ void handleGridClick(jf::GameApp& app, jf::GridPos pos) {
         case jf::BattleInputState::SelectInteractTarget:
             controller.selectInteractTarget(pos);
             break;
+        case jf::BattleInputState::SelectCooperationTarget:
+            controller.selectCooperationTarget(pos);
+            break;
+        case jf::BattleInputState::SelectCooperationCavalryReMoveTarget:
+            controller.selectCooperationCavalryReMoveTarget(pos);
+            break;
         default:
             break;
     }

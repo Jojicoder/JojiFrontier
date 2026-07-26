@@ -87,6 +87,11 @@ int BattleState::combatDefenseBonus(const Unit& defender, const Unit& attacker) 
         attacker.tilesMovedThisAction >= 2) {
         bonus += defender.weapon.braceBoost ? 3 : 2;
     }
+    // 連携作戦`paired_braced_breakthrough`(支え合う突破): same "attacker moved
+    // >=2 tiles this action" trigger as the Brace-family check above, DEF+2,
+    // stacks with it (independent sources - docs doesn't say otherwise, and
+    // skill_system.md's DEF cap already bounds the combined total).
+    if (defender.pairedBracedBreakthroughActive && attacker.tilesMovedThisAction >= 2) bonus += 2;
     return bonus;
 }
 
@@ -122,7 +127,7 @@ void BattleState::applyKnockback(const Unit& attacker, Unit& defender) {
     // 重装兵「重量装甲」(常時、無条件)と`brace_for_impact`(次の自分の行動終了まで)
     // はどちらも消費型ではない - Hide-Wrapped Gripの`knockbackNegatesRemaining`
     // (1回限りの消費)とは別扱いで、カウンタを一切減らさず毎回無効化する。
-    if (hasHeavyArmor(defender.unitClass) || defender.braceForImpactActive) return;
+    if (hasHeavyArmor(defender.unitClass) || defender.braceForImpactActive || defender.pairedBracedBreakthroughActive) return;
     if (defender.knockbackNegatesRemaining > 0) {
         --defender.knockbackNegatesRemaining;
         return;
@@ -149,7 +154,7 @@ void BattleState::applyKnockback(const Unit& attacker, Unit& defender) {
 }
 
 void BattleState::applyPull(const Unit& attacker, Unit& defender) {
-    if (hasHeavyArmor(defender.unitClass) || defender.braceForImpactActive) return;
+    if (hasHeavyArmor(defender.unitClass) || defender.braceForImpactActive || defender.pairedBracedBreakthroughActive) return;
     if (defender.knockbackNegatesRemaining > 0) {
         --defender.knockbackNegatesRemaining;
         return;
@@ -184,7 +189,7 @@ void resolveWindGustRoundEnd(BattleState& battle) {
     for (const std::string& id : windedUnitIds) {
         Unit* unit = battle.findUnit(id);
         if (!unit || !unit->isAlive()) continue;
-        if (hasHeavyArmor(unit->unitClass)) continue;
+        if (hasHeavyArmor(unit->unitClass) || unit->pairedBracedBreakthroughActive) continue;
         GridPos dest = unit->position;
         dest.row += config->delta.row;
         dest.col += config->delta.col;

@@ -12,6 +12,7 @@
 
 #include "jf/battle/BattleController.hpp"
 #include "jf/battle/BattleFactory.hpp"
+#include "jf/battle/Cooperation.hpp"
 #include "jf/core/ExpeditionService.hpp"
 #include "jf/core/ExpeditionState.hpp"
 #include "jf/core/BaseState.hpp"
@@ -133,6 +134,15 @@ public:
     // `skillId` unequips that slot. See jf/core/Skill.hpp for the registry.
     bool equipSkillForUnit(const std::string& unitId, int slotIndex, const std::string& skillId);
     const std::unordered_map<std::string, UnitSkillLoadout>& equippedSkills() const { return equippedSkills_; }
+
+    // docs/character_progression.md「連携作戦」: squad-wide single slot (not
+    // per-unit, unlike weaponOverrides_/equippedTraits_/equippedSkills_
+    // above). Fails (no state change) for an unknown id or one that isn't
+    // unlocked yet per jf::isCooperationUnlocked(); an empty id always
+    // succeeds (unequips). Doesn't consume either equip-skill slot ("連携
+    // 作戦は装備スキル2枠を消費しない").
+    bool equipCooperation(const std::string& cooperationId);
+    const std::string& equippedCooperationId() const { return equippedCooperationId_; }
 
     // docs/roster_design.md「兵種加入時の付与」: confirms the gathering-place
     // join for a "加入可能候補" (baseState().joinReadyCandidateIds) - adds the
@@ -335,6 +345,7 @@ private:
     // Training Ground equip state (persists at the base, applied to every
     // battle - see applyEquippedSkills()).
     std::unordered_map<std::string, UnitSkillLoadout> equippedSkills_;
+    std::string equippedCooperationId_;
     std::uint64_t persistentRevision_ = 0;
     std::optional<ItemType> pendingBattleItem_;
     std::optional<ExpeditionCheckpoint> expeditionCheckpoint_;
