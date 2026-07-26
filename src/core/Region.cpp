@@ -1784,16 +1784,30 @@ RegionDescriptor buriedDawnSanctumRegion(const GameData& data) {
     return region;
 }
 
-// docs/regions/buried_dawn_sanctum.md「破砕された前線砦を解放」: 9th region,
-// minimal placeholder stub (same role every prior region's own pre-fleshed-
-// out stub played, e.g. `ember_ravine_outpost`/M9-Y) - unlocked once
-// BuriedDawnSanctum completes. Content itself is a future Slice's scope.
+// docs/regions/shattered_march_fort.md「地点・周回」: 9th region skeleton
+// expanded to the full 7-site/3-camp shape this Slice (same M9-AH precedent:
+// no new terrain/battle mechanic introduced by the region's own 正本, so the
+// region skeleton + site 1 content lands in a single Slice, sites 2-7
+// remaining Bandit x2(-3) placeholders for future Slices). Site 3/4
+// (`fort_old_barracks`/`fort_logistics_depot`) is a "順序選択" pair wired via
+// RouteGraph.cpp's `BranchCompletion::AllMembers`, identical in shape to
+// BuriedDawnSanctum's `sanctum_infirmary_archive_branch`/EmberRavine's
+// `ember_ravine_sulfur_channel_branch`. Site 1 (`fort_outer_wall`, "破砕外郭")
+// is real content as of this Slice, JSON-authored directly (fits the
+// existing Schema, no hand-written StageDescriptor function needed, same
+// shape as `sanctum_approach`/`settlement_outer_fence`).
 RegionDescriptor shatteredMarchFortRegion(const GameData& data) {
     RegionDescriptor region;
     region.id = RegionId::ShatteredMarchFort;
     region.displayNameEn = "Shattered March Fort";
     region.displayNameJa = "破砕された前線砦";
-    region.stages.push_back(stageDescriptorFromContent(data.stageContent("shattered_march_fort_outpost")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("fort_outer_wall")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("fort_broken_gate")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("fort_old_barracks")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("fort_logistics_depot")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("fort_signal_yard")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("fort_reserve_wall")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("fort_severance_order_archive")));
     return region;
 }
 

@@ -1371,6 +1371,95 @@
       "missionNameJa": "夜明け祭壇"
     },
     {
+      "id": "fort_outer_wall",
+      "terrainProfileId": "shattered_march_fort",
+      "enemyRoster": [
+        { "id": "fort_outer_wall_retriever1", "name": "Fort Retriever", "classId": "Bandit" },
+        { "id": "fort_outer_wall_retriever2", "name": "Fort Retriever", "classId": "Bandit" },
+        { "id": "fort_outer_wall_retriever3", "name": "Fort Retriever", "classId": "Bandit" },
+        { "id": "fort_outer_wall_archer1", "name": "Fort Retriever", "classId": "WatchArcher" },
+        { "id": "fort_outer_wall_archer2", "name": "Fort Retriever", "classId": "WatchArcher" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "stone", "quantity": 2 },
+        { "id": "quality_iron", "quantity": 1 }
+      ],
+      "routeOutcomes": [
+        { "choice": "CollapsedSidePath", "partyDamage": 2 }
+      ],
+      "scoutRouteRequiredClass": "HeavyInfantry",
+      "surveyObjectiveId": "fort_outer_wall_marker",
+      "discoveries": ["fort_outer_wall_survey"],
+      "missionNameEn": "Shattered Outer Wall",
+      "missionNameJa": "破砕外郭"
+    },
+    {
+      "id": "fort_broken_gate",
+      "terrainProfileId": "shattered_march_fort",
+      "enemyRoster": [
+        { "id": "fort_broken_gate_bandit1", "name": "Fort Retainer", "classId": "Bandit" },
+        { "id": "fort_broken_gate_bandit2", "name": "Fort Retainer", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
+      "missionNameEn": "Broken Gate (placeholder)",
+      "missionNameJa": "崩れ門(仮実装)"
+    },
+    {
+      "id": "fort_old_barracks",
+      "terrainProfileId": "shattered_march_fort",
+      "enemyRoster": [
+        { "id": "fort_old_barracks_bandit1", "name": "Fort Retainer", "classId": "Bandit" },
+        { "id": "fort_old_barracks_bandit2", "name": "Fort Retainer", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
+      "missionNameEn": "Old Barracks (placeholder)",
+      "missionNameJa": "旧兵舎(仮実装)"
+    },
+    {
+      "id": "fort_logistics_depot",
+      "terrainProfileId": "shattered_march_fort",
+      "enemyRoster": [
+        { "id": "fort_logistics_depot_bandit1", "name": "Fort Retriever", "classId": "Bandit" },
+        { "id": "fort_logistics_depot_bandit2", "name": "Fort Retriever", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
+      "missionNameEn": "Logistics Depot (placeholder)",
+      "missionNameJa": "兵站庫(仮実装)"
+    },
+    {
+      "id": "fort_signal_yard",
+      "terrainProfileId": "shattered_march_fort",
+      "enemyRoster": [
+        { "id": "fort_signal_yard_bandit1", "name": "Fort Retainer", "classId": "Bandit" },
+        { "id": "fort_signal_yard_bandit2", "name": "Fort Retainer", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
+      "missionNameEn": "Signal Yard (placeholder)",
+      "missionNameJa": "信号庭(仮実装)"
+    },
+    {
+      "id": "fort_reserve_wall",
+      "terrainProfileId": "shattered_march_fort",
+      "enemyRoster": [
+        { "id": "fort_reserve_wall_bandit1", "name": "Fort Retainer", "classId": "Bandit" },
+        { "id": "fort_reserve_wall_bandit2", "name": "Fort Retainer", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
+      "missionNameEn": "Reserve Wall (placeholder)",
+      "missionNameJa": "予備壁(仮実装)"
+    },
+    {
+      "id": "fort_severance_order_archive",
+      "terrainProfileId": "shattered_march_fort",
+      "enemyRoster": [
+        { "id": "fort_severance_order_archive_bandit1", "name": "Fort Retainer", "classId": "Bandit" },
+        { "id": "fort_severance_order_archive_bandit2", "name": "Fort Retainer", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
+      "missionNameEn": "Severance Order Archive (placeholder)",
+      "missionNameJa": "切離命令庫(仮実装)"
+    },
+    {
       "id": "shattered_march_fort_outpost",
       "terrainProfileId": "old_frontier_settlement",
       "enemyRoster": [

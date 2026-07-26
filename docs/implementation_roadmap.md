@@ -266,11 +266,25 @@ M9-AM(埋没聖堂・第8地域: 地点6「夜明け祭壇」/ 強敵「聖堂�
 以上で**埋没聖堂(第8地域)は全6地点+最終強敵+地域攻略配線が完了**し、次地域
 「破砕された前線砦」(第9地域、現状プレースホルダー)へ進行可能になった。
 
+M9-AN(破砕された前線砦・第9地域: 地域骨格 + 地点1「破砕外郭」)完了(2026-07)。
+M9-AHと同じ「新規戦闘メカニクス無し」地域として、地域骨格全体(7地点+3キャンプ+
+地点3・4「順序選択」)+地点1を1Sliceで実装。`RouteGraph.cpp`へ`shatteredMarchFortGraph()`
+を追加し、**同じコミット単位で`usesRouteGraph()`へ`RegionId::ShatteredMarchFort`を
+登録**した(M9-AM末尾で発覚したBuriedDawnSanctum自身の同種の見落としの再発防止、
+`tests/test_battle.cpp`で`usesRouteGraph()`を直接assertするテストも追加)。主目的は
+このプロジェクト一貫の前例どおり`EliminateTeam`のみへ近似し、「外郭標識」は新規
+Discovery `fort_outer_wall_survey`の`surveyObjectiveId`副目標として配線。敵は
+Bandit3+WatchArcher2を「Fort Retriever」表示名で再利用、報酬(`stone`/`quality_iron`)は
+既存material再利用のみで新規登録なし。新規`shattered_march_fort`TerrainProfileで
+砦床/瓦礫/防壁床(WatchPost、DEF+2)/通行不能壁(Barrier)を既存4種地形へ近似、射撃台・
+破孔は地形効果を持たないためFloorへ折り込んだ。詳細は`implementation_status.md`の
+M9-AN参照。
+
 直近の未完了(優先度順):
 
-1. 破砕された前線砦(第9地域)の本格実装(M6-B/C・M9-A〜AMと同じ
-   「骨格→1地点ずつ」方式)。現状`RegionId::ShatteredMarchFort`のプレースホルダー
-   1地点のみ。
+1. 破砕された前線砦(第9地域)の本格実装の続き(地点2〜7: 崩れ門/旧兵舎/兵站庫/
+   信号庭/予備壁/切離命令庫、いずれもまだBandit x2(-3)プレースホルダー)+最終強敵
+   「残留砦隊長」+地域攻略配線(M6-B/C・M9-A〜ANと同じ「骨格→1地点ずつ」方式)。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/

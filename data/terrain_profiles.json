@@ -212,6 +212,20 @@
       "signatureTerrain": "Floor",
       "maxBarriersPerColumn": 1,
       "ensureHorizontalRoute": true
+    },
+    {
+      "id": "shattered_march_fort",
+      "generationVersion": 1,
+      "seedSalt": 16,
+      "weights": [
+        { "terrain": "Floor", "weight": 56 },
+        { "terrain": "Rubble", "weight": 20 },
+        { "terrain": "WatchPost", "weight": 12 },
+        { "terrain": "Barrier", "weight": 12 }
+      ],
+      "signatureTerrain": "Floor",
+      "maxBarriersPerColumn": 1,
+      "ensureHorizontalRoute": true
     }
   ]
 }

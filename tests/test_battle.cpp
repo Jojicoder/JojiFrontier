@@ -11622,6 +11622,78 @@ int main() {
     }
 
     {
+        // docs/regions/shattered_march_fort.md「地点・周回」: 7-site skeleton
+        // + 3 camps + the site 3/4 "順序選択" (either order, both required)
+        // branch, mirror of the BuriedDawnSanctum skeleton test above. This
+        // Slice replaced the single-site `shattered_march_fort_outpost`
+        // M9-AM stub with the real 7-stage regionDescriptor() (the stub JSON
+        // entry itself is left in place, dead/unreferenced).
+        //
+        // Also guards against a repeat of the exact bug M9-AM found and
+        // fixed for BuriedDawnSanctum: usesRouteGraph() omitting a region
+        // entirely, silently skipping its route-graph validation in
+        // GameData.cpp's startup loop.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        assert(jf::usesRouteGraph(jf::RegionId::ShatteredMarchFort));
+        const jf::RegionDescriptor fortRegion =
+            jf::regionDescriptor(jf::RegionId::ShatteredMarchFort, *data);
+        assert(fortRegion.stages.size() == 7);
+        assert(fortRegion.stages[0].id == "fort_outer_wall");
+
+        const jf::RegionRouteGraph& fortRoute = jf::regionRouteGraph(jf::RegionId::ShatteredMarchFort);
+        std::string error;
+        assert(jf::validateRouteGraph(fortRoute, &error));
+        assert(jf::findRouteNode(fortRoute, "fort_old_barracks"));
+        assert(jf::findRouteNode(fortRoute, "fort_logistics_depot"));
+        const jf::RouteNodeDefinition* fortBranch =
+            jf::findRouteNode(fortRoute, "fort_barracks_logistics_branch");
+        assert(fortBranch && fortBranch->kind == jf::RouteNodeKind::BranchGroup &&
+               fortBranch->branchCompletion == jf::BranchCompletion::AllMembers &&
+               fortBranch->branchMembers.size() == 2);
+    }
+
+    {
+        // docs/regions/shattered_march_fort.md「破砕外郭」: 主目的(回収団5)・
+        // 勝利報酬(石材2、高品質鉄材1)・ルート2(全員HP-2で破孔)・
+        // ルート3(`[重装兵]`瓦礫突破)。主目的は本Slice時点でこのプロジェクトの
+        // 一貫した前例(M9-D/J/Y/AC/AE/AG/AM等)どおりEliminateTeamのみへ近似
+        // し(正本の「敵全滅+外郭標識」を genuine multi-Kind AND primaryとして
+        // 実装せず)、「外郭標識で行動終了」は`surveyObjectiveId`(裸タイル、
+        // count無し)による副目標としてのみ表現した。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor fortRegion =
+            jf::regionDescriptor(jf::RegionId::ShatteredMarchFort, *data);
+        const jf::StageDescriptor& outerWallStage = fortRegion.stages[0];
+        assert(outerWallStage.enemyRoster.size() == 5);
+        assert(outerWallStage.scoutRouteRequiredClass == jf::UnitClass::HeavyInfantry);
+        assert(outerWallStage.surveyObjectiveId == "fort_outer_wall_marker");
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(outerWallStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "stone") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "quality_iron") == 1);
+
+        jf::BattleState frontal = jf::createScenarioBattle(*data, outerWallStage, /*seed=*/5);
+        int enemyCount = 0;
+        for (const jf::Unit& unit : frontal.units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 5);
+
+        const jf::ExplorationOutcome* collapsedOutcome = nullptr;
+        for (const auto& [choice, outcome] : outerWallStage.routeOutcomes)
+            if (choice == jf::ExplorationChoice::CollapsedSidePath) collapsedOutcome = &outcome;
+        assert(collapsedOutcome && collapsedOutcome->partyDamage == 2);
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。

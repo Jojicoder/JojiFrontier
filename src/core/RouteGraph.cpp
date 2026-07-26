@@ -315,6 +315,51 @@ const RegionRouteGraph& buriedDawnSanctumGraph() {
     return graph;
 }
 
+// docs/regions/shattered_march_fort.md「地点・周回」: `1 破砕外郭 -> 2 崩れ門 ->
+// CAMP I -> (3 旧兵舎 / 4 兵站庫、順序選択) -> CAMP II -> 5 信号庭 -> 6 予備壁
+// -> CAMP III -> 7 切離命令庫`。地点3/4の「順序選択」はBuriedDawnSanctum/
+// EmberRavine同様「どちらを先に攻略してもよいが両方必須」であり、既存の
+// BranchCompletion::AllMembersでそのまま配線する。
+const RegionRouteGraph& shatteredMarchFortGraph() {
+    static const RegionRouteGraph graph{
+        RegionId::ShatteredMarchFort,
+        "shattered_march_fort_main_route",
+        "shattered_march_fort_entrance_node",
+        "shattered_march_fort_exit",
+        {
+            {"shattered_march_fort_entrance_node", RouteNodeKind::Entrance, std::nullopt},
+            {"fort_outer_wall", RouteNodeKind::Site, "fort_outer_wall"},
+            {"fort_broken_gate", RouteNodeKind::Site, "fort_broken_gate"},
+            {"fort_camp1", RouteNodeKind::Camp, std::nullopt},
+            {"fort_barracks_logistics_branch", RouteNodeKind::BranchGroup, std::nullopt,
+             {"fort_old_barracks", "fort_logistics_depot"}, BranchCompletion::AllMembers},
+            {"fort_old_barracks", RouteNodeKind::Site, "fort_old_barracks"},
+            {"fort_logistics_depot", RouteNodeKind::Site, "fort_logistics_depot"},
+            {"fort_camp2", RouteNodeKind::Camp, std::nullopt},
+            {"fort_signal_yard", RouteNodeKind::Site, "fort_signal_yard"},
+            {"fort_reserve_wall", RouteNodeKind::Site, "fort_reserve_wall"},
+            {"fort_camp3", RouteNodeKind::Camp, std::nullopt},
+            {"fort_severance_order_archive", RouteNodeKind::Site, "fort_severance_order_archive"},
+            {"shattered_march_fort_exit", RouteNodeKind::Exit, std::nullopt},
+        },
+        {
+            {"shattered_march_fort_entrance_node", "fort_outer_wall"},
+            {"fort_outer_wall", "fort_broken_gate"},
+            {"fort_broken_gate", "fort_camp1"},
+            {"fort_camp1", "fort_barracks_logistics_branch"},
+            {"fort_old_barracks", "fort_barracks_logistics_branch"},
+            {"fort_logistics_depot", "fort_barracks_logistics_branch"},
+            {"fort_barracks_logistics_branch", "fort_camp2"},
+            {"fort_camp2", "fort_signal_yard"},
+            {"fort_signal_yard", "fort_reserve_wall"},
+            {"fort_reserve_wall", "fort_camp3"},
+            {"fort_camp3", "fort_severance_order_archive"},
+            {"fort_severance_order_archive", "shattered_march_fort_exit"},
+        },
+    };
+    return graph;
+}
+
 const RegionRouteGraph& emberRavineGraph() {
     static const RegionRouteGraph graph{
         RegionId::EmberRavine,
@@ -363,7 +408,8 @@ bool usesRouteGraph(RegionId regionId) {
     return regionId == RegionId::AshboughForest || regionId == RegionId::CinderwatchGate ||
            regionId == RegionId::AshironQuarry || regionId == RegionId::BlackwaterLowlands ||
            regionId == RegionId::WindscarPlateau || regionId == RegionId::OldFrontierSettlement ||
-           regionId == RegionId::EmberRavine || regionId == RegionId::BuriedDawnSanctum;
+           regionId == RegionId::EmberRavine || regionId == RegionId::BuriedDawnSanctum ||
+           regionId == RegionId::ShatteredMarchFort;
 }
 
 const RegionRouteGraph& regionRouteGraph(RegionId regionId) {
@@ -375,6 +421,7 @@ const RegionRouteGraph& regionRouteGraph(RegionId regionId) {
     if (regionId == RegionId::EmberRavine) return emberRavineGraph();
     if (regionId == RegionId::OldFrontierSettlement) return oldFrontierSettlementGraph();
     if (regionId == RegionId::BuriedDawnSanctum) return buriedDawnSanctumGraph();
+    if (regionId == RegionId::ShatteredMarchFort) return shatteredMarchFortGraph();
     throw std::invalid_argument("region has no route graph");
 }
 

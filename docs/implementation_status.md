@@ -4569,6 +4569,89 @@ fresh-party win率はDirect 42.8%/HP残6.4%、Tactical 69.4%/HP残18.6%(avg KO
 以上で**埋没聖堂(第8地域)は全6地点+最終強敵が実コンテンツ化され、地域攻略〜
 次地域「破砕された前線砦」解放まで通しでプレイ可能**になった。
 
+## M9-AN 破砕された前線砦(第9地域): 地域骨格 + 地点1(破砕外郭)
+
+`docs/regions/shattered_march_fort.md`を確認し、M9-AHの確立済みパターン(地域骨格を
+1度作り、以後1地点ずつ本格化する)を踏襲して着手した。正本自身が新規戦闘メカニクスを
+導入しないことを明記しているため(砦床/瓦礫/防壁床(DEF+2)/射撃台(視界確保のみ)/
+破孔(増援口の演出)/通行不能壁はすべて既存地形の再利用)、最も近い前例として
+BuriedDawnSanctum(M9-AH)を採用した。M9-AMが追加した`RegionId::ShatteredMarchFort`
++`shattered_march_fort_outpost`の1地点プレースホルダーを土台に、本Sliceでスコープ
+全体(7地点+3キャンプ+地点3・4のどちらを先に攻略してもよい「順序選択」)+地点1
+「破砕外郭」の実コンテンツへ拡張した。
+
+正本の「地点・周回」節の図(`1 破砕外郭 -> 2 崩れ門 -> CAMP I -> (3 旧兵舎/4 兵站庫、
+順序選択) -> CAMP II -> 5 信号庭 -> 6 予備壁 -> CAMP III -> 7 切離命令庫`)を読み、
+「順序選択」がBuriedDawnSanctum/EmberRavine/OldFrontierSettlementと全く同じ
+「どちらを先に攻略してもよいが両方必須」を意味することを確認した。新たな分岐機構は
+不要と判断し、`RouteGraph.cpp`へ既存の`BranchCompletion::AllMembers`でそのまま配線した
+(`shatteredMarchFortGraph()`、`fort_barracks_logistics_branch`)。
+
+**`usesRouteGraph()`へ`RegionId::ShatteredMarchFort`を追加するのを、本Sliceの
+最初の配線ステップとして`shatteredMarchFortGraph()`の実装と同じコミット単位で行った**
+(M9-AM末尾で発見・修正されたBuriedDawnSanctum自身の同種の見落としを繰り返さないため)。
+`tests/test_battle.cpp`の地域骨格テストで`jf::usesRouteGraph(jf::RegionId::
+ShatteredMarchFort)`を明示的にassertし、`jf_content_tests`(`GameData.cpp:612`の
+`usesRouteGraph()`ループ経由)がこの地域のグラフを実際に検証することも確認した。
+
+地点1「破砕外郭」はJSON Schemaへ直接収まったため`data/regions.json`のみで実コンテンツ
+化した(Region.cppの手書きステージ関数は不要)。正本の主目的/敗北列「敵全滅+外郭標識/
+全滅」は表記が他地域の地点1より密で一見multi-Kind ANDに見えるが、正本自身の「副目標と
+重要発見」列に独立して「外郭の砦標識 -> 砦踏査」があり、これはM9-D/J/Y/AC/AE/AG/AM等
+このプロジェクト一貫の前例(単一Kind primaryへの近似、genuine multi-Kind AND primaryを
+新設しない)と完全に一致する形。よって主目的は既存のEngineデフォルトである
+`EliminateTeam`のみへ近似し(新規コード不要)、「外郭標識で行動終了」は`surveyObjectiveId`
+(裸タイル、count無し、他地域の地点1副目標と全く同じ形)による副目標としてのみ配線した。
+この解釈は正本のみでは一意に確定しないため、ここに明記する。
+
+敵「回収団5」はBandit3体+WatchArcher2体を「Fort Retriever」表示名で再利用(既存の
+英語reskin表示名の規約どおり、新規JAグリフ登録は不要)。ルート2「HP-2で破孔」は
+`ExplorationOutcome::partyDamage`(既存フィールド)で表現。ルート3`[重装兵]`「瓦礫突破」は
+`scoutRouteRequiredClass: HeavyInfantry`で表現。勝利報酬(石材2、高品質鉄材1)は
+`stone`(Ashiron Quarry)/`quality_iron`(Cinderwatch Gate)ともすでに`materialNameFor()`の
+knownセット・localeキーへ登録済みであることを確認したうえで再利用し、新規登録は行って
+いない(本セッション2回の重複素材IDバグを踏まえた確認)。公開副目標「外郭の砦標識」は
+新規Discovery `fort_outer_wall_survey`(安定ID未指定のため、他地域の`<region>_..._records`
+規約に倣って新規に採番)として`discoveries`フィールドへ配線した(DiscoveryIdは`std::string`
+のため列挙型追加・Discovery表示名のlocale登録は既存の前例どおり一切不要)。
+
+新規`shattered_march_fort`TerrainProfile(`data/terrain_profiles.json`)を追加した。
+正本の地形生成表(砦床35〜50%/瓦礫15〜25%/防壁床10〜15%(DEF+2)/射撃台5〜10%/
+破孔5〜10%/通行不能壁5〜10%)は新規TerrainTypeを追加せず既存4種で近似:
+
+- 砦床→Floor、防壁床→WatchPost(DEF+2、M9-AHの「礼拝床→WatchPost」と同じ判断)、
+  瓦礫→Rubble、通行不能壁→Barrier
+- 射撃台(視界確保のみ、そもそもfog-of-warがプロジェクトに存在しないため事実上no-op)・
+  破孔(増援口の演出、増援口自体はRouteGraph/timedReinforcement側の別機構)は
+  どちらも独自の地形効果を持たないため、Floorへ折り込んだ(Floor weight 56 =
+  砦床本体+射撃台+破孔相当)
+
+見送った部分(正本との差分、都度明記):
+
+- 地点2〜7(崩れ門/旧兵舎/兵站庫/信号庭/予備壁/切離命令庫)は他地域の骨格Slice同様
+  Bandit x2(-3)最小プレースホルダーのまま(次Slice以降で1地点ずつ本格化)
+- 城門/防護壁/兵站箱/信号盤/警鐘/指揮卓/命令箱のObject耐久・操作機構、増援の事前予告
+  表示、隊長の固有行動3種は正本の地点2以降・最終強敵の仕様であり本Sliceの範囲外
+
+`tests/test_battle.cpp`へ3件追加: 地域骨格(7地点+ルートグラフ+`fort_barracks_
+logistics_branch`のAllMembers検証+`usesRouteGraph()`直接assert)、地点1の報酬・敵数・
+ルート別`partyDamage`、既存の地域解放条件テスト(M9-AM由来)はそのまま。既存4テスト
+スイート(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/`check_localization`)
+含め全成功、フルスイートを3回連続実行し安定(フレークなし)。
+
+`jf_forest_balance --region=shattered_march_fort`(500 Seed)の実測: 地点1(破砕外郭)
+のfresh-party win率はDirect 29.2%/HP残7.9%(avg KO 3.52、rounds 6.76)、Tactical
+21.4%/HP残12.2%(avg KO 3.27)。既存地点1の実測レンジ(概ね33.6%〜100%)をやや下回る
+ため、5体編成(Bandit3+WatchArcher2)が他地域の地点1敵編成よりやや重い可能性がある
+が、[[jf_forest_balance worst-case numbers]]の教訓どおり実測記録のみに留め、本Sliceでの
+数値調整は行わない(要・実プレイでの確認)。7地点通しのRegion clear win率はDirect
+0.0%/Tactical 0.2%だが、地点2〜7がまだプレースホルダーのままであることに加え、本ツール
+のAI未対応objective種別が残っているためで、地点1本体の数値を示すものではない。
+
+以上で破砕された前線砦(第9地域)の骨格(7地点+3キャンプ+地点3・4の順序選択分岐)が
+到達可能になり、地点1が実コンテンツ化された。地点2〜7は次のSlice以降で1地点ずつ
+本格化する。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/
