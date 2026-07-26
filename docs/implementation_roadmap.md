@@ -120,14 +120,23 @@ M9-Z(燼火峡谷・第7地域: 地域骨格 + 地点1「焼け石の入口」 +
 新規`Unit::firstBurnNegatesRemaining`(新規UnitClassは追加しない)で表現した。
 詳細は`implementation_status.md`のM9-Z参照。
 
+M9-AA(燼火峡谷・第7地域: 地点2「熱風の棚道」)完了(2026-07)。護衛対象を
+右端へ脱出させる主目的(`guestUnits`/`primaryEscapeUnitsAlternative`、
+windscarRelayStage()前例のRegion.cpp手書き)、敵勢力「熱地採取団」
+(Bandit/WatchArcher再利用reskin)、新素材`sulfur`(硫黄)を実装。
+「冷却床2マス追加」(ルート単位地形上書き未実装)とキャンプIの
+炎上解除演出(キャンプ到達時ステータス書き換えフック未実装)は既知ギャップ
+として見送り。詳細は`implementation_status.md`のM9-AA参照。
+
 直近の未完了(優先度順):
 
-1. 燼火峡谷(第7地域)の残り7地点の本格実装(M6-B/C・M9-A〜Y方式)。地点1
-   「焼け石の入口」はM9-Zで完了、地点2〜8は`data/regions.json`のBandit2体
-   プレースホルダーのまま(地点3・4以降で戦場熱量レベル2・3の消費/AI連動、
-   噴気弁破壊(+1)・冷却弁操作(-1)によるheatLevel変更フック、岩蜥蜴/採取団AI、
-   地域ボス「赤背の大蜥蜴」の実装が必要 - `BattleState::setHeatLevel()`自体は
-   公開済みで、Object操作からの呼び出し配線だけが未着手)
+1. 燼火峡谷(第7地域)の残り6地点の本格実装(M6-B/C・M9-A〜AA方式)。地点1
+   「焼け石の入口」・地点2「熱風の棚道」はM9-Z/M9-AAで完了、地点3〜8は
+   `data/regions.json`のBandit2体プレースホルダーのまま(地点3・4以降で
+   戦場熱量レベル2・3の消費/AI連動、噴気弁破壊(+1)・冷却弁操作(-1)による
+   heatLevel変更フック、岩蜥蜴/採取団AI、地域ボス「赤背の大蜥蜴」の実装が
+   必要 - `BattleState::setHeatLevel()`自体は公開済みで、Object操作からの
+   呼び出し配線だけが未着手)
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/

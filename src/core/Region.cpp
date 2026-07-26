@@ -1384,19 +1384,145 @@ RegionDescriptor oldFrontierSettlementRegion(const GameData& data) {
     return region;
 }
 
+// docs/regions/ember_ravine.md「2. 熱風の棚道」: hand-crafted in Region.cpp
+// rather than data/regions.json's stageDescriptorFromContent() - same reason
+// as windscarRelayStage()/blackwaterCrossingStage() above: this stage needs
+// StageDescriptor::guestUnits/primaryEscapeUnitsAlternative, neither of which
+// the generic JSON Schema exposes (M9-I's decision, see that stage's own
+// comment). Replaces the M9-Z `ember_ravine_ledge` JSON placeholder (still
+// present in data/regions.json but now dead/unreferenced, same
+// "leave the superseded placeholder in place" precedent as every prior site
+// upgrade in this project).
+//
+// 敵は「熱地採取団」(斧兵/弓兵/工兵型) - this region's own faction doc
+// (「主な兵種: 斧兵、弓兵、工兵型」). No AxeInfantry/Engineer-combat UnitClass
+// exists in this project (UnitClass.hpp), so all 4 are the same
+// "reuse an existing class's numbers, reskin the display name only" pattern
+// site 1's 岩蜥蜴=Bandit reskin used: 斧兵x2/工兵型x1 reuse Bandit, 弓兵x1
+// reuses WatchArcher (closest existing ranged stat block, same choice
+// windscarRelayStage() made for its own 弓兵). Unlike windscarRelayStage()'s
+// undisguised Spearman/WatchArcher (which had a doc-confirmed exact class
+// match), these get reskinned display names since 斧兵/工兵型 don't map to
+// any real UnitClass - no new UnitClass added (regional invariant "新兵種...
+// を追加しない").
+//
+// 探索3択: ルート1「退避所を順に使う」は無条件、護衛対象1人・敵4体(base
+// roster)。ルート2「荷物を置いて進む」は`enemiesRemoved:1`(敵3体)+
+// `heat_resistant_material`-1をvictoryRewardRulesのRouteChoiceルールで表現
+// (負のquantityはM9-Z地点1のルート2前例と同型の「既存reward-ruleの数量を負に
+// するだけ」)。「MOV低下なし」は、そもそもこのステージにMOV低下効果が
+// 存在しないため(注記のみでロジック不要 - 打ち消す対象が無い)。ルート3
+// `[辺境工兵]`「遮熱扉を直す」は`scoutRouteRequiredClass=FrontierEngineer`+
+// 敵4体(base roster、増減なし)。
+//
+// 「冷却床2マス追加」(ルート3限定の地形上書き)は見送り - M9-F/M9-Zが記録済みの
+// 「ルート単位・タイル種別単位の地形生成上書き機構がない」ことと同型のギャップ
+// (`TerrainProfile::countBounds`は単一TerrainType×ステージ全体専用で、
+// ルート条件付きでの追加ができない)。`extraBarrierCount`はBarrier Object用の
+// 別機構であり、CoolFloorのような地形タイル種別そのものを差し替えるものではない
+// ため転用できない。
+//
+// 主目的「護衛対象を右端へ脱出」: windscarRelayStage()と全く同じ形の直接再利用
+// (`primaryEscapeUnitsAlternative`、requiredEscapeCount=1、護衛対象1人は
+// `guestUnits`)。副目標「遮熱扉耐久1以上」は見送り(M6-C以来の既知ギャップ - Object
+// 耐久を追跡する仕組みが未実装)。敗北条件「部隊全滅、護衛対象撤退」はどちらも
+// 既存の仕組み(`allPlayersDefeated()`/`allGuestsLost()`)がそのまま配線される
+// (BattleFactory.cppがguestUnitsのidをmissionState().guestUnitIdsへ登録)。
+//
+// 護衛ユニットは全3ルート共通(guestUnitsはシナリオ構築時点で固定 - 上記
+// windscarRelayStage()の同型コメントどおりの既知の限界)。
+//
+// 新素材`sulfur`(硫黄): `heat_resistant_material`に続く本地域2つめの新素材、
+// `materialNameFor()`のknownセット+`data/locales/{en,ja}.json`
+// (`material.sulfur`)へ追加。既存`heat_resistant_material`同様、JA文字列は
+// Locale Key経由(`tr()`)でloadAppFont()の`allJapaneseGlyphText()`(ja.json
+// 全値を収集)が自動収集するため、charsetSourceへの手動追加は不要
+// (`heat_resistant_material`自身も実際にはこの経路で既にカバーされていた -
+// M9-Zの記録が示す「charset収集ループへ明示追加」は本コードベースの現状の
+// materialNameFor()専用ループには反映されていない、確認の上そのまま踏襲)。
+//
+// 恒久成果`heated_ledge_shelter_secured`/キャンプIの安全通過効果: 他の全地点と
+// 同じ汎用siteAccess::Securedメカニズム(新規配線不要)。キャンプI自体は
+// RouteGraph.cpp側でM9-Zがsite2後のノードとして既に配線済み
+// (emberRavineGraph()の`ember_ravine_camp1`)。
+//
+// キャンプIの「遮熱退避所を確保済みなら、キャンプ到達時に生存者の炎上を解除する」
+// (siteAccess::Secured条件付きのキャンプ到着時ステータス解除)効果は見送り -
+// このプロジェクトにキャンプ到達時にUnitのステータス効果を書き換えるフック自体が
+// 存在しない(ExpeditionService.cppのキャンプ到着処理は施設アクセス/回復UIの
+// 提示のみで、Burn等のStatusEffectを消費・解除する経路を持たない)。1地点の
+// 単発演出のために新規インフラを組むより、M9-Zの熱量/噴気弁フック未接続と同じ
+// 「後続Sliceが実際に必要になった時点で着手」判断に合わせ、ドキュメントのみに
+// 留める新規ギャップとして記録する。
+StageDescriptor emberRavineLedgeStage() {
+    StageDescriptor stage;
+    stage.id = "ember_ravine_ledge";
+    stage.terrainProfileId = "ember_ravine_entrance";
+    stage.enemyRoster = {
+        {"ember_ravine_ledge_axe1", "Heat Gatherer Axeman", UnitClass::Bandit},
+        {"ember_ravine_ledge_axe2", "Heat Gatherer Axeman", UnitClass::Bandit},
+        {"ember_ravine_ledge_archer1", "Heat Gatherer Archer", UnitClass::WatchArcher},
+        {"ember_ravine_ledge_engineer1", "Heat Gatherer Engineer", UnitClass::Bandit},
+    };
+    stage.routeOutcomes = {
+        // 「退避所を順に使う」: no condition, 護衛対象1人, 敵4体 (base roster).
+        {ExplorationChoice::FrontalAdvance, ExplorationOutcome{}},
+        // 「荷物を置いて進む」: no condition, 敵3体, 耐熱素材-1
+        // (victoryRewardRulesのRouteChoiceで表現), MOV低下なし(そもそも本ステージに
+        // MOV低下効果が無いため打ち消す対象がない=暗黙のno-op).
+        {ExplorationChoice::CollapsedSidePath, ExplorationOutcome{.enemiesRemoved = 1}},
+        // `[辺境工兵]`「遮熱扉を直す」: 冷却床2マス追加(未実装、上記コメント参照)、
+        // 敵4体(base roster、増減なし)。
+        {ExplorationChoice::ScoutRoute, ExplorationOutcome{}},
+    };
+    stage.scoutRouteRequiredClass = UnitClass::FrontierEngineer;
+
+    // 護衛対象1人 - windscarRelayStage()の護衛1人と同じ非戦闘Escortパターン。
+    // DawnChirurgeon再利用(既存最低STRクラス、同じ「ステータス/表示名だけ再利用」
+    // 慣習)。
+    stage.guestUnits = {
+        {{"ember_ravine_ledge_evacuee", "Ledge Evacuee", UnitClass::DawnChirurgeon}, GridPos{1, 3}},
+    };
+
+    // 主目的: 護衛対象を右端へ脱出。
+    stage.primaryEscapeUnitsAlternative =
+        StageDescriptor::PrimaryEscapeUnitsRule{"ember_ravine_ledge_escape", /*requiredEscapeCount=*/1,
+                                                /*zoneMinCol=*/kGridCols - 1, /*zoneMaxCol=*/kGridCols - 1};
+
+    // 敗北条件「部隊全滅」は既存allPlayersDefeated()のまま。「護衛対象の撤退」は
+    // BattleFactory.cppがstage.guestUnitsのidをmissionState().guestUnitIdsへ登録
+    // することで自動的にallGuestsLost()経由で配線される(追加配線は不要)。
+
+    // 勝利: 耐熱素材1、硫黄1。ルート2は耐熱素材-1(荷物を置いて進む=先に消費する)。
+    stage.victoryRewardRules = {
+        {RewardRule::Condition::Always, {}, {{"heat_resistant_material", 1}, {"sulfur", 1}}},
+        {RewardRule::Condition::RouteChoice, ExplorationChoice::CollapsedSidePath,
+         {{"heat_resistant_material", -1}}},
+    };
+
+    stage.missionNameEn = "Heated Ledge Path";
+    stage.missionNameJa = "熱風の棚道";
+    return stage;
+}
+
 // docs/regions/ember_ravine.md「地点構成」: 8-site skeleton + 3 camps, same
 // M6/M9 "build the skeleton once, flesh out one site at a time" pattern as
 // every prior region. Site 1 (`ember_ravine_entrance`, "焼け石の入口") is
-// real content as of this Slice (see `data/regions.json`'s own entry - it
+// real content as of M9-Z (see `data/regions.json`'s own entry - it
 // fits the existing JSON Schema directly, no hand-written StageDescriptor
 // fields needed, same shape as Windscar's `windwatch_station`/`plateau_relay`
-// once those needed no Region.cpp function of their own). Sites 2/3/4/5/6/7/8
+// once those needed no Region.cpp function of their own). Site 2
+// (`ember_ravine_ledge`, "熱風の棚道") is real content as of this Slice, hand-
+// authored via emberRavineLedgeStage() above (guest-escort site, same as
+// windscarRelayStage()/blackwaterCrossingStage()). Sites 3/4/5/6/7/8
 // remain minimal Bandit x2 placeholders (`data/regions.json`'s
-// `ember_ravine_ledge`/`sulfur_hollow`/`ravine_cooling_channel`/
+// `sulfur_hollow`/`ravine_cooling_channel`/
 // `ash_crystal_shelf`/`heatwork_shop`/`ashsealed_observatory`/
 // `redheat_fissure` entries) replacing the single-site
 // `ember_ravine_outpost` M9-Y stub (left in place, dead/unreferenced - same
-// precedent as `blackwater_crossing`'s own dead JSON entry). Site 3/4's
+// precedent as `blackwater_crossing`'s own dead JSON entry). The M9-Z
+// `ember_ravine_ledge` JSON entry is likewise left in place, now
+// dead/unreferenced since emberRavineLedgeStage() replaces it. Site 3/4's
 // "どちらを先に攻略してもよい、両方必須" branch is wired in RouteGraph.cpp
 // (emberRavineGraph()), not here.
 RegionDescriptor emberRavineRegion(const GameData& data) {
@@ -1405,7 +1531,7 @@ RegionDescriptor emberRavineRegion(const GameData& data) {
     region.displayNameEn = "Ember Ravine";
     region.displayNameJa = "燼火峡谷";
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("ember_ravine_entrance")));
-    region.stages.push_back(stageDescriptorFromContent(data.stageContent("ember_ravine_ledge")));
+    region.stages.push_back(emberRavineLedgeStage());
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("sulfur_hollow")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("ravine_cooling_channel")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("ash_crystal_shelf")));

@@ -3112,6 +3112,81 @@ fresh-party win率はDirect 43.6%/HP残9.7%、Tactical 22.6%/HP残9.4%(avg KO
 以上で燼火峡谷(第7地域)は地域骨格が到達可能になり、地点1が実コンテンツ化された。
 残り7地点は次のSlice以降で1地点ずつ本格化する。
 
+### M9-AA 燼火峡谷(第7地域): 地点2(熱風の棚道)
+
+`docs/regions/ember_ravine.md`「2. 熱風の棚道」を実コンテンツ化した。M9-Zが
+残した`ember_ravine_ledge`のBandit x2プレースホルダーを、windscarRelayStage()
+(`docs/regions/windscar_plateau.md`「2. 崩れた中継路」)を最も近い前例として
+Region.cppの手書き関数`emberRavineLedgeStage()`へ置き換えた
+(`data/regions.json`の`ember_ravine_ledge`エントリ自体は`ember_ravine_outpost`
+M9-Yスタブと同じく死んだまま残置)。
+
+**JSONではなくRegion.cpp手書きにした理由**: この地点は`StageDescriptor::
+guestUnits`/`primaryEscapeUnitsAlternative`(護衛対象1人、右端脱出)を必要とし、
+これはM9-I以来一貫してJSON Schema未対応のフィールドのため(M9-Zの地点1が
+JSON化できたのは、地点1がこの2フィールドを必要としなかったから)。
+
+**敵勢力**: 「熱地採取団」(斧兵/弓兵/工兵型)。斧兵・工兵型に対応する
+UnitClassが存在しないため、地点1の岩蜥蜴=Bandit reskin前例と同じ
+「既存クラスの数値そのまま+表示名だけ変える」形でBanditを3体(斧兵x2、
+工兵型x1)に、弓兵1体をWatchArcher(windscarRelayStage()自身が採用した
+最も近い既存ステータスの弓兵クラス)に割り当てた。新規UnitClassは追加していない。
+
+**探索3択**: ルート1「退避所を順に使う」は無条件、護衛対象1人・敵4体
+(base roster)。ルート2「荷物を置いて進む」は`enemiesRemoved:1`(敵3体)+
+`victoryRewardRules`のRouteChoiceルールで耐熱素材-1(既存の負quantity表現、
+M9-Zの地点1ルート2前例と同型)。「MOV低下なし」はこのステージにそもそも
+MOV低下効果自体が存在しないため、打ち消す対象がないフレーバー注記として
+扱った(コード変更不要)。ルート3`[辺境工兵]`「遮熱扉を直す」は
+`scoutRouteRequiredClass = FrontierEngineer`+敵4体(base roster)。
+
+**新素材`sulfur`(硫黄)**: `heat_resistant_material`に続くこの地域2つめの
+新素材。`materialNameFor()`のknownセットと`data/locales/{en,ja}.json`
+(`material.sulfur`)へ追加した。追加調査の結果、`heat_resistant_material`を
+含め素材のJA文字列は`loadAppFont()`の`allJapaneseGlyphText()`(ロード済み
+ja.jsonの全値を収集)経由で既に自動収集されており、`materialNameFor()`専用の
+`charsetSource`手動ループ(`ui_shared.cpp`)への追加は実際には不要
+(M9-Zの記録が「明示的にcharsetSource収集ループへ追加」と書いていた箇所は、
+現在のコードには実在しないことを確認した - 実害はない、Locale Key化された
+文字列は自動収集という既知パターンのとおり)。
+
+**見送った部分(既存の記録済みギャップと同型)**:
+
+- ルート3「冷却床2マス追加」: M9-F/M9-Zが記録済みの「ルート単位・タイル種別
+  単位の地形生成上書き機構がない」ことと同型のギャップ。`extraBarrierCount`は
+  Barrier Object専用の別機構で、CoolFloorのような地形タイル種別そのものの
+  差し替えには転用できない。
+- 副目標「遮熱扉耐久1以上」: M6-C以来のObject耐久未実装ギャップ、対応なし。
+- キャンプIの「遮熱退避所を確保済みなら、キャンプ到達時に生存者の炎上を解除
+  する」: キャンプ到達時にUnitのステータス効果を書き換えるフック自体が
+  `ExpeditionService.cpp`に存在しない(キャンプ到着処理は施設アクセス提示のみ)。
+  1地点の単発演出のために新規インフラを組むより後続Slice待ちとする新規ギャップ
+  として記録した。
+- 恒久成果`heated_ledge_shelter_secured`/キャンプIの安全通過効果: 他地点と
+  同じ汎用siteAccess::Securedメカニズムで配線不要。キャンプI自体は
+  RouteGraph.cppでM9-Zが既に配線済み。
+
+`tests/test_battle.cpp`へ2件追加(windscar_relayの護衛脱出/護衛撤退テストの
+ミラー): 護衛対象の右端到達によるStandalone Victory + 3ルートの敵数/報酬
+検証、護衛対象全滅による部隊全滅とは独立したDefeat。既存4テストスイート
+(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/`check_localization`)
+含め全成功、フルスイートを3回連続実行し新規テストを含め安定(既知の
+`test_battle.cpp:1244`非決定的Seedフレークは今回の3回では発生せず)。
+
+`jf_forest_balance --region=ember_ravine`(500 Seed)の実測: 地点2(熱風の棚道)
+fresh-party win率はDirect 12.2%/HP残73.6%、Tactical 26.8%/HP残52.3%
+(avg KO 1.17〜2.02/4、既存地点のwin率レンジの下限を割り込む)。護衛対象の
+非戦闘Escortという地点の性質上、勝利条件が「敵全滅」ではなく「護衛の脱出」
+のため通常のEliminateTeam系win率と単純比較できない可能性が高いが、
+[[jf_forest_balance worst-case numbers]]の教訓どおり実測記録のみに留め、
+本Sliceでは数値調整を行わない(要実プレイでの確認)。8地点通しのRegion clear
+win率はDirect/Tactical共に引き続き0.0%だが、地点3以降が未実装プレースホルダー
+のままであることによる参考値であり、地点1・2本体の問題ではない
+(Reachは地点2到達がDirect 218/500、Tactical 113/500)。
+
+以上で燼火峡谷(第7地域)は地点1・2の2地点が実コンテンツ化された。残り6地点は
+次のSlice以降で1地点ずつ本格化する。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功

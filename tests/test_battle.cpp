@@ -10731,6 +10731,80 @@ int main() {
     }
 
     {
+        // docs/regions/ember_ravine.md「2. 熱風の棚道」: mirror of
+        // windscar_relay's own guest-escort tests - the guest reaching the
+        // escape tile wins standalone (primary is EscapeUnits, not
+        // EliminateTeam), and losing the guest is Defeat independent of the
+        // player squad's own state. Also covers the 3 explored routes'
+        // enemy/loot deltas (敵4/3/4体、耐熱素材-1 on route 2).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor emberRegion = jf::regionDescriptor(jf::RegionId::EmberRavine, *data);
+        const jf::StageDescriptor* ledgeStage = nullptr;
+        for (const jf::StageDescriptor& stage : emberRegion.stages)
+            if (stage.id == "ember_ravine_ledge") ledgeStage = &stage;
+        assert(ledgeStage && ledgeStage->guestUnits.size() == 1);
+        assert(ledgeStage->enemyRoster.size() == 4);
+        assert(ledgeStage->scoutRouteRequiredClass == jf::UnitClass::FrontierEngineer);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*ledgeStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "heat_resistant_material") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "sulfur") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "heat_resistant_material") == 0);
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "sulfur") == 1);
+
+        const jf::ExplorationOutcome sideOutcome = jf::stageRouteOutcome(*ledgeStage,
+                                                                         jf::ExplorationChoice::CollapsedSidePath);
+        assert(sideOutcome.enemiesRemoved == 1);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *ledgeStage, /*seed=*/7);
+        assert(battle.missionState().guestUnitIds.size() == 1);
+        for (const jf::Unit& unit : battle.units())
+            if (unit.isGuest) assert(unit.team == jf::Team::Player);
+
+        const jf::ObjectiveDefinition* escapeDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.id == "ember_ravine_ledge_escape") escapeDef = &def;
+        assert(escapeDef && escapeDef->primary && escapeDef->kind == jf::ObjectiveKind::EscapeUnits);
+
+        const std::string& guestId = battle.missionState().guestUnitIds[0];
+        jf::BattleEvent guestEscapes{
+            1, 1,
+            jf::ActionResolvedEvent{1, guestId, jf::Team::Player, jf::ActionKind::Wait, escapeDef->target.tile}};
+        jf::handleObjectiveEvent(battle.missionState(), guestEscapes);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // docs/regions/ember_ravine.md「2. 熱風の棚道」敗北条件「護衛対象の
+        // 撤退」: allGuestsLost() fires Defeat even with the player squad
+        // fully alive, same shape as windscar_relay's own test.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor emberRegion = jf::regionDescriptor(jf::RegionId::EmberRavine, *data);
+        const jf::StageDescriptor* ledgeStage = nullptr;
+        for (const jf::StageDescriptor& stage : emberRegion.stages)
+            if (stage.id == "ember_ravine_ledge") ledgeStage = &stage;
+        assert(ledgeStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *ledgeStage, /*seed=*/7);
+        assert(!battle.allGuestsLost());
+        for (jf::Unit& unit : battle.units())
+            if (unit.isGuest) unit.currentHp = 0;
+        assert(battle.allGuestsLost());
+        assert(!battle.allPlayersDefeated());
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Defeat);
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。
