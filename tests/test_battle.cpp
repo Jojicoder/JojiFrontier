@@ -11734,6 +11734,86 @@ int main() {
     }
 
     {
+        // docs/regions/shattered_march_fort.md「7地点仕様」旧兵舎: same
+        // guest-escort shape as blackwater_crossing/ember_ravine_ledge -
+        // primaryEscapeUnitsAlternative(requiredEscapeCount=1) over 2 guests,
+        // EliminateTeam not present as primary.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor fortRegion = jf::regionDescriptor(jf::RegionId::ShatteredMarchFort, *data);
+        const jf::StageDescriptor* barracksStage = nullptr;
+        for (const jf::StageDescriptor& stage : fortRegion.stages)
+            if (stage.id == "fort_old_barracks") barracksStage = &stage;
+        assert(barracksStage && barracksStage->guestUnits.size() == 2);
+        assert(barracksStage->enemyRoster.size() == 4);
+        assert(barracksStage->scoutRouteRequiredClass == jf::UnitClass::DawnChirurgeon);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*barracksStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "military_supplies") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "cloth") == 2);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *barracksStage, /*seed=*/13);
+        assert(battle.missionState().guestUnitIds.size() == 2);
+        for (const jf::Unit& unit : battle.units())
+            if (unit.isGuest) assert(unit.team == jf::Team::Player);
+
+        const jf::ObjectiveDefinition* escapeDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.id == "fort_old_barracks_escape") escapeDef = &def;
+        assert(escapeDef && escapeDef->primary && escapeDef->kind == jf::ObjectiveKind::EscapeUnits);
+
+        const std::string& guestId = battle.missionState().guestUnitIds[0];
+        jf::BattleEvent guestEscapes{
+            1, 1,
+            jf::ActionResolvedEvent{1, guestId, jf::Team::Player, jf::ActionKind::Wait, escapeDef->target.tile}};
+        jf::handleObjectiveEvent(battle.missionState(), guestEscapes);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+
+        // Both guests lost -> Defeat via allGuestsLost(), independent of the
+        // player squad (same as blackwater_crossing's own equivalent test).
+        jf::BattleState lossBattle = jf::createScenarioBattle(*data, *barracksStage, /*seed=*/13);
+        assert(!lossBattle.allGuestsLost());
+        for (jf::Unit& unit : lossBattle.units())
+            if (unit.isGuest) unit.currentHp = 0;
+        assert(lossBattle.allGuestsLost());
+        assert(!lossBattle.allPlayersDefeated());
+        assert(jf::evaluateBattleOutcome(lossBattle).kind == jf::BattleOutcomeKind::Defeat);
+    }
+
+    {
+        // docs/regions/shattered_march_fort.md「副目標と重要発見」旧兵舎の
+        // "負傷兵全員避難 -> 集団救護記録": both guests credited on the escape
+        // objective grants kGroupTriageRecordsDiscovery via GameApp.cpp's
+        // ad-hoc creditedTargetIds.size()>=2 check (same shape as
+        // collapsed_nave's kFieldMedicalRecordsDiscovery test).
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor fortRegion = jf::regionDescriptor(jf::RegionId::ShatteredMarchFort, *data);
+        const jf::StageDescriptor* barracksStage = nullptr;
+        for (const jf::StageDescriptor& stage : fortRegion.stages)
+            if (stage.id == "fort_old_barracks") barracksStage = &stage;
+        assert(barracksStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *barracksStage, /*seed=*/13);
+        const jf::ObjectiveDefinition* escapeDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.id == "fort_old_barracks_escape") escapeDef = &def;
+        assert(escapeDef);
+        auto& progress = const_cast<jf::BattleMissionState&>(battle.missionState()).progress.at(escapeDef->id);
+        progress.creditedTargetIds.insert(battle.missionState().guestUnitIds[0]);
+        progress.creditedTargetIds.insert(battle.missionState().guestUnitIds[1]);
+        assert(progress.creditedTargetIds.size() >= 2);
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。

@@ -123,6 +123,22 @@ void GameApp::proceedToCamp() {
             break;
         }
     }
+    // docs/regions/shattered_march_fort.md「旧兵舎」の副目標「負傷兵全員避難」
+    // -> 集団救護記録: same ad-hoc creditedTargetIds.size()>=2 check as
+    // blackwater_crossing's own "2人とも脱出" bonus above, granting a
+    // Discovery instead of Loot (same shape as collapsed_nave's own
+    // kFieldMedicalRecordsDiscovery check above).
+    if (!isReconnaissanceRun_ && stage.id == "fort_old_barracks") {
+        const BattleMissionState& mission = battleController_->battle().missionState();
+        for (const ObjectiveDefinition& def : mission.definitions) {
+            if (def.id != "fort_old_barracks_escape") continue;
+            if (mission.progress.at(def.id).creditedTargetIds.size() >= 2 &&
+                std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                         kGroupTriageRecordsDiscovery) == expedition_.pendingDiscoveries.end())
+                expedition_.pendingDiscoveries.push_back(kGroupTriageRecordsDiscovery);
+            break;
+        }
+    }
     // docs/regions/ashiron_quarry.md「3A. 旧採掘坑」の副目標「作業員2人とも
     // 脱出」→ 採掘技術記録: same ad-hoc creditedTargetIds.size()>=2 check as
     // blackwater_crossing's own "2人とも脱出" bonus above, but granting a

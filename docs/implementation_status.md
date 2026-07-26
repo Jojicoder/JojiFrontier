@@ -4726,6 +4726,73 @@ OperateObject盲点(本Slice)に加え地点3〜7がまだプレースホルダ�
 到達可能になった(グラフ配線自体はM9-ANから既に機能済み)。地点3〜7は次のSlice以降で
 1地点ずつ本格化する。
 
+## M9-AP 破砕された前線砦(第9地域): 地点3(旧兵舎)
+
+M9-AN(骨格+地点1)/M9-AO(地点2)に続き、地点3「旧兵舎」を実コンテンツ化した。
+`guestUnits`/`primaryEscapeUnitsAlternative`を必要とするため、`blackwaterCrossingStage()`
+(M9-I)/`emberRavineLedgeStage()`(M9-AA)と全く同じ、hand-authored`fortOldBarracksStage()`
+としてRegion.cppへ実装し、M9-ANが残していた`fort_old_barracks`のBandit x2プレースホルダー
+JSON(死んだまま残置、他地域の同種前例どおり)を置き換えた。
+
+主目的「負傷兵1人脱出」は`primaryEscapeUnitsAlternative`(requiredEscapeCount=1)の直接
+再利用、敗北条件「全員撤退」は`allGuestsLost()`の直接再利用(いずれもM9-I以来証明済みの
+護衛地点サブシステムそのまま)。負傷兵の人数は正本の表に明記が無いため、他の全護衛地点の
+「1人以上/全員」という言い回しの前例(黒水渡しの荷運び役2人、崩れた礼拝堂の避難者2人、
+旧採掘坑の作業員2人)に倣い2人とした。
+
+敵「残留隊4」はBandit x2 + WatchArcher x2を「Fort Garrison」表示名で再利用した。M9-AOが
+確立した本地域「残留砦隊」の専用フレーバー名の規約をそのまま踏襲し(地点1「Fort Retriever」
+/軍需回収団、プレースホルダー群の「Fort Retainer」とは意図的に区別)、新規JAグリフ登録は
+不要(既存英語reskin表示名の規約どおり)。
+
+探索3択「負傷兵避難」/「武具回収」(いずれも無条件)/`[衛生兵]`「救護班」
+(`scoutRouteRequiredClass: DawnChirurgeon`)を配線。正本の7地点表の当該行には追加数値
+デルタの記載が無いことを確認したうえで、`routeOutcomes`は選択肢の列挙のみとした。
+
+主目的報酬(軍需品1、織物2)は共に既存reuse: `military_supplies`はM9-AOで新規登録済み、
+`cloth`はWindscar Plateau作業で既に登録済み。`data/locales/en.json`/`ja.json`を検索し
+重複が無いことを確認したうえで再利用した(本セッションの重複素材IDバグ再発防止の確認)。
+
+公開副目標「負傷兵全員避難 -> 集団救護記録」は新規Discovery
+`kGroupTriageRecordsDiscovery`(`fort_old_barracks_group_triage_records`、正本の安定ID
+一覧にidが無いため`kFieldMedicalRecordsDiscovery`等と同じ`<region-site>_..._records`
+命名規則で新規採番)として、黒水渡し/崩れた礼拝堂/旧採掘坑と同型の
+`creditedTargetIds.size()>=2`ad-hocチェック(GameApp.cpp `proceedToCamp()`)で配線した。
+
+**恒久成果「兵舎救護」(CAMP IIで最も低HPの生存者5回復)は見送り**: このプロジェクトには
+キャンプ到達時にUnitのHP/状態を書き換えるフック自体が存在せず
+(`ExpeditionService.cpp`のキャンプ到着処理は施設アクセス/回復UI提示のみ)、
+BuriedDawnSanctumが同じ理由でCAMP Iの「状態異常を全解除」効果を見送った既知ギャップ
+(M9-AI)と全く同じカテゴリ。正本の安定ID一覧自体にもこの効果専用のidは記載が無い
+(地域/キャンプレベルのidのみ)ため、新規インフラを組まずドキュメントのみのギャップとして
+記録するに留めた。
+
+`tests/test_battle.cpp`へ3件追加: (1) `blackwaterCrossingStage()`同型の護衛脱出勝利/
+`allGuestsLost()`敗北検証(敵編成4体・`scoutRouteRequiredClass`・主目的報酬の
+`military_supplies`/`cloth`数量・`ObjectiveDefinition`が`primary`グループの
+EscapeUnitsであることを含む)、(2)両負傷兵のcreditedTargetIds到達を直接検証する
+`kGroupTriageRecordsDiscovery`前提条件テスト。既存スイート含め全成功、フルスイートを
+3回連続実行し安定(フレークなし、`test_battle.cpp:1244`の既知RNGフレークも今回は未発生)。
+
+`jf_forest_balance --region=shattered_march_fort`(500 Seed)の実測: Old Barracks
+(旧兵舎)はDirect win 66.6%・Tactical win 61.8%(護衛地点として黒水渡し等と同水準の
+妥当な数値)。地点1(破砕外郭)はDirect win 29.2%・Tactical win 21.4%で引き続き変化なし。
+地点2(崩れ門)は引き続きOperateObject Objective種別に対するAI未対応によりwin率0.0%
+(M9-AO記録済みの既知の盲点、地点2本体の数値を示すものではない)。7地点通しのRegion clear
+win率は引き続きDirect/Tactical共に0.0%だが、地点2のOperateObject盲点に加え地点4〜7が
+まだプレースホルダーのままであるため。
+
+見送った部分(正本との差分、都度明記):
+
+- 恒久成果「兵舎救護」(CAMP IIで最も低HPの生存者5回復): カメラ到着時Unit書換フック自体が
+  未実装(上記参照、M9-AI以来の既知ギャップと同カテゴリ)
+- 地点4〜7(兵站庫/信号庭/予備壁/切離命令庫)は引き続きBandit x2(-3)最小プレースホルダー
+  のまま(次Slice以降で1地点ずつ本格化)。地点3・4の順序選択ペア自体はM9-ANのグラフ配線が
+  既に機能済みだが、CAMP IIへの実質到達は地点4も本格化するまで引き続き未達成。
+
+以上で破砕された前線砦(第9地域)は地点1・2・3が実コンテンツ化された。地点4が本格化
+すればCAMP IIへ実質的に到達可能になる。地点4〜7は次のSlice以降で1地点ずつ本格化する。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

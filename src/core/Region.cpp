@@ -1784,18 +1784,136 @@ RegionDescriptor buriedDawnSanctumRegion(const GameData& data) {
     return region;
 }
 
+// docs/regions/shattered_march_fort.md「7地点仕様」旧兵舎: hand-authored
+// (like every prior guest-escort site - blackwaterCrossingStage()/
+// emberRavineLedgeStage()/sulfurHollowStage() etc.) because it needs
+// `guestUnits`/`primaryEscapeUnitsAlternative`, neither exposed by
+// `stageDescriptorFromContent()`'s JSON Schema. Replaces the
+// `fort_old_barracks` Bandit x2 placeholder from M9-AN (JSON entry left in
+// place, dead/unreferenced - same precedent as every other site's own dead
+// JSON entry).
+//
+// **主目的「負傷兵1人脱出」**: direct reuse of `primaryEscapeUnitsAlternative`
+// (requiredEscapeCount=1), the fully-proven M9-I guest-escort subsystem, same
+// as every prior guest-escort site (Blackwater Crossing/Windscar Relay/Ember
+// Ravine Ledge/Buried Dawn Sanctum's collapsed nave).
+//
+// **敗北条件「全員撤退」**: `allGuestsLost()`, direct reuse via the same
+// guestUnits id-registration mechanism every guest-escort site uses (no
+// additional wiring needed).
+//
+// **負傷兵2人**: the doc doesn't give an explicit guest count for this site,
+// so this follows the established "1人以上/全員" wording pattern of every
+// prior guest-escort site (Blackwater Crossing's 2 porters, Buried Dawn
+// Sanctum's collapsed nave 2 evacuees, Ashiron Quarry's old mine 2 workers) -
+// 2 wounded soldiers, escape 1 for primary / both for the secondary bonus
+// below.
+//
+// **敵「残留隊4」**: Bandit x2 + WatchArcher x2 reskinned "Fort Garrison",
+// per M9-AO's own established convention for this region's own "残留砦隊"
+// faction (distinct from site 1's "Fort Retriever"/軍需回収団 and the dead
+// placeholder's own "Fort Retainer").
+//
+// **探索3択**: 「負傷兵避難」/「武具回収」(いずれも無条件) / `[衛生兵]`
+// 「救護班」(`scoutRouteRequiredClass: DawnChirurgeon`) - the doc's table row
+// carries no extra numeric deltas (no HP/MOV modifiers listed for this row,
+// unlike fort_outer_wall's own route 2), so `routeOutcomes` is the plain
+// three-choice enumeration, same shape as fort_broken_gate's (M9-AO) own
+// routeOutcomes.
+//
+// **主目的報酬 軍需品1・織物2**: both already-registered materials
+// (`military_supplies` from M9-AO, `cloth` from Windscar Plateau work) -
+// confirmed via `data/locales/en.json`/`ja.json` before reuse, no new
+// registration (this session's own repeated-duplicate-material-id
+// discipline).
+//
+// **公開副目標「負傷兵全員避難」-> 集団救護記録**: new Discovery
+// `kGroupTriageRecordsDiscovery` (id `fort_old_barracks_group_triage_records`,
+// following the same `<region-site>_..._records` naming convention as
+// `kFieldMedicalRecordsDiscovery`/`kMiningTechniqueRecordsDiscovery` since the
+// doc's own 安定ID list doesn't carry an id for this record), granted via the
+// same ad-hoc `creditedTargetIds.size()>=2` check in GameApp.cpp as every
+// prior "EscapeUnits objective, count-based secondary tier" bonus
+// (blackwater_crossing/collapsed_nave/quarry_old_mine all share this exact
+// shape).
+//
+// **恒久成果「兵舎救護」(CAMP IIで最も低HPの生存者5回復) is deferred**: this
+// project has no camp-arrival hook that rewrites a Unit's HP/status on camp
+// entry - `ExpeditionService.cpp`'s camp-arrival handling is presentation
+// (facility access/heal UI) only, the same documented gap as Buried Dawn
+// Sanctum's own deferred CAMP I "状態異常を全解除" effect (M9-AI). No new
+// infrastructure is built for this single-site effect; the permanent-outcome
+// id itself isn't listed in the doc's own 安定ID table (only region/camp-
+// level ids are), so nothing is wired here beyond this documented gap.
+StageDescriptor fortOldBarracksStage() {
+    StageDescriptor stage;
+    stage.id = "fort_old_barracks";
+    stage.terrainProfileId = "shattered_march_fort";
+    stage.enemyRoster = {
+        {"fort_old_barracks_bandit1", "Fort Garrison", UnitClass::Bandit},
+        {"fort_old_barracks_bandit2", "Fort Garrison", UnitClass::Bandit},
+        {"fort_old_barracks_archer1", "Fort Garrison", UnitClass::WatchArcher},
+        {"fort_old_barracks_archer2", "Fort Garrison", UnitClass::WatchArcher},
+    };
+    stage.routeOutcomes = {
+        // 「負傷兵避難」: no condition, base roster.
+        {ExplorationChoice::FrontalAdvance, ExplorationOutcome{}},
+        // 「武具回収」: no condition, base roster.
+        {ExplorationChoice::CollapsedSidePath, ExplorationOutcome{}},
+        // `[衛生兵]`「救護班」: no condition beyond the class requirement,
+        // base roster.
+        {ExplorationChoice::ScoutRoute, ExplorationOutcome{}},
+    };
+    stage.scoutRouteRequiredClass = UnitClass::DawnChirurgeon;
+
+    // 負傷兵2人 - blackwaterCrossingStage()の荷運び役2人と同じ非戦闘Escort
+    // パターン(DawnChirurgeon再利用、既存最低STRクラス、ステータス/表示名だけ
+    // 再利用する慣習)。
+    stage.guestUnits = {
+        {{"fort_old_barracks_wounded1", "Wounded Soldier", UnitClass::DawnChirurgeon}, GridPos{0, 3}},
+        {{"fort_old_barracks_wounded2", "Wounded Soldier", UnitClass::DawnChirurgeon}, GridPos{2, 3}},
+    };
+
+    // 主目的: 負傷兵2人のうち1人以上を右端へ脱出。
+    stage.primaryEscapeUnitsAlternative =
+        StageDescriptor::PrimaryEscapeUnitsRule{"fort_old_barracks_escape", /*requiredEscapeCount=*/1,
+                                                /*zoneMinCol=*/kGridCols - 1, /*zoneMaxCol=*/kGridCols - 1};
+
+    // 敗北条件「部隊全滅」は既存allPlayersDefeated()のまま。「負傷兵全員撤退」は
+    // BattleFactory.cppがstage.guestUnitsのidをmissionState().guestUnitIdsへ登録
+    // することで自動的にallGuestsLost()経由で配線される(blackwaterCrossingStage()
+    // と同じ)。
+
+    // 勝利: 軍需品1、織物2。
+    stage.victoryRewardRules = {
+        {RewardRule::Condition::Always, {}, {{"military_supplies", 1}, {"cloth", 2}}},
+    };
+
+    // 恒久成果「兵舎救護」(CAMP IIで最も低HPの生存者5回復)はカメラ到着時Unit書換
+    // フック自体が存在しないため見送り(上記コメント参照)。
+
+    stage.missionNameEn = "Old Barracks";
+    stage.missionNameJa = "旧兵舎";
+    return stage;
+}
+
 // docs/regions/shattered_march_fort.md「地点・周回」: 9th region skeleton
 // expanded to the full 7-site/3-camp shape this Slice (same M9-AH precedent:
 // no new terrain/battle mechanic introduced by the region's own 正本, so the
 // region skeleton + site 1 content lands in a single Slice, sites 2-7
-// remaining Bandit x2(-3) placeholders for future Slices). Site 3/4
+// remaining Bandit x2(-3) placeholders for future Slices (M9-AN); sites 2
+// (M9-AO) and 3 (this Slice) have since become real content). Site 3/4
 // (`fort_old_barracks`/`fort_logistics_depot`) is a "順序選択" pair wired via
 // RouteGraph.cpp's `BranchCompletion::AllMembers`, identical in shape to
 // BuriedDawnSanctum's `sanctum_infirmary_archive_branch`/EmberRavine's
 // `ember_ravine_sulfur_channel_branch`. Site 1 (`fort_outer_wall`, "破砕外郭")
-// is real content as of this Slice, JSON-authored directly (fits the
-// existing Schema, no hand-written StageDescriptor function needed, same
-// shape as `sanctum_approach`/`settlement_outer_fence`).
+// is real content as of M9-AN, JSON-authored directly (fits the existing
+// Schema, no hand-written StageDescriptor function needed, same shape as
+// `sanctum_approach`/`settlement_outer_fence`). Site 2 (`fort_broken_gate`,
+// "崩れ門") is real content as of M9-AO, also JSON-authored (single
+// OperateObject Objective). Site 3 (`fort_old_barracks`, "旧兵舎") is real
+// content as of this Slice, hand-authored via fortOldBarracksStage() above
+// (guest-escort site, see that function's own comment).
 RegionDescriptor shatteredMarchFortRegion(const GameData& data) {
     RegionDescriptor region;
     region.id = RegionId::ShatteredMarchFort;
@@ -1803,7 +1921,7 @@ RegionDescriptor shatteredMarchFortRegion(const GameData& data) {
     region.displayNameJa = "破砕された前線砦";
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("fort_outer_wall")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("fort_broken_gate")));
-    region.stages.push_back(stageDescriptorFromContent(data.stageContent("fort_old_barracks")));
+    region.stages.push_back(fortOldBarracksStage());
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("fort_logistics_depot")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("fort_signal_yard")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("fort_reserve_wall")));

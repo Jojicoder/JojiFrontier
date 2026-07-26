@@ -484,6 +484,15 @@ inline constexpr const char* kSanctumDeviceRecordsDiscovery = "sanctum_device_re
 // workers, same "EscapeUnits objective, count-based secondary tier" shape.
 inline constexpr const char* kFieldMedicalRecordsDiscovery = "collapsed_nave_field_medical_records";
 
+// docs/regions/shattered_march_fort.md「副目標と重要発見」地点3「旧兵舎」の
+// "負傷兵全員避難 -> 集団救護記録": same as kFieldMedicalRecordsDiscovery above -
+// the doc's own「安定ID」table doesn't list an id for this record (only the
+// region/camp-level permanent-outcome ids are listed there), so this follows
+// the same `<region-site>_..._records` naming convention. Granted via the
+// same creditedTargetIds.size()>=2 ad-hoc check as blackwater_crossing's own
+// "2人とも脱出" bonus (GameApp.cpp), adapted here for 2 wounded soldiers.
+inline constexpr const char* kGroupTriageRecordsDiscovery = "fort_old_barracks_group_triage_records";
+
 // Forge tuning traits, tracked as an id rather than a free string so a typo
 // can't silently create an unrecognized "equipped" trait.
 enum class TuningTraitId {
