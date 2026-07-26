@@ -12064,14 +12064,16 @@ int main() {
     }
 
     {
-        // docs/regions/shattered_march_fort.md「地図外縁を解放」: RegionId::
-        // MappedEdge (10th and FINAL region of the whole campaign) exists,
-        // is registered in regionUnlocked()/regionDescriptor(), and is only
+        // docs/regions/mapped_edge.md「地点と周回」: RegionId::MappedEdge
+        // (10th and FINAL region of the whole campaign) exists, is
+        // registered in regionUnlocked()/regionDescriptor(), and is only
         // unlocked once ShatteredMarchFort is in completedRegionIds - same
         // direct-BaseState-manipulation test shape as M9-AM's own
         // ShatteredMarchFort-unlock test above (full E2E through all 9 prior
-        // regions is impractical). Per every prior stub region's own
-        // precedent, MappedEdge does NOT get a RouteGraph entry yet.
+        // regions is impractical). As of this Slice (region skeleton +
+        // site 1), MappedEdge now has a full 9-site RouteGraph -
+        // usesRouteGraph() must return true (guards against a repeat of the
+        // usesRouteGraph() omission bug fixed for BuriedDawnSanctum/M9-AM).
         auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
         assert(data);
         jf::BaseState base;
@@ -12079,8 +12081,49 @@ int main() {
         base.completedRegionIds.insert(jf::RegionId::ShatteredMarchFort);
         assert(jf::regionUnlocked(jf::RegionId::MappedEdge, base, *data));
         const jf::RegionDescriptor mappedEdgeRegion = jf::regionDescriptor(jf::RegionId::MappedEdge, *data);
-        assert(!mappedEdgeRegion.stages.empty());
-        assert(!jf::usesRouteGraph(jf::RegionId::MappedEdge));
+        assert(mappedEdgeRegion.stages.size() == 9);
+        assert(jf::usesRouteGraph(jf::RegionId::MappedEdge));
+    }
+
+    {
+        // docs/regions/mapped_edge.md「地点と周回」/「9地点仕様」: this
+        // Slice's region skeleton (9 sites + 4 camps + the site 3/4
+        // 順序選択 pair via BranchCompletion::AllMembers, identical shape to
+        // ShatteredMarchFort's fort_barracks_logistics_branch) plus site 1
+        // "最後の既知標識" as real content.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionRouteGraph& graph = jf::regionRouteGraph(jf::RegionId::MappedEdge);
+        assert(graph.regionId == jf::RegionId::MappedEdge);
+        const jf::RouteNodeDefinition* branch = jf::findRouteNode(graph, "mapped_edge_camp_survey_branch");
+        assert(branch);
+        assert(branch->branchCompletion == jf::BranchCompletion::AllMembers);
+        assert(branch->branchMembers.size() == 2);
+
+        const jf::StageContentData& markerStage = data->stageContent("mapped_edge_last_known_marker");
+        assert(markerStage.enemyRoster.size() == 5);
+        assert(markerStage.scoutRouteRequiredClass == jf::UnitClass::FrontierScout);
+        bool foundRushRoute = false;
+        for (const auto& [choice, outcome] : markerStage.routeOutcomes) {
+            if (choice == jf::ExplorationChoice::CollapsedSidePath) {
+                assert(outcome.partyDamage == 2);
+                foundRushRoute = true;
+            }
+        }
+        assert(foundRushRoute);
+
+        const jf::RegionDescriptor mappedEdgeRegionForSite1 = jf::regionDescriptor(jf::RegionId::MappedEdge, *data);
+        const jf::StageDescriptor& markerRegionStage = mappedEdgeRegionForSite1.stages.front();
+        int rareMaterial = 0;
+        int food = 0;
+        for (const auto& rule : markerRegionStage.victoryRewardRules) {
+            for (const auto& stack : rule.loot) {
+                if (stack.id == "rare_material") rareMaterial += stack.quantity;
+                if (stack.id == "food") food += stack.quantity;
+            }
+        }
+        assert(rareMaterial == 1);
+        assert(food == 1);
     }
 
     {

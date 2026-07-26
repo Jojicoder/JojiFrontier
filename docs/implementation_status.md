@@ -5167,6 +5167,102 @@ Direct/Tactical共に0.0%だが、地点2・5のOperateObject Objectiveシミュ
 なった。地図外縁は全10地域キャンペーンの最後の地域であり、今後のSliceで
 7地点構成へ肉付けされれば、このプロジェクトの地域コンテンツは完結する。
 
+## M9-AU 地図外縁(第10・最終地域): 地域骨格 + 地点1(最後の既知標識)
+
+`docs/regions/mapped_edge.md`を確認し、M9-AN(ShatteredMarchFortの骨格+地点1Slice)の
+確立済みパターンをそのまま踏襲して着手した。正本自身が「既存地域の地形を1戦闘につき
+最大3種類組み合わせる」「敵は地域外の新種軍団ではなく…既存の大型個体で構成する」
+「固定ボスは置かない」と明記しており、新規TerrainType・新規UnitClassをどちらも
+導入しないため、BuriedDawnSanctum/ShatteredMarchFortと同じく「地域骨格を1度作り、
+以後1地点ずつ本格化する」Slice構成を採用した。M9-ATが追加した`RegionId::MappedEdge`
++`mapped_edge_outpost`の1地点プレースホルダーを土台に、本Sliceでスコープ全体
+(9地点+4キャンプ+地点3・4の順序選択)+地点1「最後の既知標識」の実コンテンツへ
+拡張した。
+
+正本の「地点と周回」節の図(`1 最後の既知標識 -> 2 乾いた川床 -> CAMP I ->
+(3 無記録野営跡 / 4 二股の踏査路、順序選択) -> CAMP II -> 5 放棄中継所 ->
+6 石盆地 -> CAMP III -> 7 折れた見張台 -> 8 帰還基点 -> CAMP IV -> 9 地図外縁`)を
+読み、「順序選択」がBuriedDawnSanctum/EmberRavine/ShatteredMarchFortと全く同じ
+「どちらを先に攻略してもよいが両方必須」を意味することを確認した。新たな分岐機構は
+不要と判断し、`RouteGraph.cpp`へ既存の`BranchCompletion::AllMembers`でそのまま配線した
+(`mappedEdgeGraph()`、`mapped_edge_camp_survey_branch`)。
+
+**`usesRouteGraph()`へ`RegionId::MappedEdge`を追加するのを、本Sliceの最初の配線
+ステップとして`mappedEdgeGraph()`の実装と同じコミット単位で行った**(BuriedDawnSanctum
+(M9-AM末尾)・ShatteredMarchFort(M9-AN)で繰り返し発見・修正された同種の見落としの
+3度目の再発を防ぐため)。`tests/test_battle.cpp`へ`jf::usesRouteGraph(jf::RegionId::
+MappedEdge)`を明示的にassertするテストを追加し、`jf_content_tests`
+(`GameData.cpp:612`の`usesRouteGraph()`ループ経由)がこの地域のグラフを実際に
+検証することも確認した(ビルド後の`jf_content_tests`通過で確認)。
+
+地点1「最後の既知標識」はJSON Schemaへ直接収まったため`data/regions.json`のみで
+実コンテンツ化した。正本の主目的/敗北列「標識操作+敵排除 / 全滅」は表記が
+multi-Kind ANDに見えるが、正本自身の9地点表で地点1に独立した副目標(公開副目標)
+列の記載が無く(地点1行の主目的報酬欄は「希少素材1、食料1」のみで、他の一部地点
+(例: 折れた見張台の「地図外縁踏査記録」)のような独立報酬付き副目標の言及も無い)、
+本セッションのM9-D/J/Y/AC/AE/AG/AM/AR/ATと同型のcompound-primary近似方針に
+完全に一致する形。よって主目的は既存のEngineデフォルトである`EliminateTeam`のみへ
+近似し(新規コード不要)、「標識操作」は独立報酬を伴わないフレーバー詳細として
+配線を見送った。この解釈は正本のみでは一意に確定しないため、ここに明記する。
+
+敵「野生獣5」はWolf5体をそのまま(表示名も"Wolf"のまま)再利用した - 正本の
+「普通の野生動物…で構成する」という指示自体が既存クラスの再利用を明示しており、
+Fort Retriever等のような新規flavor表示名を追加する理由が無いと判断した(新規JAグリフ
+登録も不要)。ルート2「急行HP-2」は`ExplorationOutcome::partyDamage`(既存フィールド、
+`ExplorationChoice::CollapsedSidePath`)で表現。ルート3`[斥候]`「周辺踏査」は
+`scoutRouteRequiredClass: FrontierScout`で表現。
+
+新規素材`希少素材`(`rare_material`)を追加した。`data/locales/{en,ja}.json`・
+`materialNameFor()`のknownセット(`ui_shared.cpp`)を検索し、既存素材との重複が
+無いことを確認した上で新規登録した(本セッション複数回の重複素材IDバグを踏まえた
+確認)。`[[feedback_ja_glyph_coverage]]`の教訓どおり、`loadAppFont()`のJAグリフ
+charset収集ループ(`ui_shared.cpp`の材料名リスト)へも`rare_material`を追加した。
+正本の9地点表で「希少素材」は地点1・2・6・9の主目的報酬に繰り返し登場するため、
+今後の地点Slice全てがこのidをそのまま再利用できる。`食料`(food)は
+OldFrontierSettlementで既に登録済みのため再利用した。
+
+新規`mapped_edge`TerrainProfile(`data/terrain_profiles.json`)を追加した。正本の
+地形生成表(通常床30〜45%/灰地・砕石・深泥のいずれか15〜25%/茂み・稜線・防壁床の
+いずれか5〜15%/浅瀬・冷却床のいずれか5〜10%/強風・噴気・崩落予告のいずれか
+5〜10%/通行不能障害物5〜10%)は新規TerrainTypeを追加せず既存5種で近似:
+通常床→Floor(55)、灰地→Ash(15)、茂み→Brush(10)、浅瀬→Shallows(10)、
+通行不能障害物→Barrier(10)。強風・噴気・崩落予告カテゴリ(予告危険は正本自身
+「同時に2系統までに制限」)は本Slice(地点1)の敵編成・脅威に対応が無いため
+Floorへ折り込み、後続の地点Sliceで個別に地形profileを分ける判断は先送りした。
+
+見送った部分(正本との差分、都度明記):
+
+- 地点2〜9(乾いた川床/無記録野営跡/二股の踏査路/放棄中継所/石盆地/折れた見張台/
+  帰還基点/地図外縁)は他地域の骨格Slice同様Bandit x2最小プレースホルダーのまま
+  (次Slice以降で1地点ずつ本格化)
+- 水箱・記録箱・信号盤・観測盤・基点Object等の耐久・操作機構、標識設置(地点9)、
+  最終戦の3波構成・環境波大型獣・no-fixed-boss判定は正本の地点2以降・最終戦の
+  仕様であり本Sliceの範囲外
+
+`tests/test_battle.cpp`へ2件追加(既存の地域解放条件テストは`usesRouteGraph()`の
+アサーションを`false`→`true`・`stages.size()==9`へ更新): 地域骨格(RouteGraph
+`regionId`一致・`mapped_edge_camp_survey_branch`の`branchMembers.size()==2`+
+`AllMembers`検証)+地点1の敵編成(5体)・`scoutRouteRequiredClass`・
+`CollapsedSidePath`の`partyDamage==2`・勝利報酬(`rare_material`1、`food`1)。
+`ctest --test-dir build -j10`は4/4、フルスイートを3回連続実行し安定(フレークなし、
+既知の`test_battle.cpp:1244`フレークも今回は発生せず)。`git diff --check`成功。
+
+### balance実測
+
+`jf_forest_balance --region=mapped_edge`(500 Seed)の実測: 地点1(最後の既知標識)の
+fresh-party win率はDirect 100.0%/HP残59.9%(avg KO 1.03、rounds 4.08)、Tactical
+99.8%/HP残70.5%(avg KO 0.66)。既存地点1の実測レンジ(概ね33.6%〜100%)の上位に
+位置し、Wolf5体という敵数はFortGarrisonCaptain込みの重い編成より軽いことを示す
+だけの記録であり、本Sliceでの数値調整は行わない。9地点通しのRegion clear win率は
+Direct 0.0%/Tactical 0.6%だが、地点2〜9がまだプレースホルダーのままであることに
+加え、地点3・4の`BranchCompletion::AllMembers`分岐自体もシミュレータのヒューリス
+ティックには未対応のため、地点1本体の数値を示すものではない。
+
+以上で**地図外縁(第10・最終地域)の骨格(9地点+4キャンプ+地点3・4の順序選択分岐)が
+到達可能になり、地点1が実コンテンツ化された**。地図外縁は全10地域キャンペーンの
+最後の地域であり、地点2〜9・最終戦「地図外縁」(no-fixed-bossの3波ガントレット)を
+今後のSliceで1地点ずつ本格化すれば、このプロジェクトの本編10地域は完結する。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

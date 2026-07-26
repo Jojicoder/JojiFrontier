@@ -1590,15 +1590,113 @@
       "missionNameJa": "破砕された前線砦 前線拠点(仮実装)"
     },
     {
-      "id": "mapped_edge_outpost",
-      "terrainProfileId": "old_frontier_settlement",
+      "id": "mapped_edge_last_known_marker",
+      "terrainProfileId": "mapped_edge",
       "enemyRoster": [
-        { "id": "mapped_edge_bandit1", "name": "Bandit", "classId": "Bandit" },
-        { "id": "mapped_edge_bandit2", "name": "Bandit", "classId": "Bandit" }
+        { "id": "mapped_edge_marker_wolf1", "name": "Wolf", "classId": "Wolf" },
+        { "id": "mapped_edge_marker_wolf2", "name": "Wolf", "classId": "Wolf" },
+        { "id": "mapped_edge_marker_wolf3", "name": "Wolf", "classId": "Wolf" },
+        { "id": "mapped_edge_marker_wolf4", "name": "Wolf", "classId": "Wolf" },
+        { "id": "mapped_edge_marker_wolf5", "name": "Wolf", "classId": "Wolf" }
+      ],
+      "baseVictoryLoot": [
+        { "id": "rare_material", "quantity": 1 },
+        { "id": "food", "quantity": 1 }
+      ],
+      "routeOutcomes": [
+        { "choice": "CollapsedSidePath", "partyDamage": 2 }
+      ],
+      "scoutRouteRequiredClass": "FrontierScout",
+      "missionNameEn": "Last Known Marker",
+      "missionNameJa": "最後の既知標識"
+    },
+    {
+      "id": "mapped_edge_dry_riverbed",
+      "terrainProfileId": "mapped_edge",
+      "enemyRoster": [
+        { "id": "mapped_edge_dry_riverbed_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "mapped_edge_dry_riverbed_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "herb", "quantity": 1 }],
+      "missionNameEn": "Dry Riverbed (placeholder)",
+      "missionNameJa": "乾いた川床(仮実装)"
+    },
+    {
+      "id": "mapped_edge_unrecorded_camp",
+      "terrainProfileId": "mapped_edge",
+      "enemyRoster": [
+        { "id": "mapped_edge_unrecorded_camp_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "mapped_edge_unrecorded_camp_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "food", "quantity": 1 }],
+      "missionNameEn": "Unrecorded Camp (placeholder)",
+      "missionNameJa": "無記録野営跡(仮実装)"
+    },
+    {
+      "id": "mapped_edge_split_survey_route",
+      "terrainProfileId": "mapped_edge",
+      "enemyRoster": [
+        { "id": "mapped_edge_split_survey_route_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "mapped_edge_split_survey_route_bandit2", "name": "Bandit", "classId": "Bandit" }
       ],
       "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
-      "missionNameEn": "Mapped Edge Outpost (placeholder)",
-      "missionNameJa": "地図外縁 前線拠点(仮実装)"
+      "missionNameEn": "Split Survey Route (placeholder)",
+      "missionNameJa": "二股の踏査路(仮実装)"
+    },
+    {
+      "id": "mapped_edge_abandoned_relay",
+      "terrainProfileId": "mapped_edge",
+      "enemyRoster": [
+        { "id": "mapped_edge_abandoned_relay_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "mapped_edge_abandoned_relay_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "quality_iron", "quantity": 1 }],
+      "missionNameEn": "Abandoned Relay Station (placeholder)",
+      "missionNameJa": "放棄中継所(仮実装)"
+    },
+    {
+      "id": "mapped_edge_stone_basin",
+      "terrainProfileId": "mapped_edge",
+      "enemyRoster": [
+        { "id": "mapped_edge_stone_basin_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "mapped_edge_stone_basin_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "rare_material", "quantity": 1 }],
+      "missionNameEn": "Stone Basin (placeholder)",
+      "missionNameJa": "石盆地(仮実装)"
+    },
+    {
+      "id": "mapped_edge_broken_watchtower",
+      "terrainProfileId": "mapped_edge",
+      "enemyRoster": [
+        { "id": "mapped_edge_broken_watchtower_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "mapped_edge_broken_watchtower_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "ruin_fragment", "quantity": 1 }],
+      "missionNameEn": "Broken Watchtower (placeholder)",
+      "missionNameJa": "折れた見張台(仮実装)"
+    },
+    {
+      "id": "mapped_edge_return_base",
+      "terrainProfileId": "mapped_edge",
+      "enemyRoster": [
+        { "id": "mapped_edge_return_base_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "mapped_edge_return_base_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "food", "quantity": 1 }],
+      "missionNameEn": "Return Base (placeholder)",
+      "missionNameJa": "帰還基点(仮実装)"
+    },
+    {
+      "id": "mapped_edge_outermost_marker",
+      "terrainProfileId": "mapped_edge",
+      "enemyRoster": [
+        { "id": "mapped_edge_outermost_marker_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "mapped_edge_outermost_marker_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "rare_material", "quantity": 1 }],
+      "missionNameEn": "Mapped Edge (placeholder)",
+      "missionNameJa": "地図外縁(仮実装)"
     }
   ]
 }

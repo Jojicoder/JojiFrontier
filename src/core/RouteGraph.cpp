@@ -402,6 +402,59 @@ const RegionRouteGraph& emberRavineGraph() {
     return graph;
 }
 
+// docs/regions/mapped_edge.md「地点と周回」: `1 最後の既知標識 -> 2 乾いた川床
+// -> CAMP I -> (3 無記録野営跡 / 4 二股の踏査路、順序選択) -> CAMP II ->
+// 5 放棄中継所 -> 6 石盆地 -> CAMP III -> 7 折れた見張台 -> 8 帰還基点 ->
+// CAMP IV -> 9 地図外縁`。地点3/4の「順序選択」はBuriedDawnSanctum/
+// ShatteredMarchFort同様「どちらを先に攻略してもよいが両方必須」であり、既存の
+// BranchCompletion::AllMembersでそのまま配線する(このプロジェクトで新規分岐
+// 機構を追加した前例は無い)。
+const RegionRouteGraph& mappedEdgeGraph() {
+    static const RegionRouteGraph graph{
+        RegionId::MappedEdge,
+        "mapped_edge_main_route",
+        "mapped_edge_entrance_node",
+        "mapped_edge_exit",
+        {
+            {"mapped_edge_entrance_node", RouteNodeKind::Entrance, std::nullopt},
+            {"mapped_edge_last_known_marker", RouteNodeKind::Site, "mapped_edge_last_known_marker"},
+            {"mapped_edge_dry_riverbed", RouteNodeKind::Site, "mapped_edge_dry_riverbed"},
+            {"mapped_edge_camp1", RouteNodeKind::Camp, std::nullopt},
+            {"mapped_edge_camp_survey_branch", RouteNodeKind::BranchGroup, std::nullopt,
+             {"mapped_edge_unrecorded_camp", "mapped_edge_split_survey_route"}, BranchCompletion::AllMembers},
+            {"mapped_edge_unrecorded_camp", RouteNodeKind::Site, "mapped_edge_unrecorded_camp"},
+            {"mapped_edge_split_survey_route", RouteNodeKind::Site, "mapped_edge_split_survey_route"},
+            {"mapped_edge_camp2", RouteNodeKind::Camp, std::nullopt},
+            {"mapped_edge_abandoned_relay", RouteNodeKind::Site, "mapped_edge_abandoned_relay"},
+            {"mapped_edge_stone_basin", RouteNodeKind::Site, "mapped_edge_stone_basin"},
+            {"mapped_edge_camp3", RouteNodeKind::Camp, std::nullopt},
+            {"mapped_edge_broken_watchtower", RouteNodeKind::Site, "mapped_edge_broken_watchtower"},
+            {"mapped_edge_return_base", RouteNodeKind::Site, "mapped_edge_return_base"},
+            {"mapped_edge_camp4", RouteNodeKind::Camp, std::nullopt},
+            {"mapped_edge_outermost_marker", RouteNodeKind::Site, "mapped_edge_outermost_marker"},
+            {"mapped_edge_exit", RouteNodeKind::Exit, std::nullopt},
+        },
+        {
+            {"mapped_edge_entrance_node", "mapped_edge_last_known_marker"},
+            {"mapped_edge_last_known_marker", "mapped_edge_dry_riverbed"},
+            {"mapped_edge_dry_riverbed", "mapped_edge_camp1"},
+            {"mapped_edge_camp1", "mapped_edge_camp_survey_branch"},
+            {"mapped_edge_unrecorded_camp", "mapped_edge_camp_survey_branch"},
+            {"mapped_edge_split_survey_route", "mapped_edge_camp_survey_branch"},
+            {"mapped_edge_camp_survey_branch", "mapped_edge_camp2"},
+            {"mapped_edge_camp2", "mapped_edge_abandoned_relay"},
+            {"mapped_edge_abandoned_relay", "mapped_edge_stone_basin"},
+            {"mapped_edge_stone_basin", "mapped_edge_camp3"},
+            {"mapped_edge_camp3", "mapped_edge_broken_watchtower"},
+            {"mapped_edge_broken_watchtower", "mapped_edge_return_base"},
+            {"mapped_edge_return_base", "mapped_edge_camp4"},
+            {"mapped_edge_camp4", "mapped_edge_outermost_marker"},
+            {"mapped_edge_outermost_marker", "mapped_edge_exit"},
+        },
+    };
+    return graph;
+}
+
 } // namespace
 
 bool usesRouteGraph(RegionId regionId) {
@@ -409,7 +462,7 @@ bool usesRouteGraph(RegionId regionId) {
            regionId == RegionId::AshironQuarry || regionId == RegionId::BlackwaterLowlands ||
            regionId == RegionId::WindscarPlateau || regionId == RegionId::OldFrontierSettlement ||
            regionId == RegionId::EmberRavine || regionId == RegionId::BuriedDawnSanctum ||
-           regionId == RegionId::ShatteredMarchFort;
+           regionId == RegionId::ShatteredMarchFort || regionId == RegionId::MappedEdge;
 }
 
 const RegionRouteGraph& regionRouteGraph(RegionId regionId) {
@@ -422,6 +475,7 @@ const RegionRouteGraph& regionRouteGraph(RegionId regionId) {
     if (regionId == RegionId::OldFrontierSettlement) return oldFrontierSettlementGraph();
     if (regionId == RegionId::BuriedDawnSanctum) return buriedDawnSanctumGraph();
     if (regionId == RegionId::ShatteredMarchFort) return shatteredMarchFortGraph();
+    if (regionId == RegionId::MappedEdge) return mappedEdgeGraph();
     throw std::invalid_argument("region has no route graph");
 }
 

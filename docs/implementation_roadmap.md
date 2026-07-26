@@ -348,13 +348,26 @@ Bandit3+WatchArcher2を「Fort Retriever」表示名で再利用、報酬(`stone
 砦床/瓦礫/防壁床(WatchPost、DEF+2)/通行不能壁(Barrier)を既存4種地形へ近似、射撃台・
 破孔は地形効果を持たないためFloorへ折り込んだ。詳細は`implementation_status.md`の
 M9-AN参照。
+M9-AU(地図外縁・第10・最終地域: 地域骨格 + 地点1「最後の既知標識」)完了(2026-07)。
+M9-AN(ShatteredMarchFortの骨格+地点1Slice)と同じ「新規戦闘メカニクス無し」地域として、
+地域骨格全体(9地点+4キャンプ+地点3・4「順序選択」)+地点1を1Sliceで実装。
+`RouteGraph.cpp`へ`mappedEdgeGraph()`を追加し、**同じコミット単位で`usesRouteGraph()`へ
+`RegionId::MappedEdge`を登録**した(BuriedDawnSanctum/ShatteredMarchFortで繰り返し
+発覚した同種の見落としの3度目の再発防止)。主目的はこのプロジェクト一貫の前例どおり
+`EliminateTeam`のみへ近似(「標識操作」は独立報酬の記載が無いためフレーバー詳細として
+見送り)。敵はWolf5体をそのまま再利用(新規flavor名は追加せず)、報酬は既存`food`+
+新規`rare_material`(希少素材、既存素材との重複確認済み、正本の複数地点で再利用予定)。
+新規`mapped_edge`TerrainProfileで通常床/灰地/茂み/浅瀬/通行不能障害物を既存5種地形へ
+近似。詳細は`implementation_status.md`のM9-AU参照。
 
 直近の未完了(優先度順):
 
-1. 破砕された前線砦(第9地域)は全7地点+最終強敵「残留砦隊長」+地域攻略配線が
-   M9-AN〜ATで完了。次は地図外縁(第10・最終地域、現状1地点プレースホルダー
-   スタブのみ)の本格実装(M6-B/C・M9-A〜ATと同じ「骨格→1地点ずつ」方式)。
-   全10地域キャンペーンの最後の地域。
+1. 地図外縁(第10・最終地域)は地域骨格(9地点+4キャンプ+地点3・4の順序選択)+地点1
+   「最後の既知標識」がM9-AUで完了。地点2〜9(乾いた川床/無記録野営跡/二股の踏査路/
+   放棄中継所/石盆地/折れた見張台/帰還基点/地図外縁)はまだBandit x2プレースホルダー
+   のまま。次は地点2以降を1地点ずつ本格化し、最終戦「地図外縁」(no-fixed-bossの
+   3波ガントレット、既存敵アーキタイプのみ)まで到達させる(M9-AN〜AT/M9-AUと同じ
+   「骨格→1地点ずつ」方式)。全10地域キャンペーンの最後の地域。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/

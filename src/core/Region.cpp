@@ -1932,17 +1932,32 @@ RegionDescriptor shatteredMarchFortRegion(const GameData& data) {
     return region;
 }
 
-// docs/regions/shattered_march_fort.md「地図外縁を解放」: 10th and FINAL region
-// of the whole campaign, added as a minimal 1-site placeholder stub - same
-// role every prior region's own pre-fleshed-out stub played (M9-K/Q/Y/AG/AM/
-// AN). Content itself is out of scope for this Slice; a later Slice fleshes
-// it out.
+// docs/regions/mapped_edge.md「地点と周回」: 10th and FINAL region of the
+// whole campaign. Its own 正本 explicitly introduces no new terrain/battle
+// mechanic (existing terrain types recombined 3-at-a-time per battle, no new
+// UnitClass, no new elite/boss class for the eventual no-fixed-boss 3-wave
+// finale) - the same shape BuriedDawnSanctum/ShatteredMarchFort followed, so
+// this Slice expands the M9-AT 1-site placeholder stub straight to the full
+// 9-site/4-camp skeleton (`1 最後の既知標識 -> 2 乾いた川床 -> CAMP I ->
+// (3 無記録野営跡 / 4 二股の踏査路、順序選択) -> CAMP II -> 5 放棄中継所 ->
+// 6 石盆地 -> CAMP III -> 7 折れた見張台 -> 8 帰還基点 -> CAMP IV ->
+// 9 地図外縁`) in one Slice, with site 1 ("最後の既知標識") as real content
+// and sites 2-9 left as Bandit x2 minimal placeholders for future Slices
+// (identical convention to every prior region's own skeleton Slice).
 RegionDescriptor mappedEdgeRegion(const GameData& data) {
     RegionDescriptor region;
     region.id = RegionId::MappedEdge;
     region.displayNameEn = "Mapped Edge";
     region.displayNameJa = "地図外縁";
-    region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_outpost")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_last_known_marker")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_dry_riverbed")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_unrecorded_camp")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_split_survey_route")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_abandoned_relay")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_stone_basin")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_broken_watchtower")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_return_base")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_outermost_marker")));
     return region;
 }
 

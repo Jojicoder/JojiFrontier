@@ -5,11 +5,26 @@
       "generationVersion": 1,
       "seedSalt": 0,
       "weights": [
-        { "terrain": "Rubble", "weight": 24 },
-        { "terrain": "WatchPost", "weight": 10 },
-        { "terrain": "Ash", "weight": 8 },
-        { "terrain": "Barrier", "weight": 6 },
-        { "terrain": "Floor", "weight": 52 }
+        {
+          "terrain": "Rubble",
+          "weight": 24
+        },
+        {
+          "terrain": "WatchPost",
+          "weight": 10
+        },
+        {
+          "terrain": "Ash",
+          "weight": 8
+        },
+        {
+          "terrain": "Barrier",
+          "weight": 6
+        },
+        {
+          "terrain": "Floor",
+          "weight": 52
+        }
       ],
       "signatureTerrain": "Rubble",
       "maxBarriersPerColumn": 1,
@@ -20,11 +35,26 @@
       "generationVersion": 1,
       "seedSalt": 8,
       "weights": [
-        { "terrain": "Rubble", "weight": 24 },
-        { "terrain": "WatchPost", "weight": 10 },
-        { "terrain": "Ash", "weight": 8 },
-        { "terrain": "Barrier", "weight": 6 },
-        { "terrain": "Floor", "weight": 52 }
+        {
+          "terrain": "Rubble",
+          "weight": 24
+        },
+        {
+          "terrain": "WatchPost",
+          "weight": 10
+        },
+        {
+          "terrain": "Ash",
+          "weight": 8
+        },
+        {
+          "terrain": "Barrier",
+          "weight": 6
+        },
+        {
+          "terrain": "Floor",
+          "weight": 52
+        }
       ],
       "signatureTerrain": "Rubble",
       "maxBarriersPerColumn": 1,
@@ -35,27 +65,61 @@
       "generationVersion": 1,
       "seedSalt": 9,
       "weights": [
-        { "terrain": "WatchPost", "weight": 12 },
-        { "terrain": "Rubble", "weight": 18 },
-        { "terrain": "Ash", "weight": 15 },
-        { "terrain": "Barrier", "weight": 7 },
-        { "terrain": "Floor", "weight": 48 }
+        {
+          "terrain": "WatchPost",
+          "weight": 12
+        },
+        {
+          "terrain": "Rubble",
+          "weight": 18
+        },
+        {
+          "terrain": "Ash",
+          "weight": 15
+        },
+        {
+          "terrain": "Barrier",
+          "weight": 7
+        },
+        {
+          "terrain": "Floor",
+          "weight": 48
+        }
       ],
       "signatureTerrain": "WatchPost",
       "maxBarriersPerColumn": 1,
       "ensureHorizontalRoute": true,
-      "countBounds": { "terrain": "WatchPost", "minimum": 2, "maximum": 3 }
+      "countBounds": {
+        "terrain": "WatchPost",
+        "minimum": 2,
+        "maximum": 3
+      }
     },
     {
       "id": "old_barracks",
       "generationVersion": 1,
       "seedSalt": 10,
       "weights": [
-        { "terrain": "Ash", "weight": 22 },
-        { "terrain": "Rubble", "weight": 22 },
-        { "terrain": "WatchPost", "weight": 6 },
-        { "terrain": "Barrier", "weight": 6 },
-        { "terrain": "Floor", "weight": 44 }
+        {
+          "terrain": "Ash",
+          "weight": 22
+        },
+        {
+          "terrain": "Rubble",
+          "weight": 22
+        },
+        {
+          "terrain": "WatchPost",
+          "weight": 6
+        },
+        {
+          "terrain": "Barrier",
+          "weight": 6
+        },
+        {
+          "terrain": "Floor",
+          "weight": 44
+        }
       ],
       "signatureTerrain": "Ash",
       "maxBarriersPerColumn": 1,
@@ -66,11 +130,26 @@
       "generationVersion": 1,
       "seedSalt": 11,
       "weights": [
-        { "terrain": "Rubble", "weight": 24 },
-        { "terrain": "Barrier", "weight": 10 },
-        { "terrain": "Ash", "weight": 8 },
-        { "terrain": "WatchPost", "weight": 4 },
-        { "terrain": "Floor", "weight": 54 }
+        {
+          "terrain": "Rubble",
+          "weight": 24
+        },
+        {
+          "terrain": "Barrier",
+          "weight": 10
+        },
+        {
+          "terrain": "Ash",
+          "weight": 8
+        },
+        {
+          "terrain": "WatchPost",
+          "weight": 4
+        },
+        {
+          "terrain": "Floor",
+          "weight": 54
+        }
       ],
       "signatureTerrain": "Rubble",
       "maxBarriersPerColumn": 1,
@@ -81,11 +160,26 @@
       "generationVersion": 1,
       "seedSalt": 1,
       "weights": [
-        { "terrain": "Ash", "weight": 38 },
-        { "terrain": "Rubble", "weight": 17 },
-        { "terrain": "WatchPost", "weight": 7 },
-        { "terrain": "Barrier", "weight": 6 },
-        { "terrain": "Floor", "weight": 32 }
+        {
+          "terrain": "Ash",
+          "weight": 38
+        },
+        {
+          "terrain": "Rubble",
+          "weight": 17
+        },
+        {
+          "terrain": "WatchPost",
+          "weight": 7
+        },
+        {
+          "terrain": "Barrier",
+          "weight": 6
+        },
+        {
+          "terrain": "Floor",
+          "weight": 32
+        }
       ],
       "signatureTerrain": "Ash",
       "maxBarriersPerColumn": 1,
@@ -96,11 +190,26 @@
       "generationVersion": 1,
       "seedSalt": 2,
       "weights": [
-        { "terrain": "WatchPost", "weight": 23 },
-        { "terrain": "Rubble", "weight": 20 },
-        { "terrain": "Ash", "weight": 11 },
-        { "terrain": "Barrier", "weight": 7 },
-        { "terrain": "Floor", "weight": 39 }
+        {
+          "terrain": "WatchPost",
+          "weight": 23
+        },
+        {
+          "terrain": "Rubble",
+          "weight": 20
+        },
+        {
+          "terrain": "Ash",
+          "weight": 11
+        },
+        {
+          "terrain": "Barrier",
+          "weight": 7
+        },
+        {
+          "terrain": "Floor",
+          "weight": 39
+        }
       ],
       "signatureTerrain": "WatchPost",
       "maxBarriersPerColumn": 1,
@@ -111,24 +220,49 @@
       "generationVersion": 1,
       "seedSalt": 3,
       "weights": [
-        { "terrain": "Ash", "weight": 20 },
-        { "terrain": "Brush", "weight": 15 },
-        { "terrain": "Floor", "weight": 65 }
+        {
+          "terrain": "Ash",
+          "weight": 20
+        },
+        {
+          "terrain": "Brush",
+          "weight": 15
+        },
+        {
+          "terrain": "Floor",
+          "weight": 65
+        }
       ],
       "signatureTerrain": "Brush",
       "maxBarriersPerColumn": 0,
       "ensureHorizontalRoute": true,
-      "countBounds": { "terrain": "Brush", "minimum": 2, "maximum": 4 }
+      "countBounds": {
+        "terrain": "Brush",
+        "minimum": 2,
+        "maximum": 4
+      }
     },
     {
       "id": "herbwater_hollow",
       "generationVersion": 1,
       "seedSalt": 4,
       "weights": [
-        { "terrain": "Shallows", "weight": 35 },
-        { "terrain": "Ash", "weight": 10 },
-        { "terrain": "Brush", "weight": 15 },
-        { "terrain": "Floor", "weight": 40 }
+        {
+          "terrain": "Shallows",
+          "weight": 35
+        },
+        {
+          "terrain": "Ash",
+          "weight": 10
+        },
+        {
+          "terrain": "Brush",
+          "weight": 15
+        },
+        {
+          "terrain": "Floor",
+          "weight": 40
+        }
       ],
       "signatureTerrain": "Shallows",
       "maxBarriersPerColumn": 0,
@@ -139,42 +273,92 @@
       "generationVersion": 1,
       "seedSalt": 5,
       "weights": [
-        { "terrain": "Ash", "weight": 25 },
-        { "terrain": "Brush", "weight": 20 },
-        { "terrain": "Floor", "weight": 55 }
+        {
+          "terrain": "Ash",
+          "weight": 25
+        },
+        {
+          "terrain": "Brush",
+          "weight": 20
+        },
+        {
+          "terrain": "Floor",
+          "weight": 55
+        }
       ],
       "signatureTerrain": "Brush",
       "maxBarriersPerColumn": 0,
       "ensureHorizontalRoute": true,
-      "countBounds": { "terrain": "Brush", "minimum": 2, "maximum": 7 }
+      "countBounds": {
+        "terrain": "Brush",
+        "minimum": 2,
+        "maximum": 7
+      }
     },
     {
       "id": "windscar_ascent",
       "generationVersion": 1,
       "seedSalt": 12,
       "weights": [
-        { "terrain": "Floor", "weight": 38 },
-        { "terrain": "Ash", "weight": 20 },
-        { "terrain": "WatchPost", "weight": 12 },
-        { "terrain": "WindGust", "weight": 15 },
-        { "terrain": "Barrier", "weight": 8 },
-        { "terrain": "Rubble", "weight": 7 }
+        {
+          "terrain": "Floor",
+          "weight": 38
+        },
+        {
+          "terrain": "Ash",
+          "weight": 20
+        },
+        {
+          "terrain": "WatchPost",
+          "weight": 12
+        },
+        {
+          "terrain": "WindGust",
+          "weight": 15
+        },
+        {
+          "terrain": "Barrier",
+          "weight": 8
+        },
+        {
+          "terrain": "Rubble",
+          "weight": 7
+        }
       ],
       "signatureTerrain": "WindGust",
       "maxBarriersPerColumn": 1,
       "ensureHorizontalRoute": true,
-      "countBounds": { "terrain": "WindGust", "minimum": 3, "maximum": 6 }
+      "countBounds": {
+        "terrain": "WindGust",
+        "minimum": 3,
+        "maximum": 6
+      }
     },
     {
       "id": "old_frontier_settlement",
       "generationVersion": 1,
       "seedSalt": 13,
       "weights": [
-        { "terrain": "Floor", "weight": 50 },
-        { "terrain": "Ash", "weight": 15 },
-        { "terrain": "WatchPost", "weight": 12 },
-        { "terrain": "Rubble", "weight": 15 },
-        { "terrain": "Barrier", "weight": 8 }
+        {
+          "terrain": "Floor",
+          "weight": 50
+        },
+        {
+          "terrain": "Ash",
+          "weight": 15
+        },
+        {
+          "terrain": "WatchPost",
+          "weight": 12
+        },
+        {
+          "terrain": "Rubble",
+          "weight": 15
+        },
+        {
+          "terrain": "Barrier",
+          "weight": 8
+        }
       ],
       "signatureTerrain": "Floor",
       "maxBarriersPerColumn": 1,
@@ -185,29 +369,69 @@
       "generationVersion": 1,
       "seedSalt": 14,
       "weights": [
-        { "terrain": "EmberFloor", "weight": 38 },
-        { "terrain": "HotSand", "weight": 15 },
-        { "terrain": "FireFloor", "weight": 15 },
-        { "terrain": "CoolFloor", "weight": 10 },
-        { "terrain": "FumeWarning", "weight": 10 },
-        { "terrain": "AshSmoke", "weight": 7 },
-        { "terrain": "Barrier", "weight": 5 }
+        {
+          "terrain": "EmberFloor",
+          "weight": 38
+        },
+        {
+          "terrain": "HotSand",
+          "weight": 15
+        },
+        {
+          "terrain": "FireFloor",
+          "weight": 15
+        },
+        {
+          "terrain": "CoolFloor",
+          "weight": 10
+        },
+        {
+          "terrain": "FumeWarning",
+          "weight": 10
+        },
+        {
+          "terrain": "AshSmoke",
+          "weight": 7
+        },
+        {
+          "terrain": "Barrier",
+          "weight": 5
+        }
       ],
       "signatureTerrain": "FireFloor",
       "maxBarriersPerColumn": 1,
       "ensureHorizontalRoute": true,
-      "countBounds": { "terrain": "FireFloor", "minimum": 2, "maximum": 5 }
+      "countBounds": {
+        "terrain": "FireFloor",
+        "minimum": 2,
+        "maximum": 5
+      }
     },
     {
       "id": "buried_dawn_sanctum",
       "generationVersion": 1,
       "seedSalt": 15,
       "weights": [
-        { "terrain": "Floor", "weight": 45 },
-        { "terrain": "Rubble", "weight": 20 },
-        { "terrain": "WatchPost", "weight": 12 },
-        { "terrain": "HerbPatch", "weight": 8 },
-        { "terrain": "Barrier", "weight": 15 }
+        {
+          "terrain": "Floor",
+          "weight": 45
+        },
+        {
+          "terrain": "Rubble",
+          "weight": 20
+        },
+        {
+          "terrain": "WatchPost",
+          "weight": 12
+        },
+        {
+          "terrain": "HerbPatch",
+          "weight": 8
+        },
+        {
+          "terrain": "Barrier",
+          "weight": 15
+        }
       ],
       "signatureTerrain": "Floor",
       "maxBarriersPerColumn": 1,
@@ -218,10 +442,52 @@
       "generationVersion": 1,
       "seedSalt": 16,
       "weights": [
-        { "terrain": "Floor", "weight": 56 },
-        { "terrain": "Rubble", "weight": 20 },
-        { "terrain": "WatchPost", "weight": 12 },
-        { "terrain": "Barrier", "weight": 12 }
+        {
+          "terrain": "Floor",
+          "weight": 56
+        },
+        {
+          "terrain": "Rubble",
+          "weight": 20
+        },
+        {
+          "terrain": "WatchPost",
+          "weight": 12
+        },
+        {
+          "terrain": "Barrier",
+          "weight": 12
+        }
+      ],
+      "signatureTerrain": "Floor",
+      "maxBarriersPerColumn": 1,
+      "ensureHorizontalRoute": true
+    },
+    {
+      "id": "mapped_edge",
+      "generationVersion": 1,
+      "seedSalt": 17,
+      "weights": [
+        {
+          "terrain": "Floor",
+          "weight": 55
+        },
+        {
+          "terrain": "Ash",
+          "weight": 15
+        },
+        {
+          "terrain": "Brush",
+          "weight": 10
+        },
+        {
+          "terrain": "Shallows",
+          "weight": 10
+        },
+        {
+          "terrain": "Barrier",
+          "weight": 10
+        }
       ],
       "signatureTerrain": "Floor",
       "maxBarriersPerColumn": 1,
