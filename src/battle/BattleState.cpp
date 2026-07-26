@@ -202,6 +202,51 @@ void resolveWindGustRoundEnd(BattleState& battle) {
     }
 }
 
+// docs/regions/ember_ravine.md "共通地形"「噴気予告床」 - see the declaration's
+// comment (BattleState.hpp) for the full rule summary. Snapshot-then-convert
+// (same shape as resolveWindGustRoundEnd() above) even though converting a
+// tile can't itself trigger a second conversion, for consistency with that
+// function's style.
+void resolveEmberFumeRoundEnd(BattleState& battle) {
+    std::vector<GridPos> fumeTiles;
+    for (int row = 0; row < kGridRows; ++row) {
+        for (int col = 0; col < kGridCols; ++col) {
+            GridPos pos{row, col};
+            if (battle.terrainAt(pos) == TerrainType::FumeWarning) fumeTiles.push_back(pos);
+        }
+    }
+    for (const GridPos& pos : fumeTiles) battle.setTerrain(pos, TerrainType::FireFloor);
+}
+
+// docs/regions/ember_ravine.md "戦場熱量" level 2 - see the declaration's
+// comment (BattleState.hpp).
+void resolveEmberHeatRoundStart(BattleState& battle) {
+    if (battle.heatLevel() < 2) return;
+    for (int row = 0; row < kGridRows; ++row) {
+        for (int col = 0; col < kGridCols; ++col) {
+            GridPos pos{row, col};
+            TerrainType terrain = battle.terrainAt(pos);
+            if (terrain != TerrainType::EmberFloor && terrain != TerrainType::HotSand &&
+                terrain != TerrainType::Floor) {
+                continue;
+            }
+            if (battle.unitAt(pos) || battle.objectBlocksDeploymentAt(pos)) continue;
+            battle.setTerrain(pos, TerrainType::FumeWarning);
+            return;
+        }
+    }
+}
+
+// docs/regions/ember_ravine.md "戦場熱量" level 3 - see the declaration's
+// comment (BattleState.hpp).
+void resolveEmberHeatPhaseEnd(BattleState& battle) {
+    if (battle.heatLevel() < 3) return;
+    for (Unit& unit : battle.units()) {
+        if (!unit.isAlive() || battle.terrainAt(unit.position) == TerrainType::CoolFloor) continue;
+        unit.currentHp = std::max(unit.currentHp - 1, 1);
+    }
+}
+
 Unit* BattleState::unitAt(GridPos pos) {
     for (auto& u : units_) {
         if (u.isPresent() && u.position == pos) return &u;

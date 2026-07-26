@@ -248,6 +248,7 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
             t.id = u.at("id").get<std::string>();
             t.name = u.at("name").get<std::string>();
             t.classId = *classId;
+            t.firstBurnNegated = u.value("firstBurnNegated", false);
             result.push_back(std::move(t));
         }
         return result;
@@ -348,6 +349,7 @@ std::optional<GameData> loadGameData(const std::string& dataDir) {
                     if (o.contains("restrictedAutoSpawnMaxColumn"))
                         outcome.restrictedAutoSpawnMaxColumn = o.at("restrictedAutoSpawnMaxColumn").get<int>();
                     outcome.extraBarrierCount = o.value("extraBarrierCount", 0);
+                    outcome.startingHeatLevel = o.value("startingHeatLevel", 0);
                     outcome.enableReinforcementWave = o.value("enableReinforcementWave", false);
                     stage.routeOutcomes.emplace_back(*choice, outcome);
                 }

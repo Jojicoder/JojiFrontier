@@ -10668,6 +10668,151 @@ int main() {
         assert(!jf::isCooperationUnlocked("paired_signal_ward", base)); // still unreachable
     }
 
+    {
+        // docs/regions/ember_ravine.md「地点構成」: 8-site skeleton + 3 camps
+        // + the site 3/4 either-order-but-both-required branch, mirror of
+        // the Windscar/Old Frontier Settlement skeleton tests above.
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor emberRegion = jf::regionDescriptor(jf::RegionId::EmberRavine, *data);
+        assert(emberRegion.stages.size() == 8);
+        assert(emberRegion.stages[0].id == "ember_ravine_entrance");
+
+        const jf::RegionRouteGraph& emberRoute = jf::regionRouteGraph(jf::RegionId::EmberRavine);
+        std::string error;
+        assert(jf::validateRouteGraph(emberRoute, &error));
+        assert(jf::findRouteNode(emberRoute, "sulfur_hollow"));
+        assert(jf::findRouteNode(emberRoute, "ravine_cooling_channel"));
+        const jf::RouteNodeDefinition* branch = jf::findRouteNode(emberRoute, "ember_ravine_sulfur_channel_branch");
+        assert(branch && branch->kind == jf::RouteNodeKind::BranchGroup &&
+               branch->branchCompletion == jf::BranchCompletion::AllMembers);
+    }
+
+    {
+        // docs/regions/ember_ravine.md「1. 焼け石の入口」: 主目的(岩蜥蜴4体、
+        // firstBurnNegated)・副目標(遮熱標識で行動終了)・3探索ルート(熱量1/
+        // HP-2+敵1体減+耐熱素材-1/[重装兵]防護Object+耐熱素材+1)・勝利報酬
+        // (耐熱素材2、鉄鉱石1)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor emberRegion = jf::regionDescriptor(jf::RegionId::EmberRavine, *data);
+        const jf::StageDescriptor& entranceStage = emberRegion.stages[0];
+        assert(entranceStage.enemyRoster.size() == 4);
+        for (const jf::UnitTemplate& enemy : entranceStage.enemyRoster) assert(enemy.firstBurnNegated);
+        assert(entranceStage.surveyObjectiveId == "ember_ravine_entrance_heat_marker");
+        assert(entranceStage.scoutRouteRequiredClass == jf::UnitClass::HeavyInfantry);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(entranceStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "heat_resistant_material") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "iron") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::CollapsedSidePath), "heat_resistant_material") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::ScoutRoute), "heat_resistant_material") == 3);
+
+        const jf::ExplorationOutcome frontalOutcome = jf::stageRouteOutcome(entranceStage,
+                                                                            jf::ExplorationChoice::FrontalAdvance);
+        assert(frontalOutcome.startingHeatLevel == 1);
+        const jf::ExplorationOutcome rushOutcome = jf::stageRouteOutcome(entranceStage,
+                                                                         jf::ExplorationChoice::CollapsedSidePath);
+        assert(rushOutcome.partyDamage == 2 && rushOutcome.enemiesRemoved == 1);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, entranceStage, /*seed=*/5, frontalOutcome);
+        assert(battle.heatLevel() == 1);
+        int enemyCount = 0;
+        for (const jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 4);
+    }
+
+    {
+        // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
+        // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
+        // する。
+        jf::Unit onFire = makeUnit("on_fire", jf::Team::Player, {0, 0});
+        jf::Unit cooled = makeUnit("cooled", jf::Team::Player, {0, 1});
+        std::array<jf::TerrainType, jf::kGridRows * jf::kGridCols> terrain{};
+        terrain.fill(jf::TerrainType::Floor);
+        terrain[0 * jf::kGridCols + 0] = jf::TerrainType::FireFloor;
+        terrain[0 * jf::kGridCols + 1] = jf::TerrainType::CoolFloor;
+        jf::BattleState battle({onFire, cooled}, terrain);
+        jf::Unit* onFireUnit = battle.findUnit("on_fire");
+        jf::Unit* cooledUnit = battle.findUnit("cooled");
+        jf::applyBurn(*cooledUnit); // pre-existing Burn, standing on CoolFloor
+        jf::processActionEndStatusEffects(battle, *onFireUnit);
+        jf::processActionEndStatusEffects(battle, *cooledUnit);
+        assert(onFireUnit->burnRemainingProcs > 0); // FireFloor's guaranteed Burn
+        assert(cooledUnit->burnRemainingProcs == 0); // CoolFloor cleared it before damage
+        assert(cooledUnit->currentHp == cooledUnit->stats.maxHp); // no damage this tick
+    }
+
+    {
+        // docs/regions/ember_ravine.md 敵勢力「岩蜥蜴」: "各戦闘最初の炎上付与
+        // だけ無効" - the first applyBurn() this battle is negated, the
+        // second behaves normally.
+        jf::Unit lizard = makeUnit("lizard", jf::Team::Enemy, {0, 0});
+        lizard.firstBurnNegatesRemaining = 1;
+        jf::applyBurn(lizard);
+        assert(lizard.burnRemainingProcs == 0);
+        assert(lizard.firstBurnNegatesRemaining == 0);
+        jf::applyBurn(lizard);
+        assert(lizard.burnRemainingProcs > 0);
+    }
+
+    {
+        // docs/regions/ember_ravine.md "共通地形"「噴気予告床」: converts to
+        // FireFloor at Round End, exactly 1 Round after being set.
+        std::array<jf::TerrainType, jf::kGridRows * jf::kGridCols> terrain{};
+        terrain.fill(jf::TerrainType::Floor);
+        terrain[0] = jf::TerrainType::FumeWarning;
+        jf::BattleState battle({}, terrain);
+        jf::resolveEmberFumeRoundEnd(battle);
+        assert(battle.terrainAt(jf::GridPos{0, 0}) == jf::TerrainType::FireFloor);
+    }
+
+    {
+        // docs/regions/ember_ravine.md "戦場熱量" level 2: "各Round開始時、
+        // 空きマス1個を噴気予告床にする" - no-op below level 2.
+        std::array<jf::TerrainType, jf::kGridRows * jf::kGridCols> terrain{};
+        terrain.fill(jf::TerrainType::EmberFloor);
+        jf::BattleState belowLevel2({}, terrain);
+        jf::resolveEmberHeatRoundStart(belowLevel2);
+        assert(belowLevel2.terrainAt(jf::GridPos{0, 0}) == jf::TerrainType::EmberFloor);
+
+        jf::BattleState atLevel2({}, terrain);
+        atLevel2.setHeatLevel(2);
+        jf::resolveEmberHeatRoundStart(atLevel2);
+        bool anyFumeWarning = false;
+        for (int row = 0; row < jf::kGridRows; ++row)
+            for (int col = 0; col < jf::kGridCols; ++col)
+                if (atLevel2.terrainAt(jf::GridPos{row, col}) == jf::TerrainType::FumeWarning) anyFumeWarning = true;
+        assert(anyFumeWarning);
+    }
+
+    {
+        // docs/regions/ember_ravine.md "戦場熱量" level 3: "各陣営Phase終了時、
+        // 冷却床以外の全Unitへ固定1ダメージ。HP1で止まる" - CoolFloor exempts,
+        // and the damage never drops a unit below 1 HP.
+        jf::Unit exposed = makeUnit("exposed", jf::Team::Player, {0, 0});
+        jf::Unit onCoolFloor = makeUnit("on_cool", jf::Team::Player, {0, 1});
+        std::array<jf::TerrainType, jf::kGridRows * jf::kGridCols> terrain{};
+        terrain.fill(jf::TerrainType::EmberFloor);
+        terrain[0 * jf::kGridCols + 1] = jf::TerrainType::CoolFloor;
+        jf::BattleState battle({exposed, onCoolFloor}, terrain);
+        battle.setHeatLevel(3);
+        jf::Unit* exposedUnit = battle.findUnit("exposed");
+        exposedUnit->currentHp = 1;
+        jf::resolveEmberHeatPhaseEnd(battle);
+        assert(exposedUnit->currentHp == 1); // stopped at 1, not reduced to 0
+        const jf::Unit* coolUnit = battle.findUnit("on_cool");
+        assert(coolUnit->currentHp == coolUnit->stats.maxHp); // CoolFloor exemption
+    }
+
     std::cout << "Battle tests PASSED\n";
     return 0;
 }

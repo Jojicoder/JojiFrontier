@@ -260,12 +260,67 @@ const RegionRouteGraph& oldFrontierSettlementGraph() {
     return graph;
 }
 
+// docs/regions/ember_ravine.md「地点構成」: entrance -> 1.焼け石の入口 ->
+// 2.熱風の棚道 -> キャンプI -> (3.硫黄窪地 と 4.破損冷却水路、どちらを先に
+// 攻略してもよいが両方必須) -> キャンプII -> 5.灰晶採取棚 -> 6.旧耐熱工房 ->
+// キャンプIII -> 7.灰封観測所 -> 8.赤熱裂け目 -> exit. Site 3/4's branch is
+// BranchCompletion::AllMembers, same shape as Windscar's windwatch_station/
+// split_convoy and Old Frontier Settlement's settlement_old_granary/
+// settlement_gathering_hall branches (both required, order-free) - matching
+// the doc's own "地点3・4は攻略順を選択可能"/"地点5へ進むには地点3・4の両方を
+// 確保する". Site 1 (`ember_ravine_entrance`) is real content as of this
+// Slice; sites 2-8 are placeholders (see emberRavineRegion() in Region.cpp) -
+// this graph's own wiring is unaffected by that distinction, same as every
+// prior region's skeleton Slice.
+const RegionRouteGraph& emberRavineGraph() {
+    static const RegionRouteGraph graph{
+        RegionId::EmberRavine,
+        "ember_ravine_main_route",
+        "ember_ravine_entrance_node",
+        "ember_ravine_exit",
+        {
+            {"ember_ravine_entrance_node", RouteNodeKind::Entrance, std::nullopt},
+            {"ember_ravine_entrance", RouteNodeKind::Site, "ember_ravine_entrance"},
+            {"ember_ravine_ledge", RouteNodeKind::Site, "ember_ravine_ledge"},
+            {"ember_ravine_camp1", RouteNodeKind::Camp, std::nullopt},
+            {"ember_ravine_sulfur_channel_branch", RouteNodeKind::BranchGroup, std::nullopt,
+             {"sulfur_hollow", "ravine_cooling_channel"}, BranchCompletion::AllMembers},
+            {"sulfur_hollow", RouteNodeKind::Site, "sulfur_hollow"},
+            {"ravine_cooling_channel", RouteNodeKind::Site, "ravine_cooling_channel"},
+            {"ember_ravine_camp2", RouteNodeKind::Camp, std::nullopt},
+            {"ash_crystal_shelf", RouteNodeKind::Site, "ash_crystal_shelf"},
+            {"heatwork_shop", RouteNodeKind::Site, "heatwork_shop"},
+            {"ember_ravine_camp3", RouteNodeKind::Camp, std::nullopt},
+            {"ashsealed_observatory", RouteNodeKind::Site, "ashsealed_observatory"},
+            {"redheat_fissure", RouteNodeKind::Site, "redheat_fissure"},
+            {"ember_ravine_exit", RouteNodeKind::Exit, std::nullopt},
+        },
+        {
+            {"ember_ravine_entrance_node", "ember_ravine_entrance"},
+            {"ember_ravine_entrance", "ember_ravine_ledge"},
+            {"ember_ravine_ledge", "ember_ravine_camp1"},
+            {"ember_ravine_camp1", "ember_ravine_sulfur_channel_branch"},
+            {"sulfur_hollow", "ember_ravine_sulfur_channel_branch"},
+            {"ravine_cooling_channel", "ember_ravine_sulfur_channel_branch"},
+            {"ember_ravine_sulfur_channel_branch", "ember_ravine_camp2"},
+            {"ember_ravine_camp2", "ash_crystal_shelf"},
+            {"ash_crystal_shelf", "heatwork_shop"},
+            {"heatwork_shop", "ember_ravine_camp3"},
+            {"ember_ravine_camp3", "ashsealed_observatory"},
+            {"ashsealed_observatory", "redheat_fissure"},
+            {"redheat_fissure", "ember_ravine_exit"},
+        },
+    };
+    return graph;
+}
+
 } // namespace
 
 bool usesRouteGraph(RegionId regionId) {
     return regionId == RegionId::AshboughForest || regionId == RegionId::CinderwatchGate ||
            regionId == RegionId::AshironQuarry || regionId == RegionId::BlackwaterLowlands ||
-           regionId == RegionId::WindscarPlateau || regionId == RegionId::OldFrontierSettlement;
+           regionId == RegionId::WindscarPlateau || regionId == RegionId::OldFrontierSettlement ||
+           regionId == RegionId::EmberRavine;
 }
 
 const RegionRouteGraph& regionRouteGraph(RegionId regionId) {
@@ -274,6 +329,7 @@ const RegionRouteGraph& regionRouteGraph(RegionId regionId) {
     if (regionId == RegionId::AshironQuarry) return ashironQuarryGraph();
     if (regionId == RegionId::BlackwaterLowlands) return blackwaterLowlandsGraph();
     if (regionId == RegionId::WindscarPlateau) return windscarPlateauGraph();
+    if (regionId == RegionId::EmberRavine) return emberRavineGraph();
     if (regionId == RegionId::OldFrontierSettlement) return oldFrontierSettlementGraph();
     throw std::invalid_argument("region has no route graph");
 }

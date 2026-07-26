@@ -957,6 +957,129 @@
       "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
       "missionNameEn": "Ember Ravine Outpost (placeholder)",
       "missionNameJa": "燼火峡谷 前線拠点(仮実装)"
+    },
+    {
+      "id": "ember_ravine_entrance",
+      "terrainProfileId": "ember_ravine_entrance",
+      "enemyRoster": [
+        { "id": "ember_ravine_lizard1", "name": "Rock Lizard", "classId": "Bandit", "firstBurnNegated": true },
+        { "id": "ember_ravine_lizard2", "name": "Rock Lizard", "classId": "Bandit", "firstBurnNegated": true },
+        { "id": "ember_ravine_lizard3", "name": "Rock Lizard", "classId": "Bandit", "firstBurnNegated": true },
+        { "id": "ember_ravine_lizard4", "name": "Rock Lizard", "classId": "Bandit", "firstBurnNegated": true }
+      ],
+      "baseVictoryLoot": [
+        { "id": "heat_resistant_material", "quantity": 2 },
+        { "id": "iron", "quantity": 1 }
+      ],
+      "routeVictoryLootDelta": [
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "heat_resistant_material", "quantity": -1 }] },
+        { "choice": "ScoutRoute", "loot": [{ "id": "heat_resistant_material", "quantity": 1 }] }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance", "startingHeatLevel": 1 },
+        { "choice": "CollapsedSidePath", "partyDamage": 2, "enemiesRemoved": 1 },
+        { "choice": "ScoutRoute", "extraBarrierCount": 1 }
+      ],
+      "scoutRouteRequiredClass": "HeavyInfantry",
+      "objectPlacementRules": [
+        {
+          "definition": {
+            "definitionId": "heat_shield_plate",
+            "kind": "Barrier",
+            "blocksMovement": true,
+            "canBeAttacked": true,
+            "maxDurability": 12,
+            "defense": 2,
+            "resistance": 2
+          },
+          "idPrefix": "heat_shield_plate",
+          "count": 0,
+          "scalesWithExtraBarrierOutcome": true,
+          "zoneMinCol": 2,
+          "zoneMaxCol": 5,
+          "avoidFirstEnemyRow": true
+        }
+      ],
+      "surveyObjectiveId": "ember_ravine_entrance_heat_marker",
+      "missionNameEn": "Scorched Stone Entrance",
+      "missionNameJa": "焼け石の入口"
+    },
+    {
+      "id": "ember_ravine_ledge",
+      "terrainProfileId": "ember_ravine_entrance",
+      "enemyRoster": [
+        { "id": "ember_ravine_ledge_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "ember_ravine_ledge_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "heat_resistant_material", "quantity": 1 }],
+      "missionNameEn": "Heated Ledge Path (placeholder)",
+      "missionNameJa": "熱風の棚道(仮実装)"
+    },
+    {
+      "id": "sulfur_hollow",
+      "terrainProfileId": "ember_ravine_entrance",
+      "enemyRoster": [
+        { "id": "sulfur_hollow_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "sulfur_hollow_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "heat_resistant_material", "quantity": 1 }],
+      "missionNameEn": "Sulfur Hollow (placeholder)",
+      "missionNameJa": "硫黄窪地(仮実装)"
+    },
+    {
+      "id": "ravine_cooling_channel",
+      "terrainProfileId": "ember_ravine_entrance",
+      "enemyRoster": [
+        { "id": "cooling_channel_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "cooling_channel_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
+      "missionNameEn": "Broken Cooling Channel (placeholder)",
+      "missionNameJa": "破損冷却水路(仮実装)"
+    },
+    {
+      "id": "ash_crystal_shelf",
+      "terrainProfileId": "ember_ravine_entrance",
+      "enemyRoster": [
+        { "id": "ash_crystal_shelf_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "ash_crystal_shelf_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "heat_resistant_material", "quantity": 1 }],
+      "missionNameEn": "Ash Crystal Shelf (placeholder)",
+      "missionNameJa": "灰晶採取棚(仮実装)"
+    },
+    {
+      "id": "heatwork_shop",
+      "terrainProfileId": "ember_ravine_entrance",
+      "enemyRoster": [
+        { "id": "heatwork_shop_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "heatwork_shop_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 1 }],
+      "missionNameEn": "Old Heatwork Shop (placeholder)",
+      "missionNameJa": "旧耐熱工房(仮実装)"
+    },
+    {
+      "id": "ashsealed_observatory",
+      "terrainProfileId": "ember_ravine_entrance",
+      "enemyRoster": [
+        { "id": "ashsealed_observatory_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "ashsealed_observatory_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "heat_resistant_material", "quantity": 1 }],
+      "missionNameEn": "Ash-Sealed Observatory (placeholder)",
+      "missionNameJa": "灰封観測所(仮実装)"
+    },
+    {
+      "id": "redheat_fissure",
+      "terrainProfileId": "ember_ravine_entrance",
+      "enemyRoster": [
+        { "id": "redheat_fissure_bandit1", "name": "Bandit", "classId": "Bandit" },
+        { "id": "redheat_fissure_bandit2", "name": "Bandit", "classId": "Bandit" }
+      ],
+      "baseVictoryLoot": [{ "id": "heat_resistant_material", "quantity": 1 }, { "id": "iron", "quantity": 1 }],
+      "missionNameEn": "Redheat Fissure (placeholder)",
+      "missionNameJa": "赤熱裂け目(仮実装)"
     }
   ]
 }

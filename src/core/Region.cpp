@@ -1384,16 +1384,34 @@ RegionDescriptor oldFrontierSettlementRegion(const GameData& data) {
     return region;
 }
 
-// docs/regions/old_frontier_settlement.md「燼火峡谷を遠征先へ追加」: 7th region,
-// minimal placeholder (same role old_frontier_settlement_outpost/
-// windswept_highland_outpost played before their own regions were fleshed
-// out - M9-K/M9-Q precedent). Content itself is out of scope here.
+// docs/regions/ember_ravine.md「地点構成」: 8-site skeleton + 3 camps, same
+// M6/M9 "build the skeleton once, flesh out one site at a time" pattern as
+// every prior region. Site 1 (`ember_ravine_entrance`, "焼け石の入口") is
+// real content as of this Slice (see `data/regions.json`'s own entry - it
+// fits the existing JSON Schema directly, no hand-written StageDescriptor
+// fields needed, same shape as Windscar's `windwatch_station`/`plateau_relay`
+// once those needed no Region.cpp function of their own). Sites 2/3/4/5/6/7/8
+// remain minimal Bandit x2 placeholders (`data/regions.json`'s
+// `ember_ravine_ledge`/`sulfur_hollow`/`ravine_cooling_channel`/
+// `ash_crystal_shelf`/`heatwork_shop`/`ashsealed_observatory`/
+// `redheat_fissure` entries) replacing the single-site
+// `ember_ravine_outpost` M9-Y stub (left in place, dead/unreferenced - same
+// precedent as `blackwater_crossing`'s own dead JSON entry). Site 3/4's
+// "どちらを先に攻略してもよい、両方必須" branch is wired in RouteGraph.cpp
+// (emberRavineGraph()), not here.
 RegionDescriptor emberRavineRegion(const GameData& data) {
     RegionDescriptor region;
     region.id = RegionId::EmberRavine;
     region.displayNameEn = "Ember Ravine";
     region.displayNameJa = "燼火峡谷";
-    region.stages.push_back(stageDescriptorFromContent(data.stageContent("ember_ravine_outpost")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("ember_ravine_entrance")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("ember_ravine_ledge")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("sulfur_hollow")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("ravine_cooling_channel")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("ash_crystal_shelf")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("heatwork_shop")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("ashsealed_observatory")));
+    region.stages.push_back(stageDescriptorFromContent(data.stageContent("redheat_fissure")));
     return region;
 }
 

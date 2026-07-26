@@ -1877,6 +1877,9 @@ void BattleController::evaluateOutcome() {
         processPhaseEndStatusEffects(battle_, Team::Player);
         clearMoveUpAtPlayerPhaseEnd(battle_);
         battle_.clearTrailblazedTiles(); // 辺境斥候`trailblaze`: "このPlayer Phase中だけ"
+        // docs/regions/ember_ravine.md "戦場熱量" level 3: "各陣営Phase終了時"
+        // covers Player Phase end too, not just Enemy Phase end below.
+        resolveEmberHeatPhaseEnd(battle_);
         emitUnitDefeatedEvents(battle_, aliveBeforePhaseEnd);
         handleObjectiveEvent(battle_.missionState(),
                              {battle_.issueEventId(), 0, PhaseEndedEvent{Phase::PlayerPhase, battle_.round()}});
@@ -1950,6 +1953,11 @@ void BattleController::update(float dt) {
     // events are emitted, so a unit felled by wind collision damage is
     // reported the same way a unit felled by poison already is.
     resolveWindGustRoundEnd(battle_);
+    // docs/regions/ember_ravine.md "共通地形"「噴気予告床」/「戦場熱量」level 3:
+    // both resolved at this same Round-End point, before defeat events fire,
+    // same reasoning as resolveWindGustRoundEnd() above.
+    resolveEmberFumeRoundEnd(battle_);
+    resolveEmberHeatPhaseEnd(battle_);
     emitUnitDefeatedEvents(battle_, aliveBeforePhaseEnd);
     handleObjectiveEvent(battle_.missionState(),
                          {battle_.issueEventId(), 0, PhaseEndedEvent{Phase::EnemyPhase, battle_.round()}});
@@ -1962,6 +1970,9 @@ void BattleController::update(float dt) {
     // comment).
     resolveHoldTileRoundEnd(battle_);
     battle_.beginPlayerPhase();
+    // docs/regions/ember_ravine.md "戦場熱量" level 2: "各Round開始時" - the
+    // new Round starts here (BattleState::beginPlayerPhase() increments it).
+    resolveEmberHeatRoundStart(battle_);
     // 辺境工兵`rapid_barricade`(即席防壁)「次の自軍Phase開始時に消滅」: unlike
     // `field_barricade`(固有能力「野戦工作」、永続)、この専用definitionIdの
     // 設置物だけを自軍Phase開始のたびに破棄する。

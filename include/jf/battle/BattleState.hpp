@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -160,6 +161,18 @@ public:
     void setWindGust(std::optional<WindGustConfig> config) { windGust_ = config; }
     const std::optional<WindGustConfig>& windGust() const { return windGust_; }
 
+    // docs/regions/ember_ravine.md "戦場熱量": shared per-battle value 0-3,
+    // set once at scenario assembly from the chosen route (BattleFactory.cpp,
+    // same "config decided before battle starts" shape as WindGustConfig
+    // above) and adjusted mid-battle only by device operation (never by
+    // random variance - see the doc's own "ランダム変動しない"). Never
+    // persisted/carried across battles (doc: "戦闘終了時に熱量を破棄").
+    int heatLevel() const { return heatLevel_; }
+    // Clamped to [0, 3] (doc's fixed range) rather than asserting - callers
+    // (device-operate handlers) already only ever request +-1, but clamping
+    // here keeps this the single point that can never go out of range.
+    void setHeatLevel(int level) { heatLevel_ = std::clamp(level, 0, 3); }
+
     // 連携作戦(docs/character_progression.md「連携作戦」): squad-wide, not
     // per-unit - one slot for the whole party (set once at battle assembly
     // from SaveData::equippedCooperationId, mirrors how other squad-wide
@@ -188,6 +201,7 @@ private:
     std::vector<GridPos> trailblazedTiles_;
     std::vector<ReinforcementWave> reinforcementWaves_;
     std::optional<WindGustConfig> windGust_;
+    int heatLevel_ = 0;
     std::string equippedCooperationId_;
     bool cooperationUsedThisBattle_ = false;
 };
@@ -205,5 +219,30 @@ private:
 // "重量装甲は移動距離を0にする" rule. Never moves/damages a unit already at
 // 0 HP, never auto-completes objectives (it only ever changes position/HP).
 void resolveWindGustRoundEnd(BattleState& battle);
+
+// docs/regions/ember_ravine.md "共通地形"「噴気予告床」: called at Round End
+// (same point as resolveWindGustRoundEnd() above), unconditionally (not
+// gated by heatLevel() - the doc's heat level 1 row "噴気予告を通常処理"
+// just means this baseline conversion, no special-casing). Converts every
+// FumeWarning tile that has stood for a full Round into FireFloor.
+void resolveEmberFumeRoundEnd(BattleState& battle);
+
+// docs/regions/ember_ravine.md "戦場熱量" level 2 ("各Round開始時、空きマス1個を
+// 噴気予告床にする"): called once per Player Phase start (BattleController.cpp,
+// right after BattleState::beginPlayerPhase()). No-op below heat level 2.
+// Picks the first empty, passable, non-hazard tile in row-major scan order
+// (deterministic - no seeded-random tile picker exists in this codebase to
+// reuse, a documented simplification vs. the doc's unspecified selection
+// rule) and converts it to FumeWarning.
+void resolveEmberHeatRoundStart(BattleState& battle);
+
+// docs/regions/ember_ravine.md "戦場熱量" level 3 ("各陣営Phase終了時、冷却床
+// 以外の全Unitへ固定1ダメージ。HP1で止まる"): called at both Player Phase end
+// and Enemy Phase end (BattleController.cpp), independent of
+// processPhaseEndStatusEffects()'s per-team loop since this applies to
+// every alive unit regardless of team. No-op below heat level 3. This is
+// plain HP damage, not a status effect (doc: "熱量ダメージは...万能薬で解除
+// できない") - never touches burnRemainingProcs or any cured-by-item flag.
+void resolveEmberHeatPhaseEnd(BattleState& battle);
 
 } // namespace jf

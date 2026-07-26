@@ -117,6 +117,7 @@
   "material.riding_gear": "Riding Gear",
   "material.building_material": "Building Material",
   "material.food": "Food",
+  "material.heat_resistant_material": "Heat-Resistant Material",
 
   "weapon.iron_sword": "Iron Sword",
   "weapon.iron_lance": "Iron Lance",
@@ -197,6 +198,12 @@
   "terrain.herb_patch": "Herb Patch",
   "terrain.shallows": "Shallows",
   "terrain.wind_gust": "Wind Gust",
+  "terrain.ember_floor": "Ember Floor",
+  "terrain.hot_sand": "Hot Sand",
+  "terrain.fire_floor": "Fire Floor",
+  "terrain.cool_floor": "Cool Floor",
+  "terrain.fume_warning": "Fume Warning",
+  "terrain.ash_smoke": "Ash Smoke",
 
   "battle_object.barrier": "Fallen log",
   "battle_object.marker": "Survey point",

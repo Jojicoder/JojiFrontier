@@ -179,6 +179,24 @@
       "signatureTerrain": "Floor",
       "maxBarriersPerColumn": 1,
       "ensureHorizontalRoute": true
+    },
+    {
+      "id": "ember_ravine_entrance",
+      "generationVersion": 1,
+      "seedSalt": 14,
+      "weights": [
+        { "terrain": "EmberFloor", "weight": 38 },
+        { "terrain": "HotSand", "weight": 15 },
+        { "terrain": "FireFloor", "weight": 15 },
+        { "terrain": "CoolFloor", "weight": 10 },
+        { "terrain": "FumeWarning", "weight": 10 },
+        { "terrain": "AshSmoke", "weight": 7 },
+        { "terrain": "Barrier", "weight": 5 }
+      ],
+      "signatureTerrain": "FireFloor",
+      "maxBarriersPerColumn": 1,
+      "ensureHorizontalRoute": true,
+      "countBounds": { "terrain": "FireFloor", "minimum": 2, "maximum": 5 }
     }
   ]
 }

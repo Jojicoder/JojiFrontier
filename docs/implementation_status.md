@@ -2987,6 +2987,131 @@ Tactical 2.2%(いずれも極めて低い)だが、これは地点5自体の数�
 completedRegionIdsへ入り、最低保証報酬フロアが適用され、燼火峡谷(第7地域)が
 選択可能な状態でBase画面に追加される)。
 
+### M9-Z 燼火峡谷(第7地域): 地域骨格 + 地点1(焼け石の入口) + 炎上床/冷却床/噴気予告床/戦場熱量
+
+`docs/regions/ember_ravine.md`を確認し、M9-L(風裂き高原・地域骨格+地点1+強風地形)を
+最も近い前例として着手した。M9-Yが追加した`RegionId::EmberRavine`+
+`ember_ravine_outpost`の1地点プレースホルダーを土台に、本Sliceでスコープ全体
+(8地点+3キャンプ+地点3・4のどちらを先に攻略してもよい`BranchCompletion::
+AllMembers`分岐)+地点1「焼け石の入口」の実コンテンツ+この地域の新規機構
+「戦場熱量」+関連6地形へ拡張した。「実装順」1番目(炎上床・冷却床・噴気予告床・
+戦場熱量)を最優先で本格実装し、フレーバーとして見送らなかった。
+
+**新規地形6種**: `TerrainType`へ`EmberFloor`(焼け石床、移動コスト1)・
+`HotSand`(熱砂、移動コスト2)・`FireFloor`(炎上床、移動コスト1)・`CoolFloor`
+(冷却床、移動コスト1)・`FumeWarning`(噴気予告床、移動コスト1)・`AshSmoke`
+(灰煙床、移動コスト2、回避補正なし)を追加した。炎上床/冷却床は既存の
+`StatusEffects.cpp`の仕組みへそのまま乗せた: `terrainClearsBurn()`(既にShallows用に
+存在した「行動終了時、炎上ダメージ前に炎上解除」の一般化フック)へCoolFloorを
+追加、`processActionEndStatusEffects()`の先頭でFireFloor上のUnitへ`applyBurn()`を
+無条件呼び出しする1行を追加した(「行動終了時に炎上を確定付与」= 命中判定を
+経ない確定付与、タイルそのものが確定条件)。
+
+**戦場熱量(新規機構)**: `BattleState`に戦闘ごとの`heatLevel_`(int、`setHeatLevel()`で
+[0,3]へclamp)を追加し、`ExplorationOutcome::startingHeatLevel`(新規フィールド、
+`extraBarrierCount`と同型、地点1ルート1「熱量1」用)経由で`BattleFactory.cpp`の
+`assembleScenario()`が戦闘開始時に設定する。レベル別効果は3つの新規フリー関数で
+実装し、`BattleController.cpp`の対応するPhase境界へ`resolveWindGustRoundEnd()`と
+同じ並びで配線した: `resolveEmberFumeRoundEnd()`(噴気予告床→炎上床、Round End、
+熱量に関わらず常時 - 正本の熱量1行「噴気予告を通常処理」はこの既定動作そのもの
+という解釈)、`resolveEmberHeatRoundStart()`(熱量2以上でPlayer Phase開始時に
+空きマス1個を噴気予告床化 - 乱数ピッカーが既存コードに無いため、行優先で最初に
+見つかった空き床マスを選ぶ決定的な近似)、`resolveEmberHeatPhaseEnd()`
+(熱量3で両陣営のPhase終了時、冷却床以外の生存Unit全員へ固定1ダメージ・HP1で
+下限 - Player Phase End・Enemy Phase Endの両方に配線、状態異常ではなくHPへの
+直接ダメージなので`burnRemainingProcs`等には一切触れない)。地点1は熱量1までしか
+使わないため、レベル2・3の効果自体はこのSliceの実プレイでは発火しない
+(コードとしては完成、次に熱量2・3を使う地点が実装されるまで未検証)。
+
+**岩蜥蜴の「各戦闘最初の炎上付与だけ無効」**: 敵勢力「岩蜥蜴」はAshiron Quarryの
+「穿岩獣=Bandit再利用」と同じ「既存クラスの数値を流用し表示名だけ変える」前例を
+踏襲しBandit数値をそのまま使ったが、この特性だけは表示名の付け替えでは表現できない
+新規の per-unit挙動のため、`Unit::knockbackNegatesRemaining`と同型の
+`Unit::firstBurnNegatesRemaining`(int、戦闘開始時に設定、消費で減算)を新設した。
+`UnitTemplate::firstBurnNegated`(bool、JSON `firstBurnNegated`キー)から
+`instantiateUnit()`が`firstBurnNegatesRemaining=1`を設定し、`jf::applyBurn()`が
+Burnの発生源(武器on-hitでもFireFloorでも)を問わずこのカウンタを唯一の消費点として
+チェックする形にした - 新規`UnitClass`は追加していない(正本の「新兵種...を
+追加しない」不変条件、および穿岩獣前例どおり)。
+
+**地点1「焼け石の入口」はRegion.cppの手書き関数ではなくJSON化**: Windscarの
+site1/2(windGust等の未対応フィールドのため手書きが必要だった)とは異なり、
+この地点が必要とするフィールド(`routeOutcomes`の`startingHeatLevel`/
+`extraBarrierCount`、`scoutRouteRequiredClass`、`objectPlacementRules`の
+`scalesWithExtraBarrierOutcome`、`surveyObjectiveId`、`routeVictoryLootDelta`)は
+既にJSON Schema側(`GameData.cpp`)がすべてカバー済みだったため、
+`data/regions.json`の`ember_ravine_entrance`エントリ単体で完結させた(Windscarの
+`windwatch_station`/`plateau_relay`が最終的にたどり着いたのと同じ形)。
+`ExplorationOutcome::startingHeatLevel`のJSON読み取り(`o.value("startingHeatLevel",
+0)`)と`UnitTemplate::firstBurnNegated`のJSON読み取り(`u.value("firstBurnNegated",
+false)`)は、この地点のために`GameData.cpp`へ新規追加した。
+
+**探索3択**: ルート1「火の切れ間を待つ」は`startingHeatLevel:1`のみ(敵4体は
+enemyRoster既定のまま)。ルート2「熱砂を急いで越える」は`partyDamage:2`+
+`enemiesRemoved:1`(既存`ExplorationOutcome`フィールドのみで正確に表現、新規
+インフラ不要)+`routeVictoryLootDelta`で耐熱素材-1。ルート3`[重装兵]`
+「遮熱板を運ぶ」は`extraBarrierCount:1`(`heat_shield_plate`という新規Barrier
+Object定義、`count:0`+`scalesWithExtraBarrierOutcome:true`でこのルートだけ1個
+出現、Windscar/旧辺境集落の`fallen_log`前例と同型)+耐熱素材+1。
+
+**新素材`heat_resistant_material`(耐熱素材)**: `materialNameFor()`のknownセット+
+`data/locales/{en,ja}.json`(`material.heat_resistant_material`)へ追加。この地域/
+地点/敵の日本語表示名(燼火峡谷・地点8つ・岩蜥蜴・熱地採取団・赤背の大蜥蜴)は
+[[JA glyph coverage / no ID-collision on JA text]]の慣習どおり`loadAppFont()`の
+`charsetSource`へ手動登録した(新素材自体はこの地点で使う`heat_resistant_material`を
+明示的に`charsetSource`収集ループへ追加、地域/地点/敵名のような素のJA文字列とは
+別経路)。新規地形6種の表示名は既存の`terrain.*`Locale Key経路(`tr()`)で
+自動収集されるため、こちらは`charsetSource`の手動編集が不要だった(M9-M以来の
+「Locale Key化された文字列は自動収集」パターン)。`ui_shared.cpp`の
+`terrainColor()`/`terrainType`のtoString相当スイッチへ新規6種の色・Locale Key
+呼び出しを追加(既存WindGust等と同じ形)。
+
+**見送った部分(既存の記録済みギャップと同型)**:
+
+- 共通地形の「冷却床へ到達できる経路を最低1本保証する」: `TerrainProfile`の
+  `countBounds`は単一TerrainType専用で、複数条件(炎上封鎖回避+冷却床到達保証)を
+  同時に検証する機構がない。`ensureHorizontalRoute`(既存)による通行可能タイルの
+  水平経路保証だけを流用し、冷却床specificの到達保証はドキュメントのみに留めた。
+- 共通地形の「炎上床、噴気床を初期配置、脱出、必須Objectiveマスへ生成しない」:
+  M9-Fが記録済みの「ルート単位・タイル種別単位の地形生成上書き機構がない」ことと
+  同型のギャップ、対応なし。
+- 噴気予告床の噴気弁破壊(+1)/冷却弁操作(-1)によるheatLevel変更: Object操作から
+  BattleState熱量を書き換えるフックは地点1に存在しないルート(硫黄窪地/破損冷却
+  水路以降で必要)のため未着手 - `BattleState::setHeatLevel()`自体は公開済みで、
+  後続Sliceが呼び出すだけで済む。
+- ボス「赤背の大蜥蜴」・岩蜥蜴/採取団AIの専用ふるまい(冷却床回避評価等): 地点1は
+  標準EliminateTeamのみで、専用AI分岐が要る地点はまだ実装対象外。
+
+`tests/test_battle.cpp`へ7件追加: 地域骨格(8地点+ルートグラフ+分岐の
+`AllMembers`検証)、地点1の構成・報酬・`startingHeatLevel`/`firstBurnNegated`
+検証、FireFloor確定炎上/CoolFloor炎上解除を直接`BattleState`で検証、岩蜥蜴の
+初回炎上無効(2回目は通常発生)、噴気予告床のRound End変換、戦場熱量レベル2の
+Round Start噴気予告床生成(レベル未満はno-op)、レベル3のPhase End固定ダメージ
+(冷却床免除・HP1下限)。既存4テストスイート
+(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/`check_localization`)含め
+全成功、`jf_battle_tests`単体を20回連続実行しSliceの新規テストはすべて安定
+(既存Cinderwatch側の`stacked_crate`個数アサーション、`test_battle.cpp:1244`が
+20回中1回だけ失敗する既知の別バグを発見 - `GameApp.cpp`が`std::random_device`
+(非決定的)で遠征Seedを毎回生成しているため、稀に`stacked_crate`のObject配置が
+2個ちょうどにならない乱数が引かれる。本Slice(燼火峡谷)のコード・データとは
+無関係な既存の別テストの潜在フレーク - 該当テストの実行順・処理内容は本Sliceの
+変更で一切触れていない箇所であり、再現条件(非決定的Seed)も本Slice以前から
+存在する。原因を特定した上で、指示どおり本Slice範囲外の修正は行わない)。
+
+`jf_forest_balance --region=ember_ravine`(500 Seed)の実測: 地点1(焼け石の入口)の
+fresh-party win率はDirect 43.6%/HP残9.7%、Tactical 22.6%/HP残9.4%(avg KO
+3.34〜3.44/4、ほぼ全滅に近い消耗)。既存地点1のwin率レンジ(33.6%〜100%、M9-L
+訂正記事参照)の下限に近いが範囲内。FireFloorの確定炎上(命中判定を経ない
+タイル効果)が既存地点1にない新規のダメージ源であることが主因と見られる。
+[[jf_forest_balance worst-case numbers]]の教訓どおり実測記録のみに留め、本Slice
+では数値調整を行わない。8地点通しのRegion clear win率はDirect/Tactical共に
+0.0%だが、これは地点2以降がすべてBandit x2の最小プレースホルダーのままで
+実際のコンテンツを反映していないため参考値に留まる(Reachは地点1 500/500から
+以降急減 - プレースホルダー自体の数値未調整によるもので、地点1本体の問題ではない)。
+
+以上で燼火峡谷(第7地域)は地域骨格が到達可能になり、地点1が実コンテンツ化された。
+残り7地点は次のSlice以降で1地点ずつ本格化する。
+
 ## 検証状況
 
 - デスクトップ通常ビルド成功

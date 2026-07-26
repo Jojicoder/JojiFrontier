@@ -34,6 +34,12 @@ struct UnitTemplate {
     std::string id;
     std::string name;
     UnitClass classId{};
+    // docs/regions/ember_ravine.md 敵勢力「岩蜥蜴」: "各戦闘最初の炎上付与だけ
+    // 無効" - not a UnitClass-level trait (岩蜥蜴 reuses an existing class's
+    // stats, same "reskin" precedent as every other region's own enemy
+    // faction), so it's a per-template flag instead. instantiateUnit()
+    // (BattleFactory.cpp) turns this into Unit::firstBurnNegatesRemaining.
+    bool firstBurnNegated = false;
 };
 
 // docs/implementation_roadmap.md M1-E slice1/2: the JSON-loadable subset of

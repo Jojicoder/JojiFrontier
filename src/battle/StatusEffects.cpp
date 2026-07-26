@@ -13,7 +13,11 @@ namespace {
 // its action-end damage is applied. No shipped TerrainType does this yet
 // (Terrain.hpp has no Shallows-equivalent), so this always returns false
 // today - it is the hook point for when that terrain ships.
-bool terrainClearsBurn(TerrainType terrain) { return terrain == TerrainType::Shallows; }
+// docs/regions/ember_ravine.md "共通地形"「冷却床」: "行動終了時、炎上ダメージ
+// 前に炎上解除" - same action-end-before-damage timing Shallows already used.
+bool terrainClearsBurn(TerrainType terrain) {
+    return terrain == TerrainType::Shallows || terrain == TerrainType::CoolFloor;
+}
 } // namespace
 
 void applyPoison(Unit& target) {
@@ -21,6 +25,12 @@ void applyPoison(Unit& target) {
 }
 
 void applyBurn(Unit& target) {
+    // docs/regions/ember_ravine.md 敵勢力「岩蜥蜴」: negate exactly the first
+    // Burn application this battle, then behave normally afterward.
+    if (target.firstBurnNegatesRemaining > 0) {
+        --target.firstBurnNegatesRemaining;
+        return;
+    }
     target.burnRemainingProcs = statusBurnMaxProcs(target.isBoss);
 }
 
@@ -133,6 +143,12 @@ void processActionEndStatusEffects(BattleState& battle, Unit& unit) {
         unit.staggerActive = false;
         return;
     }
+    // docs/regions/ember_ravine.md "共通地形"「炎上床」: "行動終了時に炎上を
+    // 確定付与" - guaranteed, unlike a weapon's on-hit Burn which is only
+    // ever applied after an already-confirmed hit; the tile itself is the
+    // confirmation. Checked before the CoolFloor-clears-Burn branch below
+    // since a unit can only ever stand on one of the two tiles at once.
+    if (battle.terrainAt(unit.position) == TerrainType::FireFloor) applyBurn(unit);
     if (unit.burnRemainingProcs > 0 && terrainClearsBurn(battle.terrainAt(unit.position))) {
         unit.burnRemainingProcs = 0;
     }

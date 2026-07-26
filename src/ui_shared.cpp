@@ -107,6 +107,15 @@ Color terrainColor(jf::TerrainType terrain) {
         // docs/regions/windscar_plateau.md "強風帯": a pale wind-swept blue,
         // distinct from Shallows' darker water-blue.
         case jf::TerrainType::WindGust: return Color{156, 189, 201, 255};
+        // docs/regions/ember_ravine.md "共通地形": warm scorched-stone/hot
+        // sand/fire/coolant/telegraph/smoke palette, distinct from every
+        // prior region's terrain colors.
+        case jf::TerrainType::EmberFloor: return Color{138, 92, 61, 255};
+        case jf::TerrainType::HotSand: return Color{176, 132, 74, 255};
+        case jf::TerrainType::FireFloor: return Color{196, 76, 41, 255};
+        case jf::TerrainType::CoolFloor: return Color{72, 140, 148, 255};
+        case jf::TerrainType::FumeWarning: return Color{214, 158, 92, 255};
+        case jf::TerrainType::AshSmoke: return Color{120, 112, 108, 255};
         case jf::TerrainType::Floor: return kFloorPanelColor;
     }
     return kFloorPanelColor;
@@ -298,7 +307,9 @@ void loadAppFont() {
                       "黒水低湿地灰水の沈み道葦原の分岐薬草洲樹脂林黒水渡し沈没水門深泥の水源(仮実装)"
                       "風裂き高原風下の登り口崩れた中継路風見台分断された輸送隊断崖荷車道高原伝令所"
                       "旧辺境集落風化した外柵共同井戸旧穀物庫集会家屋夜明けの共同防衛"
-                      "残留住民帰還者灰道襲撃団襲撃団頭領建築材食料(仮実装)";
+                      "残留住民帰還者灰道襲撃団襲撃団頭領建築材食料(仮実装)"
+                      "燼火峡谷焼け石の入口熱風の棚道硫黄窪地破損冷却水路灰晶採取棚旧耐熱工房灰封観測所赤熱裂け目"
+                      "岩蜥蜴熱地採取団赤背の大蜥蜴";
     for (const jf::FacilityNode& node : jf::facilityNodeRegistry()) charsetSource += node.nameJa + node.effectJa;
     for (const jf::SkillDefinition& skill : jf::skillRegistry()) charsetSource += skill.nameJa + skill.effectJa;
     for (jf::UnitClass uc : {jf::UnitClass::MarchCaptain, jf::UnitClass::VeteranGuard,
@@ -446,6 +457,12 @@ std::string terrainNameFor(jf::TerrainType terrain) {
         case jf::TerrainType::HerbPatch: return tr("terrain.herb_patch");
         case jf::TerrainType::Shallows: return tr("terrain.shallows");
         case jf::TerrainType::WindGust: return tr("terrain.wind_gust");
+        case jf::TerrainType::EmberFloor: return tr("terrain.ember_floor");
+        case jf::TerrainType::HotSand: return tr("terrain.hot_sand");
+        case jf::TerrainType::FireFloor: return tr("terrain.fire_floor");
+        case jf::TerrainType::CoolFloor: return tr("terrain.cool_floor");
+        case jf::TerrainType::FumeWarning: return tr("terrain.fume_warning");
+        case jf::TerrainType::AshSmoke: return tr("terrain.ash_smoke");
     }
     return jf::toString(terrain);
 }
@@ -509,7 +526,7 @@ std::string materialNameFor(const std::string& id) {
         "captains_seal", jf::kAshveilFangMaterial, jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment",
         "iron", "stone", "old_gear", "signal_core", "quality_iron", "combustion_oil", "ashiron_shell",
         "wetland_resin", "poison_material", "hardwood", "cloth", "riding_gear",
-        "building_material", "food",
+        "building_material", "food", "heat_resistant_material",
     };
     return known.count(id) ? tr("material." + id) : id;
 }

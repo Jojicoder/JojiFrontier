@@ -393,6 +393,7 @@ BattleState assembleScenario(const GameData& data, const std::vector<Unit>* surv
         battle.setWindGust(
             BattleState::WindGustConfig{stage.windGust->delta, stage.windGust->triggerRound});
     }
+    if (outcome.startingHeatLevel > 0) battle.setHeatLevel(outcome.startingHeatLevel);
     for (const StageDescriptor::GuestUnitData& guest : stage.guestUnits) {
         battle.missionState().guestUnitIds.push_back(guest.unitTemplate.id);
     }
@@ -815,6 +816,10 @@ Unit instantiateUnit(const GameData& data, const UnitTemplate& unitTemplate, Tea
     unit.position = pos;
     unit.hasActed = false;
     unit.tilesMovedThisAction = 0;
+    // docs/regions/ember_ravine.md 敵勢力「岩蜥蜴」: negates exactly the
+    // first Burn application this battle (see UnitTemplate::firstBurnNegated
+    // and Unit::firstBurnNegatesRemaining's own comments).
+    if (unitTemplate.firstBurnNegated) unit.firstBurnNegatesRemaining = 1;
     return unit;
 }
 

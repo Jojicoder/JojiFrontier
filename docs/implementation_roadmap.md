@@ -108,12 +108,26 @@ Milestone進行(M0〜M6は完了/概ね完了、M8-Aは未実装、詳細は各�
   (`computeRegionSummaries()`がOldFrontierSettlementを一覧から欠いていた)の
   2件の既存バグを発見・修正した。詳細は`implementation_status.md`参照
 
+M9-Z(燼火峡谷・第7地域: 地域骨格 + 地点1「焼け石の入口」 + 炎上床/冷却床/
+噴気予告床/戦場熱量)完了(2026-07)。8地点+3キャンプ+地点3・4のどちらを先に
+攻略してもよい分岐が到達可能な状態になり、地点1が実コンテンツ化された
+(`data/regions.json`のJSON定義のみで完結、Region.cpp側の手書き関数は不要)。
+この地域の新規機構「戦場熱量」(`BattleState::heatLevel()`、戦闘ごと0〜3の
+共有値)と新規地形6種(焼け石床/熱砂/炎上床/冷却床/噴気予告床/灰煙床)を
+「実装順」1番目どおり最優先で実装し、フレーバーとして見送らなかった
+(Windscarの強風地形と同じ「新地域+新規地形/戦闘状態メカニクスを同じSliceで
+実装する」前例を踏襲)。敵勢力「岩蜥蜴」の「各戦闘最初の炎上付与だけ無効」は
+新規`Unit::firstBurnNegatesRemaining`(新規UnitClassは追加しない)で表現した。
+詳細は`implementation_status.md`のM9-Z参照。
+
 直近の未完了(優先度順):
 
-1. 燼火峡谷(第7地域)の本格実装(M6-B/C・M9-A〜Y方式)。旧辺境集落(第6地域)は
-   M9-Yで全5地点+地域攻略が完了し、燼火峡谷は`RegionId::EmberRavine`+
-   `ember_ravine_outpost`の最小プレースホルダーとして追加済み(選択可能、内容は
-   Bandit2体の仮実装のみ)
+1. 燼火峡谷(第7地域)の残り7地点の本格実装(M6-B/C・M9-A〜Y方式)。地点1
+   「焼け石の入口」はM9-Zで完了、地点2〜8は`data/regions.json`のBandit2体
+   プレースホルダーのまま(地点3・4以降で戦場熱量レベル2・3の消費/AI連動、
+   噴気弁破壊(+1)・冷却弁操作(-1)によるheatLevel変更フック、岩蜥蜴/採取団AI、
+   地域ボス「赤背の大蜥蜴」の実装が必要 - `BattleState::setHeatLevel()`自体は
+   公開済みで、Object操作からの呼び出し配線だけが未着手)
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/

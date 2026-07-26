@@ -8,11 +8,17 @@ int movementCost(TerrainType terrain) {
         case TerrainType::Rubble: return 2;
         case TerrainType::Shallows: return 2;
         case TerrainType::Barrier: return 999;
+        case TerrainType::HotSand: return 2;
+        case TerrainType::AshSmoke: return 2;
         case TerrainType::Floor:
         case TerrainType::WatchPost:
         case TerrainType::Brush:
         case TerrainType::HerbPatch:
-        case TerrainType::WindGust: return 1;
+        case TerrainType::WindGust:
+        case TerrainType::EmberFloor:
+        case TerrainType::FireFloor:
+        case TerrainType::CoolFloor:
+        case TerrainType::FumeWarning: return 1;
     }
     return 1;
 }
@@ -40,6 +46,12 @@ std::string toString(TerrainType terrain) {
         case TerrainType::HerbPatch: return "Herb Patch";
         case TerrainType::Shallows: return "Shallows";
         case TerrainType::WindGust: return "Wind Gust";
+        case TerrainType::EmberFloor: return "Ember Floor";
+        case TerrainType::HotSand: return "Hot Sand";
+        case TerrainType::FireFloor: return "Fire Floor";
+        case TerrainType::CoolFloor: return "Cool Floor";
+        case TerrainType::FumeWarning: return "Fume Warning";
+        case TerrainType::AshSmoke: return "Ash Smoke";
     }
     return "Floor";
 }

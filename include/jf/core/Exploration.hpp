@@ -20,6 +20,11 @@ struct ExplorationOutcome {
     // 誘導する"): one additional fallen-log Barrier beyond the stage's
     // baseline count.
     int extraBarrierCount = 0;
+    // docs/regions/ember_ravine.md 地点1「焼け石の入口」ルート1「火の切れ間を
+    // 待つ」: this route's own "熱量1" (battle starts at heat level 1),
+    // consumed by BattleFactory.cpp into BattleState::setHeatLevel(). 0 (the
+    // default) matches every route that doesn't mention a starting 熱量.
+    int startingHeatLevel = 0;
     bool enableReinforcementWave = false;
 };
 

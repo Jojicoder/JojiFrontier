@@ -117,6 +117,7 @@
   "material.riding_gear": "騎具素材",
   "material.building_material": "建築材",
   "material.food": "食料",
+  "material.heat_resistant_material": "耐熱素材",
 
   "weapon.iron_sword": "鉄の剣",
   "weapon.iron_lance": "鉄のランス",
@@ -197,6 +198,12 @@
   "terrain.herb_patch": "薬草地点",
   "terrain.shallows": "浅瀬",
   "terrain.wind_gust": "強風帯",
+  "terrain.ember_floor": "焼け石床",
+  "terrain.hot_sand": "熱砂",
+  "terrain.fire_floor": "炎上床",
+  "terrain.cool_floor": "冷却床",
+  "terrain.fume_warning": "噴気予告床",
+  "terrain.ash_smoke": "灰煙床",
 
   "battle_object.barrier": "倒木",
   "battle_object.marker": "踏査地点",

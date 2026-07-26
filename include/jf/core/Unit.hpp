@@ -57,6 +57,14 @@ struct Unit {
     // rest of the battle (set once at battle start, decremented on use).
     int knockbackNegatesRemaining = 0;
 
+    // docs/regions/ember_ravine.md 敵勢力「岩蜥蜴」: "各戦闘最初の炎上付与だけ
+    // 無効" - same "negate N of X for the rest of the battle, set once at
+    // battle start, decremented on use" shape as knockbackNegatesRemaining
+    // above. Consumed by jf::applyBurn() (jf/battle/StatusEffects.hpp)
+    // regardless of Burn's source (weapon on-hit or a terrain tile like
+    // FireFloor), since that's the single application entry point.
+    int firstBurnNegatesRemaining = 0;
+
     // Scales down status-effect magnitude/duration instead of granting full
     // immunity (docs/status_effects.md "ボス補正"). Set once when a boss
     // encounter is instantiated; no shipped content sets this yet.
