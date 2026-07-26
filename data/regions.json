@@ -1256,7 +1256,7 @@
         { "id": "collapsed_nave_beast1", "name": "Buried Beast", "classId": "Wolf" }
       ],
       "baseVictoryLoot": [
-        { "id": "medicinal_herb", "quantity": 2 },
+        { "id": "herb", "quantity": 2 },
         { "id": "iron", "quantity": 1 }
       ],
       "missionNameEn": "Collapsed Nave (placeholder)",
@@ -1267,14 +1267,18 @@
       "terrainProfileId": "buried_dawn_sanctum",
       "enemyRoster": [
         { "id": "sanctum_infirmary_retriever1", "name": "Sanctum Retriever", "classId": "Bandit" },
-        { "id": "sanctum_infirmary_retriever2", "name": "Sanctum Retriever", "classId": "Bandit" }
+        { "id": "sanctum_infirmary_retriever2", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "sanctum_infirmary_retriever3", "name": "Sanctum Retriever", "classId": "Bandit" },
+        { "id": "sanctum_infirmary_archer1", "name": "Sanctum Retriever", "classId": "WatchArcher" }
       ],
       "baseVictoryLoot": [
-        { "id": "medicinal_herb", "quantity": 2 },
+        { "id": "herb", "quantity": 2 },
         { "id": "building_material", "quantity": 1 }
       ],
-      "missionNameEn": "Infirmary (placeholder)",
-      "missionNameJa": "救護室(仮実装)"
+      "scoutRouteRequiredClass": "DawnChirurgeon",
+      "primarySurviveRoundsAlternative": { "id": "sanctum_infirmary_defense", "surviveUntilRound": 3 },
+      "missionNameEn": "Infirmary",
+      "missionNameJa": "救護室"
     },
     {
       "id": "sanctum_archive",

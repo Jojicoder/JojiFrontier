@@ -281,7 +281,7 @@ void loadAppFont() {
     // edit like the kJa* constants below still do.
     charsetSource += jf::allJapaneseGlyphText();
     charsetSource += kJaJapaneseNative +
-                      "灰枝の森沈黙した監視所群灰枝の林縁" +
+                      "灰枝の森沈黙した監視所群灰枝の林縁救護室" +
                       "不明なスキルクールダウン: あとこの戦闘では使用済み" +
                       "平地灰塵瓦礫障害物監視所インパッサブル移動コスト通行不可経路完了"
                       "レオンガレスエリンミラネッサローワン国境斥候行軍槍兵野盗脱走元隊長救急セット野戦治療キット茂み薬草地点✓"

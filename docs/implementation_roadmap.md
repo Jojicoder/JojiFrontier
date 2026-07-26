@@ -208,11 +208,25 @@ M9-AI(埋没聖堂・第8地域: 地点2「崩れた礼拝堂」)完了(2026-07)
 (キャンプ到達時ステータス書き換えフック自体が未実装)で見送り。詳細は
 `implementation_status.md`のM9-AI参照。
 
+M9-AJ(埋没聖堂・第8地域: 地点3「救護室」)完了(2026-07)。
+`sanctum_infirmary`をsanctum_approach同様`data/regions.json`+
+`stageDescriptorFromContent()`のJSON-authoredで本格化(guestUnits不要のため)。
+主目的は`primarySurviveRoundsAlternative`(surviveUntilRound=3、herb_islet以来
+証明済みのパターン)、敵は聖堂回収団4(Bandit3+WatchArcher1 reskin)、勝利報酬は
+薬草2/建築材1、ルート3`[衛生兵]`治療班分担は`scoutRouteRequiredClass:
+DawnChirurgeon`。副目標「救護台耐久6以上→医療典籍」はObject耐久機構未実装のため
+見送り(M9-AH地点1と同型の既知ギャップ) - `medical_codex`は正本の安定IDリストに
+実在するが、このルートからは現状到達不能(地域攻略時の最低保証`医療典籍1`の
+穴埋め配線も将来のSliceで別途必要)。恒久成果`sanctum_infirmary_restored`(CAMP II
+救急セット補充効果)もキャンプ効果フック未実装のため見送り(collapsed_nave_sheltered
+と同型)。JAグリフcharsetへ「護」「室」を追加登録。詳細は
+`implementation_status.md`のM9-AJ参照。
+
 直近の未完了(優先度順):
 
-1. 埋没聖堂(第8地域)の残り地点(3〜6)の本格実装(M6-B/C・M9-A〜AIと同じ
-   「骨格→1地点ずつ」方式)。地域骨格+地点1「埋没参道」+地点2「崩れた礼拝堂」は
-   M9-AH/M9-AIで完了済み。
+1. 埋没聖堂(第8地域)の残り地点(4〜6)の本格実装(M6-B/C・M9-A〜AJと同じ
+   「骨格→1地点ずつ」方式)。地域骨格+地点1「埋没参道」+地点2「崩れた礼拝堂」+
+   地点3「救護室」はM9-AH/M9-AI/M9-AJで完了済み。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/

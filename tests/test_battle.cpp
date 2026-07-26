@@ -11413,6 +11413,48 @@ int main() {
     }
 
     {
+        // docs/regions/buried_dawn_sanctum.md「3. 救護室」: 主目的(救護台3
+        // Round防衛、primarySurviveRoundsAlternative)・敵編成(回収団4)・
+        // 勝利報酬(薬草2、建築材1)・`[衛生兵]`ルート要件(DawnChirurgeon)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor sanctumRegion =
+            jf::regionDescriptor(jf::RegionId::BuriedDawnSanctum, *data);
+        const jf::StageDescriptor& infirmaryStage = sanctumRegion.stages[2];
+        assert(infirmaryStage.id == "sanctum_infirmary");
+        assert(infirmaryStage.enemyRoster.size() == 4);
+        assert(infirmaryStage.scoutRouteRequiredClass == jf::UnitClass::DawnChirurgeon);
+        assert(infirmaryStage.primarySurviveRoundsAlternative &&
+               infirmaryStage.primarySurviveRoundsAlternative->id == "sanctum_infirmary_defense" &&
+               infirmaryStage.primarySurviveRoundsAlternative->surviveUntilRound == 3);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(infirmaryStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "herb") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "building_material") == 1);
+
+        jf::BattleState infirmaryBattle = jf::createScenarioBattle(*data, infirmaryStage, /*seed=*/9);
+        int enemyCount = 0;
+        for (const jf::Unit& unit : infirmaryBattle.units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 4);
+        jf::syncObjectiveProgress(infirmaryBattle);
+        assert(jf::evaluateBattleOutcome(infirmaryBattle).kind != jf::BattleOutcomeKind::Victory);
+        while (infirmaryBattle.round() <= 3) {
+            infirmaryBattle.beginEnemyPhase();
+            infirmaryBattle.beginPlayerPhase();
+        }
+        jf::syncObjectiveProgress(infirmaryBattle);
+        assert(jf::evaluateBattleOutcome(infirmaryBattle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。

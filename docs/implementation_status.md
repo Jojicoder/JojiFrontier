@@ -4306,6 +4306,74 @@ Tactical 60.2%/HP残80.7%(avg KO 0.99、rounds 13.39、timeout 186/500)。timeou
 以上で埋没聖堂(第8地域)の地点2が実コンテンツ化された。地点3〜6は次のSlice以降で
 1地点ずつ本格化する。
 
+## M9-AJ 埋没聖堂(第8地域): 地点3(救護室)
+
+パターンをそのまま踏襲して本格化した。地点3は`guestUnits`が不要なため、M9-AHの地点1
+(`sanctum_approach`)と同じくJSON-authored(`data/regions.json`の`sanctum_infirmary`
+placeholderエントリを実コンテンツへ差し替え、`Region.cpp`の手書き関数は不要)とした。
+`RouteGraph.cpp`のルートノード`sanctum_infirmary`はM9-AHのスコープ段階で既に配線済み
+(`sanctum_infirmary_archive_branch`のAllMembersメンバーの一つ)のため、本Sliceでの
+RouteGraph変更は無かった。
+
+主目的「救護台3Round防衛」は`primarySurviveRoundsAlternative`
+(`SurviveRoundsMissionRule`、`surviveUntilRound=3`)をそのまま再利用 -
+Blackwater Lowlands地点3(`herb_islet`)以来証明済みの同一パターン。敗北条件
+「救護台0」はObject耐久機構が丸ごと未実装(M6-C以来の既知ギャップ)のため配線せず、
+「部隊全滅」は`allPlayersDefeated()`が常時有効なため追加配線不要であることを確認した
+(正本は「救護台0」のみを明記しているが、他の全SurviveRounds地点と同様に全滅は
+暗黙的に常時有効)。標準敵は聖堂回収団4体(Bandit3体+WatchArcher1体を
+"Sanctum Retriever"表示名で再利用、`sanctum_approach`と全く同じ編成比率)。
+探索3択のうちルート1「救護台防衛」/ルート2「医薬箱搬出」は正本の表セルに数値差分の
+記述が無いため無条件・base rosterのまま、ルート3`[衛生兵]`「治療班分担」は
+`scoutRouteRequiredClass: DawnChirurgeon`のクラス要件のみとした
+(`DawnChirurgeon`は`herb_islet`/`collapsed_nave`で既にクラスとして確立済み)。
+勝利報酬(薬草2、建築材1)は`herb`/`building_material`とも既存materialが
+そのまま流用可能で新規登録は不要だった。
+
+**[訂正]** 当初`herb`ではなく新規`medicinal_herb`というIDを使っていたが、これは
+`herb`(薬草)と同一概念の重複IDでロケール未登録のバグだった(地点2「崩れた礼拝堂」
+のM9-AIでも同じ誤りが混入していた)。両地点とも`herb`へ修正済み。
+
+見送った部分(正本との差分):
+
+- 副目標「救護台耐久6以上→医療典籍」: Object耐久機構が丸ごと未実装のため配線せず、
+  報酬側も到達不能のまま未宣言で残した(M9-AH地点1の副目標と同型の既知ギャップ)。
+  `medical_codex`は正本の安定IDリストに実在する名前付きDiscoveryだが、このSliceの
+  時点では到達手段が無い。正本「最低保証」節が医療典籍1を地域攻略時の保証枠として
+  別途要求している点も確認済みで、その穴埋め配線(祭壇保管庫からの追加)は地域攻略
+  Sliceで別途必要になる - 今回は着手しない。
+- 恒久成果`sanctum_infirmary_restored`(CAMP IIで救急セット1個補充、1遠征1回):
+  キャンプ到達時に効果を発動するフック自体がプロジェクトに存在しない
+  (`collapsed_nave_sheltered`/M9-AI、Ember Ravine地点2/CAMP IのためM9-AAが下した
+  判断と同一理由)ため見送り。
+
+JAグリフcharsetへ「護」「室」を追加登録した(`missionNameJa: "救護室"`、「救」は
+既存の「救急セット」から登録済みだったが「護」「室」は未登録だったため、
+[[JA glyph coverage / no ID-collision on JA text]]の教訓どおり確認の上で追加)。
+`missionNameEn`/`missionNameJa`もplaceholder表記("(placeholder)"/"(仮実装)")から
+実名(`"Infirmary"`/`"救護室"`)へ更新した。
+
+`tests/test_battle.cpp`へ1件追加(地点3の敵編成4体・`primarySurviveRoundsAlternative`
+(id/surviveUntilRound)・`scoutRouteRequiredClass`・勝利報酬・SurviveRounds経由の
+victory判定を、Blackwater Lowlands地点3のSurviveRoundsテストと同型で検証)。既存3
+スイート(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`)+`check_localization`
+含め全成功、フルスイートを3回連続実行し安定(フレークなし。既知の
+`test_battle.cpp:1244`フレークは今回発生せず)。
+
+`jf_forest_balance --region=buried_dawn_sanctum`(500 Seed)の実測: 地点3(救護室)の
+fresh-party win率はDirect 99.4%/HP残37.6%(avg KO 2.13、rounds 3.96、timeout 0/500)、
+Tactical 96.2%/HP残52.0%(avg KO 1.29、rounds 3.96、timeout 19/500)。SurviveRounds型の
+主目的(3Round生存のみで足り、標準敵4体を全滅させる必要が無い)のため他の地点1・2より
+win率が明確に高いが、Blackwater Lowlandsの`herb_islet`等、他のSurviveRounds地点でも
+同様に高いwin率が実測されており([[jf_forest_balance worst-case numbers]]の教訓どおり
+実測記録のみに留め、本Sliceでの数値調整は行わない)、地点3固有の外れ値ではないと判断した。
+6地点通しのRegion clear win率はDirect 0.6%/Tactical 8.2%だが、地点4〜6がまだ
+placeholderのままであることが主因で、地点3本体の数値を示すものではない。
+
+以上で埋没聖堂(第8地域)の地点3が実コンテンツ化された。地点3・4は「順序選択」ペアで
+CAMP IIへ合流するが、CAMP IIが真に到達可能になるのは地点4も実装された後になる。
+地点4〜6は次のSlice以降で1地点ずつ本格化する。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/
