@@ -107,6 +107,22 @@ void GameApp::proceedToCamp() {
         mergeLoot({{"quality_herb", 1}});
     expedition_.pendingLoot.insert(expedition_.pendingLoot.end(), loot.begin(), loot.end());
 
+    // docs/regions/buried_dawn_sanctum.md「2. 崩れた礼拝堂」の副目標「避難者
+    // 全員脱出」→ 野戦救護記録: same ad-hoc creditedTargetIds.size()>=2 check
+    // as blackwater_crossing's own "2人とも脱出" bonus above, granting a
+    // Discovery instead of Loot (same shape as quarry_old_mine's own
+    // kMiningTechniqueRecordsDiscovery check below).
+    if (!isReconnaissanceRun_ && stage.id == "collapsed_nave") {
+        const BattleMissionState& mission = battleController_->battle().missionState();
+        for (const ObjectiveDefinition& def : mission.definitions) {
+            if (def.id != "collapsed_nave_escape") continue;
+            if (mission.progress.at(def.id).creditedTargetIds.size() >= 2 &&
+                std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                         kFieldMedicalRecordsDiscovery) == expedition_.pendingDiscoveries.end())
+                expedition_.pendingDiscoveries.push_back(kFieldMedicalRecordsDiscovery);
+            break;
+        }
+    }
     // docs/regions/ashiron_quarry.md「3A. 旧採掘坑」の副目標「作業員2人とも
     // 脱出」→ 採掘技術記録: same ad-hoc creditedTargetIds.size()>=2 check as
     // blackwater_crossing's own "2人とも脱出" bonus above, but granting a

@@ -1645,6 +1645,110 @@ RegionDescriptor emberRavineRegion(const GameData& data) {
     return region;
 }
 
+// docs/regions/buried_dawn_sanctum.md「2. 崩れた礼拝堂」: hand-authored for the
+// same reason as emberRavineLedgeStage()/sulfurHollowStage() - needs
+// `guestUnits`/`primaryEscapeUnitsAlternative`, neither exposed by
+// stageDescriptorFromContent()'s JSON Schema. Replaces the `collapsed_nave`
+// Bandit x2 + Wolf placeholder (data/regions.json's own entry left in place,
+// dead/unreferenced - same precedent as every other superseded placeholder).
+//
+// **主目的**: 「避難者1人以上脱出」は`primaryEscapeUnitsAlternative`
+// (`PrimaryEscapeUnitsRule`) - blackwater_crossing/windscarRelayStage()/
+// emberRavineLedgeStage()以来証明済みのguest-escort primaryをそのまま再利用。
+// 敗北条件「全避難者撤退」はguestUnitsのid登録によるallGuestsLost()経由
+// (追加配線不要、他の全guest-escort地点と同型)。
+//
+// **避難者2人**: 副目標「避難者全員脱出」が意味を持つには2人以上必要 -
+// タスク側の指示どおり2人とした(DawnChirurgeon再利用、他のguest-escort地点と
+// 同じ「ステータス/表示名だけ再利用」慣習)。
+//
+// **副目標「避難者全員脱出→野戦救護記録」**: RewardRule::ConditionにEscapeUnits
+// のcreditedTargetIds件数を読む手段が無いため、blackwater_crossing「2人とも
+// 脱出→高品質薬草1」/quarry_old_mine「2人とも脱出→採掘技術記録」と全く同じ
+// ad-hoc creditedTargetIds.size()>=2チェックをGameApp.cppへ追加(下記参照)。
+// `kFieldMedicalRecordsDiscovery`の命名根拠はBaseState.hppの当該コメント参照。
+//
+// **探索3択**: 正本の表セルは「避難者優先 / 器具優先 / [暁の衛生兵]負傷判定」
+// のみで、sulfur_hollowの回のような数値差分(熱量・敵数増減等)の追加記述が
+// 無い(表以外に地点2専用の追加テキストが存在しない箇所まで確認した)。
+// sanctum_approach(M9-AH地点1)の「無条件ルートは数値差分なし」前例に倣い、
+// ルート1「避難者優先」/ルート2「器具優先」はいずれも無条件・base roster
+// (敵勢力節の「聖堂回収団はHP30%以下で降伏・撤退を評価」も地点1同様、この
+// 地点専用のAiProfile新設は見送り - 標準雑魚敵への追加チューニング範囲外)。
+// ルート3`[暁の衛生兵]`「負傷判定」はscoutRouteRequiredClass:DawnChirurgeonの
+// クラス要件のみ(base roster、数値差分なし) - sanctum_approachのルート3
+// `[重装兵]`「梁を支える」と同型。
+//
+// **回収団3・崩土の野生獣1(Wolf reskin)**: 「聖堂回収団」はsanctum_approachと
+// 同じBandit reskin("Sanctum Retriever"表示名)。「崩土の野生獣」は正本の
+// 敵勢力節「普通の蛇・蜘蛛」を、このプロジェクト長年の「毒蜘蛛=Wolf」前例
+// (黒水低湿地以来)でWolf reskinへ近似(`collapsed_nave`placeholderが既に
+// "Buried Beast"のWolf reskinとして用意していたためその表示名をそのまま
+// 踏襲)。
+//
+// **主目的報酬 薬草2、聖堂器材1**: `herb`は既存material、`sanctum_equipment`
+// (聖堂器材)は本Sliceで新規登録した新素材 - `materialNameFor()`のknownセット
+// +`data/locales/{en,ja}.json`+JAグリフcharsetへ追加登録済み(他地点も今後
+// この素材を報酬に使うため、地点2で先行登録する)。
+//
+// **恒久成果`collapsed_nave_sheltered`/キャンプIの状態異常解除効果**: 他の
+// 全地点と同じ汎用siteAccess::Securedメカニズム(新規配線不要)。キャンプI
+// 自体はRouteGraph.cpp側でM9-AHが既に地点2直後のノードとして配線済み
+// (buriedDawnSanctumGraph()の`sanctum_camp1`)。「CAMP Iで状態異常を全解除、
+// HP自動回復なし」効果自体はEmber Ravine地点2/CAMP Iのために既にM9-AAが
+// 下した判断と同一理由で見送り: このプロジェクトにキャンプ到達時にUnitの
+// ステータス効果を書き換えるフック自体が存在しない
+// (ExpeditionService.cppのキャンプ到着処理は施設アクセス/回復UIの提示のみ)。
+// M9-AAの既存ギャップ記録に合わせ、ドキュメントのみに留める。
+StageDescriptor collapsedNaveStage() {
+    StageDescriptor stage;
+    stage.id = "collapsed_nave";
+    stage.terrainProfileId = "buried_dawn_sanctum";
+    stage.enemyRoster = {
+        {"collapsed_nave_retriever1", "Sanctum Retriever", UnitClass::Bandit},
+        {"collapsed_nave_retriever2", "Sanctum Retriever", UnitClass::Bandit},
+        {"collapsed_nave_retriever3", "Sanctum Retriever", UnitClass::Bandit},
+        {"collapsed_nave_beast1", "Buried Beast", UnitClass::Wolf},
+    };
+    stage.routeOutcomes = {
+        // 「避難者優先」: no condition, base roster.
+        {ExplorationChoice::FrontalAdvance, ExplorationOutcome{}},
+        // 「器具優先」: no condition, base roster (正本に数値差分の記述なし).
+        {ExplorationChoice::CollapsedSidePath, ExplorationOutcome{}},
+        // `[暁の衛生兵]`「負傷判定」: base roster、クラス要件のみ.
+        {ExplorationChoice::ScoutRoute, ExplorationOutcome{}},
+    };
+    stage.scoutRouteRequiredClass = UnitClass::DawnChirurgeon;
+
+    // 避難者2人 - windscarRelayStage()/emberRavineLedgeStage()と同じ非戦闘
+    // Escortパターン(DawnChirurgeon再利用)。2人にすることで副目標「避難者
+    // 全員脱出」が単なる主目的の重複にならない。
+    stage.guestUnits = {
+        {{"collapsed_nave_evacuee1", "Nave Evacuee", UnitClass::DawnChirurgeon}, GridPos{1, 3}},
+        {{"collapsed_nave_evacuee2", "Nave Evacuee", UnitClass::DawnChirurgeon}, GridPos{2, 3}},
+    };
+
+    // 主目的: 避難者1人以上を右端へ脱出。
+    stage.primaryEscapeUnitsAlternative =
+        StageDescriptor::PrimaryEscapeUnitsRule{"collapsed_nave_escape", /*requiredEscapeCount=*/1,
+                                                /*zoneMinCol=*/kGridCols - 1, /*zoneMaxCol=*/kGridCols - 1};
+
+    // 敗北条件「部隊全滅」は既存allPlayersDefeated()のまま。「全避難者撤退」は
+    // BattleFactory.cppがstage.guestUnitsのidをmissionState().guestUnitIdsへ
+    // 登録することで自動的にallGuestsLost()経由で配線される(追加配線不要)。
+    // 副目標「避難者全員脱出→野戦救護記録」はcreditedTargetIds.size()>=2の
+    // ad-hocチェック(GameApp.cpp、上記コメント参照)。
+
+    // 勝利: 薬草2、聖堂器材1。
+    stage.victoryRewardRules = {
+        {RewardRule::Condition::Always, {}, {{"herb", 2}, {"sanctum_equipment", 1}}},
+    };
+
+    stage.missionNameEn = "Collapsed Nave";
+    stage.missionNameJa = "崩れた礼拝堂";
+    return stage;
+}
+
 // docs/regions/buried_dawn_sanctum.md「地点と周回」: 6-site skeleton + 2 camps
 // + the site 3/4 "順序選択" (either order, both required) branch, same
 // M9-U/M9-Z "build the skeleton once" pattern as every prior region. This
@@ -1654,21 +1758,25 @@ RegionDescriptor emberRavineRegion(const GameData& data) {
 // Ravine's sulfur_hollow/cooling_channel branches already use - the doc's
 // "順序選択" wording describes the exact same "either order, both required"
 // shape those two branches already implement, not a new mechanism.
-// Site 1 (`sanctum_approach`, "埋没参道") is real content as of this Slice,
+// Site 1 (`sanctum_approach`, "埋没参道") is real content as of M9-AH,
 // JSON-authored directly (fits the existing Schema, no hand-written
 // StageDescriptor function needed, same shape as `settlement_outer_fence`).
-// Sites 2-6 (`collapsed_nave`/`sanctum_infirmary`/`sanctum_archive`/
-// `sealed_passage`/`dawn_altar`) are minimal Bandit x2(-3) placeholders,
-// replacing the single-site `buried_dawn_sanctum_outpost` M9-AG stub (left
-// in place, dead/unreferenced - same precedent as `ember_ravine_ledge`'s own
-// dead JSON entry after M9-AA superseded it).
+// Site 2 (`collapsed_nave`, "崩れた礼拝堂") is real content as of this Slice,
+// hand-authored via collapsedNaveStage() above (guest-escort site, same as
+// emberRavineLedgeStage()/sulfurHollowStage()). Sites 3-6 (`sanctum_infirmary`/
+// `sanctum_archive`/`sealed_passage`/`dawn_altar`) remain minimal Bandit
+// x2(-3) placeholders, replacing the single-site `buried_dawn_sanctum_outpost`
+// M9-AG stub (left in place, dead/unreferenced - same precedent as
+// `ember_ravine_ledge`'s own dead JSON entry after M9-AA superseded it). The
+// M9-AH `collapsed_nave` JSON entry is likewise left in place, now
+// dead/unreferenced since this Slice's Region.cpp function replaces it.
 RegionDescriptor buriedDawnSanctumRegion(const GameData& data) {
     RegionDescriptor region;
     region.id = RegionId::BuriedDawnSanctum;
     region.displayNameEn = "Buried Dawn Sanctum";
     region.displayNameJa = "埋没聖堂";
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("sanctum_approach")));
-    region.stages.push_back(stageDescriptorFromContent(data.stageContent("collapsed_nave")));
+    region.stages.push_back(collapsedNaveStage());
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("sanctum_infirmary")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("sanctum_archive")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("sealed_passage")));

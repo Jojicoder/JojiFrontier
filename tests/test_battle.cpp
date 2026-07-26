@@ -11372,6 +11372,47 @@ int main() {
     }
 
     {
+        // docs/regions/buried_dawn_sanctum.md「2. 崩れた礼拝堂」: guest-escort
+        // primary(避難者1人以上脱出)・避難者2人・敵編成(回収団3、野生獣1)・
+        // 勝利報酬(薬草2、聖堂器材1)・[暁の衛生兵]ルート要件。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor sanctumRegion =
+            jf::regionDescriptor(jf::RegionId::BuriedDawnSanctum, *data);
+        const jf::StageDescriptor& naveStage = sanctumRegion.stages[1];
+        assert(naveStage.id == "collapsed_nave");
+        assert(naveStage.enemyRoster.size() == 4);
+        assert(naveStage.guestUnits.size() == 2);
+        assert(naveStage.primaryEscapeUnitsAlternative &&
+               naveStage.primaryEscapeUnitsAlternative->requiredEscapeCount == 1);
+        assert(naveStage.scoutRouteRequiredClass == jf::UnitClass::DawnChirurgeon);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(naveStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "herb") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "sanctum_equipment") == 1);
+
+        jf::BattleState naveBattle = jf::createScenarioBattle(*data, naveStage, /*seed=*/7);
+        int enemyCount = 0;
+        int guestCount = 0;
+        for (const jf::Unit& unit : naveBattle.units()) {
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+            if (unit.isGuest) ++guestCount;
+        }
+        assert(enemyCount == 4);
+        assert(guestCount == 2);
+        const auto& naveGuestIds = naveBattle.missionState().guestUnitIds;
+        assert(std::find(naveGuestIds.begin(), naveGuestIds.end(), "collapsed_nave_evacuee1") != naveGuestIds.end());
+        assert(std::find(naveGuestIds.begin(), naveGuestIds.end(), "collapsed_nave_evacuee2") != naveGuestIds.end());
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。

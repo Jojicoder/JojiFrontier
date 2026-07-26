@@ -310,7 +310,8 @@ void loadAppFont() {
                       "残留住民帰還者灰道襲撃団襲撃団頭領建築材食料(仮実装)"
                       "燼火峡谷焼け石の入口熱風の棚道硫黄窪地破損冷却水路灰晶採取棚旧耐熱工房灰封観測所赤熱裂け目"
                       "岩蜥蜴熱地採取団赤背の大蜥蜴"
-                      "埋没聖堂前線拠点(仮実装)";
+                      "埋没聖堂前線拠点(仮実装)"
+                      "崩れた礼拝堂避難者";
     for (const jf::FacilityNode& node : jf::facilityNodeRegistry()) charsetSource += node.nameJa + node.effectJa;
     for (const jf::SkillDefinition& skill : jf::skillRegistry()) charsetSource += skill.nameJa + skill.effectJa;
     for (jf::UnitClass uc : {jf::UnitClass::MarchCaptain, jf::UnitClass::VeteranGuard,
@@ -336,7 +337,8 @@ void loadAppFont() {
     for (const char* id : {"wood", "hide", "herb", "gate_tools", "ash_road_map", "field_medicine",
                            "watch_ledger", "captains_seal", jf::kAshveilFangMaterial,
                            jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment", "iron", "stone",
-                           "old_gear", "signal_core", "quality_iron", "building_material", "food"})
+                           "old_gear", "signal_core", "quality_iron", "building_material", "food",
+                           "sanctum_equipment"})
         charsetSource += materialNameFor(id);
     for (const char* weaponId :
         {"wolf_bite", "boar_tusks", "grubworm_mandibles", "serpent_fangs", "road_sword", "heavy_axe",
@@ -529,6 +531,7 @@ std::string materialNameFor(const std::string& id) {
         "iron", "stone", "old_gear", "signal_core", "quality_iron", "combustion_oil", "ashiron_shell",
         "wetland_resin", "poison_material", "hardwood", "cloth", "riding_gear",
         "building_material", "food", "heat_resistant_material", "sulfur", "ash_crystal",
+        "sanctum_equipment",
     };
     return known.count(id) ? tr("material." + id) : id;
 }

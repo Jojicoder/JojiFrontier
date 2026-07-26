@@ -197,10 +197,22 @@ HeavyInfantry`)。新規`buried_dawn_sanctum`TerrainProfileを追加、正本の
 単一地点スタブに代わるBandit x2(-3)最小プレースホルダー。詳細は
 `implementation_status.md`のM9-AH参照。
 
+M9-AI(埋没聖堂・第8地域: 地点2「崩れた礼拝堂」)完了(2026-07)。
+`collapsedNaveStage()`をguest-escort地点として本格化(避難者2人、主目的
+`primaryEscapeUnitsAlternative`、敵は聖堂回収団3+崩土の野生獣1(Wolf reskin)、
+勝利報酬薬草2/聖堂器材1)。新素材`sanctum_equipment`(聖堂器材)を新規登録
+(`materialNameFor()`/locale/JAグリフcharset)。副目標「避難者全員脱出→野戦救護
+記録」はblackwater_crossing/quarry_old_mineと同じad-hoc
+`creditedTargetIds.size()>=2`チェックで新規Discovery`kFieldMedicalRecordsDiscovery`
+を付与。「CAMP Iで状態異常を全解除」効果はEmber Ravine地点2/CAMP Iと同一理由
+(キャンプ到達時ステータス書き換えフック自体が未実装)で見送り。詳細は
+`implementation_status.md`のM9-AI参照。
+
 直近の未完了(優先度順):
 
-1. 埋没聖堂(第8地域)の残り地点(2〜6)の本格実装(M6-B/C・M9-A〜AHと同じ
-   「骨格→1地点ずつ」方式)。地域骨格+地点1「埋没参道」はM9-AHで完了済み。
+1. 埋没聖堂(第8地域)の残り地点(3〜6)の本格実装(M6-B/C・M9-A〜AIと同じ
+   「骨格→1地点ずつ」方式)。地域骨格+地点1「埋没参道」+地点2「崩れた礼拝堂」は
+   M9-AH/M9-AIで完了済み。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/

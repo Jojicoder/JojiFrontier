@@ -4246,6 +4246,66 @@ knownセット・localeキーへ登録済みのため、新規登録は一切不
 以上で埋没聖堂(第8地域)の骨格(6地点+2キャンプ+地点3・4の順序選択分岐)が到達可能に
 なり、地点1が実コンテンツ化された。地点2〜6は次のSlice以降で1地点ずつ本格化する。
 
+## M9-AI 埋没聖堂(第8地域): 地点2(崩れた礼拝堂)
+
+`docs/regions/buried_dawn_sanctum.md`の地点2「崩れた礼拝堂」表セル+対応する公開副目標
+セルを再読し、M9-AA `emberRavineLedgeStage()`/M9-AAの`sulfurHollowStage()`のguest-escort
+パターンをそのまま踏襲して本格化した。M9-AHの`collapsed_nave`Bandit x2 + Wolf
+placeholder(`data/regions.json`)を土台に、`Region.cpp`へ`collapsedNaveStage()`を新設し
+差し替え(placeholder自体は他の全地点と同じく死蔵のまま残置)。
+
+主目的「避難者1人以上脱出」は`primaryEscapeUnitsAlternative`(blackwater_crossing以来
+証明済みのguest-escort primary)をそのまま再利用。避難者はDawnChirurgeon reskin2人
+(副目標「避難者全員脱出」を単なる主目的の重複にしないため2人とした)。敗北条件「全避難者
+撤退」はguestUnitsのid登録によるallGuestsLost()経由(追加配線不要)。標準敵は聖堂回収団3
+(sanctum_approachと同じBandit reskin"Sanctum Retriever")+崩土の野生獣1(placeholderが
+既に用意していたWolf reskin"Buried Beast"をそのまま踏襲、プロジェクト長年の
+「毒蜘蛛=Wolf」前例と同型)。探索3択は正本の表セル以外に地点2専用の数値差分記述が無い
+ことを確認した上で、sanctum_approach(M9-AH)の「無条件ルートは数値差分なし」前例に倣い、
+ルート1「避難者優先」/ルート2「器具優先」は無条件・base rosterのまま、ルート3
+`[暁の衛生兵]`「負傷判定」は`scoutRouteRequiredClass: DawnChirurgeon`のクラス要件のみとした。
+
+副目標「避難者全員脱出→野戦救護記録」はRewardRule::ConditionにEscapeUnitsの
+creditedTargetIds件数を読む手段が無いため、blackwater_crossing/quarry_old_mineと全く同じ
+ad-hoc`creditedTargetIds.size()>=2`チェックを`GameApp.cpp`へ追加。新規Discovery
+`kFieldMedicalRecordsDiscovery`(`collapsed_nave_field_medical_records`)を新設 - 正本の
+安定IDリストにこの記録専用のidが無いため、`kEmberRavineSurveyRecordsDiscovery`等と同じ
+`<region-site>_..._records`命名規則に倣った。
+
+主目的報酬「薬草2、聖堂器材1」のうち`herb`は既存material、`sanctum_equipment`(聖堂器材)は
+本Sliceで新規登録した新素材(`materialNameFor()`のknownセット、`data/locales/{en,ja}.json`
+の`material.sanctum_equipment`、`ui_shared.cpp`のJAグリフcharsetへ追加) - 正本の他地点
+(救護室・封鎖回廊)も同素材を報酬に使うため、地点2で先行登録した。ミッション名JA
+「崩れた礼拝堂」もJAグリフcharsetへ追加登録した([[JA glyph coverage / no ID-collision on
+JA text]]の教訓どおり)。
+
+見送った部分(正本との差分):
+
+- 「CAMP Iで状態異常を全解除、HP自動回復なし」効果: Ember Ravine地点2/CAMP IのためM9-AAが
+  下した判断と同一理由(キャンプ到達時にUnitのステータス効果を書き換えるフック自体が
+  このプロジェクトに存在しない)で見送り、ドキュメントのみに留める新規ギャップとして
+  再確認・踏襲した。RouteGraph自体はM9-AHが既に`sanctum_camp1`を地点2直後のノードとして
+  配線済みで、到達可能性に問題はない。
+- 「聖堂回収団」のHP30%以下降伏・撤退: 地点1と同じ理由(標準雑魚敵への専用AiProfile新設は
+  正本が明示的な強敵向けに用意した記述と判断)で見送り。
+
+`tests/test_battle.cpp`へ1件追加(地点2の敵編成・避難者2人・primaryEscapeUnitsAlternative・
+scoutRouteRequiredClass・勝利報酬・BattleState上のguestUnitIds登録を検証)。既存3スイート
+(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`)+`check_localization`含め全成功、
+フルスイートを3回連続実行し安定(フレークなし)。
+
+`jf_forest_balance --region=buried_dawn_sanctum`(500 Seed)の実測: 地点2(崩れた礼拝堂)の
+fresh-party win率はDirect 65.6%/HP残82.4%(avg KO 0.89、rounds 7.90、timeout 76/500)、
+Tactical 60.2%/HP残80.7%(avg KO 0.99、rounds 13.39、timeout 186/500)。timeout件数が地点1
+より多いのは本ツールのAI未対応objective種別(EscapeUnits)が残っているためで、
+[[jf_forest_balance worst-case numbers]]の教訓どおり実測記録のみに留め、本Sliceでの数値
+調整は行わない。6地点通しのRegion clear win率はDirect 4.2%/Tactical 13.4%だが、これは
+地点3〜6がまだplaceholderのままであることに加え、上記AI未対応objective種別が原因で
+地点2本体の数値を示すものではない。
+
+以上で埋没聖堂(第8地域)の地点2が実コンテンツ化された。地点3〜6は次のSlice以降で
+1地点ずつ本格化する。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

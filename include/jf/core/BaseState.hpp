@@ -436,6 +436,17 @@ inline constexpr const char* kAdvancedFieldworkRecordsDiscovery = "advanced_fiel
 // unlock.
 inline constexpr const char* kControlledEmberFormulaDiscovery = "controlled_ember_formula";
 
+// docs/regions/buried_dawn_sanctum.md「公開副目標」地点2「崩れた礼拝堂」の
+// "避難者全員脱出 -> 野戦救護記録": the doc's own「安定ID」table doesn't list an
+// id for this record (only the region's own permanent-outcome/altar-record
+// ids are listed there), so this follows the same `<region-site>_..._records`
+// naming convention as kEmberRavineSurveyRecordsDiscovery/
+// kSpecialForgingRecordsDiscovery above. Granted via the same
+// creditedTargetIds.size()>=2 ad-hoc check as blackwater_crossing's own "2人
+// とも脱出" bonus (GameApp.cpp) - adapted here for 2 guests instead of 2
+// workers, same "EscapeUnits objective, count-based secondary tier" shape.
+inline constexpr const char* kFieldMedicalRecordsDiscovery = "collapsed_nave_field_medical_records";
+
 // Forge tuning traits, tracked as an id rather than a free string so a typo
 // can't silently create an unrecognized "equipped" trait.
 enum class TuningTraitId {
