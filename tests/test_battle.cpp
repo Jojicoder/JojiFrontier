@@ -12285,6 +12285,73 @@ int main() {
     }
 
     {
+        // docs/regions/mapped_edge.md「9地点仕様」地点5「放棄中継所」: primary
+        // is 2 OperateObject Objectives (信号盤2個操作), mirroring
+        // windwatch_station(M9-N)/sealed_passage(M9-AL)/fort_signal_yard(M9-AR)/
+        // mapped_edge_split_survey_route(M9-AX)'s own dual-Device genuine
+        // AND-group shape via objectPlacementRules/operateObjectiveId under
+        // the default "primary"/ObjectiveGroupRule::All group - defeating
+        // every enemy without operating both signal panels must NOT win,
+        // operating only one must NOT win either, only both together wins.
+        // 敗北条件「主盤0」はObject耐久ギャップとして本セッション既存の
+        // crate/Device-primaryサイト全てと同様に見送り(部隊全滅は既存Engineで
+        // 常時有効)。敵「人間敵6」は正本の「地形と脅威」節どおり既存クラスの
+        // 再利用とし、M9-AV以降で確立済みの追跡してきた人間集団"Pursuer"とは
+        // 別の中継所常駐要員という文脈のため、fort_signal_yard(M9-AR)と同型の
+        // Bandit4+WatchArcher2混成へ表示名のみ新しいflavor"Relay Raider"を
+        // 付けて再利用した(新規UnitClass・新規JAグリフ登録は無し)。素材
+        // `quality_iron`・`ruin_fragment`はどちらも既存登録のためそのまま
+        // 再利用。安定id`abandoned_relay_restored`は正本の「安定ID」節に記載
+        // あるが、地点1〜4と同様、恒久成果配線自体は地域攻略Slice側の範囲
+        // として未実装。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor mappedEdgeRegion = jf::regionDescriptor(jf::RegionId::MappedEdge, *data);
+        const jf::StageDescriptor* relayStage = nullptr;
+        for (const jf::StageDescriptor& stage : mappedEdgeRegion.stages)
+            if (stage.id == "mapped_edge_abandoned_relay") relayStage = &stage;
+        assert(relayStage);
+        assert(relayStage->enemyRoster.size() == 6); // 人間敵6
+        assert(relayStage->scoutRouteRequiredClass == jf::UnitClass::FrontierEngineer);
+
+        auto relayLootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*relayStage, choice,
+                                                /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findRelayLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        std::vector<jf::LootStack> relayLoot = relayLootFor(jf::ExplorationChoice::FrontalAdvance);
+        assert(findRelayLoot(relayLoot, "quality_iron") == 1);
+        assert(findRelayLoot(relayLoot, "ruin_fragment") == 2);
+
+        jf::BattleState relayBattle = jf::createScenarioBattle(*data, *relayStage, /*seed=*/31);
+        int relayEnemyCount = 0;
+        for (const jf::Unit& unit : relayBattle.units())
+            if (unit.team == jf::Team::Enemy) ++relayEnemyCount;
+        assert(relayEnemyCount == 6);
+
+        for (jf::Unit& unit : relayBattle.units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+
+        jf::BattleObjectState* westPanel =
+            relayBattle.findObject("mapped_edge_abandoned_relay_panel_west_1");
+        assert(westPanel != nullptr);
+        westPanel->interactionCount = 1; // only ONE of the 2 panels operated
+        jf::syncObjectiveProgress(relayBattle);
+        assert(jf::evaluateBattleOutcome(relayBattle).kind != jf::BattleOutcomeKind::Victory);
+
+        jf::BattleObjectState* eastPanel =
+            relayBattle.findObject("mapped_edge_abandoned_relay_panel_east_1");
+        assert(eastPanel != nullptr);
+        eastPanel->interactionCount = 1; // both panels now operated
+        jf::syncObjectiveProgress(relayBattle);
+        assert(jf::evaluateBattleOutcome(relayBattle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。

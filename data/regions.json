@@ -1703,12 +1703,48 @@
       "id": "mapped_edge_abandoned_relay",
       "terrainProfileId": "mapped_edge",
       "enemyRoster": [
-        { "id": "mapped_edge_abandoned_relay_bandit1", "name": "Bandit", "classId": "Bandit" },
-        { "id": "mapped_edge_abandoned_relay_bandit2", "name": "Bandit", "classId": "Bandit" }
+        { "id": "mapped_edge_abandoned_relay_raider1", "name": "Relay Raider", "classId": "Bandit" },
+        { "id": "mapped_edge_abandoned_relay_raider2", "name": "Relay Raider", "classId": "Bandit" },
+        { "id": "mapped_edge_abandoned_relay_raider3", "name": "Relay Raider", "classId": "Bandit" },
+        { "id": "mapped_edge_abandoned_relay_raider4", "name": "Relay Raider", "classId": "Bandit" },
+        { "id": "mapped_edge_abandoned_relay_archer1", "name": "Relay Raider", "classId": "WatchArcher" },
+        { "id": "mapped_edge_abandoned_relay_archer2", "name": "Relay Raider", "classId": "WatchArcher" }
       ],
-      "baseVictoryLoot": [{ "id": "quality_iron", "quantity": 1 }],
-      "missionNameEn": "Abandoned Relay Station (placeholder)",
-      "missionNameJa": "放棄中継所(仮実装)"
+      "baseVictoryLoot": [
+        { "id": "quality_iron", "quantity": 1 },
+        { "id": "ruin_fragment", "quantity": 2 }
+      ],
+      "scoutRouteRequiredClass": "FrontierEngineer",
+      "objectPlacementRules": [
+        {
+          "definition": {
+            "definitionId": "mapped_edge_abandoned_relay_panel_west",
+            "kind": "Device",
+            "interaction": { "interactionId": "operate_panel", "range": 1, "maxUses": 1 },
+            "interactionResultState": "Opened"
+          },
+          "idPrefix": "mapped_edge_abandoned_relay_panel_west",
+          "count": 1,
+          "zoneMinCol": 0,
+          "zoneMaxCol": 3,
+          "operateObjectiveId": "operate_mapped_edge_abandoned_relay_panel_west"
+        },
+        {
+          "definition": {
+            "definitionId": "mapped_edge_abandoned_relay_panel_east",
+            "kind": "Device",
+            "interaction": { "interactionId": "operate_panel", "range": 1, "maxUses": 1 },
+            "interactionResultState": "Opened"
+          },
+          "idPrefix": "mapped_edge_abandoned_relay_panel_east",
+          "count": 1,
+          "zoneMinCol": 4,
+          "zoneMaxCol": 7,
+          "operateObjectiveId": "operate_mapped_edge_abandoned_relay_panel_east"
+        }
+      ],
+      "missionNameEn": "Abandoned Relay Station",
+      "missionNameJa": "放棄中継所"
     },
     {
       "id": "mapped_edge_stone_basin",

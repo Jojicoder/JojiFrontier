@@ -372,6 +372,20 @@ M9-AW(地図外縁 地点3「無記録野営跡」)完了(2026-07)。地点2と�
 再利用(追跡者5)、報酬は既存`ruin_fragment`+`food`のみで新規登録なし。地点3固有の
 恒久成果id`unrecorded_camp_catalogued`(正本の「安定ID」節に記載あり)は地域攻略
 Slice側の範囲として未配線のまま。詳細は`implementation_status.md`のM9-AW参照。
+M9-AX(地図外縁 地点4「二股の踏査路」)完了(2026-07)。crate-primary近似ではなく
+windwatch_station(M9-N)/sealed_passage(M9-AL)/fort_signal_yard(M9-AR)と同型の
+真の二重Device AND-groupとして「踏査標識2個操作」を実装(`objectPlacementRules`+
+`operateObjectiveId`2件、コード変更不要)。敵は追跡者3(Bandit)+Wolf3のフラット6体、
+報酬は新規素材`frontier_edge_material`(地域固有素材、正本の複数地点で再利用予定)。
+地点3・4双方が実装済みになったため**CAMP IIは到達可能**。詳細は
+`implementation_status.md`のM9-AX参照。
+M9-AY(地図外縁 地点5「放棄中継所」)完了(2026-07)。M9-AXと同じ真の二重Device
+AND-groupで「信号盤2個操作」を実装。敵は正本の「人間敵6」をfort_signal_yard(M9-AR)
+と同型のBandit4+WatchArcher2混成へ「Relay Raider」表示名で再利用(新規flavor名、
+新規UnitClass・JAグリフ登録は無し)、報酬は既存`quality_iron`+`ruin_fragment`の
+みで新規登録なし。恒久成果id`abandoned_relay_restored`(正本の「安定ID」節に記載
+あり)は地域攻略Slice側の範囲として未配線のまま。詳細は`implementation_status.md`の
+M9-AY参照。
 
 直近の未完了(優先度順):
 
@@ -379,12 +393,12 @@ Slice側の範囲として未配線のまま。詳細は`implementation_status.m
    「乾いた川床」(M9-AV)・地点3「無記録野営跡」(M9-AW)・地点4「二股の踏査路」
    (M9-AX、`BranchCompletion::AllMembers`のもう一方、windwatch_station/
    sealed_passage/fort_signal_yard型の踏査標識2個操作を真の`objectPlacementRules`
-   /`operateObjectiveId`二重AND-groupとして実装)が完了。地点3・4双方が実装済みに
-   なったため**CAMP IIは到達可能**。地点5〜9(放棄中継所/石盆地/折れた見張台/
-   帰還基点/地図外縁)はまだBandit x2プレースホルダーのまま。次は地点5以降を
-   1地点ずつ本格化し、最終戦「地図外縁」(no-fixed-bossの3波ガントレット、既存敵
-   アーキタイプのみ)まで到達させる(M9-AN〜AT/M9-AU〜AXと同じ「骨格→1地点ずつ」
-   方式)。全10地域キャンペーンの最後の地域。
+   /`operateObjectiveId`二重AND-groupとして実装)・地点5「放棄中継所」
+   (M9-AY、地点4と同型の真の二重Device AND-groupで信号盤2個操作を実装)が完了。
+   地点6〜9(石盆地/折れた見張台/帰還基点/地図外縁)はまだBandit x2プレースホルダー
+   のまま。次は地点6以降を1地点ずつ本格化し、最終戦「地図外縁」(no-fixed-bossの
+   3波ガントレット、既存敵アーキタイプのみ)まで到達させる(M9-AN〜AT/M9-AU〜AYと
+   同じ「骨格→1地点ずつ」方式)。全10地域キャンペーンの最後の地域。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/

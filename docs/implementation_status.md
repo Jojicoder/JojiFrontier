@@ -5478,6 +5478,81 @@ Region clear win率はDirect 0.0%/Tactical 0.0%だが、上記に加え地点5�
 以上で**地図外縁 地点4「二股の踏査路」が実コンテンツ化され、CAMP IIが到達可能に
 なった**。地点5〜9・最終戦は今後のSliceへ持ち越す。
 
+## M9-AY 地図外縁 地点5(放棄中継所)
+
+`docs/regions/mapped_edge.md`「9地点仕様」地点5行を再確認した。主目的「信号盤2個
+操作」は、M9-AX(地点4「二股の踏査路」)と全く同じ**真の二重Device AND-group**として
+実装した: `objectPlacementRules`に信号盤(`kind: Device`)を北ゾーン(col0-3)・南ゾーン
+(col4-7)の2件配置し、各々に独立の`operateObjectiveId`を設定。`BattleFactory.cpp`側の
+既存挙動(`operateObjectiveId`を持つ`objectPlacementRules`の最初の1件でデフォルトの
+EliminateTeam primaryを除去し、以後`placeRandomObjects()`が実際に配置した数だけ
+OperateObject Objectiveを`groupId="primary"`(デフォルトの`ObjectiveGroupRule::All`)
+へ追加する経路)にそのまま乗ったため、コード変更は一切不要だった。敵全滅のみでは
+勝利せず、信号盤を片方だけ操作しても勝利せず、両方操作して初めて勝利する、という
+正本どおりの真のAND挙動をテストで直接検証した(下記、windwatch_station/sealed_passage/
+fort_signal_yard/mapped_edge_split_survey_routeと同型のテスト形状)。
+
+敗北条件「主盤0」はObject耐久のギャップであり、本セッションのcrate/Device-primary
+サイト全てと同様に見送った(部隊全滅は既存Engineで常時有効)。探索3択「装置修復/
+敵排除/`[工兵]`連動復旧」の行内に地点1「急行HP-2」のような追加の数値デルタ圧縮は
+無いことを正本の表セルで確認したため、ルート差分の追加実装は不要と判断した。
+
+敵「人間敵6」は、正本の「地形と脅威」節が「追跡してきた人間集団、普通の野生動物、
+既存の大型個体で構成する」と定めるが、地点5の表側の語自体は`追跡者`(M9-AV以降
+確立済みの人間フレーバー名)ではなく単に「人間敵」であるため、既存の追跡者Pursuerと
+は別文脈(中継所に常駐する要員)と判断し、fort_signal_yard(M9-AR、砦の常駐守備隊)と
+全く同型のBandit4体+WatchArcher2体混成へ新しいflavor表示名「Relay Raider」を付けて
+再利用した(新規UnitClass・新規JAグリフ登録は無し - "Relay Raider"はUI上のJA翻訳
+文字列ではなく敵ユニットの英語flavor名のみで、既存の"Pursuer"/"Fort Garrison"等と
+同型)。ルート3`[工兵]`「連動復旧」は`scoutRouteRequiredClass: FrontierEngineer`で
+表現。素材`quality_iron`(高品質鉄材)・`ruin_fragment`(遺跡片)はどちらも既存登録
+(前者は灰鉄採石場等、後者は無記録野営跡等で既出)であることを`data/locales/{en,ja}.
+json`・`ui_shared.cpp`のknownセットで再確認した上でそのまま再利用し、新規素材登録
+は無し。恒久成果id`abandoned_relay_restored`は正本の「安定ID」節に記載があるが、
+地点1〜4と同様、恒久成果配線自体は地域攻略(安全帰還)Slice側の範囲として本Sliceの
+範囲外であるため、id自体の新規発行・配線は見送った。
+
+`data/regions.json`のJSON Schemaのみで実コンテンツ化した(`guestUnits`不要)。
+`RouteGraph.cpp`の`mappedEdgeGraph()`は既にM9-AUの段階で`mapped_edge_abandoned_relay`
+という地点idへ配線済みだったため、グラフ側のコード変更は不要だった(既存の
+Bandit x2プレースホルダーだった`data/regions.json`エントリを差し替えるだけで済んだ)。
+
+見送った部分(正本との差分、都度明記):
+
+- 地点6〜9(石盆地/折れた見張台/帰還基点/地図外縁)はプレースホルダーのまま(次
+  Slice以降で1地点ずつ本格化)
+- 信号盤の耐久・操作機構(「主盤0」敗北条件を表現する仕組み)は本セッションこれ
+  までのDevice-primaryサイト全てと同様に見送り(部隊全滅は既存Engineで常時有効)
+- 地点5固有の恒久成果id`abandoned_relay_restored`(正本の「安定ID」節に記載あり)
+  は、地域攻略(安全帰還)側の恒久登録フロー自体が本Sliceの範囲外のため未配線
+
+`tests/test_battle.cpp`へ1件追加: `mapped_edge_abandoned_relay`ステージの敵編成
+(6体)・`scoutRouteRequiredClass`(FrontierEngineer)・勝利報酬(`quality_iron`1、
+`ruin_fragment`2)を検証したうえで、mapped_edge_split_survey_route(M9-AX)のテスト
+形状と同型の二重Device AND挙動を`createScenarioBattle()`経由で直接検証: 敵を全滅
+させても西信号盤のみ操作した状態では`evaluateBattleOutcome()`が`Victory`にならない
+こと、東信号盤も操作して初めて`Victory`になることの両方をアサートした。
+
+ビルド・`ctest --test-dir build -j10 --output-on-failure`は4/4、フルスイートを
+3回連続実行し安定(フレークなし、既知の`test_battle.cpp:1244`フレークも今回は
+発生せず)。`git diff --check`も成功。
+
+### balance実測
+
+`jf_forest_balance --region=mapped_edge`(500 Seed)の実測: 地点5(放棄中継所)の
+fresh-party win率はDirect 0.0%/HP残0.9%(avg KO 3.93、rounds 5.63、timeouts 18)、
+Tactical 0.0%/HP残1.5%(avg KO 3.90、rounds 6.16、timeouts 27)。この0%は
+windwatch_station(M9-N)/mapped_edge_split_survey_route(M9-AX)自身の既知の記録と
+同型の**シミュレータのOperateObject盲点**であり(ヒューリスティックが「敵全滅」の
+みを勝利条件として扱い、Device操作を評価しないためtimeoutが発生する)、地点5本体の
+実際のバランスを示すものではない(`[[project_forest_balance_worst_case]]`の教訓
+どおり、実際のプレイでの確認を経ずに調整案は出さない)。9地点通しのRegion clear
+win率はDirect 0.0%/Tactical 0.0%だが、上記に加え地点6〜9がまだプレースホルダーの
+ままであることも影響しており、地点1〜5本体の数値を示すものではない。
+
+以上で**地図外縁 地点5「放棄中継所」が実コンテンツ化された**。地点6〜9・最終戦は
+今後のSliceへ持ち越す。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/
