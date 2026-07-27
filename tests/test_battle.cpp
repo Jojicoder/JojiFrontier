@@ -9158,6 +9158,114 @@ int main() {
     }
 
     {
+        // docs/regions/mapped_edge.md「9地点仕様」地点7「折れた見張台」: 主目的
+        // 「観測盤+記録箱」はsunken_sluice(M9-J)/ravine_cooling_channel(M9-AC)/
+        // heatwork_shop/fort_broken_gate以来のOperateObject-primary近似
+        // (Kindの異なるOperateObject+crateのAND合成は本プロジェクトに存在しない
+        // 既知ギャップのため、観測盤operateのみを主目的とし、記録箱は
+        // surveyObjectiveId(surveyTileCount:2)経由のsecondary/bonusパスへ
+        // 回す)。敵「追跡者6」はmapped_edge_unrecorded_camp(M9-AV)と同型の
+        // Pursuer/Bandit x6再利用。`[監視弓兵]`「高所確保」は
+        // scoutRouteRequiredClass=WatchArcher+enemiesRemoved=1
+        // (mappedEdgeStoneBasinStage()の「落石受止め」と同型の近似)。
+        // 「記録優先」「観測優先」はwindscarRelayStage()以来のフレーバーのみ
+        // ペア(数値差分なし)。敗北条件「両方破壊」はObject耐久ギャップとして
+        // 見送り(部隊全滅は既存Engineで常時有効)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor mappedEdge = jf::regionDescriptor(jf::RegionId::MappedEdge, *data);
+        const jf::StageDescriptor* watchtowerStage = nullptr;
+        for (const jf::StageDescriptor& stage : mappedEdge.stages)
+            if (stage.id == "mapped_edge_broken_watchtower") watchtowerStage = &stage;
+        assert(watchtowerStage);
+        assert(watchtowerStage->enemyRoster.size() == 6); // 追跡者6
+        assert(watchtowerStage->scoutRouteRequiredClass == jf::UnitClass::WatchArcher);
+        assert(watchtowerStage->surveyObjectiveId == "mapped_edge_broken_watchtower_crate");
+        assert(watchtowerStage->surveyTileCount == 2);
+        assert(watchtowerStage->objectPlacementRules.size() == 1);
+        assert(watchtowerStage->objectPlacementRules[0].operateObjectiveId ==
+              "operate_mapped_edge_broken_watchtower_panel");
+
+        const jf::ExplorationOutcome recordsFirst =
+            jf::stageRouteOutcome(*watchtowerStage, jf::ExplorationChoice::FrontalAdvance);
+        assert(recordsFirst.enemiesRemoved == 0); // 敵6体
+        const jf::ExplorationOutcome observeFirst =
+            jf::stageRouteOutcome(*watchtowerStage, jf::ExplorationChoice::CollapsedSidePath);
+        assert(observeFirst.enemiesRemoved == 0); // フレーバーのみ、敵6体
+        const jf::ExplorationOutcome highGround =
+            jf::stageRouteOutcome(*watchtowerStage, jf::ExplorationChoice::ScoutRoute);
+        assert(highGround.enemiesRemoved == 1); // 高所確保で1体足止め、敵5体
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*watchtowerStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "ruin_fragment") == 2);
+
+        // (a) 観測盤を操作するだけでVictory(記録箱は未回収でもよい - 真の
+        // AND合成ではなくOperateObject-primary近似であることの直接検証)。
+        jf::BattleState battle = jf::createScenarioBattle(*data, *watchtowerStage, /*seed=*/37);
+        const jf::ObjectiveDefinition* operateDef = nullptr;
+        std::vector<const jf::ObjectiveDefinition*> crateDefs;
+        for (const auto& def : battle.missionState().definitions) {
+            if (def.kind == jf::ObjectiveKind::OperateObject) operateDef = &def;
+            if (def.groupId == "mapped_edge_broken_watchtower_crate") crateDefs.push_back(&def);
+        }
+        assert(operateDef && operateDef->primary && operateDef->groupId == "primary");
+        assert(crateDefs.size() == 2);
+        for (const jf::ObjectiveDefinition* def : crateDefs) assert(!def->primary);
+        bool hasCrateGroup = false;
+        for (const auto& group : battle.missionState().groups)
+            if (group.id == "mapped_edge_broken_watchtower_crate" && group.rule == jf::ObjectiveGroupRule::Any)
+                hasCrateGroup = true;
+        assert(hasCrateGroup);
+
+        jf::BattleObjectState* panel = battle.findObject("mapped_edge_broken_watchtower_panel_1");
+        assert(panel != nullptr);
+        panel->interactionCount = 1; // 観測盤を操作、記録箱は未回収
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // 地点7「折れた見張台」の副目標「記録箱2個とも回収 -> 地図外縁踏査
+        // 記録」: heatwork_shop(M9-AE)のkSpecialForgingRecordsDiscoveryと
+        // 全く同じall-group-members-Completed ad-hocチェック(GameApp.cpp)を
+        // 直接検証する - 1個だけ回収した状態ではまだ全メンバー未完了、2個とも
+        // 回収して初めてグループ全体がCompletedになる。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor mappedEdge = jf::regionDescriptor(jf::RegionId::MappedEdge, *data);
+        const jf::StageDescriptor* watchtowerStage = nullptr;
+        for (const jf::StageDescriptor& stage : mappedEdge.stages)
+            if (stage.id == "mapped_edge_broken_watchtower") watchtowerStage = &stage;
+        assert(watchtowerStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *watchtowerStage, /*seed=*/37);
+        std::vector<const jf::ObjectiveDefinition*> crateDefs;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.groupId == "mapped_edge_broken_watchtower_crate") crateDefs.push_back(&def);
+        assert(crateDefs.size() == 2);
+
+        auto allCrateGroupCompleted = [&]() {
+            for (const jf::ObjectiveDefinition* def : crateDefs)
+                if (battle.missionState().progress.at(def->id).status != jf::ObjectiveStatus::Completed)
+                    return false;
+            return true;
+        };
+
+        auto& mutableMission = const_cast<jf::BattleMissionState&>(battle.missionState());
+        mutableMission.progress.at(crateDefs[0]->id).status = jf::ObjectiveStatus::Completed;
+        assert(!allCrateGroupCompleted()); // 1個だけではまだボーナス条件未達
+        mutableMission.progress.at(crateDefs[1]->id).status = jf::ObjectiveStatus::Completed;
+        assert(allCrateGroupCompleted()); // 2個とも回収 -> kMappedEdgeSurveyRecordsDiscoveryの付与条件を満たす
+    }
+
+    {
         // Both guests escaping grants the "全員脱出: 高品質薬草1" bonus
         // (GameApp::proceedToCamp()'s ad-hoc creditedTargetIds.size()>=2
         // check).

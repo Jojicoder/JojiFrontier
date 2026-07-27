@@ -197,6 +197,31 @@ void GameApp::proceedToCamp() {
             expedition_.pendingDiscoveries.push_back(kSpecialForgingRecordsDiscovery);
     }
 
+    // docs/regions/mapped_edge.md「9地点仕様」地点7「折れた見張台」の主目的
+    // 報酬「地図外縁踏査記録」: heatwork_shopのkSpecialForgingRecordsDiscovery
+    // と全く同じall-group-members-Completed ad-hocチェック(surveyObjectiveId
+    // のgroupは常にObjectiveGroupRule::Anyのため、「記録箱2個とも回収」という
+    // 厳密条件はこの直接スキャンでしか表現できない)。主目的自体は観測盤
+    // (`operate_mapped_edge_broken_watchtower_panel`)のOperateObject-primary
+    // 近似で、この記録箱グループはsecondary/bonus-reward側。
+    if (!isReconnaissanceRun_ && stage.id == "mapped_edge_broken_watchtower") {
+        const BattleMissionState& mission = battleController_->battle().missionState();
+        bool anyInGroup = false;
+        bool allCompleted = true;
+        for (const ObjectiveDefinition& def : mission.definitions) {
+            if (def.groupId != "mapped_edge_broken_watchtower_crate") continue;
+            anyInGroup = true;
+            if (mission.progress.at(def.id).status != ObjectiveStatus::Completed) {
+                allCompleted = false;
+                break;
+            }
+        }
+        if (anyInGroup && allCompleted &&
+            std::find(expedition_.pendingDiscoveries.begin(), expedition_.pendingDiscoveries.end(),
+                     kMappedEdgeSurveyRecordsDiscovery) == expedition_.pendingDiscoveries.end())
+            expedition_.pendingDiscoveries.push_back(kMappedEdgeSurveyRecordsDiscovery);
+    }
+
     // docs/regions/shattered_march_fort.md「兵站庫」の「兵站箱全保全 -> 軍需管理
     // 記録」: same all-group-members-Completed ad-hoc check as heatwork_shop's
     // kSpecialForgingRecordsDiscovery above.

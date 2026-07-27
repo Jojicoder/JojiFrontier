@@ -397,6 +397,22 @@ unitClassのみでボスAIへ分岐するためAshenhornBoarのボスAI自体は
 登録済み)のみで新規登録なし。`[重装兵]`落石受止めは`scoutRouteRequiredClass:
 HeavyInfantry`+`enemiesRemoved=1`で近似。詳細は`implementation_status.md`の
 M9-AZ参照。
+M9-BA(地図外縁 地点7「折れた見張台」)完了(2026-07)。sunken_sluice(M9-J)/
+ravine_cooling_channel(M9-AC)/heatwork_shop以来のOperateObject-primary近似で
+「観測盤+記録箱」を実装(観測盤operateのみを主目的、記録箱は`surveyObjectiveId`
+(`surveyTileCount:2`)経由のsecondary/bonusパス、Kind混在ANDは既知ギャップとして
+見送り)。敵「追跡者6」はmapped_edge_unrecorded_camp(M9-AV)と同型のPursuer/
+Bandit x6再利用、`[監視弓兵]`「高所確保」は`scoutRouteRequiredClass: WatchArcher`
++`enemiesRemoved=1`(石盆地の落石受止めと同型近似)。報酬は既存`ruin_fragment`
+のみ新規登録、新規Discovery`kMappedEdgeSurveyRecordsDiscovery`
+(`mapped_edge_survey_records`)を「記録箱2個とも回収」のall-group-members-
+Completed ad-hocチェック(GameApp.cpp、heatwork_shopの
+kSpecialForgingRecordsDiscoveryと同型)で付与するよう配線し、`data/locales/
+{en,ja}.json`へ`discovery.mapped_edge_survey_records`を追加(正本の「安定ID」
+節は`mapped_edge_survey_record`単数形だが、`<region>_survey_records`複数形の
+既存命名規約(kEmberRavineSurveyRecordsDiscovery)を優先し意図的に複数形とした
+差分)。敗北条件「両方破壊」はObject耐久ギャップとして見送り。詳細は
+`implementation_status.md`のM9-BA参照。
 
 直近の未完了(優先度順):
 
@@ -407,11 +423,12 @@ M9-AZ参照。
    /`operateObjectiveId`二重AND-groupとして実装)・地点5「放棄中継所」
    (M9-AY、地点4と同型の真の二重Device AND-groupで信号盤2個操作を実装)・地点6
    「石盆地」(M9-AZ、blackwater_crossing型のguest-escort、大型獣1はAshenhornBoar
-   再利用)が完了。地点7〜9(折れた見張台/帰還基点/地図外縁)はまだBandit x2
-   プレースホルダーのまま。次は地点7以降を1地点ずつ本格化し、最終戦「地図外縁」
-   (no-fixed-bossの3波ガントレット、既存敵アーキタイプのみ)まで到達させる
-   (M9-AN〜AT/M9-AU〜AZと同じ「骨格→1地点ずつ」方式)。全10地域キャンペーンの
-   最後の地域。
+   再利用)・地点7「折れた見張台」(M9-BA、OperateObject-primary近似+crate
+   secondary、新規Discovery`mapped_edge_survey_records`)が完了。地点8〜9
+   (帰還基点/地図外縁)はまだBandit x2プレースホルダーのまま。次は地点8以降を
+   1地点ずつ本格化し、最終戦「地図外縁」(no-fixed-bossの3波ガントレット、既存
+   敵アーキタイプのみ)まで到達させる(M9-AN〜AT/M9-AU〜BAと同じ「骨格→1地点
+   ずつ」方式)。全10地域キャンペーンの最後の地域。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/

@@ -443,6 +443,20 @@ inline constexpr const char* kPreAshstormWatchRecordsDiscovery = "preashstorm_wa
 // group instead of a surveyObjectiveId group) and/or the region's own floor
 // top-up if still missing at region-clear time.
 inline constexpr const char* kHeatResistantProcessingRecordsDiscovery = "heat_resistant_processing_records";
+
+// docs/regions/mapped_edge.md「9地点仕様」地点7「折れた見張台」の主目的報酬
+// 「地図外縁踏査記録」。同docの「安定ID」table自体は`mapped_edge_survey_record`
+// (単数形)を列挙しているが、この定数はkEmberRavineSurveyRecordsDiscovery
+// (`ember_ravine_survey_records`)以来の`<region>_survey_records`(複数形)命名
+// 規約に合わせて`mapped_edge_survey_records`とした(M9-BAでの意図的な選択、
+// 正本の単数形表記との差分として記録)。地点7の主目的はheatwork_shop/
+// ravine_cooling_channel/sunken_sluice以来のOperateObject-primary近似
+// (観測盤のみ)+`mapped_edge_broken_watchtower_crate`(surveyObjectiveId/
+// surveyTileCount:2)のsecondary/bonus-rewardパスで、この記録は
+// kSpecialForgingRecordsDiscovery/kEmberRavineSurveyRecordsDiscovery同様の
+// all-group-members-Completed ad-hocチェック(GameApp.cpp)で「記録箱2個とも
+// 回収」時に付与する。
+inline constexpr const char* kMappedEdgeSurveyRecordsDiscovery = "mapped_edge_survey_records";
 // docs/regions/buried_dawn_sanctum.md「安定ID」table: 上位魔法研究記録 ->
 // `advanced_magic_records`. Granted from 地点4「写本庫」's own public 副目標
 // "写本箱3個回収"(same all-group-members-Completed ad-hoc check as

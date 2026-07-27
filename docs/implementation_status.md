@@ -5634,6 +5634,92 @@ clear win率はDirect/Tactical双方0.0%(Reach: Stone Basin 0/500)だが、こ�
 以上で**地図外縁 地点6「石盆地」が実コンテンツ化された**。地点7〜9・最終戦は
 今後のSliceへ持ち越す。
 
+## M9-BA 地図外縁 地点7(折れた見張台)
+
+`docs/regions/mapped_edge.md`「9地点仕様」地点7行を再確認した。主目的「観測盤+
+記録箱」は、このプロジェクトに繰り返し存在する**Kind混在AND(OperateObject+
+crate)→OperateObject-primary近似**として実装した(初出はsunken_sluice/M9-J、
+直近の再利用はravine_cooling_channel/heatwork_shop/fort_broken_gate): 観測盤
+(`kind: Device`、`operate_observation_panel`)を`objectPlacementRules`へ1件
+配置し`operateObjectiveId`で主目的(`groupId: "primary"`)へ乗せ、記録箱2個は
+`surveyObjectiveId: "mapped_edge_broken_watchtower_crate"`+`surveyTileCount: 2`
+経由のsecondary/bonus-rewardパスへ回した(Kind混在ANDの合成機構自体はこの
+プロジェクトに存在しない既知ギャップ、M9-D/H/J/M以来繰り返し記録済み)。
+`data/regions.json`のJSON Schemaのみで実コンテンツ化でき(`guestUnits`等の
+未対応フィールド不要)、`mapped_edge_broken_watchtower`プレースホルダー
+エントリを直接書き換えた。`RouteGraph.cpp`の`mappedEdgeGraph()`は既にM9-AUの
+段階でこの地点idへ配線済みだったため、グラフ側のコード変更は不要だった。
+
+敗北条件「両方破壊」はObject耐久のギャップであり、本セッションのcrate/
+Device-primaryサイト全てと同様に見送った(部隊全滅は既存Engineで常時有効)。
+
+敵「追跡者6」は、mapped_edge_unrecorded_camp(M9-AV、地点3「無記録野営跡」)と
+全く同型のPursuer/Bandit x6として再利用した(新規UnitClass・新規JAグリフ登録は
+無し、既存の"Pursuer"表示名慣習をそのまま踏襲)。
+
+探索3択「記録優先/観測優先」はwindscarRelayStage()のFrontalAdvance/
+CollapsedSidePathペアと同型の数値差分なしフレーバー選択として実装した
+(正本の表セルに追加の数値デルタ記載は無い)。`[監視弓兵]`「高所確保」は
+`scoutRouteRequiredClass: WatchArcher`+`ExplorationOutcome::enemiesRemoved=1`
+(mappedEdgeStoneBasinStage()/M9-AZの「落石受止め」と同型の既存機構)で
+「監視弓兵が高所から1体を先制排除」を近似した。新規のhazard/vantage機構は
+追加していない。
+
+新規Discovery`kMappedEdgeSurveyRecordsDiscovery`(`mapped_edge_survey_records`)
+を`include/jf/core/BaseState.hpp`へ追加した: heatwork_shop(M9-AE)の
+`kSpecialForgingRecordsDiscovery`と全く同じall-group-members-Completed
+ad-hocチェックを`GameApp.cpp`の終戦ボーナスブロックへ追加し、
+`mapped_edge_broken_watchtower_crate`グループに属する全Objectiveが
+`Completed`のとき(記録箱2個とも回収)にのみ付与するようにした。
+`data/locales/{en,ja}.json`へ`discovery.mapped_edge_survey_records`
+("Mapped Edge Survey Records" / "地図外縁踏査記録")を追加した(既存キーとの
+重複が無いことを事前にgrepで確認済み)。**正本との意図的な差分**: 正本の
+「安定ID」節はこの記録のidを`mapped_edge_survey_record`(単数形)と記載して
+いるが、この定数はkEmberRavineSurveyRecordsDiscovery(`ember_ravine_survey_
+records`)以来の`<region>_survey_records`複数形命名規約に合わせて
+`mapped_edge_survey_records`(複数形)とした。ember_ravine_survey_records同様、
+現状の`ui_camp.cpp`のpendingDiscoveries描画は全Discoveryへ同一の汎用テキスト
+(`cinderwatch.discovery_recon_records`)を表示するスタブのままで、個別idごとの
+表示分岐はまだ無い(既存の全Discovery共通の未解決ギャップ、本Sliceの範囲外)。
+
+報酬`ruin_fragment`(2)は既存登録素材をそのまま再利用し、新規素材登録は無い。
+地点7固有の恒久成果id(正本の「安定ID」節に記載があれば)は、地域攻略(安全
+帰還)側の恒久登録フロー自体が本Sliceの範囲外のため未配線(地点1〜6と同じ
+扱い)。
+
+`tests/test_battle.cpp`へ2件追加: `mapped_edge_broken_watchtower`ステージの
+敵編成(Pursuer x6)・`scoutRouteRequiredClass`(WatchArcher)・ルート別
+`enemiesRemoved`(高所確保のみ-1)・`surveyObjectiveId`/`surveyTileCount`・
+勝利報酬(`ruin_fragment`2)を検証したうえで、heatwork_shop/fort_broken_gate
+と同型のテスト形状で(a) 観測盤を操作するだけでVictoryになること(記録箱は
+未回収のまま、Kind混在ANDではなくOperateObject-primary近似であることの直接
+証跡)、(b) `mapped_edge_broken_watchtower_crate`グループの2個のObjectiveを
+両方Completedにして初めて「全グループメンバー完了」判定が真になること
+(kMappedEdgeSurveyRecordsDiscoveryの付与条件そのもの)の両方を
+`createScenarioBattle()`経由で直接アサートした。
+
+ビルド・`ctest --test-dir build -j10 --output-on-failure`は4/4、フルスイートを
+3回連続実行し安定(フレークなし)。`git diff --check`も成功。
+
+### balance実測
+
+`jf_forest_balance --region=mapped_edge`(500 Seed)の実測: 地点7(折れた見張台)
+はDirect win 0.0%/HP残0.6%(any KO 100.0%、avg KO 3.96、rounds 5.12、
+timeouts 14)、Tactical win 0.0%/HP残2.8%(any KO 99.4%、avg KO 3.87、
+rounds 6.70、timeouts 26)。`[[project_forest_balance_no_objective_awareness]]`
+の既知の限界どおり、このシミュレータのAIヒューリスティックは`OperateObject`
+主目的を理解せず素のEliminateTeam的なプレイをするため、この0%という数値は
+sunken_sluice/ravine_cooling_channel/heatwork_shop/地点4・5(M9-AX/AY)自身の
+実測と全く同じOperateObject-primaryサイトの既知の盲点であり、地点7本体の
+実際のバランスを示す直接の指標ではない(実プレイでの確認を経ずに調整案は
+出さない)。9地点通しのRegion clear win率はDirect/Tactical双方0.0%(Reach:
+Broken Watchtower 0/500)だが、これは地点4「二股の踏査路」から地点6「石盆地」
+までの間に横たわる複数の既知OperateObject/guest-escort盲点が伝播した参考値
+であり、地点7本体の問題ではない。
+
+以上で**地図外縁 地点7「折れた見張台」が実コンテンツ化された**。地点8〜9・
+最終戦は今後のSliceへ持ち越す。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

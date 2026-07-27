@@ -224,6 +224,7 @@
   "discovery.return_signal": "帰還信号技術の記録",
   "discovery.herb_thicket": "薬草群生地の記録",
   "discovery.ashbough_forest_survey_complete": "灰枝の森踏査記録",
+  "discovery.mapped_edge_survey_records": "地図外縁踏査記録",
   "facility.command_post.name": "司令所",
   "facility.training_ground.name": "訓練所",
   "facility.forge.name": "鍛冶場",

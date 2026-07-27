@@ -1761,12 +1761,40 @@
       "id": "mapped_edge_broken_watchtower",
       "terrainProfileId": "mapped_edge",
       "enemyRoster": [
-        { "id": "mapped_edge_broken_watchtower_bandit1", "name": "Bandit", "classId": "Bandit" },
-        { "id": "mapped_edge_broken_watchtower_bandit2", "name": "Bandit", "classId": "Bandit" }
+        { "id": "mapped_edge_broken_watchtower_pursuer1", "name": "Pursuer", "classId": "Bandit" },
+        { "id": "mapped_edge_broken_watchtower_pursuer2", "name": "Pursuer", "classId": "Bandit" },
+        { "id": "mapped_edge_broken_watchtower_pursuer3", "name": "Pursuer", "classId": "Bandit" },
+        { "id": "mapped_edge_broken_watchtower_pursuer4", "name": "Pursuer", "classId": "Bandit" },
+        { "id": "mapped_edge_broken_watchtower_pursuer5", "name": "Pursuer", "classId": "Bandit" },
+        { "id": "mapped_edge_broken_watchtower_pursuer6", "name": "Pursuer", "classId": "Bandit" }
       ],
-      "baseVictoryLoot": [{ "id": "ruin_fragment", "quantity": 1 }],
-      "missionNameEn": "Broken Watchtower (placeholder)",
-      "missionNameJa": "折れた見張台(仮実装)"
+      "baseVictoryLoot": [{ "id": "ruin_fragment", "quantity": 2 }],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance" },
+        { "choice": "CollapsedSidePath" },
+        { "choice": "ScoutRoute", "enemiesRemoved": 1 }
+      ],
+      "scoutRouteRequiredClass": "WatchArcher",
+      "objectPlacementRules": [
+        {
+          "definition": {
+            "definitionId": "mapped_edge_broken_watchtower_panel",
+            "kind": "Device",
+            "interaction": { "interactionId": "operate_observation_panel", "range": 1, "maxUses": 1 },
+            "interactionResultState": "Opened"
+          },
+          "idPrefix": "mapped_edge_broken_watchtower_panel",
+          "count": 1,
+          "zoneMinCol": 3,
+          "zoneMaxCol": 5,
+          "operateObjectiveId": "operate_mapped_edge_broken_watchtower_panel"
+        }
+      ],
+      "surveyObjectiveId": "mapped_edge_broken_watchtower_crate",
+      "surveyTileCount": 2,
+      "surveyTileObjectDefinitionId": "mapped_edge_broken_watchtower_crate_marker",
+      "missionNameEn": "Broken Watchtower",
+      "missionNameJa": "折れた見張台"
     },
     {
       "id": "mapped_edge_return_base",

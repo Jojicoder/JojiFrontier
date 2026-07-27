@@ -224,6 +224,7 @@
   "discovery.return_signal": "Return Signal Records",
   "discovery.herb_thicket": "Herb Thicket Records",
   "discovery.ashbough_forest_survey_complete": "Ashbough Forest Survey Records",
+  "discovery.mapped_edge_survey_records": "Mapped Edge Survey Records",
   "facility.command_post.name": "Command Post",
   "facility.training_ground.name": "Training Ground",
   "facility.forge.name": "Forge",
