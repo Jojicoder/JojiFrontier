@@ -1800,12 +1800,37 @@
       "id": "mapped_edge_return_base",
       "terrainProfileId": "mapped_edge",
       "enemyRoster": [
-        { "id": "mapped_edge_return_base_bandit1", "name": "Bandit", "classId": "Bandit" },
-        { "id": "mapped_edge_return_base_bandit2", "name": "Bandit", "classId": "Bandit" }
+        { "id": "mapped_edge_return_base_bandit1", "name": "Pursuer", "classId": "Bandit" },
+        { "id": "mapped_edge_return_base_bandit2", "name": "Pursuer", "classId": "Bandit" },
+        { "id": "mapped_edge_return_base_archer1", "name": "Watch Archer", "classId": "WatchArcher" },
+        { "id": "mapped_edge_return_base_archer2", "name": "Watch Archer", "classId": "WatchArcher" }
       ],
-      "baseVictoryLoot": [{ "id": "food", "quantity": 1 }],
-      "missionNameEn": "Return Base (placeholder)",
-      "missionNameJa": "帰還基点(仮実装)"
+      "baseVictoryLoot": [
+        { "id": "food", "quantity": 2 },
+        { "id": "herb", "quantity": 2 },
+        { "id": "quality_iron", "quantity": 1 }
+      ],
+      "routeOutcomes": [
+        { "choice": "FrontalAdvance", "enableReinforcementWave": true },
+        { "choice": "CollapsedSidePath", "enableReinforcementWave": true },
+        { "choice": "ScoutRoute", "enemiesRemoved": 1, "enableReinforcementWave": true }
+      ],
+      "scoutRouteRequiredClass": "BannerBearer",
+      "primarySurviveRoundsAlternative": { "id": "mapped_edge_return_base_defense", "surviveUntilRound": 4 },
+      "timedReinforcement": {
+        "id": "mapped_edge_return_base_reinforcement_wave1",
+        "spawnRound": 2,
+        "announceRoundsBefore": 1,
+        "requiredForElimination": true,
+        "units": [
+          { "id": "mapped_edge_return_base_reinforcement_bandit1", "name": "Pursuer", "classId": "Bandit" },
+          { "id": "mapped_edge_return_base_reinforcement_archer1", "name": "Watch Archer", "classId": "WatchArcher" },
+          { "id": "mapped_edge_return_base_reinforcement_archer2", "name": "Watch Archer", "classId": "WatchArcher" }
+        ],
+        "orderedSpawnCandidates": [{ "row": 0, "col": 7 }, { "row": 1, "col": 7 }, { "row": 2, "col": 7 }]
+      },
+      "missionNameEn": "Return Base",
+      "missionNameJa": "帰還基点"
     },
     {
       "id": "mapped_edge_outermost_marker",

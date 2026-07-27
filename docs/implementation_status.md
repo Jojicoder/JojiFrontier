@@ -5720,6 +5720,107 @@ Broken Watchtower 0/500)だが、これは地点4「二股の踏査路」から�
 以上で**地図外縁 地点7「折れた見張台」が実コンテンツ化された**。地点8〜9・
 最終戦は今後のSliceへ持ち越す。
 
+## M9-BB 地図外縁 地点8(帰還基点)
+
+`docs/regions/mapped_edge.md`「9地点仕様」地点8行を再確認した。主目的「基点
+Objectを4Round防衛」は、正本の文言が「Object」を明示するものの、Object耐久
+機構自体がM6-C以来この地域(および本プロジェクト全体)で繰り返し記録済みの
+未実装ギャップであるため、shattered_march_fortの`fort_reserve_wall`(地点6
+「予備壁」、正本表現も同じ「4Round防衛」)と全く同型の**近似**として実装した:
+`primarySurviveRoundsAlternative`(`SurviveRoundsMissionRule`、
+`surviveUntilRound=4`)でdefaultのEliminateTeam primaryをAnyへ拡張し
+SurviveRounds memberを追加、Object自体は生成しない。敗北条件「基点0」は
+Object耐久のギャップであり、地点4/5/7の「主盤0」/「両方破壊」と全く同じ扱い
+で見送った(部隊全滅は既存Engineで常時有効)。`data/regions.json`のJSON
+Schemaのみで実コンテンツ化でき(`primarySurviveRoundsAlternative`も
+`timedReinforcement`もどちらも既にJSON Schema側に露出済みのフィールドの
+ため)、`guestUnits`等の未対応フィールドは不要だった。`mapped_edge_return_base`
+プレースホルダーエントリを直接書き換えた。`RouteGraph.cpp`の
+`mappedEdgeGraph()`は既にM9-AUの段階でこの地点idへ配線済みだったため、
+グラフ側のコード変更は不要だった。
+
+敵「2波計7」は、`StageDescriptor::timedReinforcement`が単一`std::optional`
+である既知の制限(shattered_march_fort `fort_reserve_wall`/M9-Y
+`settlement_dawn_defense`で記録済み)のため、fort_reserve_wallと全く同型に
+「初期4体+増援1波3体」へ分割した: 初期ロースターはPursuer(Bandit)2体+
+Watch Archer2体、増援は`timedReinforcement`(`spawnRound=2`、
+`announceRoundsBefore=1`、`requiredForElimination=true`)でPursuer1体+
+Watch Archer2体を2ラウンド目に1ラウンド前予告つきで投入する(fort_reserve_
+wallの`orderedSpawnCandidates`と同じ右端3マスへの出現順)。新規UnitClass
+追加は無し、"Pursuer"表示名は既存のmapped_edge地点2/3/7以来の人間フレーバー
+慣習をそのまま踏襲した。
+
+探索3択「避難所設置/物資庫設置」はwindscarRelayStage()のFrontalAdvance/
+CollapsedSidePathペアと同型の数値差分なしフレーバー選択として実装した
+(正本の表セルに追加の数値デルタ記載は無い)。`[旗手]`「集合地点統一」は
+`scoutRouteRequiredClass: BannerBearer`+`ExplorationOutcome::
+enemiesRemoved=1`(mappedEdgeStoneBasinStage()/M9-AZの「落石受止め」・
+M9-BAの「高所確保」と同型の既存機構)で近似した。新規のhazard/rally機構は
+追加していない。
+
+報酬「食料2、薬草2、高品質鉄材1」は既存`food`/`herb`/`quality_iron`をそのまま
+再利用し(`data/regions.json`内の既存使用箇所で全て確認済み)、新規素材登録は
+無い。
+
+**地点名自体が指す恒久成果「最終戦後の脱出マスを2個追加」(正本「成果/短縮」
+表)の扱い**: これは地域攻略(安全帰還)Slice側ではなく、地点9「地図外縁」
+最終戦自体の脱出ロジックが消費する値であり、site 9がまだプレースホルダーの
+ままである(このSliceの範囲外)。`mapped_edge_last_known_marker`の「既知標識
+更新」のような、既に消費側が実在する恒久成果の更新パターンとは異なり、この
+効果は**まだ存在しない最終戦の脱出マス数**というパラメータを増やすもので、
+消費側インフラ(地点9の脱出ゾーン定義そのもの)が無い。正本の「安定ID」節にも
+`return_base_established`という個別idの記載はあるが(地点1〜7同様、地域攻略
+恒久登録フロー自体が本Sliceの範囲外のため)id自体の新規発行・配線は見送った。
+地点9実装時に、その脱出ゾーン定義へ「地点8をクリア済みなら`zoneMaxCol`(または
+同等の脱出マス集合)を2個分広げる」形で消費させることを想定した、本Slice時点
+での意図的な保留(pending-site-9)として記録する。
+
+`tests/test_battle.cpp`へ1件追加: `mapped_edge_return_base`ステージの敵編成
+(初期4体)・`scoutRouteRequiredClass`(BannerBearer)・
+`primarySurviveRoundsAlternative`(id/surviveUntilRound=4)・
+`timedReinforcement`(spawnRound=2/units.size()=3)・ルート別`enemiesRemoved`
+(集合地点統一のみ-1)・勝利報酬(`food`2/`herb`2/`quality_iron`1)を検証した
+うえで、fort_reserve_wall(shattered_march_fort)と同型のテスト形状で
+4ラウンド終了までSurviveRoundsでVictoryになること(敵を1体も倒していない)、
+かつ2ラウンド目の増援到着後もユニット総数が初期4体+増援3体の計7体になる
+ことを`createScenarioBattle()`経由で直接アサートした。この際、
+`enableReinforcementWave`が既定で`false`のため、fort_reserve_wallの前例には
+無かった「増援が実際に発火したか」までテストで初めて直接検証する必要があると
+判明し、`routeOutcomes`の全3ルートへ明示的に`enableReinforcementWave: true`
+を追加した(この追加が無いとテスト用の`createScenarioBattle()`呼び出しが
+既定の`ExplorationOutcome{}`しか渡さないため増援が発火しない)。
+
+ビルド・`ctest --test-dir build -j10 --output-on-failure`は4/4、フルスイートを
+3回連続実行し安定(フレークなし)。`git diff --check`も成功。
+
+### balance実測
+
+`jf_forest_balance --region=mapped_edge`(500 Seed)の実測: 地点8(帰還基点)は
+Direct win 76.2%/HP残22.2%(any KO 98.6%、avg KO 2.83、rounds 4.62、
+timeoutsなし)、Tactical win 91.4%/HP残35.6%(any KO 95.2%、avg KO 2.05、
+rounds 4.89、timeouts 20)。`[[project_forest_balance_no_objective_awareness]]`
+と異なり、真のSurviveRounds/EliminateTeam系サイトはこのシミュレータの
+盲点に該当しないため、この数値は地点8本体の実際のバランスを示す**信頼できる**
+指標として扱ってよい - Direct 76.2%/Tactical 91.4%はどちらも0%や100%付近では
+なく、fort_reserve_wall(同型の4Round防衛サイト)の過去実測とも近い範囲に収まって
+おり、一見妥当な数値と評価する(この場で調整案は出さない)。9地点通しの
+Region clear win率はDirect/Tactical双方0.0%(Reach: Return Base 0/500)だが、
+これは地点4「二股の踏査路」から地点7「折れた見張台」までの間に横たわる複数の
+既知OperateObject/guest-escort盲点が伝播した参考値であり、地点8本体の問題では
+ない。
+
+見送った部分(正本との差分、都度明記):
+
+- 敗北条件「基点0」はObject耐久のギャップであり、本セッションのDevice/
+  crate-primaryサイト全てと同様に見送り(部隊全滅は既存Engineで常時有効)
+- 「最終戦後の脱出マスを2個追加」の恒久成果本体は地点9(まだプレースホルダー)
+  側の脱出ロジックが実在しないため配線を保留、`return_base_established`idも
+  未発行(地域攻略恒久登録フロー自体が本Sliceの範囲外)
+- guestUnits型の副目標(このサイトの正本には無い)は該当なし
+
+以上で**地図外縁 地点8「帰還基点」が実コンテンツ化された**。地点9・最終戦は
+今後のSliceへ持ち越す。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

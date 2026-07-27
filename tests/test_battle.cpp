@@ -9232,6 +9232,74 @@ int main() {
     }
 
     {
+        // docs/regions/mapped_edge.md「9地点仕様」地点8「帰還基点」: 主目的
+        // 「基点Objectを4Round防衛」はfort_reserve_wall(shattered_march_fort)
+        // 同型のprimarySurviveRoundsAlternative(SurviveRoundsMissionRule)の
+        // 直接再利用(Object耐久タイのある「基点0」敗北条件はObject耐久機構
+        // 未実装の既知ギャップとして見送り、部隊全滅は既存Engineで常時有効)。
+        // 敵「2波計7」はfort_reserve_wallと同型に4初期(Pursuer2+WatchArcher2)+
+        // 3増援1波(timedReinforcement、2ラウンド目、1ラウンド前予告)へ分割。
+        // 探索3択「避難所設置/物資庫設置」はwindscarRelayStage()以来のフレー
+        // バーのみペア(数値差分なし)、`[旗手]`「集合地点統一」は
+        // scoutRouteRequiredClass=BannerBearer+enemiesRemoved=1(mappedEdge
+        // StoneBasinStage()の「落石受止め」と同型の近似)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor mappedEdge = jf::regionDescriptor(jf::RegionId::MappedEdge, *data);
+        const jf::StageDescriptor* returnBaseStage = nullptr;
+        for (const jf::StageDescriptor& stage : mappedEdge.stages)
+            if (stage.id == "mapped_edge_return_base") returnBaseStage = &stage;
+        assert(returnBaseStage);
+        assert(returnBaseStage->enemyRoster.size() == 4); // 2波計7のうち初期4体
+        assert(returnBaseStage->scoutRouteRequiredClass == jf::UnitClass::BannerBearer);
+        assert(returnBaseStage->primarySurviveRoundsAlternative &&
+              returnBaseStage->primarySurviveRoundsAlternative->id == "mapped_edge_return_base_defense" &&
+              returnBaseStage->primarySurviveRoundsAlternative->surviveUntilRound == 4);
+        assert(returnBaseStage->timedReinforcement && returnBaseStage->timedReinforcement->spawnRound == 2 &&
+              returnBaseStage->timedReinforcement->units.size() == 3); // 増援3体、初期4体と合わせ計7体
+
+        const jf::ExplorationOutcome shelterFirst =
+            jf::stageRouteOutcome(*returnBaseStage, jf::ExplorationChoice::FrontalAdvance);
+        assert(shelterFirst.enemiesRemoved == 0); // フレーバーのみ
+        const jf::ExplorationOutcome depotFirst =
+            jf::stageRouteOutcome(*returnBaseStage, jf::ExplorationChoice::CollapsedSidePath);
+        assert(depotFirst.enemiesRemoved == 0); // フレーバーのみ
+        const jf::ExplorationOutcome rallyUnified =
+            jf::stageRouteOutcome(*returnBaseStage, jf::ExplorationChoice::ScoutRoute);
+        assert(rallyUnified.enemiesRemoved == 1); // 集合地点統一で1体足止め
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*returnBaseStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "food") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "herb") == 2);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "quality_iron") == 1);
+
+        // 主目的: 4ラウンド終了まで基点を守る(SurviveRoundsとEliminateTeamの
+        // OR)。敵を1体も倒さなくても4ラウンド生存でVictory。増援(2ラウンド目)
+        // が到着してもなお生存し続けられることも合わせて確認する。
+        jf::BattleState defense = jf::createScenarioBattle(*data, *returnBaseStage, /*seed=*/13, shelterFirst);
+        jf::syncObjectiveProgress(defense);
+        assert(jf::evaluateBattleOutcome(defense).kind != jf::BattleOutcomeKind::Victory);
+        while (defense.round() <= 4) {
+            defense.beginEnemyPhase();
+            defense.beginPlayerPhase();
+        }
+        jf::syncObjectiveProgress(defense);
+        assert(jf::evaluateBattleOutcome(defense).kind == jf::BattleOutcomeKind::Victory);
+
+        int enemyCountAfterReinforcement = 0;
+        for (const jf::Unit& unit : defense.units())
+            if (unit.team == jf::Team::Enemy) ++enemyCountAfterReinforcement;
+        assert(enemyCountAfterReinforcement == 7); // 増援3体到着済み、計7体
+    }
+
+    {
         // 地点7「折れた見張台」の副目標「記録箱2個とも回収 -> 地図外縁踏査
         // 記録」: heatwork_shop(M9-AE)のkSpecialForgingRecordsDiscoveryと
         // 全く同じall-group-members-Completed ad-hocチェック(GameApp.cpp)を

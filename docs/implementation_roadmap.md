@@ -413,6 +413,17 @@ kSpecialForgingRecordsDiscoveryと同型)で付与するよう配線し、`data/
 既存命名規約(kEmberRavineSurveyRecordsDiscovery)を優先し意図的に複数形とした
 差分)。敗北条件「両方破壊」はObject耐久ギャップとして見送り。詳細は
 `implementation_status.md`のM9-BA参照。
+M9-BB(地図外縁 地点8「帰還基点」)完了(2026-07)。主目的「基点Objectを
+4Round防衛」はshattered_march_fort `fort_reserve_wall`と同型の
+`primarySurviveRoundsAlternative`(Object耐久タイは見送り、部隊全滅で常時
+Defeat)。敵「2波計7」は`timedReinforcement`単一`optional`の既知制限どおり
+初期4体(Pursuer2+WatchArcher2)+増援1波3体(2ラウンド目、1ラウンド前予告)へ
+分割(fort_reserve_wallと同型)。探索3択「避難所設置/物資庫設置」は数値差分
+なしフレーバーペア、`[旗手]`「集合地点統一」は`scoutRouteRequiredClass:
+BannerBearer`+`enemiesRemoved=1`で近似。報酬は既存`food`/`herb`/
+`quality_iron`のみ新規登録なし。地点名自体が指す恒久成果「最終戦後の脱出
+マスを2個追加」は消費側(地点9の脱出ゾーン定義)が未実装のため配線を
+pending-site-9として保留。詳細は`implementation_status.md`のM9-BB参照。
 
 直近の未完了(優先度順):
 
@@ -424,11 +435,12 @@ kSpecialForgingRecordsDiscoveryと同型)で付与するよう配線し、`data/
    (M9-AY、地点4と同型の真の二重Device AND-groupで信号盤2個操作を実装)・地点6
    「石盆地」(M9-AZ、blackwater_crossing型のguest-escort、大型獣1はAshenhornBoar
    再利用)・地点7「折れた見張台」(M9-BA、OperateObject-primary近似+crate
-   secondary、新規Discovery`mapped_edge_survey_records`)が完了。地点8〜9
-   (帰還基点/地図外縁)はまだBandit x2プレースホルダーのまま。次は地点8以降を
-   1地点ずつ本格化し、最終戦「地図外縁」(no-fixed-bossの3波ガントレット、既存
-   敵アーキタイプのみ)まで到達させる(M9-AN〜AT/M9-AU〜BAと同じ「骨格→1地点
-   ずつ」方式)。全10地域キャンペーンの最後の地域。
+   secondary、新規Discovery`mapped_edge_survey_records`)・地点8「帰還基点」
+   (M9-BB、fort_reserve_wall型のSurviveRounds(4)+timedReinforcement2波計7)が
+   完了。地点9(地図外縁最終戦)はまだBandit x2プレースホルダーのまま。次は
+   地点9・最終戦「地図外縁」(no-fixed-bossの3波ガントレット、既存敵アーキ
+   タイプのみ)まで到達させる(M9-AN〜AT/M9-AU〜BBと同じ「骨格→1地点ずつ」
+   方式)。全10地域キャンペーンの最後の地域。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/
