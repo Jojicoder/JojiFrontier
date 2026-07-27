@@ -867,7 +867,20 @@ void drawFacilityDetail(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
     drawText(pageTitle, 38, 24, 28, kColorTextPrimary);
     drawText(tr("ui.facilities.branches_unlocked", {{"count", std::to_string(facilityLevel(base, facility))}}),
              38, 64, 16, kColorAccentGold);
-    drawText(facilityRoleFor(facility), 138, 58, 14, kColorTextMuted);
+    // Was a fixed-x (138) placement beside "解放済み分岐 N" - collided with it
+    // whenever N's digit count made that gold label wider than 100px, and
+    // this role text is itself multi-line (embedded "\n", e.g.
+    // facility.command_post.role), so it also needs its own vertical room
+    // rather than sharing the header row. Moved to its own row below,
+    // wrapped to the available width; the section heading/node list below it
+    // are pushed down by the actual wrapped line count (same "measure, then
+    // offset" shape as drawBaseRegionList()'s dynamic bottom-Y fix) instead
+    // of a fixed gap, so a longer role description never collides with the
+    // node list header either.
+    const std::string wrappedRole = wrapTextToWidth(facilityRoleFor(facility), 14, 690);
+    drawText(wrappedRole, 38, 90, 14, kColorTextMuted);
+    const int roleLineCount = static_cast<int>(textLines(wrappedRole).size());
+    const float headingY = 90.0f + static_cast<float>(roleLineCount) * 22.0f + 20.0f;
     if (forgeCraftPage) {
         if (button(backRect, tr("ui.forge.back_to_forge"), mouse, clicked)) gBaseScreen.forgeCraftClass.reset();
     } else if (button(backRect, tr("ui.facilities.back_to_list"), mouse, clicked)) {
@@ -875,9 +888,9 @@ void drawFacilityDetail(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
     }
 
     drawSectionHeading(forgeCraftPage ? tr("ui.forge.recipes") : tr("ui.forge.upgrades"),
-                       42, 132, 18);
+                       42, static_cast<int>(headingY), 18);
     const jf::FacilityNode* hoveredNode = nullptr;
-    float nodeY = 174.0f;
+    float nodeY = headingY + 42.0f;
     for (const jf::FacilityNode& node : jf::facilityNodeRegistry()) {
         if (node.facility != facility) continue;
         const bool isWeaponRecipe = node.id.rfind("craft_", 0) == 0;
