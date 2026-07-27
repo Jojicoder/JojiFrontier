@@ -6639,3 +6639,99 @@ Lv刻みの素材investmentが必要になったこと、旧固定コストは�
 だけで足りる)ため、次のSliceで小さく更新できる。本Sliceでは`docs/
 deep_layers.md`(設計ドラフト)とコードの整合のみを取り、正本更新は
 意図的に持ち越した。
+
+## M10-E 防具の装備比較パネル - 武器と同水準のUIへ拡張
+
+`docs/character_progression.md`「ユニットページ/詳細」の4ブロック比較パネル
+(「現在/変更後/変わる戦術/失うもの」)はM7で武器・スキルにのみ実装済み
+だった。M10-B/Cで追加された防具は素の装備ボタンのみでこのパネルを持たず、
+ユーザーからの明示的な指摘(「作り込んで」)を受けて本Sliceで武器側と
+同水準まで拡張した。UI専用Slice(`src/ui_facilities.cpp`のみ変更)で、
+`GameApp::equipArmorForUnit()`/`strengthenArmor()`等の装備・強化ロジックは
+無変更。
+
+### hover状態の拡張: bool併存ではなく3値enum
+
+既存の`EquipmentHover`は`bool isSkill`1つで武器/スキルの2分岐だった。
+防具を追加するにあたり、2個目のboolを積む(`isSkill`/`isArmor`の
+クロス積で「両方true」という無効状態が生まれる)のではなく、
+`EquipmentHoverKind{Weapon, Skill, Armor}`という3値enumへ置き換えた。
+`EquipmentHover`構造体自体は`currentArmorId`/`hoveredArmorId`の2フィールド
+を追加しただけで、既存の`currentWeaponId`/`hoveredWeaponId`/
+`currentSkillId`/`hoveredSkillId`はそのまま維持(各フィールドは`kind`に
+応じてどれが有効かが決まる、既存の武器/スキル分の構造と同じ規律)。
+`drawEquipmentDiffPanel()`の分岐を`if (!hover.isSkill)`から
+`if/else if/else`の3分岐(`kind`で切替)へ機械的に変更。
+
+### 防具の比較情報: DEF/RESの数値差のみ、効果タグなし
+
+- `armorSummaryLine()`(`weaponSummaryLine()`のmight/range相当): `DEF n   RES n`
+  を表示。
+- `armorDiffLines()`(`weaponDiffLines()`相当): DEF/RESそれぞれの差分を
+  「変わる戦術」へ追加。「失うもの」は常に空 -
+  `ArmorDefinition`は武器の`onHitStatuses`/`causesKnockback`/`braceBoost`
+  に相当する定性的効果タグを一切持たない(`Armor.hpp`自身のコメントの通り
+  「武器分岐のような固有戦闘効果は防具には持たせない」設計)ため、
+  DEF/RES以外に失われるものが存在しない。
+- 現在未装備(`currentArmorId`が空)の場合は差分ではなく候補のDEF/RES
+  そのものを「変わる戦術」へ素の増分として表示する(差し引く相手が
+  存在しないため)。
+- **Lv調整数値ではなくTierの基礎値(`baseDef`/`baseRes`)のみを比較する**。
+  これは武器側パネルの既存スコープと合わせた判断: `weaponSummaryLine()`/
+  `weaponDiffLines()`を確認したところ、武器側も現在Lv強化後の実効might
+  ではなく`jf::Weapon::might`という分岐固定のBASE値のみを比較しており、
+  Lv調整値を表示する仕組みは武器側にもまだ存在しない。防具だけを
+  Lv調整値対応にすると2つの装備パネル間で表示ロジックが不整合になるため、
+  本Sliceでは武器側と同じ「Tier基礎値のみ」スコープに揃え、Lv調整値の
+  同時対応は意図的にスコープ外とした(将来武器側を直すときに防具側も
+  一緒に直す一段のタスクとして残す)。
+- 防具名は`ArmorDefinition::nameEn`/`nameJa`をそのまま`pick()`する
+  (`weaponEnglishName()`のような別テーブルは不要 - 既存の装備ボタンの
+  ラベルも同じ`armor->nameEn`/`nameJa`を使っており、必要なJA字体は
+  既に稼働中の装備ボタンで登録済みの文字集合内)。
+- 防具用調整特性(`ward_step`)は武器側の`hide_wrapped_grip`同様、単一の
+  equip/unequipトグルのみで「候補を選ぶ」UIが存在しないため、既存の
+  武器特性ボタンと同じ理由でこのSliceの比較パネルの対象外(選択肢が
+  1つしかない2択トグルには「変更後」との差分という概念がそもそも
+  成立しない)。
+
+### 新規ロケールキー
+
+`ui.unit_screen.diff.def_prefix`/`ui.unit_screen.diff.res_prefix`を
+en/ja両ロケールへ追加(値はそれぞれ`"DEF "`/`"RES "`のASCII固定文字列 -
+新規JAグリフ登録は不要)。
+
+### 配線
+
+`drawForgeEquipmentPanel()`の防具候補ボタンループへ、武器候補ボタンと同型の
+hover検出(`CheckCollisionPointRec`、現在装備中の防具以外にhoverしたら
+`EquipmentHover{Armor, ...}`をセット、craft未解放の候補もhover対象に含める
+点も武器側と同じ)を追加。`drawUnitScreen()`側の消費コードは無変更
+(`std::optional<EquipmentHover>`を受け取って`drawEquipmentDiffPanel()`へ
+渡すだけの既存フローがそのまま防具にも効く)。
+
+### テスト・検証
+
+`ui_facilities.cpp`は`jf_battle_tests`/`jf_content_tests`のビルド対象に
+含まれておらず(`CMakeLists.txt`のtarget_sourcesで確認)、UI描画コードは
+既存の武器パネル同様この2ターゲットではテスト不可能。`armorSummaryLine()`/
+`armorDiffLines()`は純粋関数だが同一ファイル内のstatic-linkage前提で
+書かれており(既存の`weaponDiffLines()`等と同じ)、単体テストハーネスへの
+切り出しは本Sliceのスコープ外(武器側にも同種のテストが存在しない)。
+
+- `cmake --build build -j10`: 成功。
+- `ctest --test-dir build -j10 --output-on-failure`を3回連続実行、
+  全4テスト(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/
+  `check_localization`)が毎回成功。
+- `git diff --check`: クリーン。
+
+### 手動検証(UIを実際に操作せず、ロジックの机上確認)
+
+例: Tier1防具(DEF1/RES1)を装備中のユニットが、Tier2候補(DEF2/RES0)へ
+マウスオーバーした場合。
+- 「現在」ブロック: 現防具名 + `DEF 1   RES 1`
+- 「変更後」ブロック: Tier2候補名 + `DEF 2   RES 0`
+- 「変わる戦術」ブロック: `DEF +1`、`RES -1`(2行、`armorDiffLines()`が
+  DEF/RESそれぞれ非ゼロ差分ごとに1行追加するため)
+- 「失うもの」ブロック: `(none)`(`ui.unit_screen.diff.none`のフォール
+  バック - 防具に定性的効果タグが存在しないため`lost`は常に空)

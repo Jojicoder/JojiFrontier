@@ -301,14 +301,25 @@ std::string weaponEnglishName(const std::string& weaponId) {
 // drawForgeEquipmentPanel()/drawSkillEquipmentPanel() whenever the mouse hovers a
 // candidate, and consumed by drawUnitScreen() to render the 4-block diff card.
 // Traits are out of scope: no trait *selection* UI exists yet (only a single
-// binary equip/unequip toggle for "hide_wrapped_grip"), so there is no second
-// candidate to diff against - see drawForgeEquipmentPanel()'s trait button below.
+// binary equip/unequip toggle for "hide_wrapped_grip"/"ward_step" per slot),
+// so there is no second candidate to diff against - see
+// drawForgeEquipmentPanel()'s trait buttons below.
+//
+// M10-E (docs/character_progression.md「ユニットページ/詳細」): armor gets the
+// same 4-block diff panel weapons/skills already have. A 3-way enum (rather
+// than stacking a 2nd bool alongside `isSkill`) keeps "which candidate kind"
+// a single, exhaustive switch instead of an isSkill/isArmor cross-product
+// with an invalid 4th combination.
+enum class EquipmentHoverKind { Weapon, Skill, Armor };
+
 struct EquipmentHover {
-    bool isSkill = false;
-    std::string currentWeaponId;   // weapon branch: valid when !isSkill
+    EquipmentHoverKind kind = EquipmentHoverKind::Weapon;
+    std::string currentWeaponId;   // valid when kind == Weapon
     std::string hoveredWeaponId;
-    std::string currentSkillId;    // skill: valid when isSkill (may be empty = no skill equipped)
+    std::string currentSkillId;    // valid when kind == Skill (may be empty = no skill equipped)
     std::string hoveredSkillId;
+    std::string currentArmorId;    // valid when kind == Armor (may be empty = no armor equipped)
+    std::string hoveredArmorId;
 };
 
 // Short localized tags for a weapon's qualitative (non-numeric) effects, used
@@ -371,6 +382,36 @@ void weaponDiffLines(const jf::Weapon& current, const jf::Weapon& hovered, std::
             lost.push_back(tr("ui.unit_screen.diff.lose_effect", {{"value", tag}}));
 }
 
+// M10-E: armor's DEF/RES summary/diff, mirroring weaponSummaryLine()/
+// weaponDiffLines() above. Scope note: like the weapon panel (which diffs
+// jf::Weapon::might, the branch's BASE value, not the currently-strengthened
+// weapon's Lv-adjusted number), this compares armor's base Tier DEF/RES
+// (ArmorDefinition::baseDef/baseRes) rather than each armor's own current
+// Lv-adjusted value via armorDefBonusAtLevel()/armorResBonusAtLevel() -
+// matching the weapon panel's existing scope rather than introducing a new,
+// inconsistent Lv-aware display for only one of the two equipment panels.
+std::string armorSummaryLine(const jf::ArmorDefinition& armor) {
+    return tr("ui.unit_screen.diff.def_prefix") + std::to_string(armor.baseDef) + "   " +
+           tr("ui.unit_screen.diff.res_prefix") + std::to_string(armor.baseRes);
+}
+
+// "変わる戦術": DEF/RES deltas (both directions). "失うもの" is always empty for
+// armor - unlike weapons, ArmorDefinition carries no qualitative effect tags
+// (docs/deep_layers.md「防具システム(新設)」: "武器分岐のような固有戦闘効果
+// ...は防具には持たせない"), so there is nothing an armor swap can take away
+// beyond the DEF/RES numbers already reflected in tactics.
+void armorDiffLines(const jf::ArmorDefinition& current, const jf::ArmorDefinition& hovered,
+                    std::vector<std::string>& tactics, std::vector<std::string>& /*lost*/) {
+    if (hovered.baseDef != current.baseDef) {
+        int delta = hovered.baseDef - current.baseDef;
+        tactics.push_back(tr("ui.unit_screen.diff.def_prefix") + (delta > 0 ? "+" : "") + std::to_string(delta));
+    }
+    if (hovered.baseRes != current.baseRes) {
+        int delta = hovered.baseRes - current.baseRes;
+        tactics.push_back(tr("ui.unit_screen.diff.res_prefix") + (delta > 0 ? "+" : "") + std::to_string(delta));
+    }
+}
+
 std::string skillCategoryNameFor(jf::SkillCategory category) {
     switch (category) {
         case jf::SkillCategory::Active: return tr("skill.category.active");
@@ -405,7 +446,7 @@ void drawEquipmentDiffPanel(jf::GameApp& app, const EquipmentHover& hover, Recta
     std::vector<std::string> tactics;
     std::vector<std::string> lost;
 
-    if (!hover.isSkill) {
+    if (hover.kind == EquipmentHoverKind::Weapon) {
         const jf::Weapon& current = app.gameData().weaponsById.at(hover.currentWeaponId);
         const jf::Weapon& hovered = app.gameData().weaponsById.at(hover.hoveredWeaponId);
         currentSummary = weaponNameFor(hover.currentWeaponId, weaponEnglishName(hover.currentWeaponId)) + "\n" +
@@ -413,6 +454,23 @@ void drawEquipmentDiffPanel(jf::GameApp& app, const EquipmentHover& hover, Recta
         afterSummary = weaponNameFor(hover.hoveredWeaponId, weaponEnglishName(hover.hoveredWeaponId)) + "\n" +
                        weaponSummaryLine(hovered);
         weaponDiffLines(current, hovered, tactics, lost);
+    } else if (hover.kind == EquipmentHoverKind::Armor) {
+        const jf::ArmorDefinition* current =
+            hover.currentArmorId.empty() ? nullptr : jf::findArmorDefinition(hover.currentArmorId);
+        const jf::ArmorDefinition* hovered = jf::findArmorDefinition(hover.hoveredArmorId);
+        currentSummary = current ? pick(current->nameEn, current->nameJa) + "\n" + armorSummaryLine(*current)
+                                 : tr("ui.facilities.armor_none");
+        if (hovered) {
+            afterSummary = pick(hovered->nameEn, hovered->nameJa) + "\n" + armorSummaryLine(*hovered);
+            if (current) {
+                armorDiffLines(*current, *hovered, tactics, lost);
+            } else {
+                // No armor equipped yet: nothing to subtract from, so the
+                // whole candidate's DEF/RES shows as a straight gain rather
+                // than a delta against a nonexistent "current".
+                tactics.push_back(armorSummaryLine(*hovered));
+            }
+        }
     } else {
         const jf::SkillDefinition* current = hover.currentSkillId.empty() ? nullptr : jf::findSkill(hover.currentSkillId);
         const jf::SkillDefinition* hovered = jf::findSkill(hover.hoveredSkillId);
@@ -514,7 +572,7 @@ std::optional<EquipmentHover> drawForgeEquipmentPanel(jf::GameApp& app, const jf
         // not, previews what changes - previewing a not-yet-craftable branch is
         // useful too, so hover isn't gated on `available`.
         if (candidate.id != current && CheckCollisionPointRec(mouse, rect))
-            hover = EquipmentHover{false, current, candidate.id, "", ""};
+            hover = EquipmentHover{EquipmentHoverKind::Weapon, current, candidate.id, "", "", "", ""};
     }
 
     by += static_cast<float>((candidates.size() + 1) / 2) * 46.0f + 20.0f;
@@ -563,6 +621,11 @@ std::optional<EquipmentHover> drawForgeEquipmentPanel(jf::GameApp& app, const jf
         } else {
             disabledButton(rect, pick(labelEn, labelJa));
         }
+        // M10-E: diff preview, mirroring the weapon panel's hover rule above -
+        // any hovered candidate other than the currently-equipped armor
+        // previews it, available or not.
+        if (armor->id != currentArmorId && CheckCollisionPointRec(mouse, rect))
+            hover = EquipmentHover{EquipmentHoverKind::Armor, "", "", "", "", currentArmorId, armor->id};
     }
     by += static_cast<float>((armorCandidates.size() + 1) / 2) * 46.0f + 20.0f;
 
@@ -631,7 +694,7 @@ std::optional<EquipmentHover> drawSkillEquipmentPanel(jf::GameApp& app, const jf
             // hovering a not-yet-available candidate (locked training branch,
             // or already equipped in the other slot) still previews it.
             if (skill->id != equipped[slot] && CheckCollisionPointRec(mouse, rect))
-                hover = EquipmentHover{true, "", "", equipped[slot], skill->id};
+                hover = EquipmentHover{EquipmentHoverKind::Skill, "", "", equipped[slot], skill->id, "", ""};
         }
         Rectangle clearRect{x + 3 * (candidateWidth + 10.0f), slotY + 24, candidateWidth, 34};
         if (equipped[slot].empty()) {

@@ -449,6 +449,8 @@
   "ui.unit_screen.diff.might_prefix": "Might ",
   "ui.unit_screen.diff.range_prefix": "Range ",
   "ui.unit_screen.diff.move_mod_prefix": "Move ",
+  "ui.unit_screen.diff.def_prefix": "DEF ",
+  "ui.unit_screen.diff.res_prefix": "RES ",
   "ui.unit_screen.diff.knockback_tag": "Knockback",
   "ui.unit_screen.diff.brace_boost_tag": "Stronger Brace",
   "ui.unit_screen.diff.gain_prefix": "Gains: ",

@@ -449,6 +449,8 @@
   "ui.unit_screen.diff.might_prefix": "威力 ",
   "ui.unit_screen.diff.range_prefix": "射程 ",
   "ui.unit_screen.diff.move_mod_prefix": "移動 ",
+  "ui.unit_screen.diff.def_prefix": "DEF ",
+  "ui.unit_screen.diff.res_prefix": "RES ",
   "ui.unit_screen.diff.knockback_tag": "ノックバック",
   "ui.unit_screen.diff.brace_boost_tag": "迎撃強化",
   "ui.unit_screen.diff.gain_prefix": "得る効果: ",

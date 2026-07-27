@@ -2453,6 +2453,13 @@ guestUnitIdsの全員が`isPresent()==false`になった時点で部隊全滅と
   実際のチェックポイント・素材は未実装(深層コンテンツ未着手のため意図的に
   対象外)。セーブSchema v3→v4移行で旧4値を対応Lvへマッピング。詳細は
   `docs/implementation_status.md`「M10-D」節を参照。
+- **M10-E(完了)** 防具の装備比較パネル: 武器/スキルが持つ4ブロック比較
+  パネル(「現在/変更後/変わる戦術/失うもの」)を防具にも拡張。
+  `EquipmentHover`のbool分岐を`EquipmentHoverKind{Weapon,Skill,Armor}`の
+  3値enumへ置き換え、`armorSummaryLine()`/`armorDiffLines()`を新設
+  (DEF/RESの基礎値・差分のみ、武器側の既存スコープに合わせてLv調整値は
+  対象外)。UI専用Slice(`src/ui_facilities.cpp`のみ、装備/強化ロジック
+  無変更)。詳細は`docs/implementation_status.md`「M10-E」節を参照。
 - 次点候補: Tier3のパッシブ状態異常耐性効果、Lv6以降(深層限定素材)、
   拠点Lv10〜15/15〜20(中継拠点/最奥拠点、深層コンテンツ依存) - いずれも
   `docs/deep_layers.md`の「実装順序案」節どおりの順で着手する。
