@@ -1418,6 +1418,166 @@ Unit* takeRedbackLizardBossTurn(BattleState& battle, Unit& lizard) {
     return nullptr;
 }
 
+// docs/regions/mapped_edge.md「最終戦「地図外縁」」's 環境波「普通の大型獣1体」:
+// "直線突進を1Round前に予告するが、撃破は不要". The simplest of this
+// project's 6 telegraphed-charge enemies - no enrage stage (unlike
+// takeBoarBossTurn), no secondary attack pattern (unlike the boar's sweep or
+// the lizard's tail-sweep), no leash (unlike takeRedbackLizardBossTurn's
+// kRedheatFissureGateTile), and no stun-on-collision side effect (the doc
+// never mentions one for this beast, unlike the boar's log-collision stun) -
+// "普通の大型獣" (an ordinary beast) reads as this single mechanic, not a
+// scaled-down copy of an existing boss's full kit. "撃破は不要" is NOT
+// modeled here at all (no retreatHpPercent tuning, no invulnerability) -
+// this project already gets that property for free at the objective layer
+// (mappedEdgeFinalStage()'s primary has no EliminateTeam member, so the
+// beast can be fought, ignored, or killed with zero effect on Victory/
+// Defeat either way).
+constexpr int kFrontierBeastChargeRange = 3;
+constexpr int kFrontierBeastChargePowerBonus = 3;
+
+// Mirrors boarChargeDirectionForTarget(): lowest-HP, then nearest, then ID
+// tie-break, along the beast's current row only.
+int frontierBeastChargeDirectionForTarget(BattleState& battle, const Unit& beast, int range) {
+    const Unit* best = nullptr;
+    int bestDistance = range + 1;
+    for (const Unit& unit : battle.units()) {
+        if (unit.team != Team::Player || !unit.isAlive() || unit.position.row != beast.position.row) continue;
+        const int distance = std::abs(unit.position.col - beast.position.col);
+        if (distance == 0 || distance > range) continue;
+        if (!best || unit.currentHp < best->currentHp ||
+            (unit.currentHp == best->currentHp && distance < bestDistance) ||
+            (unit.currentHp == best->currentHp && distance == bestDistance && unit.id < best->id)) {
+            best = &unit;
+            bestDistance = distance;
+        }
+    }
+    if (!best) return 0;
+    return best->position.col < beast.position.col ? -1 : 1;
+}
+
+// Mirrors computeBoarChargeTiles(): side-effect-free preview for
+// BossTelegraph::lockedTiles, stopping at the board edge or a movement-
+// blocking Battle Object (not destroying it - unlike the boar, this beast
+// has no documented log-collision interaction).
+std::vector<GridPos> computeFrontierBeastChargeTiles(const BattleState& battle, const Unit& beast, int direction,
+                                                     int range) {
+    std::vector<GridPos> tiles;
+    const int row = beast.position.row;
+    for (int step = 1; step <= range; ++step) {
+        int col = beast.position.col + direction * step;
+        if (col < 0 || col >= kGridCols) break;
+        GridPos pos{row, col};
+        tiles.push_back(pos);
+        const BattleObjectState* object = battle.objectAt(pos);
+        if (object && object->state != BattleObjectStateKind::Destroyed) {
+            const BattleObjectDefinition* def = battle.objectDefinition(object->definitionId);
+            if (def && def->blocksMovement) break;
+        }
+    }
+    return tiles;
+}
+
+// Executes a telegraphed charge along the beast's row: damages every player
+// unit passed over, stops at a movement-blocking Battle Object (without
+// destroying it - no documented log-collision mechanic for this beast) or
+// the board edge.
+void executeFrontierBeastCharge(BattleState& battle, Unit& beast) {
+    const int range = kFrontierBeastChargeRange;
+    const int power = beast.stats.strength + kFrontierBeastChargePowerBonus;
+    const int row = beast.position.row;
+    const int direction = beast.bossRuntime.telegraph.direction < 0 ? -1 : 1;
+    int endCol = beast.position.col;
+
+    for (int step = 1; step <= range; ++step) {
+        int col = beast.position.col + direction * step;
+        if (col < 0 || col >= kGridCols) break;
+        GridPos pos{row, col};
+        endCol = col;
+
+        Unit* occupant = battle.unitAt(pos);
+        if (occupant && occupant->team == Team::Player && occupant->isAlive()) {
+            int damage = std::max(power - occupant->effectiveDefense(), 1);
+            occupant->currentHp = std::max(occupant->currentHp - damage, 0);
+        }
+
+        const BattleObjectState* object = battle.objectAt(pos);
+        if (object && object->state != BattleObjectStateKind::Destroyed) {
+            const BattleObjectDefinition* def = battle.objectDefinition(object->definitionId);
+            if (def && def->blocksMovement) break;
+        }
+    }
+
+    beast.position = GridPos{row, endCol};
+    beast.chargeTelegraphed = false;
+    beast.chargeDirection = -1;
+    beast.bossRuntime.telegraph.state = TelegraphState::Executed;
+    handleObjectiveEvent(battle.missionState(),
+                         {battle.issueEventId(), 0,
+                          BossTelegraphChangedEvent{beast.id, beast.bossRuntime.telegraph.actionId, false}});
+    beast.bossRuntime.telegraph.clear();
+    beast.chargeCooldownActions = 1;
+    ++beast.chargesExecuted;
+}
+
+Unit* takeFrontierBeastBossTurn(BattleState& battle, Unit& beast) {
+    // 1. A telegraphed charge always executes now, before anything else.
+    if (beast.bossRuntime.telegraph.pending()) {
+        executeFrontierBeastCharge(battle, beast);
+        finishEnemyAction(battle, beast, ActionKind::Attack);
+        return nullptr;
+    }
+
+    const bool chargeOnCooldown = beast.chargeCooldownActions > 0;
+    if (chargeOnCooldown) --beast.chargeCooldownActions;
+
+    // 2. Telegraph a charge if a target is reachable along the current row.
+    if (!chargeOnCooldown) {
+        const int direction = frontierBeastChargeDirectionForTarget(battle, beast, kFrontierBeastChargeRange);
+        if (direction != 0) {
+            beast.chargeTelegraphed = true;
+            beast.chargeDirection = direction;
+            beast.bossRuntime.telegraph = {
+                "frontier_beast_charge", TelegraphShape::Line, TelegraphState::Announced, battle.round(),
+                battle.round() + 1, {},
+                computeFrontierBeastChargeTiles(battle, beast, direction, kFrontierBeastChargeRange), direction};
+            handleObjectiveEvent(battle.missionState(),
+                                 {battle.issueEventId(), 0,
+                                  BossTelegraphChangedEvent{beast.id, "frontier_beast_charge", true}});
+            finishEnemyAction(battle, beast, ActionKind::Skill);
+            return nullptr;
+        }
+    }
+
+    // 3. Otherwise, close the distance toward the nearest player and attack
+    // normally - "人間のObjectiveは理解しない" reads as this beast having no
+    // Objective-aware targeting logic (marker-placer priority etc.), just
+    // the same generic nearest-target behavior as any plain enemy.
+    Unit* target = findNearestPlayer(battle, beast);
+    bool moved = false;
+    if (target) {
+        std::vector<GridPos> reachable = computeReachableTiles(battle, beast);
+        GridPos bestTile = beast.position;
+        int bestDist = manhattanDistance(beast.position, target->position);
+        for (const GridPos& tile : reachable) {
+            int dist = manhattanDistance(tile, target->position);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestTile = tile;
+            }
+        }
+        if (bestTile != beast.position) moved = battle.moveUnit(beast, bestTile);
+    }
+
+    const AliveSnapshot aliveBeforeAttack = captureAliveSnapshot(battle);
+    if (Unit* attacked = attackIfPossible(battle, beast, target)) {
+        emitUnitDefeatedEvents(battle, aliveBeforeAttack);
+        finishEnemyAction(battle, beast, ActionKind::Attack);
+        return attacked;
+    }
+    finishEnemyAction(battle, beast, moved ? ActionKind::Move : ActionKind::Wait);
+    return nullptr;
+}
+
 } // namespace
 
 Unit* takeEnemyTurn(BattleState& battle, Unit& enemy, AiSquadReservations* reservations) {
@@ -1427,6 +1587,7 @@ Unit* takeEnemyTurn(BattleState& battle, Unit& enemy, AiSquadReservations* reser
     if (enemy.unitClass == UnitClass::MarshFangSerpent) return takeSerpentBossTurn(battle, enemy);
     if (enemy.unitClass == UnitClass::PlateauCourierCaptain) return takeCourierCaptainBossTurn(battle, enemy);
     if (enemy.unitClass == UnitClass::RedbackLizard) return takeRedbackLizardBossTurn(battle, enemy);
+    if (enemy.unitClass == UnitClass::FrontierBeast) return takeFrontierBeastBossTurn(battle, enemy);
 
     // Captured once, before anything below (including 監視弓兵`overwatch`'s
     // ambush), so a defeat from any of it fires UnitDefeatedEvent exactly

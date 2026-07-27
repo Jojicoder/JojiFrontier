@@ -325,7 +325,8 @@ void loadAppFont() {
                               jf::UnitClass::Bandit, jf::UnitClass::Wolf,
                               jf::UnitClass::AshenhornBoar, jf::UnitClass::AshironGrubworm,
                               jf::UnitClass::MarshFangSerpent, jf::UnitClass::PlateauCourierCaptain,
-                              jf::UnitClass::RaidLeader, jf::UnitClass::RedbackLizard}) {
+                              jf::UnitClass::RaidLeader, jf::UnitClass::RedbackLizard,
+                              jf::UnitClass::FrontierBeast}) {
         charsetSource += jf::toString(uc);
     }
     // classNameFor()/classRoleFor()'s Japanese text is already covered by
@@ -341,11 +342,11 @@ void loadAppFont() {
                            jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment", "iron", "stone",
                            "old_gear", "signal_core", "quality_iron", "building_material", "food",
                            "sanctum_equipment", "ruin_fragment", "rare_material",
-                           "frontier_edge_material"})
+                           "frontier_edge_material", "frontier_final_key"})
         charsetSource += materialNameFor(id);
     for (const char* weaponId :
         {"wolf_bite", "boar_tusks", "grubworm_mandibles", "serpent_fangs", "road_sword", "heavy_axe",
-         "lizard_claws"})
+         "lizard_claws", "beast_fangs"})
         charsetSource += weaponNameFor(weaponId, "");
     gLanguage = previousLanguage;
 
@@ -535,7 +536,7 @@ std::string materialNameFor(const std::string& id) {
         "wetland_resin", "poison_material", "hardwood", "cloth", "riding_gear",
         "building_material", "food", "heat_resistant_material", "sulfur", "ash_crystal",
         "sanctum_equipment", "ruin_fragment", "military_supplies", "rare_material",
-        "frontier_edge_material",
+        "frontier_edge_material", "frontier_final_key",
     };
     return known.count(id) ? tr("material." + id) : id;
 }
@@ -559,7 +560,7 @@ std::string weaponNameFor(const std::string& weaponId, const std::string& englis
         "iron_sword", "iron_lance", "iron_axe",  "watch_bow",   "scout_blade", "dawn_staff",
         "iron_spear", "long_spear", "heavy_spear", "guard_spear", "wolf_bite",   "boar_tusks",
         "iron_greathammer", "engineer_hammer", "messenger_sword", "hunting_bow", "banner_spear",
-        "arcane_focus", "grubworm_mandibles", "road_sword", "lizard_claws",
+        "arcane_focus", "grubworm_mandibles", "road_sword", "lizard_claws", "beast_fangs",
         // Weapon-branch generalization to the other 11 classes
         // (docs/implementation_roadmap.md "M7項目3(残り) ...特性・武器分岐の
         // 他兵種一般化").

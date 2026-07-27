@@ -2025,6 +2025,168 @@ StageDescriptor mappedEdgeStoneBasinStage() {
     return stage;
 }
 
+// docs/regions/mapped_edge.md「最終戦「地図外縁」」/「9地点仕様」地点9「地図外縁」
+// (the FINAL site of the FINAL region of the whole 10-region campaign).
+//
+// **主目的「標識3個設置後、4人中1人以上を帰還基点へ脱出」**: a two-phase primary
+// (place-then-escape) this engine has no chained-AND-in-order composition
+// for (same class of gap as every "true AND vs available infra" case this
+// project has approximated ~10+ times before). Approximated as BOTH groups
+// being required, WITHOUT the strict "escape only after placing" ordering:
+// 3 `objectPlacementRules` entries, each with its own `operateObjectiveId`
+// (the same true-multi-Object-AND pattern as windwatch_station/
+// fort_signal_yard/mapped_edge_abandoned_relay's dual-panel AND, extended
+// from 2 to 3 markers - verified by reading BattleFactory.cpp: every rule
+// with `operateObjectiveId` set adds its OperateObject Objective(s) to the
+// same "primary" group, default rule ObjectiveGroupRule::All, and the
+// group's default EliminateTeam member is removed by the FIRST such rule
+// only, not re-added by later ones) PLUS `primaryEscapeUnitsAlternative`
+// (`PrimaryEscapeUnitsRule`) - confirmed by reading the same function that
+// this ALSO removes "eliminate_enemies" (idempotent, already gone) and adds
+// its own EscapeUnits Objective to the SAME "primary" group, which stays
+// ObjectiveGroupRule::All (nothing here widens it to Any, unlike
+// primaryHoldTileAlternative/primarySecureTileAlternative/
+// primarySurviveRoundsAlternative's own "widen to Any" pattern) - so the
+// final "primary" group ends up as a true AND of all 4 members (3 markers +
+// 1 escape), exactly matching "敵全滅だけでは勝利しない...標識設置後の帰還を
+// 必須にする" in spirit, minus the ordering constraint (a player can
+// technically stand on the escape tile before placing all 3 markers without
+// it mattering - Victory only evaluates once every member is Completed).
+// `primaryEscapeUnitsAlternative` isn't exposed by stageDescriptorFromContent()'s
+// JSON Schema (same as mappedEdgeStoneBasinStage()'s own reason for being
+// hand-authored), so this whole stage is hand-authored in C++ rather than
+// data/regions.json (whose `mapped_edge_outermost_marker` placeholder entry
+// is left dead/unreferenced, same precedent as blackwater_crossing/
+// mapped_edge_stone_basin's own dead JSON entries).
+//
+// **敗北「標識全損」**: Object耐久機構が存在しないため、地点4/5/7/8の「主盤0」/
+// 「両方破壊」/「基点0」と全く同じ既知ギャップとして見送り(部隊全滅は既存
+// Engineで常時有効)。
+//
+// **敗北「12Round超過」**: round-limit機構自体がこのEngineに存在しない
+// (Cinderwatch 6周目・Ember Ravine地点7・mapped_edge_split_survey_route/M9-AX
+// の「8Round超過」がいずれも同じ理由で見送り済み - 本Sliceでも同じ扱い)。
+//
+// **環境波の大型獣「撃破は不要」**: モデル化不要 - primary groupに
+// EliminateTeamメンバーが一切無いため(上記の3標識+脱出のみ)、この大型獣を
+// 倒しても倒さなくてもVictory/Defeatに一切影響しない。これはUnitClass::
+// FrontierBeast側で意図的にretreatHpPercent等のチューニングを一切していない
+// 理由でもある(不要だから)。
+//
+// **3波**: `StageDescriptor::timedReinforcement`が単一`std::optional`である
+// 既知の制限(fort_reserve_wall/M9-Y/mapped_edge_return_base/M9-BB以来)の
+// ため、3波を「初期ロースター(機動波2体+環境波の大型獣1体)+増援1波
+// (制圧波4体、2ラウンド目、1ラウンド前予告、右端3マスへ帰還路を塞ぐ形で出現)」
+// の2段階へ近似した。環境波の大型獣を「波」としてタイミングをずらすのではなく
+// 初期ロースターへ含めたのは、正本が環境波を「予告地形」を伴う持続的な脅威として
+// 描写しており(機動波/制圧波のような対人間の戦術的出現トリガーの記載が無い)、
+// 開始直後から盤面に存在する自己完結した危険物という扱いの方が自然だと判断した
+// ため。機動波はMessengerCavalry(騎兵型、windwatch_station/plateau_relay等
+// 以来のenemy-flavor再利用慣習)+FrontierScout(斥候型、既存の12兵種のうち
+// 敵flavorとしての再利用はこのSliceが初出 - 新規UnitClassではなく既存クラスの
+// 転用)。制圧波はVeteranGuard(守備兵型)+WatchArcher(弓兵型)、どちらも
+// 既に本地域で敵flavor再利用済み(old_barracks/signal_tower/last_signal等の
+// VeteranGuard、abandoned_relay/return_base/broken_watchtowerのWatchArcher)。
+//
+// **探索3択**: 「最奥標識優先」「観測記録優先」はwindscarRelayStage()以来の
+// フレーバーのみペア(数値差分なし、正本の表セルに追加の数値デルタ記載も無い)。
+// `[行軍隊長]`「撤退順固定」はscoutRouteRequiredClass=MarchCaptain+
+// enemiesRemoved=1(mappedEdgeStoneBasinStage()の「落石受止め」以来のenemy
+// Countによる近似 - 実際の「撤退順」制御機構はこのEngineに存在しないため、
+// 結果面のみを敵-1体として近似する)。
+//
+// Deliberately NOT implemented (documented gap, cited above inline):
+// - 標識耐久/「標識全損」敗北条件(Object耐久機構が存在しない)
+// - 「12Round超過」敗北条件(round-limit機構が存在しない)
+// - 副目標「観測箱2個保全」(surveyObjectiveId等の副目標配線は本Sliceでは
+//   追加しない - 主目的自体が既に4メンバーAND+guestUnits非使用という
+//   このプロジェクトで最も複雑な組み合わせであり、これ以上の副目標追加は
+//   後続Sliceへ持ち越す)
+// - 副目標「Pending Loot保護箱を使わず完遂」(この概念自体に対応するフックが
+//   Engineに存在しない)
+// - 恒久成果id`outermost_markers_placed`/`mapped_edge_secured`/
+//   `main_campaign_completed`(正本の「安定ID」節に記載があるが、地点1〜8と
+//   同様、恒久成果配線・地域攻略(安全帰還)Slice自体が本Sliceの範囲外)
+// - 副目標「4人全員帰還」「標識3個すべて耐久1以上」「10Round以内」(耐久・
+//   round-limit機構が無い/複数人脱出のクレジット判定を副目標として追加する
+//   ところまでは本Sliceの範囲に含めなかった - 主目的の4メンバーAND自体の
+//   実装・検証を優先した)
+StageDescriptor mappedEdgeFinalStage() {
+    StageDescriptor stage;
+    stage.id = "mapped_edge_outermost_marker";
+    stage.terrainProfileId = "mapped_edge";
+
+    // 初期ロースター: 機動波(騎兵型・斥候型、標識設置者を狙う)+環境波の大型獣1体
+    // (人間のObjectiveは理解しない、持続的な脅威として開始直後から盤面に存在)。
+    stage.enemyRoster = {
+        {"mapped_edge_final_cavalry1", "Outrider Cavalry", UnitClass::MessengerCavalry},
+        {"mapped_edge_final_scout1", "Outrider Scout", UnitClass::FrontierScout},
+        {"mapped_edge_final_beast", "Frontier Beast", UnitClass::FrontierBeast},
+    };
+
+    stage.routeOutcomes = {
+        // 「最奥標識優先」: no condition, flavor-only。
+        {ExplorationChoice::FrontalAdvance, ExplorationOutcome{}},
+        // 「観測記録優先」: no condition, flavor-only(数値差分なし)。
+        {ExplorationChoice::CollapsedSidePath, ExplorationOutcome{}},
+        // `[行軍隊長]` 「撤退順固定」: 敵1体を足止め(結果面のみの近似)。
+        {ExplorationChoice::ScoutRoute, ExplorationOutcome{.enemiesRemoved = 1}},
+    };
+    stage.scoutRouteRequiredClass = UnitClass::MarchCaptain;
+
+    // 増援1波: 制圧波(守備兵型・弓兵型、帰還路を塞ぐ) - 2ラウンド目、1ラウンド
+    // 前予告、右端(帰還基点側)3マスへ出現。
+    stage.timedReinforcement = StageDescriptor::TimedReinforcement{
+        "mapped_edge_final_reinforcement_wave2",
+        /*spawnRound=*/2,
+        Phase::EnemyPhase,
+        /*announceRoundsBefore=*/1,
+        /*requiredForElimination=*/true,
+        {
+            {"mapped_edge_final_guard1", "Veteran Guard", UnitClass::VeteranGuard},
+            {"mapped_edge_final_guard2", "Veteran Guard", UnitClass::VeteranGuard},
+            {"mapped_edge_final_archer1", "Watch Archer", UnitClass::WatchArcher},
+            {"mapped_edge_final_archer2", "Watch Archer", UnitClass::WatchArcher},
+        },
+        {GridPos{0, kGridCols - 1}, GridPos{1, kGridCols - 1}, GridPos{2, kGridCols - 1}},
+    };
+
+    // 主目的サブ条件1: 最奥標識3個を設置(操作)する - 3件のDevice、それぞれ
+    // 独立のoperateObjectiveIdを持ち、いずれもデフォルトの"primary"グループ
+    // (ObjectiveGroupRule::All)へ乗る(このファイル冒頭のコメントで検証済みの
+    // 真の3-way AND)。
+    for (int i = 1; i <= 3; ++i) {
+        const std::string prefix = "mapped_edge_final_marker_" + std::to_string(i);
+        BattleObjectDefinition markerDef;
+        markerDef.definitionId = prefix;
+        markerDef.kind = BattleObjectKind::Device;
+        markerDef.interaction = ObjectInteractionDefinition{"operate_marker", /*range=*/1, {},
+                                                             BattleObjectStateKind::Active, /*maxUses=*/1};
+        markerDef.interactionResultState = BattleObjectStateKind::Opened;
+        const int zoneMin = (i - 1) * (kGridCols / 3);
+        const int zoneMax = i == 3 ? kGridCols - 1 : zoneMin + (kGridCols / 3) - 1;
+        stage.objectPlacementRules.push_back(StageDescriptor::ObjectPlacementRule{
+            markerDef, prefix, /*count=*/1, /*scalesWithExtraBarrierOutcome=*/false, zoneMin, zoneMax,
+            /*avoidFirstEnemyRow=*/false, "operate_" + prefix, std::nullopt});
+    }
+
+    // 主目的サブ条件2: 4人中1人以上を帰還基点(右端)へ脱出。
+    stage.primaryEscapeUnitsAlternative =
+        StageDescriptor::PrimaryEscapeUnitsRule{"mapped_edge_final_escape", /*requiredEscapeCount=*/1,
+                                                /*zoneMinCol=*/kGridCols - 1, /*zoneMaxCol=*/kGridCols - 1};
+
+    // 主目的報酬: 最終キー素材1(新規`frontier_final_key`、本編最終発展/深層
+    // 遠征候補の解放条件 - 正本「安定ID」節どおりの名前をそのまま採用)、
+    // 希少素材3、遺跡片2(どちらも既存登録素材の再利用)。
+    stage.victoryRewardRules = {
+        {RewardRule::Condition::Always, {}, {{"frontier_final_key", 1}, {"rare_material", 3}, {"ruin_fragment", 2}}},
+    };
+
+    stage.missionNameEn = "Mapped Edge";
+    stage.missionNameJa = "地図外縁";
+    return stage;
+}
+
 // docs/regions/mapped_edge.md「地点と周回」: 10th and FINAL region of the
 // whole campaign. Its own 正本 explicitly introduces no new terrain/battle
 // mechanic (existing terrain types recombined 3-at-a-time per battle, no new
@@ -2050,7 +2212,7 @@ RegionDescriptor mappedEdgeRegion(const GameData& data) {
     region.stages.push_back(mappedEdgeStoneBasinStage());
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_broken_watchtower")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_return_base")));
-    region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_outermost_marker")));
+    region.stages.push_back(mappedEdgeFinalStage());
     return region;
 }
 

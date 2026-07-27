@@ -106,6 +106,32 @@ enum class UnitClass {
     // 記録封鎖) and the retreat condition's additional "命令箱2個保全" clause
     // are all deferred - see AiSystem.cpp's own comment for this class.
     FortGarrisonCaptain,
+    // docs/regions/mapped_edge.md「最終戦「地図外縁」」's 環境波「普通の大型獣
+    // 1体」(HP58/STR10/DEF7/RES3/MOV4, "直線突進を1Round前に予告するが、撃破は
+    // 不要"). No existing UnitClass matches this exact stat line (checked
+    // data/classes.json), and this project has no per-instance stat-override
+    // mechanism on top of a shared UnitClass (checked BattleFactory.cpp/
+    // Region.cpp), so this is a new class rather than a restat of
+    // AshenhornBoar/AshironGrubworm/MarshFangSerpent/RedbackLizard. Chose the
+    // TRUE-scripted-boss shape (own takeXBossTurn() in jf/battle/EnemyAI.hpp,
+    // reusing the same generic chargeTelegraphed/bossRuntime.telegraph/
+    // chargeCooldownActions Unit fields as the 5 bosses above) over the
+    // optional-elite shape (RaidLeader/SanctumRetrievalLeader/
+    // FortGarrisonCaptain's tuned retreatHpPercent, no bespoke turn function)
+    // because the doc is explicit about a repeating TELEGRAPHED STRAIGHT-LINE
+    // CHARGE, a mechanic the optional-elite shape has no hook for at all
+    // (AiProfile only tunes retreat/aggression, never telegraphs anything) -
+    // "撃破は不要" only means the primary objective doesn't require its
+    // death, which this project already gets for free here since the site's
+    // primary is composed entirely of OperateObject+EscapeUnits members (no
+    // EliminateTeam member at all - see mappedEdgeFinalStage()), not a
+    // property of the AI shape. Unlike the 5 true bosses above, this beast
+    // has no enrage stage, no secondary attack, and no scripted-withdrawal
+    // flavor ("普通の大型獣" - an ordinary beast, not a named individual) -
+    // its own takeFrontierBeastBossTurn() is deliberately the simplest of
+    // the 6, a single-mode telegraph-charge-or-melee loop with no stage
+    // transitions.
+    FrontierBeast,
 };
 
 enum class Team {

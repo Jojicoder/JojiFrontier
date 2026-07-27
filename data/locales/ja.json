@@ -122,6 +122,7 @@
   "material.military_supplies": "軍需品",
   "material.rare_material": "希少素材",
   "material.frontier_edge_material": "地図外縁専用素材",
+  "material.frontier_final_key": "最終キー素材",
   "weapon.iron_sword": "鉄の剣",
   "weapon.iron_lance": "鉄のランス",
   "weapon.iron_axe": "鉄の斧",
@@ -473,9 +474,12 @@
   "class.redback_lizard": "赤背の大蜥蜴",
   "class.redback_lizard.role": "ボス。予告熱砂突進(直線3マス)と3マス前方の尾払い(押し出し付き)を使う。HPが半分以下で一度だけ噴気誘導を使う。",
   "weapon.lizard_claws": "爪",
+  "weapon.beast_fangs": "牙(外縁の大型獣)",
   "class.sanctum_retrieval_leader": "聖堂回収団長",
   "class.sanctum_retrieval_leader.role": "強敵(撃破は任意)。写本箱へ近づくUnitを優先し、HPが低いと降伏を考える。台本化されたボスではない。",
   "class.fort_garrison_captain": "残留砦隊長",
   "class.fort_garrison_captain.role": "強敵(撃破は任意)。命令箱を守り、HPが低いと撤退を考える。台本化されたボスではない。",
+  "class.frontier_beast": "外縁の大型獣",
+  "class.frontier_beast.role": "普通の大型獣。直線突進を1Round前に予告する。撃破は不要。",
   "weapon.sanctum_glaive": "聖堂大薙刀"
 }

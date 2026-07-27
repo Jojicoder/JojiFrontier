@@ -5821,6 +5821,228 @@ Region clear win率はDirect/Tactical双方0.0%(Reach: Return Base 0/500)だが�
 以上で**地図外縁 地点8「帰還基点」が実コンテンツ化された**。地点9・最終戦は
 今後のSliceへ持ち越す。
 
+## M9-BC 地図外縁 地点9(地図外縁、最終戦) - 全10地域・地点コンテンツ完了
+
+`docs/regions/mapped_edge.md`の「9地点仕様」地点9行・「最終戦「地図外縁」」節・
+「物語上の最終結果」節を再確認した。本編最終地域の最終地点であり、このMilestone
+完了で**全10地域の本編キャンペーンの地点コンテンツが全て実装された**。
+
+### 主目的「標識3個設置後、4人中1人以上を帰還基点へ脱出」
+
+正本自身が「敵全滅だけでは勝利しない」「標識設置後の帰還を必須にする」と明記する
+2段階primary(設置→脱出)で、このEngineには複数ObjectiveKindを順序付きでAND
+合成する機構が無い(この案件のタスク指示自体が明示したとおり)。`BattleFactory.cpp`
+を読んで検証したうえで、以下の合成で近似した:
+
+- 標識3個設置: `objectPlacementRules`に3件のDevice(`operate_marker`)を配置し、
+  各々独立の`operateObjectiveId`を設定。windwatch_station(M9-N)/fort_signal_yard
+  (M9-AR)/mapped_edge_abandoned_relay(M9-AY)/mapped_edge_split_survey_route
+  (M9-AX)の「真の2-way Device AND」と全く同じ機構を2→3件へ単純拡張しただけで、
+  BattleFactory.cpp側のコード変更は一切不要だった(最初の1件がデフォルトの
+  `eliminate_enemies`primaryメンバーを除去し、以後は全て`groupId: "primary"`
+  (デフォルトの`ObjectiveGroupRule::All`)へOperateObject Objectiveを追加する
+  だけの既存経路)。
+- 4人中1人以上脱出: `primaryEscapeUnitsAlternative`(mapped_edge_stone_basin/
+  M9-AZ、blackwater_crossing/M9-I型)を追加設定。この機構も同じく
+  `eliminate_enemies`を除去(3標識の設置で既に除去済みのため冪等)し、
+  EscapeUnits Objectiveを同じ`"primary"`グループへ追加する。
+
+`BattleFactory.cpp`のこの2つのブロックがどちらも同じ`"primary"`グループへ
+書き込み、かつどちらもグループのruleを`Any`へ広げない(`primaryHoldTile
+Alternative`等とは異なる)ことを実際にコードを読んで確認したうえでこの組み合わせ
+を選んだ - 結果として`"primary"`グループはデフォルトの`ObjectiveGroupRule::All`
+のまま、3標識のOperateObject Objective 3件+EscapeUnits Objective 1件、計4
+メンバーの**真のAND**になる。敵全滅のみ・標識1〜2個のみの操作・脱出のみの
+いずれでもVictoryにならず、標識3個全てを操作し、かつ1人以上が帰還基点(右端)
+へ脱出して初めてVictoryになることをテストで直接検証した(下記)。
+
+**正本との意図的な差分**: 正本が要求する「設置**後**に」という順序制約は表現
+できない - このAND合成には順序の概念が無いため、理論上は標識を1個も設置せず
+先に脱出タイルへ到達しても、その後で3標識を設置すれば(脱出時にいた場所を
+維持したまま)Victoryになりうる。この案件のタスク指示が明示的に許容した近似
+(「敵全滅だけでは勝利しない」「標識設置後の帰還を必須にする」という不変条件
+自体は壊さず、厳密な時系列だけを緩める)。`primaryEscapeUnitsAlternative`が
+`GameData.hpp`のJSON Schemaに露出していないため(`mappedEdgeStoneBasinStage()`
+と同じ理由)、本地点は`data/regions.json`ではなく`Region.cpp`の
+`mappedEdgeFinalStage()`として完全にhand-authoredにした。`mapped_edge_
+outermost_marker`というJSONプレースホルダーエントリ自体は、blackwater_crossing/
+mapped_edge_stone_basinの前例どおり死んだまま`data/regions.json`に残置した。
+
+### 敗北条件「標識全損」「12Round超過」
+
+「標識全損」はObject耐久機構がこのEngine全体に存在しない既知ギャップであり、
+地点4「主盤0」・地点5「主盤0」・地点7「両方破壊」・地点8「基点0」と全く同じ
+扱いで見送った(部隊全滅は既存Engineで常時有効)。「12Round超過」については、
+タスク指示が示唆した「round-limit機構の既存前例」を実際に探したが、
+`mapped_edge_split_survey_route`(M9-AX)自身の「8Round超過」・Cinderwatchの
+6周目制限・Ember Ravine地点7のround-limitがいずれも**このEngineに実装されて
+いない同じ未実装ギャップ**であることを`docs/implementation_status.md`の該当
+記述(M9-AX)で確認した。round-limit機構自体がこのプロジェクトのどこにも
+存在しないため、本Sliceでも同じ理由で見送った。
+
+### 環境波の大型獣「普通の大型獣」
+
+HP58/STR10/DEF7/RES3/MOV4は`data/classes.json`の既存21クラスいずれとも一致
+せず(最も近いRedbackLizardでもHP64/STR10/DEF8/RES3/MOV4で一致しない)、この
+プロジェクトに per-instance のstat上書き機構が存在しないこと(`BattleFactory.cpp`/
+`Region.cpp`の`enemyRoster`/`UnitTemplate`が`classId`参照のみで個別ステータス
+上書きフィールドを持たないことを確認)も踏まえ、新規`UnitClass::FrontierBeast`
+を追加した(`data/classes.json`・`include/jf/core/UnitClass.hpp`・
+`src/core/UnitClass.cpp`・`src/data/GameData.cpp`・`src/core/Skill.cpp`の
+5箇所、`RedbackLizard`追加時の全タッチポイントを踏襲)。新規武器`beast_fangs`
+(EN: Fangs / JA: 牙(外縁の大型獣) - `wolf_bite`/`boar_tusks`/`lizard_claws`
+等の「牙・爪+個体名」JA命名規約を踏襲し、`serpent_fangs`と同じ英語表記だが
+JA表記は個体名を括弧内に含めて衝突を避けた)を追加。
+
+AI実装は「TRUE-scripted-boss(bespoke `takeXBossTurn()`)」と「optional-elite
+(既存の`takeEnemyTurn()`汎用パス+`AiSystem.cpp`の`retreatHpPercent`調整のみ)」
+の2パターンのうちTRUE-scripted-bossを選んだ - 理由は正本が明示する「直線突進を
+1Round前に予告する」という**繰り返しテレグラフ攻撃**そのものがoptional-elite
+パターン(`AiProfile`はretreat/aggressionしか調整できず、テレグラフの概念が
+無い)には一切フックが存在しないため。`AshenhornBoar`/`AshironGrubworm`/
+`MarshFangSerpent`/`PlateauCourierCaptain`/`RedbackLizard`の5体と同じ
+`chargeTelegraphed`/`bossRuntime.telegraph`/`chargeCooldownActions`Unit
+フィールドを再利用する`takeFrontierBeastBossTurn()`(`src/battle/EnemyAI.cpp`)
+を新設したが、正本が「固定ボスは置かない」「普通の大型獣」と明記することを
+踏まえ、この6体中**最も単純な実装**にした - enrage段階なし(AshenhornBoar/
+AshironGrubwormのHP50%閾値のような状態遷移は無し)、薙ぎ払い等の副次攻撃なし
+(AshenhornBoarのsweep/RedbackLizardのtail sweep相当は無し)、leashなし
+(RedbackLizardの`kRedheatFissureGateTile`固定座標参照は無し)、衝突時スタン等の
+副作用なし(AshenhornBoarの丸太衝突スタンに相当する記述が正本に無いため実装
+しない)。「撃破は不要」は本地点のprimary groupにEliminateTeamメンバーが一切
+存在しない(標識3個+脱出のみ)ことで**自動的に**成立するため、`retreatHpPercent`
+のようなAI側のチューニングは一切行っていない(倒しても倒さなくてもVictory/
+Defeatに無関係)。`ObjectiveTracker.cpp`の`emitUnitDefeatedEvents()`が5体の
+既存ボスに付与する`UnitExitReason::ScriptedWithdrawal`(「HP0後を撃破相当として
+扱う」)には**あえて含めなかった** - 正本が「普通の大型獣」と明記し、5体の
+既存ボスのような個体名を持つ物語上重要な撃破ではないため、通常の`Defeated`の
+ままとした(意図的な差分として明記)。
+
+### 3波
+
+`StageDescriptor::timedReinforcement`が単一`std::optional`であるという
+fort_reserve_wall(M9-Y)/mapped_edge_return_base(M9-BB)以来の既知の制限のため、
+正本の3波(機動波/制圧波/環境波)を「初期ロースター+増援1波」の2段階へ近似
+した:
+
+- 初期ロースター: 機動波(騎兵型・斥候型) = `MessengerCavalry`(windwatch_station/
+  plateau_relayで既に敵flavor再利用済み)+`FrontierScout`(このSliceが敵flavor
+  としての初出、既存の12兵種のうち転用)。加えて環境波の大型獣`FrontierBeast`
+  1体も初期ロースターへ含めた - 正本が環境波を「予告地形」を伴う持続的脅威として
+  描写し、機動波/制圧波のような対人間の戦術的出現トリガーの記載が無いため、
+  開始直後から盤面に存在する自己完結した危険物という扱いの方が自然と判断した。
+- 増援1波: 制圧波(守備兵型・弓兵型、帰還路を塞ぐ) = `VeteranGuard`x2+
+  `WatchArcher`x2、2ラウンド目・1ラウンド前予告・右端(帰還基点側)3マスへ出現
+  (fort_reserve_wall/mapped_edge_return_baseと同型の`orderedSpawnCandidates`)。
+  どちらのクラスも本地域で既に敵flavor再利用済み(VeteranGuardは地点1〜3等、
+  WatchArcherは地点5/7/8)。
+
+### 探索3択
+
+「最奥標識優先」「観測記録優先」はwindscarRelayStage()以来の数値差分なし
+フレーバーペア(正本の表セルに追加の数値デルタ記載も無い)。`[行軍隊長]`
+「撤退順固定」は`scoutRouteRequiredClass: MarchCaptain`+`enemiesRemoved=1`
+(mappedEdgeStoneBasinStage()の「落石受止め」以来の既存機構)で近似した -
+「撤退順」そのものを制御する機構はこのEngineに存在しないため、結果面(敵-1体)
+のみを近似する。
+
+### 報酬「最終キー素材1、希少素材3、遺跡片2」
+
+`rare_material`・`ruin_fragment`は既存登録素材の再利用のみ。「最終キー素材」は
+正本の「安定ID」節が`frontier_final_key`と明記しており、`docs/item_catalog.md`
+「キー素材」節が事前に登録していた**候補**id`final_key_material`とは異なる
+ため、正本の安定ID表記を優先して`frontier_final_key`をそのまま採用し、
+`item_catalog.md`の当該行をこの実装済みidへ更新した(候補idとの差分として
+明記)。`data/locales/{en,ja}.json`へ`material.frontier_final_key`
+(EN: "Frontier Final Key-Material" / JA: "最終キー素材")を追加し、
+`[[feedback_ja_glyph_coverage]]`の教訓どおり`ui_shared.cpp`の
+`materialNameFor()`のknownセット・`loadAppFont()`のJAグリフcharset収集
+ループの両方へ追加した(`FrontierBeast`のUnitClass toString・`beast_fangs`
+weaponも同様に追加済み)。
+
+### 見送った部分(正本との差分、都度明記)
+
+- 敗北条件「標識全損」「12Round超過」はどちらもObject耐久/round-limit機構が
+  このEngine全体に存在しない既知ギャップとして見送り(部隊全滅は既存Engineで
+  常時有効)
+- 副目標5件(4人全員帰還/標識3個耐久1以上/観測箱2個保全/10Round以内/Pending
+  Loot保護箱不使用)は**1件も本Sliceでは新規配線しなかった** - 主目的自体が
+  このプロジェクトで最も複雑な組み合わせ(3-way Device AND+EscapeUnits+
+  timedReinforcement+新規UnitClass)であり、その実装・検証を優先したため。
+  「4人全員帰還」はblackwater_crossingの`SecondaryEscapeUnitsRule`
+  (`requiredEscapeCount`を4等に設定するだけ)で技術的には低コストに追加可能
+  だが、今回は見送った。「標識3個耐久1以上」「10Round以内」はそれぞれObject
+  耐久/round-limit機構が無いため副目標としても表現不能。「観測箱2個保全」は
+  そもそも本地点に観測箱という概念自体を導入していない(正本の「探索3択」列の
+  「観測記録優先」はフレーバー名のみで、broken_watchtowerの観測盤/記録箱とは
+  別概念)。「Pending Loot保護箱を使わず完遂」はこの概念に対応するフックが
+  Engineに存在しない。
+- 恒久成果id`outermost_markers_placed`/`mapped_edge_secured`/
+  `mapped_edge_survey_record`/`frontier_final_key`(恒久登録の方)/
+  `main_campaign_completed`はいずれも正本の「安定ID」節に記載があるが、
+  地点1〜8と全く同じ理由(地域攻略(安全帰還)Slice自体が本Sliceの範囲外)で
+  未配線。
+- **region-clear floor-topup配線は着手していない** - `ExpeditionService.cpp`
+  の`computeRegionSummaries()`を読み、`ShatteredMarchFort`/`BuriedDawnSanctum`
+  等の他9地域が持つ`<region>MaterialsEarned`+floor tableパターンをmapped_edge
+  はまだ一切持たないことを確認した。地図外縁は9地点全てがこのSliceまでの
+  一連のSliceで初めて実コンテンツ化されたばかりであり、region-clear自体を
+  地図外縁でどう扱うか(floor-topup、恒久登録、正本の「開拓都市で全地域を
+  総括」「深層遠征候補を解放」「本編クリア記録を保存」)は単一地点Sliceの
+  範囲を明らかに超える設計判断のため、着手せず次の専用Milestone候補として
+  明示的に持ち越す。
+- 正本「物語上の最終結果」節が言う「深層遠征候補」(未確認信号の追跡/高危険
+  素材の採取/既存地域の異常再調査の3カテゴリ)は具体的な地点数・物語が正本
+  自身「本編10地域とは別仕様で決める」と明記する未確定事項であり、本Slice
+  ではもちろん、直近の優先候補としても着手しない(正本どおり本編クリアの
+  必須条件ではない)。
+
+`tests/test_battle.cpp`へ2件追加: (a) `mapped_edge_outermost_marker`ステージの
+`objectPlacementRules`(3件)・`enemyRoster`(3体、`FrontierBeast`含む)・
+`timedReinforcement`(2ラウンド目、4体)・`scoutRouteRequiredClass`
+(MarchCaptain)・報酬(`frontier_final_key`1/`rare_material`3/`ruin_fragment`2)
+を検証したうえで、敵全滅のみ・標識1個・標識2個のいずれでもVictoryにならない
+こと、標識3個操作済みでもまだ脱出していなければVictoryにならないこと、標識
+3個+プレイヤー1人が脱出タイルへ到達して初めてVictoryになることを
+`createScenarioBattle()`+`ActionResolvedEvent`経由で段階的にアサートした
+(真の4-way ANDであることの直接証跡)。(b) `UnitClass::FrontierBeast`の
+baseStats(HP58/STR10/DEF7/RES3/MOV4)を`GameData::classDefinition()`経由で
+検証したうえで、`takeEnemyTurn()`を2回連続で呼び出し、1回目はテレグラフの
+みで攻撃が発生しないこと(`chargeTelegraphed`/`bossRuntime.telegraph.
+pending()`が真になる)、2回目でテレグラフが実行されてプレイヤーユニットへ
+ダメージが入り、テレグラフ状態がクリアされることの両方を直接アサートした。
+
+ビルド・`ctest --test-dir build -j10 --output-on-failure`は4/4、フルスイートを
+3回連続実行し安定(フレークなし)。`git diff --check`も成功。
+
+### balance実測
+
+`jf_forest_balance --region=mapped_edge`(500 Seed)の実測: 地点9(地図外縁)は
+Direct win 0.0%/HP残51.7%(any KO 70.2%、avg KO 1.00、rounds 40.95、
+timeouts 499/500)、Tactical win 0.0%/HP残81.2%(any KO 27.2%、avg KO 0.31、
+rounds 28.62、timeouts 500/500)。これはこのタスク自体が事前に予測したとおり、
+`[[project_forest_balance_no_objective_awareness]]`(EscapeUnits盲点)と
+`[[project_forest_balance_worst_case]]`の教訓が示す既存の2つのシミュレータ
+盲点(OperateObject主目的の未理解+EscapeUnits主目的の未理解)が**複合した**
+結果であり、加えてこのシミュレータのヒューリスティックが「敵を倒す」以外の
+勝利パスを一切評価しないため、撃破不要かつ延々と再出現するAI(FrontierBeastは
+撃破してもしなくても意味が無い)相手にひたすら戦い続けてround上限(この
+ツール自体のシミュレーション上限、Engine自体のround-limitとは別)に達する
+という最悪ケースが再現されている。地点9本体の実際のバランスを示す指標では
+なく、地点4「二股の踏査路」以来繰り返し記録してきたのと同じ種類のシミュレータ
+限界の**複合版**として扱う(実プレイでの確認を経ずに調整案は出さない)。
+9地点通しのRegion clear win率はDirect/Tactical双方0.0%(Reach: Mapped Edge
+0/500)だが、これは地点4「二股の踏査路」以来の複数の既知OperateObject/
+guest-escort/EscapeUnits盲点が伝播した参考値であり、地点9本体はおろか
+地図外縁地域全体の実際のバランスを示すものでもない。
+
+以上で**地図外縁 地点9「地図外縁」(最終戦)が実コンテンツ化され、地図外縁の
+9地点が全て完了した**。これにより**全10地域の本編キャンペーンの地点コンテンツ
+実装が全て完了した**。次の優先候補は個々の地点コンテンツではなく、地図外縁の
+地域攻略(安全帰還)・恒久成果配線・region-clear floor-topup、および正本が
+本編非必須と位置付ける「深層遠征」の具体設計であり、詳細は
+`docs/implementation_roadmap.md`の該当箇所を参照。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

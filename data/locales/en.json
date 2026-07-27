@@ -122,6 +122,7 @@
   "material.military_supplies": "Military Supplies",
   "material.rare_material": "Rare Material",
   "material.frontier_edge_material": "Frontier-Edge Material",
+  "material.frontier_final_key": "Frontier Final Key-Material",
   "weapon.iron_sword": "Iron Sword",
   "weapon.iron_lance": "Iron Lance",
   "weapon.iron_axe": "Iron Axe",
@@ -473,9 +474,12 @@
   "class.redback_lizard": "Redback Great Lizard",
   "class.redback_lizard.role": "Boss: telegraphed sand charge (3-tile line), a 3-tile frontal tail sweep with knockback, and a one-time fume-terrain lure at half HP.",
   "weapon.lizard_claws": "Claws",
+  "weapon.beast_fangs": "Fangs",
   "class.sanctum_retrieval_leader": "Sanctum Retrieval Leader",
   "class.sanctum_retrieval_leader.role": "Elite (optional): prioritizes units near the archive boxes, considers surrendering at low HP. Not a scripted boss.",
   "class.fort_garrison_captain": "Fort Garrison Captain",
   "class.fort_garrison_captain.role": "Elite (optional): defends the order crates, considers retreating at low HP. Not a scripted boss.",
+  "class.frontier_beast": "Frontier Beast",
+  "class.frontier_beast.role": "An ordinary large beast. Telegraphs a straight-line charge one round ahead; does not need to be defeated.",
   "weapon.sanctum_glaive": "Sanctum Glaive"
 }

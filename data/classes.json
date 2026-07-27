@@ -153,6 +153,13 @@
       "weaponId": "heavy_axe",
       "nameKey": "class.fort_garrison_captain",
       "roleKey": "class.fort_garrison_captain.role"
+    },
+    {
+      "id": "FrontierBeast",
+      "baseStats": { "maxHp": 58, "strength": 10, "magic": 0, "speed": 4, "defense": 7, "resistance": 3, "move": 4 },
+      "weaponId": "beast_fangs",
+      "nameKey": "class.frontier_beast",
+      "roleKey": "class.frontier_beast.role"
     }
   ]
 }

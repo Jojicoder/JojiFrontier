@@ -180,7 +180,7 @@
 | `ashenhorn_fragment` | 灰角の欠片 | 大猪を倒木へ衝突させて勝利 | 灰角系の将来調整素材 |
 | `quarry_core_material` | 崩落核素材 | 灰鉄採石場Boss攻略 | 辺境集落への発展候補 |
 | `deepwater_source_material` | 深泥水源素材 | 黒水低湿地Boss攻略 | 次地域解放、薬学系発展 |
-| `final_key_material` | 最終キー素材 | 地図外縁の最終地点 | 本編最終発展、深層遠征候補 |
+| `frontier_final_key` | 最終キー素材 | 地図外縁「9. 地図外縁」の主目的報酬 | 本編最終発展、深層遠征候補(M9-BCで実装。このテーブルの旧ID候補`final_key_material`ではなく、`docs/regions/mapped_edge.md`「安定ID」節が明記する`frontier_final_key`をそのまま採用した) |
 
 ### 地域固有の実装済み戦利品
 

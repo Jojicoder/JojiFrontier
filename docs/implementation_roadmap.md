@@ -424,23 +424,50 @@ BannerBearer`+`enemiesRemoved=1`で近似。報酬は既存`food`/`herb`/
 `quality_iron`のみ新規登録なし。地点名自体が指す恒久成果「最終戦後の脱出
 マスを2個追加」は消費側(地点9の脱出ゾーン定義)が未実装のため配線を
 pending-site-9として保留。詳細は`implementation_status.md`のM9-BB参照。
+M9-BC(地図外縁 地点9「地図外縁」最終戦)完了(2026-07) - **これで地図外縁の
+9地点が全て実コンテンツ化され、全10地域の本編キャンペーンの地点コンテンツが
+全て完了した**。主目的「標識3個設置後、4人中1人以上を帰還基点へ脱出」は
+3件の`objectPlacementRules`(真の3-way OperateObject AND、windwatch_station/
+fort_signal_yard/mapped_edge_abandoned_relay/split_survey_route型を2→3へ
+拡張)+`primaryEscapeUnitsAlternative`(mapped_edge_stone_basin/blackwater_
+crossing型)を同じ"primary"グループ(デフォルトのObjectiveGroupRule::All)へ
+合成し、敵全滅のみ・標識1〜2個のみ・脱出のみのいずれでもVictoryにならず、
+標識3個+脱出1人以上で初めてVictoryになる真のAND挙動を実装(順序制約「設置後に」
+は表現できない既知の近似、この案件の設計指示どおりの選択)。環境波の大型獣
+「普通の大型獣」(HP58/STR10/DEF7/RES3/MOV4)は既存クラスと一致しないため新規
+`UnitClass::FrontierBeast`を追加し、AshenhornBoar等5体の既存ボスと同型の
+自己完結した直線突進テレグラフAI(`takeFrontierBeastBossTurn()`、enrage/
+sweep/leash等の追加機構なし)を実装 - 「撃破は不要」はprimary groupに
+EliminateTeamメンバーが無いことで自動的に成立するため、AI側のretreat
+チューニング等は不要と判断。3波は`timedReinforcement`単一`optional`の既知
+制限どおり初期ロースター(機動波2体+環境波の大型獣1体)+増援1波(制圧波4体、
+2ラウンド目、1ラウンド前予告)へ近似。報酬は新規`frontier_final_key`
+(正本「安定ID」節の名前をそのまま採用)+既存`rare_material`/`ruin_fragment`。
+敗北条件「標識全損」「12Round超過」はどちらもObject耐久/round-limit機構が
+このEngineに存在しない既知ギャップとして見送り(部隊全滅は既存Engineで常時
+有効)。副目標5件のうち本Sliceでは1件も新規配線せず全て次Slice以降へ持ち越し
+(主目的自体がこのプロジェクトで最も複雑な組み合わせのため)。地域攻略(安全
+帰還)・恒久成果id(`outermost_markers_placed`/`mapped_edge_secured`/
+`main_campaign_completed`)・region-clear floor-topup配線はいずれも地点1〜8と
+同様に本Sliceの範囲外として未着手(mapped_edgeは`ExpeditionService.cpp`の
+region-clear floor-topupブロック自体がまだ存在しない)。詳細は
+`implementation_status.md`のM9-BC参照。
 
 直近の未完了(優先度順):
 
-1. 地図外縁(第10・最終地域)は地域骨格+地点1「最後の既知標識」(M9-AU)・地点2
-   「乾いた川床」(M9-AV)・地点3「無記録野営跡」(M9-AW)・地点4「二股の踏査路」
-   (M9-AX、`BranchCompletion::AllMembers`のもう一方、windwatch_station/
-   sealed_passage/fort_signal_yard型の踏査標識2個操作を真の`objectPlacementRules`
-   /`operateObjectiveId`二重AND-groupとして実装)・地点5「放棄中継所」
-   (M9-AY、地点4と同型の真の二重Device AND-groupで信号盤2個操作を実装)・地点6
-   「石盆地」(M9-AZ、blackwater_crossing型のguest-escort、大型獣1はAshenhornBoar
-   再利用)・地点7「折れた見張台」(M9-BA、OperateObject-primary近似+crate
-   secondary、新規Discovery`mapped_edge_survey_records`)・地点8「帰還基点」
-   (M9-BB、fort_reserve_wall型のSurviveRounds(4)+timedReinforcement2波計7)が
-   完了。地点9(地図外縁最終戦)はまだBandit x2プレースホルダーのまま。次は
-   地点9・最終戦「地図外縁」(no-fixed-bossの3波ガントレット、既存敵アーキ
-   タイプのみ)まで到達させる(M9-AN〜AT/M9-AU〜BBと同じ「骨格→1地点ずつ」
-   方式)。全10地域キャンペーンの最後の地域。
+1. **全10地域・全地点コンテンツが完了(M9-BCで地図外縁地点9まで到達)**。次に
+   優先度が高いのは地点コンテンツそのものではなく、地点1〜8と同様に本Sliceでも
+   見送られてきた次の2種類の横断的懸案: (a) 地図外縁の地域攻略(安全帰還)
+   Slice - 恒久成果id(`mapped_edge_secured`/`mapped_edge_survey_record`/
+   `frontier_final_key`/`main_campaign_completed`)の恒久登録配線、
+   `ExpeditionService.cpp`のregion-clear floor-topupブロック新設(他9地域が
+   持つ`<region>MaterialsEarned`パターンをmapped_edgeにも追加するかの判断を
+   含む)、および正本「物語上の最終結果」節が言う「開拓都市で全地域を総括」
+   「任意の深層遠征候補を解放」の実装。(b) 正本が本編非必須と位置付ける
+   「深層遠征」(未確認信号の追跡/高危険素材の採取/既存地域の異常再調査の
+   3カテゴリ)の具体的な地点数・物語設計 - 本編10地域とは別仕様、深層未攻略でも
+   エンディングを損なわない前提。どちらも単一地点Sliceの粒度を超える設計判断を
+   要するため、次の専用Milestoneとして切り出すことを推奨する。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/

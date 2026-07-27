@@ -31,6 +31,7 @@ std::string toString(UnitClass unitClass) {
         // flagged once for unitClassFromString()).
         case UnitClass::SanctumRetrievalLeader: return "Sanctum Retrieval Leader / 聖堂回収団長";
         case UnitClass::FortGarrisonCaptain: return "Fort Garrison Captain / 残留砦隊長";
+        case UnitClass::FrontierBeast: return "Frontier Beast / 外縁の大型獣";
     }
     return "Unknown";
 }

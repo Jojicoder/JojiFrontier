@@ -9300,6 +9300,137 @@ int main() {
     }
 
     {
+        // docs/regions/mapped_edge.md「最終戦「地図外縁」」(M9-BC、本編最終地点):
+        // 主目的「標識3個設置後、4人中1人以上を帰還基点へ脱出」は3件の
+        // objectPlacementRules(operateObjectiveId、真の3-way AND、windwatch_
+        // station/fort_signal_yard/mapped_edge_abandoned_relay/mapped_edge_
+        // split_survey_routeと同型)+primaryEscapeUnitsAlternative(mapped_
+        // edge_stone_basin/blackwater_crossing以来)を同じ"primary"グループ
+        // (デフォルトのObjectiveGroupRule::All)へ合成した近似 - 敵全滅のみ、
+        // 標識1〜2個だけの操作、脱出のみ、のいずれでもVictoryにならず、
+        // 3個全て操作+1人以上脱出して初めてVictoryになることを直接検証する
+        // (正本が定める順序制約「設置後に」までは表現できない既知の近似)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor mappedEdge = jf::regionDescriptor(jf::RegionId::MappedEdge, *data);
+        const jf::StageDescriptor* finalStage = nullptr;
+        for (const jf::StageDescriptor& stage : mappedEdge.stages)
+            if (stage.id == "mapped_edge_outermost_marker") finalStage = &stage;
+        assert(finalStage);
+        assert(finalStage->objectPlacementRules.size() == 3);
+        assert(finalStage->enemyRoster.size() == 3); // 機動波2体+環境波の大型獣1体
+        assert(finalStage->timedReinforcement && finalStage->timedReinforcement->spawnRound == 2 &&
+              finalStage->timedReinforcement->units.size() == 4); // 制圧波(守備兵2+弓兵2)
+        assert(finalStage->scoutRouteRequiredClass == jf::UnitClass::MarchCaptain);
+        bool sawBeast = false;
+        for (const jf::UnitTemplate& unit : finalStage->enemyRoster)
+            if (unit.classId == jf::UnitClass::FrontierBeast) sawBeast = true;
+        assert(sawBeast);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*finalStage, choice, /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "frontier_final_key") == 1);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "rare_material") == 3);
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "ruin_fragment") == 2);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *finalStage, /*seed=*/11);
+        for (jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind != jf::BattleOutcomeKind::Victory); // 敵全滅だけでは勝利しない
+
+        const jf::ObjectiveDefinition* escapeDef = nullptr;
+        for (const auto& def : battle.missionState().definitions)
+            if (def.id == "mapped_edge_final_escape") escapeDef = &def;
+        assert(escapeDef && escapeDef->primary && escapeDef->groupId == "primary" &&
+              escapeDef->kind == jf::ObjectiveKind::EscapeUnits);
+
+        // 標識を1個ずつ操作していく - 3個全て操作するまでVictoryにならない。
+        jf::BattleObjectState* marker1 = battle.findObject("mapped_edge_final_marker_1_1");
+        jf::BattleObjectState* marker2 = battle.findObject("mapped_edge_final_marker_2_1");
+        jf::BattleObjectState* marker3 = battle.findObject("mapped_edge_final_marker_3_1");
+        assert(marker1 && marker2 && marker3);
+        marker1->interactionCount = 1;
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind != jf::BattleOutcomeKind::Victory);
+        marker2->interactionCount = 1;
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind != jf::BattleOutcomeKind::Victory);
+
+        // 標識2個だけでも、脱出せずにいる限りまだVictoryにならない(脱出との
+        // ANDが効いていることの直接証跡)。
+        marker3->interactionCount = 1;
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind != jf::BattleOutcomeKind::Victory); // 標識3個、まだ未脱出
+
+        jf::Unit* playerUnit = nullptr;
+        for (jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Player) { playerUnit = &unit; break; }
+        assert(playerUnit);
+        jf::BattleEvent unitEscapes{
+            1, 1,
+            jf::ActionResolvedEvent{1, playerUnit->id, jf::Team::Player, jf::ActionKind::Wait, escapeDef->target.tile}};
+        jf::handleObjectiveEvent(battle.missionState(), unitEscapes);
+        jf::syncObjectiveProgress(battle);
+        assert(jf::evaluateBattleOutcome(battle).kind == jf::BattleOutcomeKind::Victory); // 標識3個+脱出1人でVictory
+    }
+
+    {
+        // docs/regions/mapped_edge.md「最終戦「地図外縁」」の環境波「普通の
+        // 大型獣1体」: HP58/STR10/DEF7/RES3/MOV4の新規UnitClass::FrontierBeast
+        // + 自己完結した直線突進テレグラフ(takeFrontierBeastBossTurn())の
+        // 直接検証。AshenhornBoar等5体の既存ボスと同じ
+        // chargeTelegraphed/bossRuntime.telegraph/chargeCooldownActions
+        // フィールドを再利用し、enrage/sweep/leash等の追加機構は一切無い
+        // (「普通の大型獣」であり、撃破もこの地点の勝敗に一切影響しない)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::ClassDefinition& beastClass = data->classDefinition(jf::UnitClass::FrontierBeast);
+        assert(beastClass.baseStats.maxHp == 58 && beastClass.baseStats.strength == 10 &&
+              beastClass.baseStats.defense == 7 && beastClass.baseStats.resistance == 3 &&
+              beastClass.baseStats.move == 4);
+
+        const jf::RegionDescriptor mappedEdge = jf::regionDescriptor(jf::RegionId::MappedEdge, *data);
+        const jf::StageDescriptor* finalStage = nullptr;
+        for (const jf::StageDescriptor& stage : mappedEdge.stages)
+            if (stage.id == "mapped_edge_outermost_marker") finalStage = &stage;
+        assert(finalStage);
+
+        jf::BattleState battle = jf::createScenarioBattle(*data, *finalStage, /*seed=*/23);
+        jf::Unit* beast = nullptr;
+        for (jf::Unit& unit : battle.units())
+            if (unit.unitClass == jf::UnitClass::FrontierBeast) beast = &unit;
+        assert(beast);
+        // Line the beast up on the same row as a player unit, within charge
+        // range, with nothing else in the way, then let it take its turn:
+        // it must telegraph (not immediately execute) a straight-line charge.
+        jf::Unit* target = nullptr;
+        for (jf::Unit& unit : battle.units())
+            if (unit.team == jf::Team::Player) { target = &unit; break; }
+        assert(target);
+        beast->position = jf::GridPos{target->position.row, target->position.col + 2};
+        beast->hasActed = false;
+        jf::takeEnemyTurn(battle, *beast, nullptr);
+        assert(beast->chargeTelegraphed);
+        assert(beast->bossRuntime.telegraph.pending());
+
+        // Next turn, the telegraphed charge executes (no further warning) -
+        // damages the player unit it passes over, then clears the telegraph.
+        const int hpBefore = target->currentHp;
+        beast->hasActed = false;
+        jf::takeEnemyTurn(battle, *beast, nullptr);
+        assert(!beast->chargeTelegraphed);
+        assert(!beast->bossRuntime.telegraph.pending());
+        assert(target->currentHp < hpBefore);
+    }
+
+    {
         // 地点7「折れた見張台」の副目標「記録箱2個とも回収 -> 地図外縁踏査
         // 記録」: heatwork_shop(M9-AE)のkSpecialForgingRecordsDiscoveryと
         // 全く同じall-group-members-Completed ad-hocチェック(GameApp.cpp)を
