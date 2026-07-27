@@ -340,7 +340,8 @@ void loadAppFont() {
                            "watch_ledger", "captains_seal", jf::kAshveilFangMaterial,
                            jf::kAshenhornFangMaterial, "quality_herb", "ashenhorn_fragment", "iron", "stone",
                            "old_gear", "signal_core", "quality_iron", "building_material", "food",
-                           "sanctum_equipment", "ruin_fragment", "rare_material"})
+                           "sanctum_equipment", "ruin_fragment", "rare_material",
+                           "frontier_edge_material"})
         charsetSource += materialNameFor(id);
     for (const char* weaponId :
         {"wolf_bite", "boar_tusks", "grubworm_mandibles", "serpent_fangs", "road_sword", "heavy_axe",
@@ -534,6 +535,7 @@ std::string materialNameFor(const std::string& id) {
         "wetland_resin", "poison_material", "hardwood", "cloth", "riding_gear",
         "building_material", "food", "heat_resistant_material", "sulfur", "ash_crystal",
         "sanctum_equipment", "ruin_fragment", "military_supplies", "rare_material",
+        "frontier_edge_material",
     };
     return known.count(id) ? tr("material." + id) : id;
 }

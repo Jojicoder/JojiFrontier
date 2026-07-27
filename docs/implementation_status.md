@@ -5397,6 +5397,87 @@ Direct 0.0%/Tactical 0.0%だが、地点4〜9がまだプレースホルダー�
 以上で**地図外縁 地点3「無記録野営跡」が実コンテンツ化された**。地点4〜9・最終戦は
 今後のSliceへ持ち越す。
 
+## M9-AX 地図外縁 地点4(二股の踏査路) / CAMP II到達可能化
+
+`docs/regions/mapped_edge.md`「9地点仕様」地点4行を再確認した。主目的「踏査標識2個
+操作」は、これまでのcrate-primary近似(`ObjectiveGroupRule::Any`)ではなく、
+windwatch_station(M9-N、風裂き高原「3. 風見台」)/sealed_passage(M9-AL、埋没聖堂
+「5. 封鎖回廊」)/fort_signal_yard(M9-AR、砕けた行軍砦)と全く同じ**真の二重Device
+AND-group**として実装した: `objectPlacementRules`に踏査標識(`kind: Device`)を
+北ゾーン(col0-3)・南ゾーンの2件配置し、各々に独立の`operateObjectiveId`を設定。
+`BattleFactory.cpp`側の既存挙動(`operateObjectiveId`を持つ`objectPlacementRules`の
+最初の1件でデフォルトのEliminateTeam primaryを除去し、以後placeRandomObjects()が
+実際に配置した数だけOperateObject Objectiveを`groupId="primary"`(デフォルトの
+`ObjectiveGroupRule::All`)へ追加する経路)にそのまま乗ったため、コード変更は一切
+不要だった。敵全滅のみでは勝利せず、標識を片方だけ操作しても勝利せず、両方操作して
+初めて勝利する、という正本どおりの真のAND挙動をテストで直接検証した(下記)。
+
+敗北条件「8Round超過」はCinderwatch自身の6Round制限(6周目自体で未実装のまま)・
+Ember Ravine地点7自身のround-limit(同じく未実装)と全く同じ、このEngineに
+まだ存在しないround-limit機構であるため、本Sliceでも見送った(部隊全滅は既存Engine
+で常時有効、他の全地点と同じ扱い)。
+
+敵「2組計6」は、正本の表セルに第2組の出現トリガー条件の記載が無いため(地点9の
+「機動波/制圧波/環境波」のような明示的な波構成記載とは異なる)、フラットな6体
+編成として近似した(追跡者3体=Bandit reskin+Wolf3体)。`timedReinforcement`等の
+波分割は行わなかった。
+
+主目的報酬「地域固有素材2」は、正本の「9地点仕様」表で本地点(地点4「2」)と
+石盆地(地点6「1」)の2箇所に登場し、「最低保証」節の「地域固有素材3」(2+1)と
+数値が一致するため、`rare_material`の別名ではなく**新規素材id**であると判断した。
+既存の素材id・`materialNameFor()`のknownセット(`ui_shared.cpp`)・
+`data/locales/{en,ja}.json`を検索して重複が無いことを確認した上で、
+`frontier_edge_material`(JA: 地図外縁専用素材)として新規登録した。
+`[[feedback_ja_glyph_coverage]]`の教訓どおり、`loadAppFont()`のJAグリフcharset
+収集ループ(`ui_shared.cpp`)へも追加し、`docs/item_catalog.md`にも新規行を追加した。
+
+`data/regions.json`のJSON Schemaのみで実コンテンツ化した(`guestUnits`不要)。
+ルート3`[伝令騎兵]`「両路連絡」は既存パターン(fort_logistics_depot等)どおり
+`scoutRouteRequiredClass: MessengerCavalry`で表現。恒久成果id
+`split_survey_routes_mapped`は正本の「安定ID」節に記載があるが、地点1〜3と同様、
+恒久成果配線自体は地域攻略(安全帰還)Slice側の範囲として未配線のまま残した。
+
+`RouteGraph.cpp`の`mappedEdgeGraph()`は既にM9-AUの段階で`mapped_edge_split_survey_route`
+という地点idへ`BranchCompletion::AllMembers`分岐(`mapped_edge_camp_survey_branch`)
+の一員として配線済みだったため、グラフ側のコード変更は不要だった。地点3(M9-AW)・
+地点4(本Slice)の両方が実コンテンツ化されたことで、**CAMP IIは実プレイ経路上
+到達可能になった**(分岐自体は骨格Sliceから機能していたが、両メンバーが
+プレースホルダーではなくなったのは本Sliceが初めて)。
+
+見送った部分(正本との差分、都度明記):
+
+- 地点5〜9(放棄中継所/石盆地/折れた見張台/帰還基点/地図外縁)はプレースホルダー
+  のまま(次Slice以降で1地点ずつ本格化)
+- 敗北条件「8Round超過」(round-limit機構)はEngine未実装のギャップとして見送り
+- 地点4固有の恒久成果id`split_survey_routes_mapped`は地域攻略Slice側の範囲として
+  未配線
+
+`tests/test_battle.cpp`へ1件追加: `mapped_edge_split_survey_route`ステージの敵編成
+(6体)・`scoutRouteRequiredClass`(MessengerCavalry)・勝利報酬(`frontier_edge_material`
+2)を検証したうえで、sealed_passage(M9-AL)のテスト形状と同型の二重Device AND挙動を
+`createScenarioBattle()`経由で直接検証: 敵を全滅させても北標識のみ操作した状態では
+`evaluateBattleOutcome()`が`Victory`にならないこと、南標識も操作して初めて`Victory`
+になることの両方をアサートした。
+
+ビルド・`ctest --test-dir build -j10 --output-on-failure`は4/4、フルスイートを
+3回連続実行し安定(フレークなし、既知の`test_battle.cpp:1244`フレークも今回は
+発生せず)。`git diff --check`も成功。
+
+### balance実測
+
+`jf_forest_balance --region=mapped_edge`(500 Seed)の実測: 地点4(二股の踏査路)の
+fresh-party win率はDirect 0.0%/HP残5.5%(avg KO 3.62、rounds 12.53、timeouts 108)、
+Tactical 0.0%/HP残9.6%(avg KO 3.53、rounds 11.77、timeouts 104)。この0%はwindwatch_
+station(M9-N)自身の既知の記録と同型の**シミュレータのOperateObject盲点**であり
+(ヒューリスティックが「敵全滅」のみを勝利条件として扱い、Device操作を評価しないため
+timeoutが大量発生する)、地点4本体の実際のバランスを示すものではない。9地点通しの
+Region clear win率はDirect 0.0%/Tactical 0.0%だが、上記に加え地点5〜9がまだ
+プレースホルダーのままであることも影響しており、地点1〜4本体の数値を示すものでは
+ない。
+
+以上で**地図外縁 地点4「二股の踏査路」が実コンテンツ化され、CAMP IIが到達可能に
+なった**。地点5〜9・最終戦は今後のSliceへ持ち越す。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

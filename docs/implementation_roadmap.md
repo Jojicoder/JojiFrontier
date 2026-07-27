@@ -376,12 +376,15 @@ Slice側の範囲として未配線のまま。詳細は`implementation_status.m
 直近の未完了(優先度順):
 
 1. 地図外縁(第10・最終地域)は地域骨格+地点1「最後の既知標識」(M9-AU)・地点2
-   「乾いた川床」(M9-AV)・地点3「無記録野営跡」(M9-AW)が完了。地点4〜9(二股の
-   踏査路/放棄中継所/石盆地/折れた見張台/帰還基点/地図外縁)はまだBandit x2
-   プレースホルダーのまま。次は地点4(地点3との`AllMembers`順序選択のもう一方)
-   以降を1地点ずつ本格化し、最終戦「地図外縁」(no-fixed-bossの3波ガントレット、
-   既存敵アーキタイプのみ)まで到達させる(M9-AN〜AT/M9-AU/AV/AWと同じ
-   「骨格→1地点ずつ」方式)。全10地域キャンペーンの最後の地域。
+   「乾いた川床」(M9-AV)・地点3「無記録野営跡」(M9-AW)・地点4「二股の踏査路」
+   (M9-AX、`BranchCompletion::AllMembers`のもう一方、windwatch_station/
+   sealed_passage/fort_signal_yard型の踏査標識2個操作を真の`objectPlacementRules`
+   /`operateObjectiveId`二重AND-groupとして実装)が完了。地点3・4双方が実装済みに
+   なったため**CAMP IIは到達可能**。地点5〜9(放棄中継所/石盆地/折れた見張台/
+   帰還基点/地図外縁)はまだBandit x2プレースホルダーのまま。次は地点5以降を
+   1地点ずつ本格化し、最終戦「地図外縁」(no-fixed-bossの3波ガントレット、既存敵
+   アーキタイプのみ)まで到達させる(M9-AN〜AT/M9-AU〜AXと同じ「骨格→1地点ずつ」
+   方式)。全10地域キャンペーンの最後の地域。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/

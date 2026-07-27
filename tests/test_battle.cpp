@@ -12222,6 +12222,69 @@ int main() {
     }
 
     {
+        // docs/regions/mapped_edge.md「9地点仕様」地点4「二股の踏査路」: primary
+        // is 2 OperateObject Objectives (踏査標識2個操作), mirroring
+        // windwatch_station(M9-N)/sealed_passage(M9-AL)/fort_signal_yard(M9-AR)'s
+        // own dual-Device genuine AND-group shape via objectPlacementRules/
+        // operateObjectiveId under the default "primary"/ObjectiveGroupRule::All
+        // group - defeating every enemy without operating both markers must NOT
+        // win, operating only one must NOT win either, only both together wins.
+        // 敗北条件「8Round超過」はCinderwatch/Ember Ravine地点7と同型の未実装
+        // round-limit機構であり本Sliceでも見送り(部隊全滅は既存Engineで常時
+        // 有効)。敵「2組計6」はトリガー条件の記載が無いため追跡者3+Wolf3の
+        // フラットな6体編成で近似した。主目的報酬「地域固有素材2」は正本の
+        // 「9地点仕様」表で地点4・6に繰り返し登場し(最低保証欄の「地域固有
+        // 素材3」=2+1と一致)、rare_materialの別名ではなく新規id
+        // `frontier_edge_material`として登録した(data/locales/{en,ja}.json・
+        // ui_shared.cppのknownセット・JAグリフcharset収集ループへ追加済み)。
+        // 安定id`split_survey_routes_mapped`は正本の「安定ID」節に記載あるが、
+        // 地点1〜3と同様、恒久成果配線自体は地域攻略Slice側の範囲として未実装。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor mappedEdgeRegion = jf::regionDescriptor(jf::RegionId::MappedEdge, *data);
+        const jf::StageDescriptor* splitRouteStage = nullptr;
+        for (const jf::StageDescriptor& stage : mappedEdgeRegion.stages)
+            if (stage.id == "mapped_edge_split_survey_route") splitRouteStage = &stage;
+        assert(splitRouteStage);
+        assert(splitRouteStage->enemyRoster.size() == 6); // 2組計6
+        assert(splitRouteStage->scoutRouteRequiredClass == jf::UnitClass::MessengerCavalry);
+
+        auto lootFor = [&](jf::ExplorationChoice choice) {
+            return jf::computeStageVictoryLoot(*splitRouteStage, choice,
+                                                /*surveyObjectiveSucceeded=*/false);
+        };
+        auto findLoot = [](const std::vector<jf::LootStack>& loot, const std::string& id) -> int {
+            for (const jf::LootStack& stack : loot)
+                if (stack.id == id) return stack.quantity;
+            return 0;
+        };
+        assert(findLoot(lootFor(jf::ExplorationChoice::FrontalAdvance), "frontier_edge_material") == 2);
+
+        jf::BattleState splitRouteBattle = jf::createScenarioBattle(*data, *splitRouteStage, /*seed=*/29);
+        int enemyCount = 0;
+        for (const jf::Unit& unit : splitRouteBattle.units())
+            if (unit.team == jf::Team::Enemy) ++enemyCount;
+        assert(enemyCount == 6);
+
+        for (jf::Unit& unit : splitRouteBattle.units())
+            if (unit.team == jf::Team::Enemy) unit.currentHp = 0;
+
+        jf::BattleObjectState* northMarker =
+            splitRouteBattle.findObject("mapped_edge_split_survey_route_marker_north_1");
+        assert(northMarker != nullptr);
+        northMarker->interactionCount = 1; // only ONE of the 2 markers operated
+        jf::syncObjectiveProgress(splitRouteBattle);
+        assert(jf::evaluateBattleOutcome(splitRouteBattle).kind != jf::BattleOutcomeKind::Victory);
+
+        jf::BattleObjectState* southMarker =
+            splitRouteBattle.findObject("mapped_edge_split_survey_route_marker_south_1");
+        assert(southMarker != nullptr);
+        southMarker->interactionCount = 1; // both markers now operated
+        jf::syncObjectiveProgress(splitRouteBattle);
+        assert(jf::evaluateBattleOutcome(splitRouteBattle).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
         // docs/regions/ember_ravine.md "共通地形"「炎上床」/「冷却床」: 行動
         // 終了時、炎上床は炎上を確定付与し、冷却床は(ダメージ前に)炎上を解除
         // する。

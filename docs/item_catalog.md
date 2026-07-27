@@ -166,6 +166,7 @@
 | `heat_resistant_material` | 耐熱素材 | 燼火峡谷 | 耐熱装備、熱地形対策 |
 | `ash_crystal` | 灰晶 | 燼火峡谷 | 特殊鍛造、魔導工房 |
 | `rare_material` | 希少素材 | 地図外縁 | 深層遠征、最終発展 |
+| `frontier_edge_material` | 地図外縁専用素材 | 地図外縁 | 深層遠征、最終発展 |
 
 ### キー素材
 
