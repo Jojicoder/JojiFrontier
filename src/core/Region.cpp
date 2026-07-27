@@ -1932,6 +1932,99 @@ RegionDescriptor shatteredMarchFortRegion(const GameData& data) {
     return region;
 }
 
+// docs/regions/mapped_edge.md「9地点仕様」地点6「石盆地」: hand-authored in
+// Region.cpp rather than data/regions.json - like blackwaterCrossingStage()/
+// windscarRelayStage() above, this stage needs StageDescriptor::guestUnits/
+// primaryEscapeUnitsAlternative, neither of which is exposed by
+// stageDescriptorFromContent()'s JSON Schema (same precedent as
+// blackwater_crossing's own dead JSON entry - `data/regions.json`'s
+// `mapped_edge_stone_basin` placeholder entry is left in place unreferenced).
+//
+// **主目的「護衛2人中1人脱出」**: blackwaterCrossingStage()と全く同じ形の直接
+// 再利用 - `primaryEscapeUnitsAlternative`(requiredEscapeCount=1)+`guestUnits`
+// 2体、右端ゾーンへの脱出。敗北条件「全護衛撤退」はBattleFactory.cppが
+// guestUnitsのidをmissionState().guestUnitIdsへ登録することで自動的に
+// allGuestsLost()経由で配線される(blackwaterCrossingStage()以来、追加配線は
+// 不要)。Porter/DawnChirurgeon再利用(既存最低STRクラス、同じ「ステータス/
+// 表示名だけ再利用」慣習)。
+//
+// **敵「大型獣1、野生獣4」**: 正本の「地形と脅威」節が「既存の大型個体で構成
+// する」と定め、この地点自体の表側にはテレグラフ/ボス演出の記載が無い(地点9
+// 「地図外縁」最終戦の大型獣とは異なり、明示的な予告突進の物語付けが無い)。
+// よってAshenhornBoarを**素のUnitClassとして**再利用する - EnemyAI.cpp's
+// `takeEnemyTurn()`はunitClassだけでtakeBoarBossTurn()へ分岐するため、この
+// 分岐自体は避けられないが、AshenhornBoarのボスAIは(RedbackLizardの
+// `kRedheatFissureGateTile`のような)ステージ固有の固定座標leashを一切
+// 参照しない自己完結した突進/暴走メカニクス(HP50%閾値のEnrage、電荷
+// テレグラフ、丸太衝突スタン)であるため、他地点の地形へそのまま持ち込んでも
+// 座標的な破綻がない。これが「大型獣1」の4候補
+// (AshenhornBoar/AshironGrubworm/MarshFangSerpent/RedbackLizard)のうち
+// AshenhornBoarを選んだ理由。新規UnitClass・新規AIプロファイルの追加は無し。
+// 野生獣4はWolf再利用(このプロジェクト全体の野生動物の確立済み慣習)。
+//
+// **探索3択**: 「中央横断」「外周護衛」はwindscarRelayStage()の
+// FrontalAdvance/CollapsedSidePathと同型のフレーバーのみの分岐(数値差分なし)。
+// `[重装兵]`「落石受止め」はscoutRouteRequiredClass=HeavyInfantryで表現し、
+// windscarAscentStage()以来のenemiesRemoved機構をそのまま再利用して「1体を
+// 落石で足止め」を敵-1体として近似した(新規のhazard-mitigation機構は追加
+// しない)。
+//
+// Deliberately NOT implemented (documented gap, same M6-C以来の convention):
+// - guestUnitsは全3ルート共通(固定) - シナリオ構築時点で確定するため、ルート
+//   別に護衛のステータス/人数を出し分けられない(blackwaterCrossingStage()の
+//   `[伝令騎兵]`ルート注釈と同型の既知の限界)。
+// - 「落石受止め」の落石そのもの(地形上の予告危険Object)は本Sliceでは生成
+//   せず、敵-1体という結果面のみを近似(hazardタイル自体の生成/解除機構は
+//   このSliceの範囲外)。
+StageDescriptor mappedEdgeStoneBasinStage() {
+    StageDescriptor stage;
+    stage.id = "mapped_edge_stone_basin";
+    stage.terrainProfileId = "mapped_edge";
+    stage.enemyRoster = {
+        {"mapped_edge_stone_basin_boar", "Stone Basin Beast", UnitClass::AshenhornBoar},
+        {"mapped_edge_stone_basin_wolf1", "Wolf", UnitClass::Wolf},
+        {"mapped_edge_stone_basin_wolf2", "Wolf", UnitClass::Wolf},
+        {"mapped_edge_stone_basin_wolf3", "Wolf", UnitClass::Wolf},
+        {"mapped_edge_stone_basin_wolf4", "Wolf", UnitClass::Wolf},
+    };
+    stage.routeOutcomes = {
+        // 「中央横断」: no condition, 敵5体(base roster)。
+        {ExplorationChoice::FrontalAdvance, ExplorationOutcome{}},
+        // 「外周護衛」: no condition, flavor-only(数値差分なし、windscarRelay
+        // Stage()の同型ペアと同じ慣習)。
+        {ExplorationChoice::CollapsedSidePath, ExplorationOutcome{}},
+        // `[重装兵]` 「落石受止め」: 野生獣1体を落石で足止め(敵4体)。
+        {ExplorationChoice::ScoutRoute, ExplorationOutcome{.enemiesRemoved = 1}},
+    };
+    stage.scoutRouteRequiredClass = UnitClass::HeavyInfantry;
+
+    // 護衛2人 - blackwaterCrossingStage()の荷運び役2人と同じ非戦闘Escort
+    // パターン。
+    stage.guestUnits = {
+        {{"mapped_edge_stone_basin_escort1", "Escort", UnitClass::DawnChirurgeon}, GridPos{0, 3}},
+        {{"mapped_edge_stone_basin_escort2", "Escort", UnitClass::DawnChirurgeon}, GridPos{2, 3}},
+    };
+
+    // 主目的: 護衛2人中1人以上を右端へ脱出。
+    stage.primaryEscapeUnitsAlternative =
+        StageDescriptor::PrimaryEscapeUnitsRule{"mapped_edge_stone_basin_escape", /*requiredEscapeCount=*/1,
+                                                /*zoneMinCol=*/kGridCols - 1, /*zoneMaxCol=*/kGridCols - 1};
+
+    // 敗北条件「部隊全滅」は既存allPlayersDefeated()のまま。「全護衛撤退」は
+    // guestUnitsのid登録経由でallGuestsLost()に自動配線される
+    // (blackwaterCrossingStage()以来)。
+
+    // 主目的報酬: 希少素材2、地域固有素材1(frontier_edge_material -
+    // mapped_edge_split_survey_routeで既出、再利用のみ、新規素材登録は無し)。
+    stage.victoryRewardRules = {
+        {RewardRule::Condition::Always, {}, {{"rare_material", 2}, {"frontier_edge_material", 1}}},
+    };
+
+    stage.missionNameEn = "Stone Basin";
+    stage.missionNameJa = "石盆地";
+    return stage;
+}
+
 // docs/regions/mapped_edge.md「地点と周回」: 10th and FINAL region of the
 // whole campaign. Its own 正本 explicitly introduces no new terrain/battle
 // mechanic (existing terrain types recombined 3-at-a-time per battle, no new
@@ -1954,7 +2047,7 @@ RegionDescriptor mappedEdgeRegion(const GameData& data) {
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_unrecorded_camp")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_split_survey_route")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_abandoned_relay")));
-    region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_stone_basin")));
+    region.stages.push_back(mappedEdgeStoneBasinStage());
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_broken_watchtower")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_return_base")));
     region.stages.push_back(stageDescriptorFromContent(data.stageContent("mapped_edge_outermost_marker")));

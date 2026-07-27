@@ -5553,6 +5553,87 @@ win率はDirect 0.0%/Tactical 0.0%だが、上記に加え地点6〜9がまだ�
 以上で**地図外縁 地点5「放棄中継所」が実コンテンツ化された**。地点6〜9・最終戦は
 今後のSliceへ持ち越す。
 
+## M9-AZ 地図外縁 地点6(石盆地)
+
+`docs/regions/mapped_edge.md`「9地点仕様」地点6行を再確認した。主目的「護衛2人中
+1人脱出」は、既にこのプロジェクトに存在する**guest-escortサブシステムの100%
+インフラ再利用**として実装した - `blackwaterCrossingStage()`(M9-I)と全く同じ形で
+`StageDescriptor::guestUnits`(2体、DawnChirurgeon再利用・非戦闘Escortパターン)+
+`primaryEscapeUnitsAlternative`(`PrimaryEscapeUnitsRule`、requiredEscapeCount=1、
+右端ゾーン脱出)を設定し、`data/regions.json`側のプレースホルダーエントリ
+(`mapped_edge_stone_basin`)はblackwater_crossingの前例どおり死んだまま残置、
+`Region.cpp`にhand-authoredの`mappedEdgeStoneBasinStage()`を新設して`mappedEdge
+Region()`のpush_back先を`stageDescriptorFromContent(...)`からこの関数呼び出しへ
+差し替えた(`guestUnits`はJSON Schemaに露出していないC++専用フィールドのため -
+既存の確立済み慣習どおり)。敗北条件「全護衛撤退」は`ObjectiveTracker.cpp`の
+`evaluateBattleOutcome()`に既に汎用配線済みの`allGuestsLost()`がそのまま処理する
+ため、新規コードは一切不要だった。
+
+敵「大型獣1、野生獣4」は、正本の「地形と脅威」節が「既存の大型個体で構成する」と
+定め、地点6自体の表側にはテレグラフ/ボス演出の記載が無い(地点9「地図外縁」最終戦
+の大型獣とは異なり、明示的な予告突進の物語付けが無い)。よって`AshenhornBoar`を
+**素のUnitClassとして**再利用した。`EnemyAI.cpp`の`takeEnemyTurn()`はunitClass
+のみで`takeBoarBossTurn()`へ無条件分岐するため、このボスAI自体は回避不能だが、
+AshenhornBoarのボスAI(HP50%閾値のEnrage、直線突進の1Round前テレグラフ、丸太
+衝突時のDEF/RESスタン)はRedbackLizardの`kRedheatFissureGateTile`のようなステージ
+固有の固定座標leashを一切参照しない自己完結メカニクスであることを`EnemyAI.cpp`を
+読んで確認した上で選定した(他候補`AshironGrubworm`/`MarshFangSerpent`/
+`RedbackLizard`はいずれも他地点固有の座標や状態に依存する可能性があるため除外)。
+新規UnitClass・新規AIプロファイルの追加は無し。野生獣4は本プロジェクト全体の
+確立済み慣習どおりWolfを再利用した。
+
+探索3択「中央横断/外周護衛」はwindscarRelayStage()の`FrontalAdvance`/
+`CollapsedSidePath`ペアと同型の数値差分なしフレーバー選択として実装した。
+`[重装兵]`「落石受止め」は`scoutRouteRequiredClass: HeavyInfantry`+
+`ExplorationOutcome::enemiesRemoved=1`(windscarAscentStage()以来の既存機構)で
+「野生獣1体を落石で足止め」を近似し、新規のhazard-mitigation機構は追加していない。
+
+報酬「希少素材2、地域固有素材1」は既存`rare_material`+`frontier_edge_material`
+(後者はmapped_edge_split_survey_route/M9-AXで既出)をそのまま再利用し、新規素材
+登録は無し。`RouteGraph.cpp`の`mappedEdgeGraph()`は既にM9-AUの段階で
+`mapped_edge_stone_basin`という地点idへ配線済みだったため、グラフ側のコード変更は
+不要だった。
+
+見送った部分(正本との差分、都度明記):
+
+- guestUnitsは全3ルート共通(固定) - シナリオ構築時点で確定するため、ルート別に
+  護衛のステータス/人数を出し分けられない(blackwaterCrossingStage()の
+  `[伝令騎兵]`ルート注釈と同型の既知の限界)。
+- 「落石受止め」の落石そのもの(地形上の予告危険Object)は本Sliceでは生成せず、
+  敵-1体という結果面のみを近似(hazardタイル自体の生成/解除機構はこのSliceの
+  範囲外)。
+- 地点6固有の恒久成果id(正本の「安定ID」節該当があれば)は、地域攻略(安全帰還)
+  側の恒久登録フロー自体が本Sliceの範囲外のため未配線(地点1〜5と同じ扱い)。
+
+`tests/test_battle.cpp`へ2件追加: `mapped_edge_stone_basin`ステージの敵編成
+(AshenhornBoar1体+Wolf4体、計5体)・`guestUnits`(2体)を検証したうえで、
+blackwater_crossing(M9-I)と同型のテスト形状で(a) 護衛2人中1人が脱出タイルへ
+達した時点でVictoryになること(敵は全滅させていない)、(b) 護衛2人とも0HPに
+なった時点で、プレイヤー部隊は無傷のままでも`allGuestsLost()`経由でDefeatになる
+ことの両方を`createScenarioBattle()`経由で直接アサートした。
+
+ビルド・`ctest --test-dir build -j10 --output-on-failure`は4/4、フルスイートを
+3回連続実行し安定(フレークなし)。`git diff --check`も成功。
+
+### balance実測
+
+`jf_forest_balance --region=mapped_edge`(500 Seed)の実測: 地点6(石盆地)の
+fresh-party win率はDirect 89.6%/HP残69.3%(avg KO 0.97、rounds 3.96、timeouts 1)、
+Tactical 64.8%/HP残78.2%(avg KO 0.94、rounds 17.52、timeouts 151)。
+`[[project_forest_balance_no_objective_awareness]]`の既知の限界どおり、この
+シミュレータのAIヒューリスティックは`EscapeUnits`主目的を理解せず素の
+EliminateTeam的なプレイをするため、この数値(特にTactical側のtimeout急増)は
+地点6本体の実際のバランスを示す直接の指標ではない(数値自体は一見高勝率だが、
+これは「敵を倒せば結果的に護衛が生き残っている」ケースが多いことを反映して
+いるに過ぎず、実プレイでの確認を経ずに調整案は出さない)。9地点通しのRegion
+clear win率はDirect/Tactical双方0.0%(Reach: Stone Basin 0/500)だが、これは
+地点4「二股の踏査路」・地点5「放棄中継所」自体のOperateObject盲点(M9-AX/AY既知)
+により、シミュレータが地点6へそもそも到達できていないことが主因であり、地点6
+本体の数値を示すものではない。
+
+以上で**地図外縁 地点6「石盆地」が実コンテンツ化された**。地点7〜9・最終戦は
+今後のSliceへ持ち越す。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

@@ -386,6 +386,17 @@ AND-groupで「信号盤2個操作」を実装。敵は正本の「人間敵6」
 みで新規登録なし。恒久成果id`abandoned_relay_restored`(正本の「安定ID」節に記載
 あり)は地域攻略Slice側の範囲として未配線のまま。詳細は`implementation_status.md`の
 M9-AY参照。
+M9-AZ(地図外縁 地点6「石盆地」)完了(2026-07)。blackwater_crossing(M9-I)と
+全く同じ`primaryEscapeUnitsAlternative`+`guestUnits`2体の直接再利用で「護衛2人中
+1人脱出」を実装(Region.cppでのhand-authored StageDescriptor、`data/regions.json`
+のプレースホルダーエントリはblackwater_crossing式に死んだまま残置)。敵「大型獣1」
+はAshenhornBoarを素のUnitClassとして再利用(EnemyAI.cppの`takeEnemyTurn()`は
+unitClassのみでボスAIへ分岐するためAshenhornBoarのボスAI自体は避けられないが、
+ステージ固有の固定座標leashを参照しない自己完結メカニクスのため座標的な破綻なし)、
+野生獣4はWolf再利用。報酬は既存`rare_material`+`frontier_edge_material`(M9-AX
+登録済み)のみで新規登録なし。`[重装兵]`落石受止めは`scoutRouteRequiredClass:
+HeavyInfantry`+`enemiesRemoved=1`で近似。詳細は`implementation_status.md`の
+M9-AZ参照。
 
 直近の未完了(優先度順):
 
@@ -394,11 +405,13 @@ M9-AY参照。
    (M9-AX、`BranchCompletion::AllMembers`のもう一方、windwatch_station/
    sealed_passage/fort_signal_yard型の踏査標識2個操作を真の`objectPlacementRules`
    /`operateObjectiveId`二重AND-groupとして実装)・地点5「放棄中継所」
-   (M9-AY、地点4と同型の真の二重Device AND-groupで信号盤2個操作を実装)が完了。
-   地点6〜9(石盆地/折れた見張台/帰還基点/地図外縁)はまだBandit x2プレースホルダー
-   のまま。次は地点6以降を1地点ずつ本格化し、最終戦「地図外縁」(no-fixed-bossの
-   3波ガントレット、既存敵アーキタイプのみ)まで到達させる(M9-AN〜AT/M9-AU〜AYと
-   同じ「骨格→1地点ずつ」方式)。全10地域キャンペーンの最後の地域。
+   (M9-AY、地点4と同型の真の二重Device AND-groupで信号盤2個操作を実装)・地点6
+   「石盆地」(M9-AZ、blackwater_crossing型のguest-escort、大型獣1はAshenhornBoar
+   再利用)が完了。地点7〜9(折れた見張台/帰還基点/地図外縁)はまだBandit x2
+   プレースホルダーのまま。次は地点7以降を1地点ずつ本格化し、最終戦「地図外縁」
+   (no-fixed-bossの3波ガントレット、既存敵アーキタイプのみ)まで到達させる
+   (M9-AN〜AT/M9-AU〜AZと同じ「骨格→1地点ずつ」方式)。全10地域キャンペーンの
+   最後の地域。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/

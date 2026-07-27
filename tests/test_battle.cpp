@@ -9106,6 +9106,58 @@ int main() {
     }
 
     {
+        // docs/regions/mapped_edge.md 地点6「石盆地」: 護衛2人中1人以上が
+        // 脱出タイルに達すればVictory - blackwater_crossing(M9-I)と全く
+        // 同じprimaryEscapeUnitsAlternative+guestUnitsの直接再利用の検証。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor mappedEdge = jf::regionDescriptor(jf::RegionId::MappedEdge, *data);
+        const jf::StageDescriptor* stoneBasinStage = nullptr;
+        for (const jf::StageDescriptor& stage : mappedEdge.stages)
+            if (stage.id == "mapped_edge_stone_basin") stoneBasinStage = &stage;
+        assert(stoneBasinStage && stoneBasinStage->guestUnits.size() == 2);
+        assert(stoneBasinStage->enemyRoster.size() == 5); // 大型獣1 + 野生獣4
+
+        jf::BattleState battle2 = jf::createScenarioBattle(*data, *stoneBasinStage, /*seed=*/7);
+        assert(battle2.missionState().guestUnitIds.size() == 2);
+        for (const jf::Unit& unit : battle2.units())
+            if (unit.isGuest) assert(unit.team == jf::Team::Player);
+
+        const jf::ObjectiveDefinition* escapeDef2 = nullptr;
+        for (const auto& def : battle2.missionState().definitions)
+            if (def.id == "mapped_edge_stone_basin_escape") escapeDef2 = &def;
+        assert(escapeDef2 && escapeDef2->primary && escapeDef2->kind == jf::ObjectiveKind::EscapeUnits);
+
+        const std::string& guestId2 = battle2.missionState().guestUnitIds[0];
+        jf::BattleEvent guestEscapes2{
+            1, 1,
+            jf::ActionResolvedEvent{1, guestId2, jf::Team::Player, jf::ActionKind::Wait, escapeDef2->target.tile}};
+        jf::handleObjectiveEvent(battle2.missionState(), guestEscapes2);
+        jf::syncObjectiveProgress(battle2);
+        assert(jf::evaluateBattleOutcome(battle2).kind == jf::BattleOutcomeKind::Victory);
+    }
+
+    {
+        // 地点6「石盆地」敗北条件「全護衛撤退」: allGuestsLost()がプレイヤー
+        // 部隊の生死とは独立にDefeatを判定する(blackwater_crossingと同型)。
+        auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
+        assert(data);
+        const jf::RegionDescriptor mappedEdge = jf::regionDescriptor(jf::RegionId::MappedEdge, *data);
+        const jf::StageDescriptor* stoneBasinStage = nullptr;
+        for (const jf::StageDescriptor& stage : mappedEdge.stages)
+            if (stage.id == "mapped_edge_stone_basin") stoneBasinStage = &stage;
+        assert(stoneBasinStage);
+
+        jf::BattleState battle2 = jf::createScenarioBattle(*data, *stoneBasinStage, /*seed=*/7);
+        assert(!battle2.allGuestsLost());
+        for (jf::Unit& unit : battle2.units())
+            if (unit.isGuest) unit.currentHp = 0;
+        assert(battle2.allGuestsLost());
+        assert(!battle2.allPlayersDefeated());
+        assert(jf::evaluateBattleOutcome(battle2).kind == jf::BattleOutcomeKind::Defeat);
+    }
+
+    {
         // Both guests escaping grants the "全員脱出: 高品質薬草1" bonus
         // (GameApp::proceedToCamp()'s ad-hoc creditedTargetIds.size()>=2
         // check).
