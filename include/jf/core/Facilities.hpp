@@ -672,7 +672,7 @@ inline const FacilityNode* findFacilityNode(const std::string& id) {
 // 建設できる").
 inline bool facilityNodeEligible(const BaseState& base, const FacilityNode& node) {
     if (base.unlockedNodeIds.count(node.id)) return false;
-    if (static_cast<int>(base.outpostStage) < static_cast<int>(node.requiredStage)) return false;
+    if (static_cast<int>(base.outpostStage()) < static_cast<int>(node.requiredStage)) return false;
     for (const DiscoveryId& discovery : node.requiredDiscoveries) {
         if (!base.discoveryRegistry.count(discovery)) return false;
     }

@@ -6515,3 +6515,127 @@ Lv2コスト(遺跡片1、石材1)を正しく消費し、`armorDefBonusAtLevel(
 7. 地図外縁の地域攻略(安全帰還)・恒久成果配線(`mapped_edge_secured`等)・
    本編キャンペーン完了フラグ(`main_campaign_completed`)の具体設計
 8. 深層遠征(未確認信号の追跡/高危険素材の採取/既存地域の異常再調査)の具体設計
+
+## M10-D 拠点Lv化(Lv1〜10のみ) - `拠点段階`を`拠点Lv`の3チェックポイントへ再配置
+
+docs/deep_layers.md「拠点発展のLv化(提案)」を実装する4番目のM10系Slice。
+スコープはユーザー指示により明示的にLv1〜Lv10区間のみ(野営地→開拓拠点→
+辺境集落→開拓都市の既存3遷移をLv化する部分)。Lv10〜15(中継拠点、仮称)・
+Lv15〜20(最奥拠点)は深層コンテンツに依存するため、数値レンジの予約のみで
+実際のチェックポイント・素材は今回実装しない。
+
+### スキーマの単一情報源化
+
+- `include/jf/core/BaseState.hpp`: `OutpostStage outpostStage`フィールドを
+  廃止し、`int outpostLevel`(既定値1、`kMinOutpostLevel=1`〜
+  `kMaxOutpostLevel=20`)を新設。旧4値enum`OutpostStage`自体は削除せず、
+  `BaseState::outpostStage() const`という導出メソッドへ変更した
+  (Lv1=Encampment、Lv3+=PioneerOutpost、Lv6+=FrontierSettlement、
+  Lv10+=PioneerCity)。
+- `requiredStage`によるゲート(`Facilities.hpp::facilityNodeEligible()`、
+  `ui_facilities.cpp`のノード表示)は`base.outpostStage()`(関数呼び出しへ
+  機械的に変更しただけ)を参照し続けるため、対応するLvへ到達した時点で
+  従来と完全に同一の挙動を保つ。M10-A/B武器/防具レシピの`requiredStage`
+  ゲート撤廃(`Encampment`固定)には一切影響なし。
+
+### チェックポイント定義とゲート条件(既存条件を維持)
+
+`docs/base_development.md`「拠点段階の確定条件」表には拠点段階遷移として
+実際には3行しか存在しない(野営地→開拓拠点、開拓拠点→辺境集落、辺境集落→
+開拓都市 - 共同施設研究/最終施設分岐/深層遠征候補の3行は拠点段階遷移では
+なく別種の恒久解放なので対象外)。この3行がdeep_layers.mdのLv3/Lv6/Lv10
+チェックポイントへそのまま1:1対応する(4番目の遷移を捏造する必要はなかった)。
+
+`BaseState.hpp`に`OutpostLevelCheckpoint`構造体と`outpostLevelCheckpoints()`
+(3件の`static`テーブル)を新設:
+
+| チェックポイントLv | 遷移元Lv | ゲート地域+Discovery(維持) | 旧固定コスト(=最終Lv刻みのコスト) |
+|---:|---:|---|---|
+| 3 | 1 | 灰枝の森攻略(`RegionId::AshboughForest`) - ゲート自体は旧`eligibleForOutpostStage()`と同じ牙所持チェックのまま(`kAshboughForestSurveyCompleteDiscovery`はコード上一度も付与されないため、Discoveryベースへ切り替えず後方互換を優先) | 木材3 |
+| 6 | 3 | 灰鉄採石場攻略+`kMiningTechniqueRecordsDiscovery` | 石材4・鉄鉱石4(`iron`)・木材4 |
+| 10 | 6 | 埋没聖堂攻略+`kMedicalCodexDiscovery` | 建築材(`building_material`)6・石材4・高品質鉄材(`quality_iron`)2 |
+
+ゲート判定は`outpostCheckpointGateMet()`。地域クリア+Discoveryという既存の
+ゲート条件は完全に維持し、これは「次のチェックポイントへ向けて素材investment
+を開始できる資格」を得るだけで、実際の到達には後述のLv刻み投資が別途必要。
+
+### Lv刻みの素材コスト式(ハンドオーサリング表ではなく式で生成)
+
+`outpostLevelStepCost(checkpoint, targetLevel)`:
+
+```
+multiplier = checkpoint.level - targetLevel + 1
+stepCost[材料] = finalStepCost[材料] * multiplier
+```
+
+`targetLevel == checkpoint.level`(チェックポイントそのものへ到達する最終
+Lv刻み)では`multiplier=1`となり、旧来の固定コストと完全に一致する。
+区間の先頭に近い刻みほど倍率が大きくなる(Lv1→3なら初手が2倍、Lv3→6なら
+初手が3倍、Lv6→10なら初手が4倍)ため、区間全体の合計投資量は旧固定値の
+2〜10倍相当になり、「該当区間で解放済みの地域を何度か周回しないと賄えない
+量にする」という設計方針(docs/deep_layers.md)を満たす。M10-A/B の
+`weaponLevelUpCost()`/`armorLevelUpCost()`と同じ「式で自動生成、手書き表を
+増やさない」規律を踏襲。
+
+### 昇格API
+
+`GameApp::advanceOutpostLevel()`(旧`advanceOutpostStage()`を置き換え)は
+1回の呼び出しでLvをちょうど1段階だけ進める: 現在Lvが属するチェックポイント
+区間のゲートが満たされているか確認し、次のLvへの刻みコストを算出、倉庫に
+足りているかプリフライトしてから全材料を一括消費、Lvを+1する。既存の
+「複数素材のうち1つでも欠けていたら何も消費しない」という規律
+(`unlockFacilityNode()`と同型)を踏襲。`ui_base.cpp`の拠点画面は旧来の
+Encampment専用分岐を撤去し、`activeOutpostLevelCheckpoint()`/
+`outpostCheckpointGateMet()`/`outpostLevelStepCost()`だけで駆動する汎用UI
+(現在Lv表示+チェックポイント名+単一の「進める」ボタン)へ書き換えた -
+将来Lv15/Lv20チェックポイントを追加してもUI側の変更は不要。
+
+### セーブ移行(Schema v3→v4)
+
+`kCurrentSaveSchemaVersion`を3→4へ。`serializeSave()`は新規`"outpostLevel"`
+キーを書き出す(旧`"outpostStage"`キーも`outpostStage()`の導出値として
+併記- 実利用はしないが、キー自体の削除はしない)。`deserializeSave()`は
+`"outpostLevel"`があればそれを直接使用し、無ければ旧`"outpostStage"`
+(0〜3)を下表で`outpostLevel`へ変換する:
+
+| 旧`outpostStage` | 新`outpostLevel` |
+|---:|---:|
+| 0 (Encampment) | 1 |
+| 1 (PioneerOutpost) | 3 |
+| 2 (FrontierSettlement) | 6 |
+| 3 (PioneerCity) | 10 |
+
+これにより、既に開拓都市まで到達していたセーブが「Lv不足」扱いになって
+何かをロックされ直すことはない(そのLvが本来持っていたアクセス権は
+`outpostStage()`の逆算により完全に保持される)。`migrateSave()`にv3→v4の
+ステップを追加(実際の値変換は`deserializeSave()`側で完了済みのため、
+過去のv1→v2/v2→v3ステップと同型の「バージョン番号だけ進める」処理)。
+
+### テスト
+
+`tests/test_battle.cpp`に追加/更新:
+- Lv1初期値、ゲート充足だけではLv3へ到達できないこと(素材不足で
+  `advanceOutpostLevel()`が失敗)、素材を投入してLv1→2→3と1段階ずつ登れる
+  こと、Lv3到達後は`outpostStage()`が`PioneerOutpost`へ切り替わり
+  `requiredStage`ゲートが従来と同一に解放されること。
+- `outpostStage`直接代入だった既存13箇所の`requiredStage`回避用テスト
+  コードを`outpostLevel`直接代入(3/6/10)へ機械的に置換。
+- セーブ往復での`outpostLevel`保持、旧`"outpostStage"`(0〜3)を含むJSON
+  からの新規migrationテスト(4値すべて)、既存の後方互換パーステスト
+  (`legacyJson`等)は無変更で成功することを確認。
+
+`ctest --test-dir build -j10 --output-on-failure`を3回連続実行し、
+全4テスト(`jf_battle_tests`/`jf_locale_tests`/`jf_content_tests`/
+`check_localization`)が毎回成功、`git diff --check`もクリーン。
+
+### `docs/base_development.md`への反映(未実施、要フォローアップ)
+
+正本である`docs/base_development.md`の「拠点段階の確定条件」節・「拠点
+全体の開拓段階」節は、本Sliceの実装(地域クリア+Discoveryのゲートに加えて
+Lv刻みの素材investmentが必要になったこと、旧固定コストは表の通り
+最終Lv刻みのコストとして再利用されたこと)を反映していない。差分は
+比較的小さく明確(3行の表に「刻み数」「倍率式」列を追加し、「この固定
+素材量は1回クリアでほぼ賄える少量」という現状説明の段落を削除・置換する
+だけで足りる)ため、次のSliceで小さく更新できる。本Sliceでは`docs/
+deep_layers.md`(設計ドラフト)とコードの整合のみを取り、正本更新は
+意図的に持ち越した。

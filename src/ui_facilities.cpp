@@ -158,7 +158,7 @@ void drawFacilityNodeTooltip(const jf::FacilityNode& node, const jf::BaseState& 
 // action zone; the hover tooltip calls this with compact=false so the full,
 // untruncated requirement is always available on hover.
 std::string facilityNodeBlockedReason(const jf::BaseState& base, const jf::FacilityNode& node, bool compact = true) {
-    if (static_cast<int>(base.outpostStage) < static_cast<int>(node.requiredStage)) {
+    if (static_cast<int>(base.outpostStage()) < static_cast<int>(node.requiredStage)) {
         return tr("ui.facilities.needs_stage_prefix") +
                (compact ? outpostStageShortNameFor(node.requiredStage) : outpostStageNameFor(node.requiredStage));
     }
@@ -749,7 +749,7 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
 void drawFacilitiesList(jf::GameApp& app, Vector2 mouse, bool clicked, const jf::BaseState& base,
                          const Rectangle& backRect) {
     drawText(tr("ui.facilities.title"), 38, 24, 28, kColorTextPrimary);
-    drawText(outpostStageNameFor(base.outpostStage), 38, 60, 16, kColorTextMuted);
+    drawText(outpostStageNameFor(base.outpostStage()), 38, 60, 16, kColorTextMuted);
     if (button(backRect, tr("ui.button.back"), mouse, clicked)) {
         gBaseScreen.visitedFacility.reset();
         gBaseScreen.forgeCraftClass.reset();

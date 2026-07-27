@@ -228,13 +228,30 @@ void drawBaseOutpostInfo(jf::GameApp& app, Vector2 mouse, bool clicked, int regi
     const int sectionY = std::max(520, regionListBottom + 20);
     const int contentY = sectionY + 32;
     drawSectionHeading(tr("ui.outpost.title"), 40, 520, 20);
-    drawText(outpostStageNameFor(base.outpostStage), 40, 552, 22, kColorTextPrimary);
+    // M10-D (docs/deep_layers.md「拠点発展のLv化」): stage name (derived from
+    // outpostLevel) plus the numeric Lv itself, then a Lv-by-Lv climb button
+    // driven entirely by jf::activeOutpostLevelCheckpoint()/
+    // outpostCheckpointGateMet()/outpostLevelStepCost() - no per-stage UI
+    // branches, so this scales to any future checkpoint without new code.
+    drawText(outpostStageNameFor(base.outpostStage()) + " (Lv " + std::to_string(base.outpostLevel) + ")", 40, 552,
+              22, kColorTextPrimary);
     Rectangle advanceRect{40, 588, 390, 46};
-    if (base.outpostStage == jf::OutpostStage::Encampment &&
-        jf::eligibleForOutpostStage(base, jf::OutpostStage::PioneerOutpost)) {
-        if (button(advanceRect, tr("ui.outpost.advance"), mouse, clicked)) app.advanceOutpostStage();
-    } else if (base.outpostStage == jf::OutpostStage::Encampment) {
+    const jf::OutpostLevelCheckpoint* checkpoint = jf::activeOutpostLevelCheckpoint(base.outpostLevel);
+    if (!checkpoint) {
+        // At/above kMaxImplementedOutpostLevel - no further checkpoint exists
+        // in code yet (Lv10-15/15-20 reserved for deep layers).
+    } else if (!jf::outpostCheckpointGateMet(base, *checkpoint)) {
         disabledButton(advanceRect, tr("ui.outpost.advance_locked"));
+    } else {
+        const std::vector<jf::LootStack> stepCost = jf::outpostLevelStepCost(*checkpoint, base.outpostLevel + 1);
+        bool canAfford = true;
+        for (const jf::LootStack& stack : stepCost)
+            if (base.storageCount(stack.id) < stack.quantity) canAfford = false;
+        if (canAfford) {
+            if (button(advanceRect, tr("ui.outpost.advance"), mouse, clicked)) app.advanceOutpostLevel();
+        } else {
+            disabledButton(advanceRect, tr("ui.outpost.advance_locked"));
+        }
     }
 
     drawSectionHeading(tr("ui.outpost.discoveries"), 492, sectionY, 20);

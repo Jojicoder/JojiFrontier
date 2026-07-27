@@ -978,11 +978,18 @@ void GameApp::cancelDeployment() {
     screen_ = Screen::Exploration;
 }
 
-bool GameApp::advanceOutpostStage() {
+bool GameApp::advanceOutpostLevel() {
     if (screen_ != Screen::Base) return false;
-    auto next = static_cast<OutpostStage>(static_cast<int>(baseState_.outpostStage) + 1);
-    if (!eligibleForOutpostStage(baseState_, next)) return false;
-    baseState_.outpostStage = next;
+    if (baseState_.outpostLevel >= BaseState::kMaxImplementedOutpostLevel) return false;
+    const OutpostLevelCheckpoint* checkpoint = activeOutpostLevelCheckpoint(baseState_.outpostLevel);
+    if (!checkpoint) return false;
+    if (!outpostCheckpointGateMet(baseState_, *checkpoint)) return false;
+    const int targetLevel = baseState_.outpostLevel + 1;
+    const std::vector<LootStack> cost = outpostLevelStepCost(*checkpoint, targetLevel);
+    for (const LootStack& stack : cost)
+        if (baseState_.storageCount(stack.id) < stack.quantity) return false;
+    for (const LootStack& stack : cost) baseState_.consumeStorage(stack.id, stack.quantity);
+    baseState_.outpostLevel = targetLevel;
     markPersistentStateChanged();
     return true;
 }

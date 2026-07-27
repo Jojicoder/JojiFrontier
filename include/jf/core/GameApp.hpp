@@ -106,9 +106,14 @@ public:
     using RegionSummary = jf::RegionSummary;
     std::vector<RegionSummary> regionSummaries() const;
 
-    // Base screen: advances outpostStage by one step once BaseState's
-    // storage satisfies eligibleForOutpostStage() for the next stage.
-    bool advanceOutpostStage();
+    // M10-D (docs/deep_layers.md「拠点発展のLv化」): Base screen only.
+    // Climbs BaseState::outpostLevel by exactly one Lv, consuming that
+    // step's materials (jf::outpostLevelStepCost()), provided the current
+    // checkpoint interval's gate is met (jf::outpostCheckpointGateMet()) and
+    // storage covers the step cost. Replaces the old flat
+    // advanceOutpostStage() (single one-shot jump straight to the next
+    // stage) - the new climb is Lv-by-Lv.
+    bool advanceOutpostLevel();
 
     // Facility nodes (docs/base_development.md). Only usable from the Base
     // screen; validates via facilityNodeEligible() and consumes materials

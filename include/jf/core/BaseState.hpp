@@ -92,6 +92,15 @@ struct LootStack {
 
 // Outpost-wide development stages (docs/base_development.md "拠点全体の開拓段階").
 // This is an access ceiling for facility nodes, not a technology itself.
+//
+// M10-D (docs/deep_layers.md「拠点発展のLv化」): these 4 values are no longer
+// the stored representation - BaseState::outpostLevel below is now the sole
+// source of truth, and this enum is derived from it via
+// BaseState::outpostStage() (Lv1=Encampment, Lv3+=PioneerOutpost,
+// Lv6+=FrontierSettlement, Lv10+=PioneerCity). The enum itself, and every
+// `requiredStage`-gated check elsewhere in the codebase (Facilities.hpp,
+// ui_facilities.cpp, etc.), is unchanged - only how the stage value is
+// computed/earned changed, not what depends on it.
 enum class OutpostStage {
     Encampment = 0,      // 野営地
     PioneerOutpost = 1,  // 開拓拠点
@@ -158,7 +167,38 @@ struct RewardOverflowState {
 struct BaseState {
     std::vector<LootStack> storage;
     std::unordered_set<DiscoveryId> discoveryRegistry;
-    OutpostStage outpostStage = OutpostStage::Encampment;
+
+    // M10-D (docs/deep_layers.md「拠点発展のLv化」): replaces the old flat
+    // OutpostStage field as the sole stored representation of outpost
+    // progress. Lv1-20 range reserved per the design doc's Lv15/Lv20
+    // deep-layer checkpoints, but this Slice only ever sets values up to
+    // kMaxImplementedOutpostLevel (10) - nothing in code climbs past Lv10
+    // yet (deep-layer content is out of scope, see BaseState::outpostStage()
+    // below and outpostLevelCheckpoints() for the Lv1/3/6/10 mapping this
+    // Slice implements).
+    int outpostLevel = 1;
+
+    static constexpr int kMinOutpostLevel = 1;
+    static constexpr int kMaxOutpostLevel = 20;
+    // This Slice (M10-D) only implements the Lv1->Lv10 climb (deep_layers.md's
+    // existing 3-stage model, reindexed onto Lv1/3/6/10 checkpoints). Lv10-15
+    // ("中継拠点") and Lv15-20 ("最奥拠点") are reserved numeric range only,
+    // pending deep-layer content that doesn't exist yet - intentionally out
+    // of scope per docs/deep_layers.md「未確定事項」and this milestone's own
+    // scoping. Nothing in code ever sets outpostLevel above this value.
+    static constexpr int kMaxImplementedOutpostLevel = 10;
+
+    // Derives the old 4-value stage from the new Lv field, so every existing
+    // `requiredStage`-gated check elsewhere in the codebase (Facilities.hpp,
+    // ui_facilities.cpp, etc.) keeps behaving identically to pre-M10-D code
+    // once a save reaches the corresponding Lv (docs/deep_layers.md's own
+    // Lv1=野営地, Lv3+=開拓拠点, Lv6+=辺境集落, Lv10+=開拓都市 mapping).
+    OutpostStage outpostStage() const {
+        if (outpostLevel >= 10) return OutpostStage::PioneerCity;
+        if (outpostLevel >= 6) return OutpostStage::FrontierSettlement;
+        if (outpostLevel >= 3) return OutpostStage::PioneerOutpost;
+        return OutpostStage::Encampment;
+    }
 
     // Permanent research record - once a node is here it stays forever
     // (docs/base_development.md: no dismantling exists).
@@ -633,6 +673,107 @@ inline bool eligibleForOutpostStage(const BaseState& base, OutpostStage next) {
                (base.storageCount(kAshenhornFangMaterial) > 0 && base.storageCount("wood") >= 3);
     }
     return false; // Later stages' requirements are not defined yet.
+}
+
+// M10-D (docs/deep_layers.md「拠点発展のLv化」): a Lv1-10 checkpoint - the
+// point where the old flat OutpostStage model's 3 upgrade conditions
+// (docs/base_development.md「拠点段階の確定条件」) now sit. Reaching a
+// checkpoint still requires the SAME region-clear+Discovery gate the old
+// model used (see outpostCheckpointGateMet() below) - what's new is that
+// meeting the gate only grants the *ability* to climb the intermediate Lv
+// steps from the previous checkpoint, one Lv at a time, each costing
+// materials (see outpostLevelStepCost() below).
+struct OutpostLevelCheckpoint {
+    int level = 0;              // the checkpoint Lv itself (3, 6, or 10)
+    int fromLevel = 0;          // the Lv this checkpoint climbs from (1, 3, or 6)
+    RegionId gateRegion{};
+    DiscoveryId gateDiscovery;
+    // The OLD flat one-time cost from docs/base_development.md's table row
+    // for this transition. outpostLevelStepCost() below uses this as the
+    // FINAL Lv step's cost (i.e. the step that actually reaches `level`) -
+    // per docs/deep_layers.md「固定量の素材...を、各Lv刻みごとの素材量に
+    // 引き上げる」, earlier steps in the interval cost proportionally more.
+    std::vector<LootStack> finalStepCost;
+};
+
+// docs/base_development.md「拠点段階の確定条件」table rows (excluding the
+// 共同施設研究/最終施設分岐/深層遠征候補 rows, which are separate permanent
+// unlocks, not outpost-stage transitions) mapped onto deep_layers.md's
+// Lv1/3/6/10 checkpoint table. Only 3 real transitions exist in that table
+// today (野営地→開拓拠点, 開拓拠点→辺境集落, 辺境集落→開拓都市), matching
+// this Slice's Lv3/Lv6/Lv10 scope exactly - no 4th transition exists to
+// reconcile against.
+inline const std::vector<OutpostLevelCheckpoint>& outpostLevelCheckpoints() {
+    static const std::vector<OutpostLevelCheckpoint> kCheckpoints = {
+        // 野営地→開拓拠点: 灰枝の森攻略・灰角大猪撃破・安全帰還。The gate
+        // itself stays the pre-existing fang-possession check (see
+        // outpostCheckpointGateMet() below) rather than gateRegion/
+        // gateDiscovery, for exact backward-compatibility with
+        // eligibleForOutpostStage() above (kAshboughForestSurveyCompleteDiscovery
+        // is never actually granted in code - see its own comment). Flat
+        // cost per the doc table: 灰角の大牙1(the gate material itself,
+        // already consumed as the gate condition - not re-charged here)、
+        // 木材3.
+        {3, 1, RegionId::AshboughForest, "", {{"wood", 3}}},
+        // 開拓拠点→辺境集落: 灰鉄採石場攻略・採掘技術記録・安全帰還。Flat
+        // cost per the doc table: 石材4・鉄鉱石4・木材4 (鉄鉱石 -> this
+        // codebase's unified "iron" id, per BaseState.hpp's own materialId
+        // convention - see docs/base_development.md「同じ素材の内部IDは
+        // 地域をまたいで統一」).
+        {6, 3, RegionId::AshironQuarry, kMiningTechniqueRecordsDiscovery,
+         {{"stone", 4}, {"iron", 4}, {"wood", 4}}},
+        // 辺境集落→開拓都市: 埋没聖堂攻略・医療典籍・安全帰還。Flat cost per
+        // the doc table: 建築材6・石材4・高品質鉄材2 (already this
+        // codebase's exact material ids - see ExpeditionService.cpp's
+        // BuriedDawnSanctum floor top-up, which grants this exact same
+        // amount as a minimum guarantee on region clear).
+        {10, 6, RegionId::BuriedDawnSanctum, kMedicalCodexDiscovery,
+         {{"building_material", 6}, {"stone", 4}, {"quality_iron", 2}}},
+    };
+    return kCheckpoints;
+}
+
+// Which checkpoint (if any) governs climbing from `currentLevel`. Returns
+// nullptr once currentLevel reaches kMaxImplementedOutpostLevel (10) - no
+// checkpoint beyond that is implemented yet (see that constant's comment).
+inline const OutpostLevelCheckpoint* activeOutpostLevelCheckpoint(int currentLevel) {
+    for (const OutpostLevelCheckpoint& checkpoint : outpostLevelCheckpoints())
+        if (currentLevel >= checkpoint.fromLevel && currentLevel < checkpoint.level) return &checkpoint;
+    return nullptr;
+}
+
+// The SAME region-clear+Discovery gate condition the old flat-stage model
+// used (docs/base_development.md「拠点段階の確定条件」) - meeting this only
+// grants the *ability* to start spending materials to climb toward
+// `checkpoint.level`; it does not by itself advance outpostLevel (see
+// GameApp::advanceOutpostLevel()).
+inline bool outpostCheckpointGateMet(const BaseState& base, const OutpostLevelCheckpoint& checkpoint) {
+    if (checkpoint.level == 3) {
+        // Backward-compatible with pre-M10-D eligibleForOutpostStage(): two
+        // independent regions can satisfy this gate.
+        return base.storageCount(kAshveilFangMaterial) > 0 ||
+               (base.storageCount(kAshenhornFangMaterial) > 0 && base.storageCount("wood") >= 3);
+    }
+    return base.completedRegionIds.count(checkpoint.gateRegion) > 0 &&
+           base.discoveryRegistry.count(checkpoint.gateDiscovery) > 0;
+}
+
+// Formula-driven per-Lv-step material cost (mirrors M10-A/B's "formula over
+// hand-authored tables" discipline for weapon/armor Lv costs). `targetLevel`
+// is the Lv being climbed TO within `checkpoint`'s interval. The multiplier
+// descends from (checkpoint.level - checkpoint.fromLevel) at the first step
+// down to 1 at the FINAL step (targetLevel == checkpoint.level) - so the
+// step that actually reaches the checkpoint costs exactly the old flat
+// one-time cost, and every earlier step costs proportionally more,
+// requiring the whole interval's total investment to exceed what a single
+// region clear grants (docs/deep_layers.md「該当区間で解放済みの地域を
+// 何度か周回しないと賄えない量にする」).
+inline std::vector<LootStack> outpostLevelStepCost(const OutpostLevelCheckpoint& checkpoint, int targetLevel) {
+    const int multiplier = std::max(1, checkpoint.level - targetLevel + 1);
+    std::vector<LootStack> cost;
+    cost.reserve(checkpoint.finalStepCost.size());
+    for (const LootStack& stack : checkpoint.finalStepCost) cost.push_back({stack.id, stack.quantity * multiplier});
+    return cost;
 }
 
 } // namespace jf

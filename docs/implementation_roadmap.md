@@ -2440,9 +2440,22 @@ guestUnitIdsの全員が`isPresent()==false`になった時点で部隊全滅と
   モデルはM10-A/M10-Bと完全に同一、他地域素材の選定方針も同じ判断手法を
   踏襲。全33武器分岐・全36防具のLv登録が完了。詳細は
   `docs/implementation_status.md`「M10-C」節を参照。
+- **M10-D(完了、Lv1〜10のみ)** 拠点Lv化: 旧`BaseState::outpostStage`
+  (4値enumフィールド)を`BaseState::outpostLevel`(1〜20の整数、唯一の保存
+  値)へ置き換え、旧enumは`outpostStage()`という導出メソッドへ変更(Lv1=
+  野営地、Lv3+=開拓拠点、Lv6+=辺境集落、Lv10+=開拓都市)。既存の
+  `requiredStage`ゲート(Facilities.hpp、ui_facilities.cpp)は無変更のまま
+  動作継続。地域クリア+Discoveryという既存ゲート条件は維持しつつ、
+  チェックポイント(Lv3/6/10)到達には新たにLv刻みの素材investment
+  (`outpostLevelStepCost()`、旧固定コストを最終Lv刻みのコストとし、
+  区間の先頭ほど倍率が大きくなる式)が追加で必要になった。深層と直結する
+  Lv10〜15(中継拠点)・Lv15〜20(最奥拠点)は数値レンジの予約のみで、
+  実際のチェックポイント・素材は未実装(深層コンテンツ未着手のため意図的に
+  対象外)。セーブSchema v3→v4移行で旧4値を対応Lvへマッピング。詳細は
+  `docs/implementation_status.md`「M10-D」節を参照。
 - 次点候補: Tier3のパッシブ状態異常耐性効果、Lv6以降(深層限定素材)、
-  拠点Lv化 - いずれも`docs/deep_layers.md`の「実装順序案」節どおりの順で
-  着手する。
+  拠点Lv10〜15/15〜20(中継拠点/最奥拠点、深層コンテンツ依存) - いずれも
+  `docs/deep_layers.md`の「実装順序案」節どおりの順で着手する。
 
 ## 各Sliceの完了定義
 

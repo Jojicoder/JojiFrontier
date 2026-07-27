@@ -322,7 +322,14 @@ std::string serializeSave(const SaveData& save) {
         {"base", {
             {"storage", storage},
             {"discoveries", save.base.discoveryRegistry},
-            {"outpostStage", static_cast<int>(save.base.outpostStage)},
+            // M10-D: outpostLevel is now the sole stored representation.
+            // "outpostStage" is still written (derived from outpostLevel)
+            // purely so a save downgraded to a pre-M10-D binary degrades
+            // gracefully to the nearest old stage rather than failing to
+            // parse - deserializeSave() below never reads it when
+            // "outpostLevel" is present.
+            {"outpostLevel", save.base.outpostLevel},
+            {"outpostStage", static_cast<int>(save.base.outpostStage())},
             {"unlockedNodes", save.base.unlockedNodeIds},
             {"builtNodes", save.base.constructedFacilityIds},
             {"siteAccess", siteAccessMapToJson(save.base.siteAccess)},
@@ -379,12 +386,29 @@ std::optional<SaveData> deserializeSave(const std::string& jsonText, std::string
         save.schemaVersion = version;
         save.gameVersion = root.value("gameVersion", "unknown");
         const json& base = root["base"];
-        int stage = base.value("outpostStage", 0);
-        if (stage < 0 || stage > static_cast<int>(OutpostStage::PioneerCity)) {
-            setError(error, "Invalid outpost stage");
-            return std::nullopt;
+        // M10-D: prefer the new "outpostLevel" field. A save written before
+        // M10-D (schemaVersion < 4, see migrateSave()'s v3->v4 step below)
+        // only has the old "outpostStage" (0-3) - map it onto the
+        // corresponding Lv checkpoint (0=Encampment->Lv1, 1=PioneerOutpost->
+        // Lv3, 2=FrontierSettlement->Lv6, 3=PioneerCity->Lv10) so a save that
+        // already reached a stage isn't suddenly under-leveled/locked out of
+        // anything it could already do.
+        if (base.contains("outpostLevel")) {
+            int level = base.value("outpostLevel", 1);
+            if (level < BaseState::kMinOutpostLevel || level > BaseState::kMaxOutpostLevel) {
+                setError(error, "Invalid outpost level");
+                return std::nullopt;
+            }
+            save.base.outpostLevel = level;
+        } else {
+            int stage = base.value("outpostStage", 0);
+            if (stage < 0 || stage > static_cast<int>(OutpostStage::PioneerCity)) {
+                setError(error, "Invalid outpost stage");
+                return std::nullopt;
+            }
+            static constexpr int kStageToLevel[4] = {1, 3, 6, 10};
+            save.base.outpostLevel = kStageToLevel[stage];
         }
-        save.base.outpostStage = static_cast<OutpostStage>(stage);
         if (base.contains("storage")) {
             if (!base["storage"].is_array()) throw std::runtime_error("Invalid storage");
             for (const json& entry : base["storage"]) {
@@ -491,6 +515,18 @@ SaveData migrateSave(SaveData save) {
             // defaults it to "" (none equipped) via `.value()`, so this step
             // just advances the version number, same as v1->v2 above.
             save.schemaVersion = 3;
+            continue;
+        }
+        if (save.schemaVersion == 3) {
+            // v3 -> v4 (M10-D, docs/deep_layers.md「拠点発展のLv化」): replaces
+            // BaseState::outpostStage (0-3) with BaseState::outpostLevel
+            // (1-20). deserializeSave() already performs the actual
+            // stage->Lv mapping (0->1, 1->3, 2->6, 3->10) while parsing (see
+            // its own "outpostLevel"/"outpostStage" branch above), since a
+            // v3 save's JSON has no "outpostLevel" key to read - this step
+            // just advances the version number, same shape as v1->v2/v2->v3
+            // above.
+            save.schemaVersion = 4;
             continue;
         }
         break;  // Unknown version below current: leave as-is rather than loop forever.

@@ -17,7 +17,7 @@
 
 namespace jf {
 
-inline constexpr int kCurrentSaveSchemaVersion = 3;
+inline constexpr int kCurrentSaveSchemaVersion = 4;
 
 // Mid-expedition checkpoint (docs/save_system.md "遠征中断セーブ"). Only two
 // resumable checkpoints are persisted - Exploration (party/bag locked in,

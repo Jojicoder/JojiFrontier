@@ -987,12 +987,36 @@ int main() {
         assert(base.discoveryRegistry.count(jf::kFieldMedicineDiscovery) == 1);
         assert(base.discoveryRegistry.count(jf::kReturnSignalDiscovery) == 1);
         assert(base.storageCount(jf::kAshveilFangMaterial) == 1);
-        assert(base.outpostStage == jf::OutpostStage::Encampment);
-        assert(jf::eligibleForOutpostStage(base, jf::OutpostStage::PioneerOutpost));
+        assert(base.outpostLevel == 1);
+        assert(base.outpostStage() == jf::OutpostStage::Encampment);
+        assert(jf::eligibleForOutpostStage(base, jf::OutpostStage::PioneerOutpost)); // legacy fn, still true
 
-        assert(app.advanceOutpostStage());
-        assert(app.baseState().outpostStage == jf::OutpostStage::PioneerOutpost);
-        assert(!app.advanceOutpostStage()); // already past Encampment
+        // M10-D: the region-clear+key-material gate alone is NOT enough to
+        // reach the Lv3 checkpoint anymore - it only unlocks the ABILITY to
+        // climb the intermediate Lv steps (Lv1->2->3), each of which costs
+        // materials (jf::outpostLevelStepCost()). This base has no spare wood
+        // yet, so the climb fails until some is granted.
+        const jf::OutpostLevelCheckpoint* checkpoint = jf::activeOutpostLevelCheckpoint(base.outpostLevel);
+        assert(checkpoint != nullptr && checkpoint->level == 3);
+        assert(jf::outpostCheckpointGateMet(base, *checkpoint));
+
+        jf::BaseState& mutableBase = const_cast<jf::BaseState&>(app.baseState());
+        mutableBase.consumeStorage("wood", mutableBase.storageCount("wood")); // reset to a known 0
+        assert(base.storageCount("wood") == 0);
+        assert(!app.advanceOutpostLevel()); // gate met, but step cost (wood) unaffordable
+
+        mutableBase.addStorage("wood", 9); // Lv1->2 costs wood 3*2=6, Lv2->3 costs wood 3*1=3
+        assert(app.advanceOutpostLevel()); // -> Lv2
+        assert(app.baseState().outpostLevel == 2);
+        assert(app.baseState().outpostStage() == jf::OutpostStage::Encampment); // still below the Lv3 checkpoint
+        assert(app.baseState().storageCount("wood") == 3);
+        assert(app.advanceOutpostLevel()); // -> Lv3 (checkpoint reached)
+        assert(app.baseState().outpostLevel == 3);
+        assert(app.baseState().outpostStage() == jf::OutpostStage::PioneerOutpost);
+        assert(app.baseState().storageCount("wood") == 0);
+        // Now governed by the Lv3->6 checkpoint, whose gate (Ashiron Quarry
+        // clear + mining-technique Discovery) isn't met yet.
+        assert(!app.advanceOutpostLevel());
     }
 
     {
@@ -1023,7 +1047,7 @@ int main() {
         const jf::FacilityNode* scoutNode = jf::findFacilityNode("scout_network");
         assert(scoutNode != nullptr);
         assert(!jf::facilityNodeEligible(fresh, *scoutNode)); // wrong stage
-        fresh.outpostStage = jf::OutpostStage::PioneerOutpost;
+        fresh.outpostLevel = 3;
         assert(!jf::facilityNodeEligible(fresh, *scoutNode)); // missing discovery + material
         fresh.discoveryRegistry.insert(jf::kCinderwatchReconDiscovery);
         assert(!jf::facilityNodeEligible(fresh, *scoutNode)); // still missing material
@@ -1053,7 +1077,14 @@ int main() {
             }
         }
         app.returnToBase();
-        assert(app.advanceOutpostStage()); // -> PioneerOutpost
+        // M10-D: jump straight to Lv3 via direct state mutation (rather than
+        // app.advanceOutpostLevel(), which would consume some of the wood
+        // this test's downstream facility-cost assertions depend on being
+        // intact) - the Lv-climb mechanic itself is exercised separately
+        // above; this block is only about facility unlocking once PioneerOutpost
+        // is reached.
+        const_cast<jf::BaseState&>(app.baseState()).outpostLevel = 3;
+        assert(app.baseState().outpostStage() == jf::OutpostStage::PioneerOutpost);
         // 6 real victories (docs/implementation_roadmap.md M6-C: site 1/2/
         // 3A/3B/5 now real, their baseVictoryLoot includes a small wood/hide
         // top-up specifically to keep this total intact - last_signal, still
@@ -1723,7 +1754,7 @@ int main() {
         jf::GameData data = makeFactoryData();
         jf::GameApp app(data);
         jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
-        testBase.outpostStage = jf::OutpostStage::PioneerOutpost;
+        testBase.outpostLevel = 3;
         testBase.addStorage("wood", 3); // training_field needs wood:3 + hide:2, but hide is missing entirely
         assert(!jf::facilityNodeEligible(app.baseState(), *jf::findFacilityNode("training_field")));
         assert(!app.unlockFacilityNode("training_field"));
@@ -1771,7 +1802,7 @@ int main() {
         jf::GameApp app(data);
         assert(!app.equipWeaponForUnit("player0", "no_such_weapon"));
         jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
-        testBase.outpostStage = jf::OutpostStage::PioneerOutpost;
+        testBase.outpostLevel = 3;
         testBase.unlockedNodeIds.insert("simple_forge");
         testBase.constructedFacilityIds.insert("simple_forge");
         assert(!app.equipWeaponForUnit("player0", "heavy_spear"));
@@ -1805,7 +1836,7 @@ int main() {
         data.playerParty[1].classId = jf::UnitClass::Spearman; // "player1"
         jf::GameApp app(data);
         jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
-        testBase.outpostStage = jf::OutpostStage::PioneerOutpost;
+        testBase.outpostLevel = 3;
         testBase.unlockedNodeIds.insert("simple_forge");
         testBase.constructedFacilityIds.insert("simple_forge");
         testBase.unlockedNodeIds.insert("craft_long_spear");
@@ -1840,7 +1871,7 @@ int main() {
         data.playerParty[0].classId = jf::UnitClass::MarchCaptain;
         jf::GameApp app(data);
         jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
-        testBase.outpostStage = jf::OutpostStage::PioneerCity; // clears every requiredStage check
+        testBase.outpostLevel = 10; // clears every requiredStage check
         testBase.unlockedNodeIds.insert("simple_forge");
         testBase.constructedFacilityIds.insert("simple_forge");
 
@@ -1915,7 +1946,7 @@ int main() {
         data.playerParty[0].classId = jf::UnitClass::HeavyInfantry;
         jf::GameApp app(data);
         jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
-        testBase.outpostStage = jf::OutpostStage::PioneerCity;
+        testBase.outpostLevel = 10;
         testBase.unlockedNodeIds.insert("simple_forge");
         testBase.constructedFacilityIds.insert("simple_forge");
         testBase.unlockedNodeIds.insert("heavy_infantry_forging");
@@ -1940,7 +1971,7 @@ int main() {
         data.playerParty[0].classId = jf::UnitClass::MarchCaptain;
         jf::GameApp app(data);
         jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
-        testBase.outpostStage = jf::OutpostStage::PioneerCity;
+        testBase.outpostLevel = 10;
         testBase.unlockedNodeIds.insert("simple_forge");
         testBase.constructedFacilityIds.insert("simple_forge");
         testBase.unlockedNodeIds.insert("craft_command_sword");
@@ -2332,7 +2363,7 @@ int main() {
             data.playerParty[0].classId = check.unitClass;
             jf::GameApp app(data);
             jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
-            testBase.outpostStage = jf::OutpostStage::PioneerCity; // clear every stage gate
+            testBase.outpostLevel = 10; // clear every stage gate
             testBase.unlockedNodeIds.insert("simple_forge");
             testBase.constructedFacilityIds.insert("simple_forge");
             testBase.discoveryRegistry.insert(check.discovery);
@@ -2400,7 +2431,7 @@ int main() {
         jf::SaveData source;
         source.base.addStorage("wood", 7);
         source.base.discoveryRegistry.insert("discovery_test");
-        source.base.outpostStage = jf::OutpostStage::PioneerOutpost;
+        source.base.outpostLevel = 3;
         source.base.unlockedNodeIds.insert("simple_forge");
         source.base.unlockedNodeIds.insert("craft_heavy_spear");
         source.base.constructedFacilityIds.insert("simple_forge");
@@ -2418,6 +2449,7 @@ int main() {
         assert(restored->language == "ja");
         assert(restored->base.completedRegionIds.count(jf::RegionId::AshboughForest) == 1);
         assert(restored->base.completedRegionIds.count(jf::RegionId::CinderwatchGate) == 0);
+        assert(restored->base.outpostLevel == 3); // M10-D: round-trips as the new field
     }
 
     {
@@ -2556,11 +2588,39 @@ int main() {
         assert(restored.has_value());
         assert(error.empty());
         assert(restored->base.siteAccess.empty());
+        // M10-D: a pre-M10-D save has no "outpostLevel" key, only the old
+        // "outpostStage" (0 = Encampment here) - migrated onto the
+        // corresponding checkpoint Lv (0 -> Lv1), not left at some default
+        // that would under/over-level the outpost relative to what it could
+        // already do.
+        assert(restored->base.outpostLevel == 1);
+        assert(restored->base.outpostStage() == jf::OutpostStage::Encampment);
         jf::GameData data = makeFactoryData();
         jf::GameApp app(data);
         assert(app.applySaveData(*restored));
         assert(app.startExpedition(jf::RegionId::AshboughForest));
         assert(app.currentSiteAccess() == jf::SiteAccessState::Unknown);
+    }
+
+    {
+        // M10-D save migration: every old OutpostStage value (0-3) maps onto
+        // its corresponding checkpoint Lv (1/3/6/10) - a save that already
+        // reached the final stage must not be under-leveled/locked out of
+        // anything it could already do.
+        static const std::pair<int, int> kStageToLevel[] = {{0, 1}, {1, 3}, {2, 6}, {3, 10}};
+        for (const auto& [stage, expectedLevel] : kStageToLevel) {
+            const std::string json = R"({"schemaVersion":2,"gameVersion":"0.1.0","base":{"storage":[],)"
+                                      R"("discoveries":[],"outpostStage":)" + std::to_string(stage) +
+                                      R"(,"unlockedNodes":[],"builtNodes":[]},"selectedPartyIds":[],)"
+                                      R"("weaponOverrides":{},"equippedTraits":{},"unitWeaponOverrides":{},)"
+                                      R"("unitEquippedTraits":{},"unitEquippedSkillsSlot0":{},)"
+                                      R"("unitEquippedSkillsSlot1":{},"settings":{"language":"en"},)"
+                                      R"("expedition":null})";
+            std::string migrationError;
+            auto restoredStage = jf::deserializeSave(json, &migrationError);
+            assert(restoredStage.has_value());
+            assert(restoredStage->base.outpostLevel == expectedLevel);
+        }
     }
 
     {
@@ -2605,7 +2665,7 @@ int main() {
         data.playerParty[0].classId = jf::UnitClass::Spearman;
         jf::GameApp app(data);
         jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
-        testBase.outpostStage = jf::OutpostStage::PioneerOutpost;
+        testBase.outpostLevel = 3;
         testBase.unlockedNodeIds.insert("simple_forge");
         testBase.constructedFacilityIds.insert("simple_forge");
         testBase.unlockedNodeIds.insert("trait_hide_wrapped_grip");
@@ -2637,7 +2697,7 @@ int main() {
         data.playerParty[0].classId = jf::UnitClass::Spearman;
         jf::SaveData legacy;
         legacy.schemaVersion = 1;
-        legacy.base.outpostStage = jf::OutpostStage::PioneerOutpost;
+        legacy.base.outpostLevel = 3;
         legacy.base.unlockedNodeIds.insert("simple_forge");
         legacy.base.unlockedNodeIds.insert("craft_heavy_spear");
         legacy.base.unlockedNodeIds.insert("trait_hide_wrapped_grip");
