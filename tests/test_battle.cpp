@@ -1898,11 +1898,38 @@ int main() {
         testBase.weaponLevels["command_sword"] = jf::BaseState::kMaxWeaponLevel;
         assert(!app.strengthenWeapon("command_sword"));
 
-        // A weapon id not yet wired into weaponLevelEligibleWeapons() (a
-        // back-6-class branch, deferred to a follow-up Slice) never produces
-        // a cost, so strengthening it always fails cleanly rather than
-        // crashing on a missing table entry.
-        assert(jf::weaponLevelUpCost("resonant_focus", 2).empty());
+        // A weapon id never wired into weaponLevelEligibleWeapons() never
+        // produces a cost, so strengthening it always fails cleanly rather
+        // than crashing on a missing table entry. (M10-C registered
+        // resonant_focus/etc for all 12 classes, so this now uses a
+        // deliberately nonexistent id instead.)
+        assert(jf::weaponLevelUpCost("nonexistent_weapon_id", 2).empty());
+    }
+
+    {
+        // M10-C: same strengthenWeapon()/weaponLevelUpCost() generator,
+        // exercised on one of the 6 newly-registered classes (HeavyInfantry /
+        // Bulwark Maul) to prove the registration itself (not just the
+        // already-tested generator logic) is wired correctly end to end.
+        jf::GameData data = makeFactoryData();
+        data.playerParty[0].classId = jf::UnitClass::HeavyInfantry;
+        jf::GameApp app(data);
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        testBase.outpostStage = jf::OutpostStage::PioneerCity;
+        testBase.unlockedNodeIds.insert("simple_forge");
+        testBase.constructedFacilityIds.insert("simple_forge");
+        testBase.unlockedNodeIds.insert("heavy_infantry_forging");
+        testBase.unlockedNodeIds.insert("craft_bulwark_maul");
+
+        // Lv1 recipe: iron x2, wood x1. Lv2 cost: iron x2 (x1.0), stone x1
+        // (otherA).
+        assert(!app.strengthenWeapon("bulwark_maul")); // no materials yet
+        testBase.addStorage("iron", 2);
+        testBase.addStorage("stone", 1);
+        assert(app.strengthenWeapon("bulwark_maul"));
+        assert(app.weaponLevel("bulwark_maul") == 2);
+        assert(testBase.storageCount("iron") == 0);
+        assert(testBase.storageCount("stone") == 0);
     }
 
     {
@@ -2080,9 +2107,10 @@ int main() {
         testBase.armorLevels["armor_march_captain_tier1"] = jf::BaseState::kMaxArmorLevel;
         assert(!app.strengthenArmor("armor_march_captain_tier1"));
 
-        // An armor id not registered in jf::armorRegistry() (a back-6-class
-        // piece, deferred to a follow-up Slice) never produces a cost.
-        assert(jf::armorLevelUpCost("armor_heavy_infantry_tier1", "iron", 2).empty());
+        // An armor id not registered in jf::armorRegistry() never produces a
+        // cost. (M10-C registered armor_heavy_infantry_tier1/etc for all 12
+        // classes, so this now uses a deliberately nonexistent id instead.)
+        assert(jf::armorLevelUpCost("nonexistent_armor_id", "iron", 2).empty());
     }
 
     {
@@ -2117,6 +2145,36 @@ int main() {
             assert(unit.stats.resistance == baseRes + 3); // base 1 + 4/2 = 3
         }
         assert(found);
+    }
+
+    {
+        // M10-C: same strengthenArmor()/DEF-RES-at-Lv generator, exercised on
+        // one of the 6 newly-registered classes' Tier2 (DEF-specialized)
+        // piece (BattleMage / Battle Mage Plated Robe) to prove the
+        // registration is wired correctly end to end.
+        jf::GameData data = makeFactoryData();
+        data.playerParty[0].classId = jf::UnitClass::BattleMage;
+        jf::GameApp app(data);
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        testBase.unlockedNodeIds.insert("simple_forge");
+        testBase.constructedFacilityIds.insert("simple_forge");
+        testBase.unlockedNodeIds.insert("craft_armor_battle_mage_tier2");
+
+        // Lv1 recipe: ruin_fragment x2. Lv2 cost: ruin_fragment x1 (primary
+        // x0.5, rounded), stone x1 (otherA).
+        assert(!app.strengthenArmor("armor_battle_mage_tier2")); // no materials yet
+        testBase.addStorage("ruin_fragment", 1);
+        testBase.addStorage("stone", 1);
+        assert(app.strengthenArmor("armor_battle_mage_tier2"));
+        assert(app.armorLevel("armor_battle_mage_tier2") == 2);
+        assert(testBase.storageCount("ruin_fragment") == 0);
+        assert(testBase.storageCount("stone") == 0);
+
+        assert(app.equipArmorForUnit("player0", "armor_battle_mage_tier2"));
+        const jf::ArmorDefinition* armor = jf::findArmorDefinition("armor_battle_mage_tier2");
+        assert(armor);
+        assert(jf::armorDefBonusAtLevel(*armor, 2) == 3); // Tier2: base 2 + extra(1) = 3
+        assert(jf::armorResBonusAtLevel(*armor, 2) == 0); // Tier2: RES stays at base (0)
     }
 
     {

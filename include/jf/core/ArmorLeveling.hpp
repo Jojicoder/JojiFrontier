@@ -9,10 +9,10 @@
 // 軽めに設定"). This file supplies that Lv1 recipe (armorTier1CraftCost())
 // alongside the same Lv2〜5 growth-formula generator weapons use.
 //
-// Covers only Lv1〜5 (本編区間) and only the 18 armor pieces of the 6 initial
-// classes registered in jf::armorRegistry() (Armor.hpp) - the remaining 6
-// classes' 18 armor pieces are deferred to a follow-up Slice, same split as
-// WeaponLeveling.hpp's own 18-of-33 weapon scope.
+// Covers only Lv1〜5 (本編区間). Originally covered only the 18 armor pieces
+// of the 6 initial classes registered in jf::armorRegistry() (Armor.hpp);
+// M10-C extended armorLevelMaterialsByClass() to the remaining 6 classes'
+// 18 armor pieces, same generator unchanged - full 36-of-36 coverage.
 
 #include <string>
 #include <unordered_map>
@@ -67,6 +67,30 @@ inline const std::unordered_map<UnitClass, ArmorLevelMaterials>& armorLevelMater
         // cloth - Blackwater/Old Frontier Settlement), otherC = herb (its
         // own Tier1 weapon mercy_staff's own secondary material, Ashbough).
         {UnitClass::DawnChirurgeon, {"quality_herb", "cloth", "herb"}},
+
+        // M10-C: the remaining 6 classes. otherA/otherB reuse
+        // WeaponLeveling.hpp's weaponLevelMaterialsByClass() picks for the
+        // same class (same simplification the first 6 used); otherC is a 4th
+        // material drawn from that class's own weapon-branch recipes.
+        // HeavyInfantry: otherA/B = stone/ruin_fragment (weapon Lv), otherC =
+        // wood (its own Bulwark/Breaker Maul secondary material).
+        {UnitClass::HeavyInfantry, {"stone", "ruin_fragment", "wood"}},
+        // FrontierEngineer: otherA/B = tack_material/cloth (weapon Lv),
+        // otherC = herb (its own Repair Hammer's sustain-flavor material).
+        {UnitClass::FrontierEngineer, {"tack_material", "cloth", "herb"}},
+        // MessengerCavalry: otherA/B = tack_material/marsh_resin (weapon Lv),
+        // otherC = hide (its own Road/Escort Sabre secondary material).
+        {UnitClass::MessengerCavalry, {"tack_material", "marsh_resin", "hide"}},
+        // FrontierRanger: otherA/B = marsh_resin/stone (weapon Lv), otherC =
+        // iron (its own Quarry/Driving Bow secondary material).
+        {UnitClass::FrontierRanger, {"marsh_resin", "stone", "iron"}},
+        // BannerBearer: otherA/B = ruin_fragment/quality_herb (weapon Lv),
+        // otherC = hide (its own Far/Valor Standard material).
+        {UnitClass::BannerBearer, {"ruin_fragment", "quality_herb", "hide"}},
+        // BattleMage: otherA/B = stone/cloth (weapon Lv), otherC =
+        // ruin_fragment (its own Resonant/War Focus own material, already
+        // its dominant weapon-branch material).
+        {UnitClass::BattleMage, {"stone", "cloth", "ruin_fragment"}},
     };
     return table;
 }

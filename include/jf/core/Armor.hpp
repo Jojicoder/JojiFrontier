@@ -6,11 +6,12 @@
 // is a DEF/RES addition ("武器分岐のような固有戦闘効果...は防具には持たせ
 // ない"), so there is no branch-effect payload to carry the way Weapon does.
 //
-// Scope of this Slice: only the 6 initial classes' 3 tiers each (18 of the
-// eventual 36 armor pieces - docs/deep_layers.md「兵種専用3防具」12兵種×3Tier)
-// are registered below, mirroring M10-A's own "18 of 33 weapons first" split
-// (include/jf/core/WeaponLeveling.hpp's own doc comment). The remaining 6
-// classes are deferred to a follow-up Slice using the same pattern.
+// Originally scoped to only the 6 initial classes' 3 tiers each (18 of the
+// eventual 36 armor pieces - docs/deep_layers.md「兵種専用3防具」12兵種×3Tier),
+// mirroring M10-A's own "18 of 33 weapons first" split
+// (include/jf/core/WeaponLeveling.hpp's own doc comment). M10-C extended
+// registration to the remaining 6 classes' 18 pieces below, using the same
+// pattern unchanged - full 36-of-36 coverage.
 
 #include <algorithm>
 #include <string>
@@ -121,6 +122,51 @@ inline const std::vector<ArmorDefinition>& armorRegistry() {
          UnitClass::DawnChirurgeon, ArmorTier::Tier2, 2, 0},
         {"armor_dawn_chirurgeon_tier3", "Dawn Chirurgeon Sanctum Ward", "暁の衛生兵の聖堂守衣",
          UnitClass::DawnChirurgeon, ArmorTier::Tier3, 1, 1},
+
+        // M10-C: the remaining 6 classes' 18 armor pieces (same 3-tier
+        // pattern, base DEF/RES unchanged from the first 6: Tier1/3 (1,1),
+        // Tier2 (2,0)). Completes the full 36-of-36 armor registry.
+        {"armor_heavy_infantry_tier1", "Heavy Infantry Guard", "重装兵の護具", UnitClass::HeavyInfantry,
+         ArmorTier::Tier1, 1, 1},
+        {"armor_heavy_infantry_tier2", "Heavy Infantry Plate", "重装兵の重甲", UnitClass::HeavyInfantry,
+         ArmorTier::Tier2, 2, 0},
+        {"armor_heavy_infantry_tier3", "Heavy Infantry Ward", "重装兵の守甲", UnitClass::HeavyInfantry,
+         ArmorTier::Tier3, 1, 1},
+
+        {"armor_frontier_engineer_tier1", "Frontier Engineer Vest", "辺境工兵の作業衣", UnitClass::FrontierEngineer,
+         ArmorTier::Tier1, 1, 1},
+        {"armor_frontier_engineer_tier2", "Frontier Engineer Hardplate", "辺境工兵の硬甲",
+         UnitClass::FrontierEngineer, ArmorTier::Tier2, 2, 0},
+        {"armor_frontier_engineer_tier3", "Frontier Engineer Ward", "辺境工兵の守衣", UnitClass::FrontierEngineer,
+         ArmorTier::Tier3, 1, 1},
+
+        {"armor_messenger_cavalry_tier1", "Messenger Cavalry Coat", "伝令騎兵の外套", UnitClass::MessengerCavalry,
+         ArmorTier::Tier1, 1, 1},
+        {"armor_messenger_cavalry_tier2", "Messenger Cavalry Barding", "伝令騎兵の馬鎧", UnitClass::MessengerCavalry,
+         ArmorTier::Tier2, 2, 0},
+        {"armor_messenger_cavalry_tier3", "Messenger Cavalry Ward", "伝令騎兵の守衣", UnitClass::MessengerCavalry,
+         ArmorTier::Tier3, 1, 1},
+
+        {"armor_frontier_ranger_tier1", "Frontier Ranger Wrap", "辺境猟兵の巻き衣", UnitClass::FrontierRanger,
+         ArmorTier::Tier1, 1, 1},
+        {"armor_frontier_ranger_tier2", "Frontier Ranger Hardleather", "辺境猟兵の硬革衣", UnitClass::FrontierRanger,
+         ArmorTier::Tier2, 2, 0},
+        {"armor_frontier_ranger_tier3", "Frontier Ranger Ward", "辺境猟兵の守衣", UnitClass::FrontierRanger,
+         ArmorTier::Tier3, 1, 1},
+
+        {"armor_banner_bearer_tier1", "Banner Bearer Vest", "旗手の胴衣", UnitClass::BannerBearer,
+         ArmorTier::Tier1, 1, 1},
+        {"armor_banner_bearer_tier2", "Banner Bearer Bastion Plate", "旗手の防塁甲", UnitClass::BannerBearer,
+         ArmorTier::Tier2, 2, 0},
+        {"armor_banner_bearer_tier3", "Banner Bearer Ward", "旗手の守衣", UnitClass::BannerBearer,
+         ArmorTier::Tier3, 1, 1},
+
+        {"armor_battle_mage_tier1", "Battle Mage Robe", "戦闘魔導士の外衣", UnitClass::BattleMage,
+         ArmorTier::Tier1, 1, 1},
+        {"armor_battle_mage_tier2", "Battle Mage Plated Robe", "戦闘魔導士の重衣", UnitClass::BattleMage,
+         ArmorTier::Tier2, 2, 0},
+        {"armor_battle_mage_tier3", "Battle Mage Sanctum Ward", "戦闘魔導士の聖堂守衣", UnitClass::BattleMage,
+         ArmorTier::Tier3, 1, 1},
     };
     return armors;
 }

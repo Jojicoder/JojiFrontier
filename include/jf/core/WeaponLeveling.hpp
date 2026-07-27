@@ -2,11 +2,14 @@
 
 // M10-A: weapon Lv strengthening (docs/deep_layers.md「Lv制(武器・防具共通の
 // 強化軸)」「Lv1〜5 数値バランス設計(本編区間)」). Covers only Lv1〜5 (本編
-//区間, no deep-layer materials/system exists yet) and only the 18 branch
-// weapons of the 6 initial classes (docs/character_progression.md「初期6兵種
-// の武器レシピ」) - the remaining 6 classes' 15 branches are deferred to a
-// follow-up Slice using the same generator (weaponLevelUpCost() simply
-// returns empty for any weapon id not yet registered below).
+//区間, no deep-layer materials/system exists yet). Originally covered only
+// the 18 branch weapons of the 6 initial classes
+// (docs/character_progression.md「初期6兵種の武器レシピ」); M10-C extended
+// registration to the remaining 6 classes' 18 branches (33+3 crafted total,
+// = full 33-of-33 branch-weapon coverage - the "15 branches" figure once
+// assumed for the remaining classes was stale, the actual count is 18) using
+// the same generator unchanged (weaponLevelUpCost() simply returns empty for
+// any weapon id not registered below).
 
 #include <algorithm>
 #include <string>
@@ -58,6 +61,41 @@ inline const std::unordered_map<UnitClass, WeaponLevelMaterials>& weaponLevelMat
         // DawnChirurgeon: Blackwater's quality_herb (already used by its own
         // Ward Staff Tier2 recipe), then Old Frontier Settlement's cloth.
         {UnitClass::DawnChirurgeon, {"quality_herb", "cloth"}},
+
+        // M10-C: the 6 remaining classes (docs/character_progression.md
+        // 「スキル取得地点の完全対応」table gives each class's Tier2/Tier3
+        // unlock location, used here as the "own join/unlock region" anchor
+        // per the same judgment method M10-A's own 6 picks used).
+        //
+        // HeavyInfantry: Ashiron Quarry's stone (its Tier2 unlock 灰鉄鉱脈 is
+        // in this region; stone is already the established Quarry material
+        // used by Spearman's own Heavy Spear Tier3), then Ember Ravine's
+        // ruin_fragment (its Tier3 unlock 破砕外郭 sits at the Quarry/Ember
+        // Ravine collapse boundary).
+        {UnitClass::HeavyInfantry, {"stone", "ruin_fragment"}},
+        // FrontierEngineer: Windscar Plateau's tack_material (its Tier2
+        // unlock 信号塔下層 is Windscar's own signal-tower substructure),
+        // then Old Frontier Settlement's cloth (its Tier3 unlock 兵站庫 is a
+        // Settlement supply depot).
+        {UnitClass::FrontierEngineer, {"tack_material", "cloth"}},
+        // MessengerCavalry: Windscar Plateau's tack_material (its own Tier1
+        // Road Sabre recipe already leans on mount gear; its Tier2 unlock
+        // 風見台 IS Windscar Plateau), then Blackwater's marsh_resin (its
+        // Tier3 unlock 信号庭 sits toward Blackwater).
+        {UnitClass::MessengerCavalry, {"tack_material", "marsh_resin"}},
+        // FrontierRanger: Blackwater's marsh_resin (its Tier2 unlock 樹脂林
+        // IS Blackwater's own resin forest), then Ashiron Quarry's stone
+        // (its Tier3 unlock 石盆地 is a Quarry stone basin).
+        {UnitClass::FrontierRanger, {"marsh_resin", "stone"}},
+        // BannerBearer: Ember Ravine's ruin_fragment (its Tier3 unlock 最後の
+        // 信号 sits in the Ember Ravine late-game reaches), then Blackwater's
+        // quality_herb (its Tier3 unlock 予備壁 is Blackwater-adjacent).
+        {UnitClass::BannerBearer, {"ruin_fragment", "quality_herb"}},
+        // BattleMage: Ashiron Quarry's stone (its Tier2 unlock 灰鉄鉱脈 is
+        // the same Quarry iron vein HeavyInfantry unlocks at), then Old
+        // Frontier Settlement's cloth (its Tier3 unlock 写本庫 is a
+        // Settlement archive/scriptorium).
+        {UnitClass::BattleMage, {"stone", "cloth"}},
     };
     return table;
 }
@@ -78,6 +116,21 @@ inline const std::unordered_map<std::string, UnitClass>& weaponLevelEligibleWeap
         {"guard_spear", UnitClass::Spearman},
         {"mercy_staff", UnitClass::DawnChirurgeon}, {"ward_staff", UnitClass::DawnChirurgeon},
         {"march_staff", UnitClass::DawnChirurgeon},
+        // M10-C: the 6 remaining classes' 18 branch weapons (confirmed 3
+        // branches each, 6x3=18 total, from the "craft_*" FacilityNode
+        // entries in Facilities.hpp - not 15 as a stale count once assumed).
+        {"bulwark_maul", UnitClass::HeavyInfantry}, {"breaker_maul", UnitClass::HeavyInfantry},
+        {"driving_maul", UnitClass::HeavyInfantry},
+        {"builder_hammer", UnitClass::FrontierEngineer}, {"demolition_hammer", UnitClass::FrontierEngineer},
+        {"repair_hammer", UnitClass::FrontierEngineer},
+        {"road_sabre", UnitClass::MessengerCavalry}, {"charge_lance", UnitClass::MessengerCavalry},
+        {"escort_blade", UnitClass::MessengerCavalry},
+        {"snare_bow", UnitClass::FrontierRanger}, {"quarry_bow", UnitClass::FrontierRanger},
+        {"driving_bow", UnitClass::FrontierRanger},
+        {"far_standard", UnitClass::BannerBearer}, {"valor_standard", UnitClass::BannerBearer},
+        {"warding_standard", UnitClass::BannerBearer},
+        {"resonant_focus", UnitClass::BattleMage}, {"war_focus", UnitClass::BattleMage},
+        {"ember_focus", UnitClass::BattleMage},
     };
     return table;
 }

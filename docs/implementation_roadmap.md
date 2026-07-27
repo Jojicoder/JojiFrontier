@@ -2432,9 +2432,17 @@ guestUnitIdsの全員が`isPresent()==false`になった時点で部隊全滅と
   DEF/RES加算のみで実装し、パッシブ耐性効果自体は未実装(汎用機構が
   存在しないため、明示的に次点へ持ち越し)。詳細は
   `docs/implementation_status.md`「M10-B」節を参照。
-- 次点候補: 後半6兵種への武器/防具Lv同Slice拡張、Tier3のパッシブ状態異常
-  耐性効果、Lv6以降(深層限定素材)、拠点Lv化 - いずれも`docs/deep_layers.md`
-  の「実装順序案」節どおりの順で着手する。
+- **M10-C(完了)** 後半6兵種(重装兵・辺境工兵・伝令騎兵・辺境猟兵・旗手・
+  戦闘魔導士)への武器/防具Lv横展開: `weaponLevelEligibleWeapons()`/
+  `weaponLevelMaterialsByClass()`へ18分岐(3分岐×6兵種、旧想定の15分岐は
+  誤りと判明)、`armorRegistry()`/`armorLevelMaterialsByClass()`へ18防具、
+  対応する`craft_armor_*`18ノードをFacilities.hppへ追加。生成式・データ
+  モデルはM10-A/M10-Bと完全に同一、他地域素材の選定方針も同じ判断手法を
+  踏襲。全33武器分岐・全36防具のLv登録が完了。詳細は
+  `docs/implementation_status.md`「M10-C」節を参照。
+- 次点候補: Tier3のパッシブ状態異常耐性効果、Lv6以降(深層限定素材)、
+  拠点Lv化 - いずれも`docs/deep_layers.md`の「実装順序案」節どおりの順で
+  着手する。
 
 ## 各Sliceの完了定義
 

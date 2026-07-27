@@ -6413,6 +6413,95 @@ Lv15上限、未登録防具idでは常に空コストになることの確認�
 4. 拠点Lv化(`base_development.md`の3段階を拠点Lv1/3/6/10のチェックポイントへ
    再配置) - `docs/deep_layers.md`「拠点発展のLv化」節
 
+## M10-C 武器/防具Lv制の後半6兵種への横展開 - 全33武器分岐/全36防具のLv登録完了
+
+M10-A(武器Lv、初期6兵種18分岐)・M10-B(防具Lv、初期6兵種18防具)が明示的に
+持ち越していた残り6兵種(重装兵・辺境工兵・伝令騎兵・辺境猟兵・旗手・
+戦闘魔導士)への横展開Slice。新しい設計判断はなく、既存の生成式
+(`weaponLevelUpCost()`/`armorLevelUpCost()`)・データモデルへの純粋な
+登録追加のみ。深層マップ・Lv6以降・拠点Lv化は引き続き範囲外。
+
+### 対象武器分岐の実数確認: 18分岐(旧想定の15分岐は誤り)
+
+`include/jf/core/Facilities.hpp`の`craft_*`ノードを実地確認したところ、
+残り6兵種は各3分岐(重装歩兵の鉄の大槌: 防壁槌/破砕槌/圧進槌、辺境工兵の
+工作槌: 築造槌/解体槌/補修槌、伝令騎兵の伝令剣: 街道剣/突撃騎槍/護送剣、
+辺境猟兵の狩猟弓: 拘束弓/追跡弓/追込弓、旗手の戦旗槍: 遠征旗槍/勇壮旗槍/
+守護旗槍、戦闘魔導士の魔導焦点具: 共鳴焦点具/戦式焦点具/残火焦点具)の
+計**18分岐**で、いずれも既にM7で戦闘効果込みで実装済みだった(6兵種×3=18、
+33-18=15という旧想定はここでの実地カウントと矛盾しており、実際には
+初期6兵種18+後半6兵種18=**36分岐**存在する。M10-Aの「33分岐」という総数
+表現自体が古い見積もりだった可能性が高いが、本Sliceの範囲では実地確認できた
+18分岐の登録のみを行い、総数表現の遡及訂正はしていない)。全て`requiredStage`
+は既に`OutpostStage::Encampment`(M10-Aの一括ゲート撤廃が対象prefix`craft_`/
+`*_forging`で機械的に処理済みのため、本Sliceで新たなゲート変更は不要だった)。
+
+`weaponLevelEligibleWeapons()`へ18分岐の武器id→クラスを追加登録した
+(`bulwark_maul`/`breaker_maul`/`driving_maul`、`builder_hammer`/
+`demolition_hammer`/`repair_hammer`、`road_sabre`/`charge_lance`/
+`escort_blade`、`snare_bow`/`quarry_bow`/`driving_bow`、`far_standard`/
+`valor_standard`/`warding_standard`、`resonant_focus`/`war_focus`/
+`ember_focus`)。`weaponLevelUpCost()`自体は無変更。
+
+### 他地域素材A/Bの選定(武器Lv)
+
+`docs/character_progression.md`「スキル取得地点の完全対応」表の各兵種
+Tier2/Tier3 Discovery地点(加入後の実質的な「近い地域」の手がかり)を、
+M10-Aの6兵種と同じ判断手法(「自身の分岐レシピが既に使っている素材」
+「解放地点が属する地域の既存素材」)へ当てはめて選定した:
+
+| 兵種 | 他地域A(Lv2/3) | 他地域B(Lv4) | 出典 |
+|---|---|---|---|
+| 重装兵 | 石材 | 遺跡片 | Tier2解放地点(灰鉄鉱脈)が石材地域、Tier3解放地点(破砕外郭)が遺跡片地域に近い |
+| 辺境工兵 | 騎具素材 | 織物 | Tier2解放地点(信号塔下層)が風見台地域、Tier3解放地点(兵站庫)が旧辺境集落 |
+| 伝令騎兵 | 騎具素材 | 湿地樹脂 | 自身のTier1(街道剣)が既に騎具素材寄り、Tier2解放地点(風見台)自体が騎具素材地域 |
+| 辺境猟兵 | 湿地樹脂 | 石材 | Tier2解放地点(樹脂林)自体が湿地樹脂地域、Tier3解放地点(石盆地)が石材地域 |
+| 旗手 | 遺跡片 | 高品質薬草 | Tier3解放地点(最後の信号)が遺跡片地域寄り、同(予備壁)が黒水低湿地寄り |
+| 戦闘魔導士 | 石材 | 織物 | Tier2解放地点(灰鉄鉱脈、重装兵と同地域)、Tier3解放地点(写本庫)が旧辺境集落寄り |
+
+### 対象防具18ピースの登録(防具Lv)
+
+`include/jf/core/Armor.hpp`の`armorRegistry()`へ18の`ArmorDefinition`
+(6兵種×3Tier、baseDef/baseResはM10-Bと同じ規約: Tier1/3=(1,1)、
+Tier2=(2,0))を追加した。対応する`craft_armor_*`18ノードを
+`include/jf/core/Facilities.hpp`へ新規追加し(`requiredStage`は最初から
+`Encampment`、Discovery前提は同兵種の同Tier武器分岐のDiscoveryを再利用、
+`materialCosts`はその武器分岐レシピが実際に使っている素材から1種2個を
+Tierごとに選定 - M10-Bの初期6兵種が行った「レシピ[0]優先、Tierの特徴に
+合う場合はレシピ[1]も採用」という判断をそのまま踏襲)、`weaponBranchClass`
+経由の既存Forge UIフィルタリングは無変更で新規18ノードにも自動的に適用
+される。
+
+`armorLevelMaterialsByClass()`へ18防具分の他地域素材(otherA/otherB/otherC)
+を追加した。otherA/otherBはM10-Aで追加した同兵種の`weaponLevelMaterialsByClass()`
+の値をそのまま流用(M10-Bの初期6兵種が採用した簡略化と同じ)、otherCは
+各兵種自身の武器分岐レシピから未使用の素材を1種追加選定した(重装兵=木材、
+辺境工兵=薬草、伝令騎兵=獣皮、辺境猟兵=鉄材、旗手=獣皮、戦闘魔導士=遺跡片)。
+
+### テスト
+
+`tests/test_battle.cpp`へ2ブロック追加: (1)
+`GameApp::strengthenWeapon("bulwark_maul")`(重装兵)がLv2コスト(鉄材2、
+石材1)を正しく消費しLvを進めることの確認、(2)
+`GameApp::strengthenArmor("armor_battle_mage_tier2")`(戦闘魔導士Tier2)が
+Lv2コスト(遺跡片1、石材1)を正しく消費し、`armorDefBonusAtLevel()`/
+`armorResBonusAtLevel()`がTier2のDEF特化成長(DEF+3、RESは基準値のまま)を
+正しく返すことの確認。あわせて、M10-A/M10-Bが「未登録id」の空コスト確認に
+使っていた`resonant_focus`/`armor_heavy_infantry_tier1`が本Sliceで登録済み
+になったため、両テストを存在しないダミーid(`nonexistent_weapon_id`/
+`nonexistent_armor_id`)へ差し替えた(既存テストの意図=「未登録idは常に
+空コスト」自体は変更していない)。
+
+ビルド・`ctest --test-dir build -j10 --output-on-failure`は4/4、フルスイートを
+3回連続実行し安定(フレークなし)。`git diff --check`も成功。
+
+### 次の候補(このSliceの範囲外)
+
+1. Tier3「状態異常耐性1つ付与」の実際のパッシブ効果(M10-Bから持ち越し、未着手)
+2. Lv6以降(深層限定素材ベースの別倍率テーブル)・深層マップ骨格そのもの
+3. 拠点Lv化(`base_development.md`の3段階を拠点Lv1/3/6/10のチェックポイントへ
+   再配置) - `docs/deep_layers.md`「拠点発展のLv化」節
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/
