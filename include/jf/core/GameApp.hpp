@@ -22,6 +22,7 @@
 #include "jf/core/SaveSystem.hpp"
 #include "jf/core/Skill.hpp"
 #include "jf/core/Terrain.hpp"
+#include "jf/core/WeaponLeveling.hpp"
 #include "jf/data/GameData.hpp"
 
 namespace jf {
@@ -121,6 +122,19 @@ public:
     // pass an empty id to revert to the class's default weapon.
     bool equipWeaponForUnit(const std::string& unitId, const std::string& weaponId);
     const std::unordered_map<std::string, std::string>& weaponOverrides() const { return weaponOverrides_; }
+
+    // M10-A (docs/deep_layers.md「Lv制」): strengthens a crafted branch
+    // weapon by 1 Lv (weaponId -> Lv1..15, jf::BaseState::weaponLevels).
+    // Requires simple_forge built and the weapon already crafted (its
+    // "craft_<weaponId>" node unlocked - a Lv is meaningless for a weapon
+    // nobody owns yet); consumes jf::weaponLevelUpCost(weaponId, currentLv+1)
+    // from storage. Only Lv1->5 is reachable in this Slice (Lv6+ needs
+    // deep-layer materials from a future Slice - weaponLevelUpCost() returns
+    // empty past Lv5, so this always fails once currentLv==5) and only the 18
+    // branch weapons in jf::weaponLevelEligibleWeapons() are wired (the other
+    // 6 classes' 15 branches are deferred).
+    bool strengthenWeapon(const std::string& weaponId);
+    int weaponLevel(const std::string& weaponId) const { return baseState_.weaponLevel(weaponId); }
 
     // Forge: equips/unequips the Hide-Wrapped Grip tuning trait for a class
     // (requires "trait_hide_wrapped_grip" to be unlocked and simple_forge to

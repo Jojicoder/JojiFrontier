@@ -6128,6 +6128,135 @@ region完了済み後の3回目の帰還ではtop-upが再適用されず、そ�
 以上で**地図外縁のregion-clear floor-topup配線が完了した**。次の優先候補は
 本編キャンペーン完了フラグ・地域攻略(安全帰還)UI・深層遠征の具体設計。
 
+## M10-A 武器Lv制(深層遠征系の最初のSlice) - 分岐/Tier解放を素材ゲートへ変更
+
+`docs/deep_layers.md`(検討中の設計ドラフト)の「Lv制(武器・防具共通の強化軸)」
+「Lv1〜5 数値バランス設計(本編区間)」節と「分岐/Tier解放を『拠点段階ゲート』
+から『素材ゲート』へ変更」節を、武器Lvに限定して実装した最初のSlice。防具・
+深層マップ・拠点Lv化・調整特性の防具版は本Sliceの範囲外(いずれも今後の別
+Slice)。M9系(地域コンテンツ)とは独立した新しいMilestoneシリーズ(M10)として
+開始した。
+
+### データモデルの選択: per-weapon-id-stack(per-instanceではない)
+
+`docs/item_system.md`「武器と特性の共有」・既存の`GameApp::equipWeaponForUnit()`
+を読んだ結果、クラフト武器分岐は既に「拠点全体で実物1本しか存在しない共有
+倉庫コピー」として実装されていることを確認した(同じ`weaponId`を2人が同時に
+装備できないよう`weaponOverrides_`内で相互排他チェック済み)。つまりこの
+プロジェクトには「同じ武器idの複数コピー」という概念自体が最初から存在しない
+ため、per-weapon-id(`std::unordered_map<std::string,int> BaseState::weaponLevels`、
+weaponId→Lv、未登録=Lv1)のLv管理で「Lvは武器本体に紐づく、装備者を変えても
+リセットされない」という設計ドラフトの要求をそのまま満たせる。武器ごとの
+一意インスタンスID基盤を新設するper-instance方式は、この既存の単一コピー
+モデルの上では何のメリットも生まないため採用しなかった(より小さい変更を
+優先するタスク方針とも一致)。
+
+### 強化アクション・Lv2〜5コスト生成式
+
+`include/jf/core/WeaponLeveling.hpp`を新設し、`weaponLevelUpCost(weaponId,
+targetLevel)`で「Lv1レシピ(craft_<id>ノードのmaterialCosts)+成長倍率」から
+Lv2〜5の消費素材を自動算出する(設計ドラフト「実装への落とし込み」節が要求
+する「手作業の72アイテム分の表を持たない」を満たす)。主材料/副材料の倍率
+(Lv2: ×1.0+他地域A×1、Lv3: ×1.5+他地域A×2、Lv4: ×1.5+副材料×1.0+他地域B×1、
+Lv5: ×2.0+副材料×1.0+`rare_material`×2)は`docs/deep_layers.md`の号令剣の
+worked exampleと完全一致することをテストで検証した。`GameApp::strengthenWeapon()`
+がこの関数の返す素材を全量検証してから一括消費し、Lvを1段階だけ進める
+(既存の消耗品/武器製作フローと同じ「検証してから確定」の一括処理規律を踏襲)。
+Lv上限は`BaseState::kMaxWeaponLevel`(15、設計ドラフトの将来上限)だが、Lv6以降
+は深層限定素材(未実装)が必要なため、`weaponLevelUpCost()`はLv6以降で常に
+空を返す - 結果としてこのSliceで実際に到達できるのは1〜5のみで、Lv15の上限
+チェック自体はテストで空撃ち検証している。
+
+### 対象武器: 初期6兵種の18分岐のみ(残り15分岐は次Slice以降へ持ち越し)
+
+`weaponLevelEligibleWeapons()`は`docs/character_progression.md`「初期6兵種の
+武器レシピ」の18武器(行軍隊長/古参守備兵/監視弓兵/辺境斥候/槍兵/暁の衛生兵、
+各3分岐)のみを登録した。後半6兵種(重装兵・辺境工兵・伝令騎兵・辺境猟兵・
+旗手・戦闘魔導士、15分岐)は同じ`weaponLevelUpCost()`関数がそのまま使える
+設計だが、各兵種の「他地域素材A/B」の個別選定(下記)を今回のSliceでは行って
+いない - `weaponLevelMaterialsByClass()`へ6クラス追加するだけで拡張できる。
+
+他地域素材A/Bの選定(クラス単位で1組を分岐3本共通で使い回す、設計ドラフト
+自身の号令剣/決闘剣/護衛剣exampleも同じ簡略化をしている):
+
+| 兵種 | 他地域A(Lv2/3) | 他地域B(Lv4) | 出典 |
+|---|---|---|---|
+| 行軍隊長 | 獣皮 | 湿地樹脂 | 設計ドラフトのworked exampleそのまま |
+| 古参守備兵 | 騎具素材 | 織物 | 自身のTier3(巡回槍)が既に騎具素材を使用 |
+| 監視弓兵 | 湿地樹脂 | 遺跡片 | 自身のTier3(制圧弓)が既に湿地樹脂を使用 |
+| 辺境斥候 | 騎具素材 | 高品質薬草 | 自身のTier3(離脱刃)が既に騎具素材を使用 |
+| 槍兵 | 獣皮 | 石材 | 自身のTier2(重槍)が既に石材を使用 |
+| 暁の衛生兵 | 高品質薬草 | 織物 | 自身のTier2(守護杖)が既に高品質薬草を使用 |
+
+### 分岐/Tier解放の可視性ゲート撤廃
+
+`include/jf/core/Facilities.hpp`の`facilityNodeRegistry()`で、全`craft_*`
+ノード(33+3=36件)とその前提となる`*_forging`ノード(12件、簡易鍛冶台の次に
+挟まる「分岐ライン解放」ノード)の`requiredStage`を、Pythonスクリプトで機械的に
+`OutpostStage::Encampment`へ書き換えた(手作業の個別編集ではなく、id接頭辞
+`craft_`/接尾辞`_forging`で判定するプログラムによる一括変更 - 対象49ノード、
+対象外の他ノード(施設建設・訓練Tier・非武器研究)は一切変更していない)。
+`ui_facilities.cpp`の`drawFacilityDetail()`は元々`facilityNodeRegistry()`を
+拠点段階でフィルタせず全件描画し(`facilityNodeBlockedReason()`が理由付きで
+灰色表示する既存パターン)、可視性そのものは既に設計ドラフトの要求通り
+だったため変更不要だった - 変わったのは「実際にクラフト可能になるタイミング」
+のみで、`facilityNodeEligible()`が`requiredStage`チェックをスキップする分、
+第2・第3分岐の要求素材(引き続き中盤/終盤地域限定)だけが自然なゲートとして
+残る(設計ドラフトが明記する意図通りの結果)。
+
+### UI: Lv表示・強化ボタン
+
+`ui_facilities.cpp`の`drawFacilityNodeRow()`で、`craft_*`ノードが既に
+`unlockedNodeIds`にある(=クラフト済み)場合、従来の固定"unlocked"ラベルの
+代わりに"Lv N"(次Lvの素材が揃っていれば強化ボタン、Lv15なら"Lv 15 MAX")を
+表示するよう変更した。表示文字列はASCIIのみ("Lv"/数字/"MAX"/"->")とし、新規
+JA文字列を追加していない(プロジェクトmemoryの「JA glyph coverage」注意を
+踏まえ、`loadAppFont()`のcharset登録が不要な形にした)。
+
+### 戦闘への反映
+
+`Unit::weapon`は`GameApp::startExpedition()`が`activeExpeditionData_ =
+data_`をコピーした直後、`baseState_.weaponLevels`の全エントリぶん該当
+`weaponsById`エントリの`might`へ`(Lv-1)`を加算する形で一括適用した
+(`BattleFactory.cpp`のシグネチャ変更は不要 - 全プレイヤーUnitは
+`activeExpeditionData_.weaponsById`経由でインスタンス化されるため、遠征
+開始時の1回のミューテーションだけで戦闘・継続戦闘含め遠征全体に一貫して
+反映される)。
+
+### セーブ/ロード
+
+`BaseState::weaponLevels`を`SaveSystem.cpp`のsave/load両方(`serializeSave()`の
+key追加、`deserializeSave()`の`base.contains("weaponLevels")`分岐)へ配線した。
+他の追加専用フィールド(`itemStorage`等)と同じ「schemaVersionを上げずに
+`.contains()`ガードで追加」パターンを踏襲したため、スキーマバージョンの
+更新は不要だった。
+
+### テスト
+
+`tests/test_battle.cpp`へ4ブロック追加: (1)
+`facilityNodeEligible()`が`craft_*`/`*_forging`ノードでrequiredStageを
+無視する一方、`simple_forge`のような通常ノードは従来通りstageで
+ゲートされることの確認、(2)
+`GameApp::strengthenWeapon()`がLv2〜5の号令剣コストを設計ドラフトの
+worked exampleと1:1で再現し、素材不足時は何も消費せず失敗し、Lv15の
+手動セット後は強化不能になり、未登録武器id(`resonant_focus`)では
+`weaponLevelUpCost()`が常に空を返すことの確認、(3)
+戦闘インスタンス化時にLvが+might(Lv-1)として反映されることの確認。
+
+ビルド・`ctest --test-dir build -j10 --output-on-failure`は4/4、フルスイートを
+3回連続実行し安定(フレークなし)。`git diff --check`も成功。
+
+### 次の候補(このSliceの範囲外)
+
+1. 後半6兵種15分岐への`weaponLevelMaterialsByClass()`/`weaponLevelEligibleWeapons()`
+   拡張(同じ生成式をそのまま流用可能)
+2. 防具データモデル(新規スロット、`data/armor.json`相当、DEF/RES加算適用、
+   Tier1〜3の36防具、防具用調整特性の別プール) - `docs/deep_layers.md`
+   「防具システム」節
+3. Lv6以降(深層限定素材ベースの別倍率テーブル)・深層マップ骨格そのもの
+4. 拠点Lv化(`base_development.md`の3段階を拠点Lv1/3/6/10のチェックポイントへ
+   再配置) - `docs/deep_layers.md`「拠点発展のLv化」節
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

@@ -198,7 +198,31 @@ void drawFacilityNodeRow(jf::GameApp& app, const jf::FacilityNode& node, float x
     drawText(clipTextToWidth(pick(node.nameEn, node.nameJa), 14, nameMaxWidth), static_cast<int>(x + kNameLeftPad),
              static_cast<int>(y) + 5, 14, unlocked ? kColorTextPrimary : kColorTextMuted);
 
-    if (unlocked) {
+    // M10-A (docs/deep_layers.md「Lv制」): once a branch weapon is crafted,
+    // its row switches from the static "unlocked" label to a Lv readout plus
+    // a strengthen button (when the next Lv's materials are affordable) -
+    // ASCII-only text ("Lv N"/"MAX"), so no new JA glyph needs registering in
+    // loadAppFont()'s charset (see project memory on JA glyph coverage).
+    const bool isWeaponRecipe = node.id.rfind("craft_", 0) == 0;
+    if (unlocked && isWeaponRecipe) {
+        const std::string weaponId = node.id.substr(6);
+        const int level = base.weaponLevel(weaponId);
+        const std::string lvLabel = "Lv " + std::to_string(level);
+        if (level >= jf::BaseState::kMaxWeaponLevel) {
+            drawText(lvLabel + " MAX", static_cast<int>(actionRect.x + 4), static_cast<int>(y) + 6, 13,
+                     kColorTextFaint);
+        } else {
+            std::vector<jf::LootStack> cost = jf::weaponLevelUpCost(weaponId, level + 1);
+            bool canAfford = !cost.empty();
+            for (const jf::LootStack& stack : cost)
+                if (base.storageCount(stack.id) < stack.quantity) canAfford = false;
+            if (canAfford) {
+                if (button(actionRect, lvLabel + " ->", mouse, clicked)) app.strengthenWeapon(weaponId);
+            } else {
+                drawText(lvLabel, static_cast<int>(actionRect.x + 4), static_cast<int>(y) + 6, 13, kColorTextFaint);
+            }
+        }
+    } else if (unlocked) {
         drawText(tr("ui.facilities.unlocked"), static_cast<int>(actionRect.x + 4), static_cast<int>(y) + 6, 13,
                  kColorTextFaint);
     } else if (jf::facilityNodeEligible(base, node)) {

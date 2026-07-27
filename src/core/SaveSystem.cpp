@@ -328,6 +328,7 @@ std::string serializeSave(const SaveData& save) {
             {"siteAccess", siteAccessMapToJson(save.base.siteAccess)},
             {"completedRegions", completedRegions},
             {"itemStorage", itemStorageToJson(save.base.itemStorage)},
+            {"weaponLevels", save.base.weaponLevels},
             {"rewardOverflow", rewardOverflowToJson(save.base.rewardOverflow)},
             {"joinReadyCandidateIds", save.base.joinReadyCandidateIds},
             {"joinedRecruitIds", save.base.joinedRecruitIds},
@@ -395,6 +396,8 @@ std::optional<SaveData> deserializeSave(const std::string& jsonText, std::string
         if (base.contains("builtNodes")) save.base.constructedFacilityIds = base["builtNodes"].get<std::unordered_set<std::string>>();
         if (base.contains("siteAccess")) save.base.siteAccess = siteAccessMapFromJson(base["siteAccess"]);
         if (base.contains("itemStorage")) save.base.itemStorage = itemStorageFromJson(base["itemStorage"]);
+        if (base.contains("weaponLevels"))
+            save.base.weaponLevels = base["weaponLevels"].get<std::unordered_map<std::string, int>>();
         if (base.contains("rewardOverflow")) save.base.rewardOverflow = rewardOverflowFromJson(base["rewardOverflow"]);
         if (base.contains("joinReadyCandidateIds"))
             save.base.joinReadyCandidateIds = base["joinReadyCandidateIds"].get<std::unordered_set<std::string>>();

@@ -244,6 +244,24 @@ struct BaseState {
     // GameApp::resetToBase()). Absent key = 0 owned, not "unknown".
     std::unordered_map<ItemType, int> itemStorage;
 
+    // M10-A (docs/deep_layers.md「Lv制」): weapon id -> Lv (1-15). Absent key
+    // means Lv1 (a freshly crafted weapon's starting Lv, no material cost).
+    // Per-weapon-id-stack, not per-instance: docs/item_system.md「武器と特性の
+    // 共有」already models a crafted branch weapon as a single global
+    // shared-warehouse copy (GameApp::equipWeaponForUnit() rejects a second
+    // unit claiming an already-equipped branch weapon id), so there is only
+    // ever one physical copy of a given weapon id in play - a per-id Lv
+    // already satisfies "Lvは武器本体に紐づく、装備者を変えてもリセットされ
+    // ない" without needing a separate per-instance identity scheme.
+    std::unordered_map<std::string, int> weaponLevels;
+
+    static constexpr int kMaxWeaponLevel = 15;
+
+    int weaponLevel(const std::string& weaponId) const {
+        auto it = weaponLevels.find(weaponId);
+        return it == weaponLevels.end() ? 1 : it->second;
+    }
+
     int ownedItemCount(ItemType type) const {
         auto it = itemStorage.find(type);
         return it == itemStorage.end() ? 0 : it->second;

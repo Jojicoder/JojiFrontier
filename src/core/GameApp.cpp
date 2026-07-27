@@ -730,6 +730,16 @@ std::vector<GameApp::RegionSummary> GameApp::regionSummaries() const {
 bool GameApp::startExpedition(RegionId regionId) {
     if (screen_ != Screen::Base || selectedPartyIds_.size() != 4 || !isRegionUnlocked(regionId)) return false;
     activeExpeditionData_ = data_;
+    // M10-A (docs/deep_layers.md「1Lvあたりの数値」: "武器はLvごとに攻撃力
+    // +1"): applied once here (rather than per-instantiateUnit call) since
+    // every player-side Unit for this expedition is built from
+    // activeExpeditionData_.weaponsById (base weapon lookup and weaponOverrides_
+    // resolution both go through it) - a single mutation up front covers the
+    // whole run, including continuation battles that reuse expeditionPartyUnits_.
+    for (const auto& [weaponId, level] : baseState_.weaponLevels) {
+        auto weaponIt = activeExpeditionData_.weaponsById.find(weaponId);
+        if (weaponIt != activeExpeditionData_.weaponsById.end()) weaponIt->second.might += (level - 1);
+    }
     activeExpeditionData_.playerParty.clear();
     for (const std::string& id : selectedPartyIds_) {
         auto it = std::find_if(roster_.begin(), roster_.end(), [&](const auto& unit) { return unit.id == id; });
@@ -1124,6 +1134,26 @@ bool GameApp::equipTuningTraitForUnit(const std::string& unitId, TuningTraitId t
     if (traitId != TuningTraitId::HideWrappedGrip) return false;
     if (!baseState_.unlockedNodeIds.count("trait_hide_wrapped_grip")) return false;
     equippedTraits_[unitId] = traitId;
+    markPersistentStateChanged();
+    return true;
+}
+
+bool GameApp::strengthenWeapon(const std::string& weaponId) {
+    if (screen_ != Screen::Base) return false;
+    if (!baseState_.constructedFacilityIds.count("simple_forge")) return false;
+    // A Lv is meaningless for a weapon nobody has crafted yet - the class
+    // base weapon (no "craft_" node) isn't Lv-eligible in this Slice either
+    // (see jf::weaponLevelEligibleWeapons()'s own doc comment).
+    if (!baseState_.unlockedNodeIds.count("craft_" + weaponId)) return false;
+    int currentLevel = baseState_.weaponLevel(weaponId);
+    if (currentLevel >= BaseState::kMaxWeaponLevel) return false;
+    std::vector<LootStack> cost = weaponLevelUpCost(weaponId, currentLevel + 1);
+    if (cost.empty()) return false; // Lv6+ or a not-yet-wired weapon id
+    for (const LootStack& stack : cost) {
+        if (baseState_.storageCount(stack.id) < stack.quantity) return false;
+    }
+    for (const LootStack& stack : cost) baseState_.consumeStorage(stack.id, stack.quantity);
+    baseState_.weaponLevels[weaponId] = currentLevel + 1;
     markPersistentStateChanged();
     return true;
 }

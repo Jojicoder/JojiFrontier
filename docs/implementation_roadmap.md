@@ -2410,6 +2410,22 @@ guestUnitIdsの全員が`isPresent()==false`になった時点で部隊全滅と
 
 この2 Sliceが通るまで、他Milestoneの先行実装(M8遠征経済、残り地域など)を並行実装しない。
 
+## M10系(深層遠征・武器/防具Lv・拠点Lv化)
+
+`docs/deep_layers.md`(検討中の設計ドラフト)を実装するための新しいMilestone
+シリーズ。M9系(本編10地域・全62地点)とは独立して並行進行してよい - 本編
+コンテンツと深層/Lv制はお互いに依存しない別レイヤーのため。
+
+- **M10-A(完了)** 武器Lv制の最初のSlice: `BaseState::weaponLevels`
+  (per-weapon-idスタック)、`weaponLevelUpCost()`によるLv2〜5コスト自動生成
+  (初期6兵種18分岐のみ、後半6兵種15分岐は次点)、`GameApp::strengthenWeapon()`、
+  戦闘might反映、武器分岐レシピの拠点段階ゲート撤廃(`craft_*`/`*_forging`の
+  `requiredStage`を`Encampment`へ)。詳細は`docs/implementation_status.md`
+  「M10-A」節を参照。
+- 次点候補: 後半6兵種への同Slice拡張、防具データモデル(新規スロット、36防具、
+  防具用調整特性)、Lv6以降(深層限定素材)、拠点Lv化 - いずれも
+  `docs/deep_layers.md`の「実装順序案」節どおりの順で着手する。
+
 ## 各Sliceの完了定義
 
 すべて満たした時だけ完了とする。

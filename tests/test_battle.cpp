@@ -1733,6 +1733,36 @@ int main() {
     }
 
     {
+        // M10-A (docs/deep_layers.md「分岐/Tier解放を『拠点段階ゲート』から
+        // 『素材ゲート』へ変更」): every craft_* weapon-branch node (and its
+        // *_forging prerequisite) is pinned to OutpostStage::Encampment, so a
+        // still-at-Encampment outpost is only blocked by materials/
+        // discoveries, never by requiredStage - unlike an ordinary node
+        // (e.g. "simple_forge" itself), which still gates on stage.
+        const jf::FacilityNode* craftDuelSword = jf::findFacilityNode("craft_duel_sword");
+        assert(craftDuelSword && craftDuelSword->requiredStage == jf::OutpostStage::Encampment);
+        const jf::FacilityNode* marchCaptainForging = jf::findFacilityNode("march_captain_forging");
+        assert(marchCaptainForging && marchCaptainForging->requiredStage == jf::OutpostStage::Encampment);
+        const jf::FacilityNode* simpleForge = jf::findFacilityNode("simple_forge");
+        assert(simpleForge && simpleForge->requiredStage == jf::OutpostStage::PioneerOutpost); // unaffected
+
+        jf::BaseState freshBase; // outpostStage == Encampment (default)
+        freshBase.discoveryRegistry.insert("quarry_combat_records"); // craft_duel_sword's own required Discovery
+        freshBase.addStorage("iron", 3);
+        freshBase.addStorage("hide", 1);
+        freshBase.unlockedNodeIds.insert("march_captain_forging"); // craft_duel_sword's own prerequisite node
+        // No stage gate left to block this: only the (now-satisfied)
+        // discovery/prerequisite/material checks matter.
+        assert(jf::facilityNodeEligible(freshBase, *craftDuelSword));
+        // march_captain_forging itself is craftable from Encampment too (no
+        // materials/discoveries of its own beyond "simple_forge" built).
+        freshBase.unlockedNodeIds.erase("march_captain_forging");
+        freshBase.constructedFacilityIds.insert("simple_forge");
+        freshBase.unlockedNodeIds.insert("simple_forge");
+        assert(jf::facilityNodeEligible(freshBase, *marchCaptainForging));
+    }
+
+    {
         // Forge equipment: weapon overrides validate against known weapons,
         // and change the effective weapon (incl. its move penalty) that a
         // freshly-built battle instantiates for that class.
@@ -1798,6 +1828,109 @@ int main() {
         assert(app.equipWeaponForUnit("player0", "long_spear"));
         assert(app.equipWeaponForUnit("player0", "")); // revert to default, releasing long_spear
         assert(app.equipWeaponForUnit("player1", "long_spear"));
+    }
+
+    {
+        // M10-A (docs/deep_layers.md「Lv制」): strengthenWeapon() requires
+        // simple_forge built and the weapon already crafted, consumes
+        // jf::weaponLevelUpCost() from storage, and increments the weapon's
+        // Lv - which is not per-unit (BaseState::weaponLevel() is a global
+        // weaponId -> Lv lookup, matching the single-shared-copy model above).
+        jf::GameData data = makeFactoryData();
+        data.playerParty[0].classId = jf::UnitClass::MarchCaptain;
+        jf::GameApp app(data);
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        testBase.outpostStage = jf::OutpostStage::PioneerCity; // clears every requiredStage check
+        testBase.unlockedNodeIds.insert("simple_forge");
+        testBase.constructedFacilityIds.insert("simple_forge");
+
+        // Not crafted yet - strengthening a weapon nobody owns fails.
+        assert(!app.strengthenWeapon("command_sword"));
+        assert(app.weaponLevel("command_sword") == 1);
+
+        testBase.unlockedNodeIds.insert("craft_command_sword");
+        assert(app.weaponLevel("command_sword") == 1); // still Lv1: crafted, not yet strengthened
+
+        // Lv2 cost (docs/deep_layers.md worked example): iron x2, hide x1.
+        assert(!app.strengthenWeapon("command_sword")); // no materials yet
+        testBase.addStorage("iron", 2);
+        testBase.addStorage("hide", 1);
+        assert(app.strengthenWeapon("command_sword"));
+        assert(app.weaponLevel("command_sword") == 2);
+        assert(testBase.storageCount("iron") == 0);
+        assert(testBase.storageCount("hide") == 0);
+
+        // Lv3: iron x3, hide x2.
+        testBase.addStorage("iron", 3);
+        testBase.addStorage("hide", 1); // deliberately short by 1
+        assert(!app.strengthenWeapon("command_sword"));
+        assert(app.weaponLevel("command_sword") == 2); // unchanged, nothing partially spent
+        assert(testBase.storageCount("iron") == 3); // untouched
+        testBase.addStorage("hide", 1);
+        assert(app.strengthenWeapon("command_sword"));
+        assert(app.weaponLevel("command_sword") == 3);
+
+        // Lv4: iron x3, wood x1, marsh_resin x1.
+        testBase.addStorage("iron", 3);
+        testBase.addStorage("wood", 1);
+        testBase.addStorage("marsh_resin", 1);
+        assert(app.strengthenWeapon("command_sword"));
+        assert(app.weaponLevel("command_sword") == 4);
+
+        // Lv5: iron x4, wood x1, rare_material x2.
+        testBase.addStorage("iron", 4);
+        testBase.addStorage("wood", 1);
+        testBase.addStorage("rare_material", 2);
+        assert(app.strengthenWeapon("command_sword"));
+        assert(app.weaponLevel("command_sword") == 5);
+
+        // Lv5 -> Lv6 needs deep-layer materials not implemented in this Slice
+        // (weaponLevelUpCost() returns empty past Lv5) - strengthening stops
+        // here even with unlimited materials.
+        testBase.addStorage("iron", 999);
+        testBase.addStorage("wood", 999);
+        testBase.addStorage("rare_material", 999);
+        assert(!app.strengthenWeapon("command_sword"));
+        assert(app.weaponLevel("command_sword") == 5);
+
+        // Cap: manually pinning a weapon at Lv15 (the eventual deep-layer
+        // ceiling) must refuse to strengthen further even if a cost existed.
+        testBase.weaponLevels["command_sword"] = jf::BaseState::kMaxWeaponLevel;
+        assert(!app.strengthenWeapon("command_sword"));
+
+        // A weapon id not yet wired into weaponLevelEligibleWeapons() (a
+        // back-6-class branch, deferred to a follow-up Slice) never produces
+        // a cost, so strengthening it always fails cleanly rather than
+        // crashing on a missing table entry.
+        assert(jf::weaponLevelUpCost("resonant_focus", 2).empty());
+    }
+
+    {
+        // M10-A: weapon Lv applies a flat +1 might per Lv at battle
+        // instantiation (docs/deep_layers.md「1Lvあたりの数値」), independent
+        // of which unit equips the weapon.
+        jf::GameData data = makeFactoryData();
+        data.playerParty[0].classId = jf::UnitClass::MarchCaptain;
+        jf::GameApp app(data);
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        testBase.outpostStage = jf::OutpostStage::PioneerCity;
+        testBase.unlockedNodeIds.insert("simple_forge");
+        testBase.constructedFacilityIds.insert("simple_forge");
+        testBase.unlockedNodeIds.insert("craft_command_sword");
+        assert(app.equipWeaponForUnit("player0", "command_sword"));
+        const int baseMight = data.weaponsById.at("command_sword").might;
+        testBase.weaponLevels["command_sword"] = 4; // +3 might over base
+
+        assert(app.startExpedition(jf::RegionId::AshboughForest)); // starts unlocked, no gate needed
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        bool found = false;
+        for (const jf::Unit& unit : app.battle().battle().units()) {
+            if (unit.id != "player0") continue;
+            found = true;
+            assert(unit.weapon.id == "command_sword");
+            assert(unit.weapon.might == baseMight + 3);
+        }
+        assert(found);
     }
 
     {
