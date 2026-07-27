@@ -386,6 +386,109 @@ inline const std::vector<FacilityNode>& facilityNodeRegistry() {
          "Negates the first knockback the wearer receives each battle.",
          "戦闘ごとに最初に受けるノックバックを1回無効化する。"},
 
+        // M10-B (docs/deep_layers.md「防具システム(新設)」): armor Tier1〜3
+        // craft recipes for the 6 initial classes (18 of the eventual 36 -
+        // same 6-classes-first split as the "craft_*" weapon-branch nodes
+        // above). Same "requiredStage pinned to Encampment, material-only
+        // gate" treatment as weapon branches from the start (docs/
+        // deep_layers.md「分岐/Tier解放を...素材ゲートへ変更」) - no
+        // stage-gated-then-ungated detour. Lv1 cost is 2 units of that Tier's
+        // own weapon-branch primary material (docs/deep_layers.md「防具
+        // Lv1〜5」worked example: 行軍隊長Tier1 = 鉄材2, matching
+        // craft_command_sword's own primary "iron"), reusing
+        // ArmorLeveling.hpp's kArmorTier1LvOneQuantity via the literal 2
+        // below (that header can't be included here - it depends on this one
+        // for LootStack/BaseState). `weaponBranchClass` is reused (not
+        // renamed) to route these through the same per-class Forge UI
+        // filtering as weapon branches - see ui_facilities.cpp's own
+        // "craft_armor_" prefix check for how it tells the two apart.
+        {"craft_armor_march_captain_tier1", FacilityId::Forge, "Craft: March Captain Guard", "製作: 行軍隊長の護具",
+         OutpostStage::Encampment, {"cinderwatch_command_drills"}, {{"iron", 2}}, {"simple_forge"}, false,
+         "Balanced armor: DEF/RES +1 each at Lv1.",
+         "汎用防具: Lv1でDEF/RES各+1。", UnitClass::MarchCaptain},
+        {"craft_armor_march_captain_tier2", FacilityId::Forge, "Craft: March Captain Plate", "製作: 行軍隊長の重甲",
+         OutpostStage::Encampment, {"quarry_combat_records"}, {{"iron", 2}}, {"simple_forge"}, false,
+         "DEF-specialized armor: DEF +2 at Lv1, no RES.",
+         "DEF特化防具: Lv1でDEF+2、RESは付与しない。", UnitClass::MarchCaptain},
+        {"craft_armor_march_captain_tier3", FacilityId::Forge, "Craft: March Captain Ward", "製作: 行軍隊長の守甲",
+         OutpostStage::Encampment, {"settlement_command_ledger"}, {{"cloth", 2}}, {"simple_forge"}, false,
+         "Balanced armor: DEF/RES +1 each at Lv1.",
+         "汎用防具: Lv1でDEF/RES各+1。", UnitClass::MarchCaptain},
+
+        {"craft_armor_veteran_guard_tier1", FacilityId::Forge, "Craft: Veteran Guard Mail", "製作: 古参守備兵の帷子",
+         OutpostStage::Encampment, {"cinderwatch_defense_manual"}, {{"iron", 2}}, {"simple_forge"}, false,
+         "Balanced armor: DEF/RES +1 each at Lv1.",
+         "汎用防具: Lv1でDEF/RES各+1。", UnitClass::VeteranGuard},
+        {"craft_armor_veteran_guard_tier2", FacilityId::Forge, "Craft: Veteran Guard Bastion Plate",
+         "製作: 古参守備兵の防塁甲", OutpostStage::Encampment, {"quarry_brace_records"}, {{"iron", 2}},
+         {"simple_forge"}, false, "DEF-specialized armor: DEF +2 at Lv1, no RES.",
+         "DEF特化防具: Lv1でDEF+2、RESは付与しない。", UnitClass::VeteranGuard},
+        {"craft_armor_veteran_guard_tier3", FacilityId::Forge, "Craft: Veteran Guard Sentinel Ward",
+         "製作: 古参守備兵の哨戒守甲", OutpostStage::Encampment, {"plateau_patrol_records"}, {{"tack_material", 2}},
+         {"simple_forge"}, false, "Balanced armor: DEF/RES +1 each at Lv1.",
+         "汎用防具: Lv1でDEF/RES各+1。", UnitClass::VeteranGuard},
+
+        {"craft_armor_watch_archer_tier1", FacilityId::Forge, "Craft: Watch Archer Vest", "製作: 監視弓兵の胴衣",
+         OutpostStage::Encampment, {"cinderwatch_watch_records"}, {{"wood", 2}}, {"simple_forge"}, false,
+         "Balanced armor: DEF/RES +1 each at Lv1.",
+         "汎用防具: Lv1でDEF/RES各+1。", UnitClass::WatchArcher},
+        {"craft_armor_watch_archer_tier2", FacilityId::Forge, "Craft: Watch Archer Brigandine",
+         "製作: 監視弓兵の鎖胴衣", OutpostStage::Encampment, {"quarry_combat_records"}, {{"iron", 2}},
+         {"simple_forge"}, false, "DEF-specialized armor: DEF +2 at Lv1, no RES.",
+         "DEF特化防具: Lv1でDEF+2、RESは付与しない。", UnitClass::WatchArcher},
+        {"craft_armor_watch_archer_tier3", FacilityId::Forge, "Craft: Watch Archer Marsh Ward",
+         "製作: 監視弓兵の湿地守衣", OutpostStage::Encampment, {"plateau_targeting_records"}, {{"marsh_resin", 2}},
+         {"simple_forge"}, false, "Balanced armor: DEF/RES +1 each at Lv1.",
+         "汎用防具: Lv1でDEF/RES各+1。", UnitClass::WatchArcher},
+
+        {"craft_armor_frontier_scout_tier1", FacilityId::Forge, "Craft: Frontier Scout Wrap", "製作: 辺境斥候の巻き衣",
+         OutpostStage::Encampment, {"ashbough_forest_survey_complete"}, {{"iron", 2}}, {"simple_forge"}, false,
+         "Balanced armor: DEF/RES +1 each at Lv1.",
+         "汎用防具: Lv1でDEF/RES各+1。", UnitClass::FrontierScout},
+        {"craft_armor_frontier_scout_tier2", FacilityId::Forge, "Craft: Frontier Scout Hardleather",
+         "製作: 辺境斥候の硬革衣", OutpostStage::Encampment, {"quarry_ambush_records"}, {{"iron", 2}},
+         {"simple_forge"}, false, "DEF-specialized armor: DEF +2 at Lv1, no RES.",
+         "DEF特化防具: Lv1でDEF+2、RESは付与しない。", UnitClass::FrontierScout},
+        {"craft_armor_frontier_scout_tier3", FacilityId::Forge, "Craft: Frontier Scout Trailward",
+         "製作: 辺境斥候の道守衣", OutpostStage::Encampment, {"courier_route_chart"}, {{"tack_material", 2}},
+         {"simple_forge"}, false, "Balanced armor: DEF/RES +1 each at Lv1.",
+         "汎用防具: Lv1でDEF/RES各+1。", UnitClass::FrontierScout},
+
+        {"craft_armor_spearman_tier1", FacilityId::Forge, "Craft: Spearman Cuirass", "製作: 槍兵の胸甲",
+         OutpostStage::Encampment, {"cinderwatch_spear_drills"}, {{"iron", 2}}, {"simple_forge"}, false,
+         "Balanced armor: DEF/RES +1 each at Lv1.",
+         "汎用防具: Lv1でDEF/RES各+1。", UnitClass::Spearman},
+        {"craft_armor_spearman_tier2", FacilityId::Forge, "Craft: Spearman Bulwark Plate", "製作: 槍兵の防壁甲",
+         OutpostStage::Encampment, {"quarry_impact_records"}, {{"iron", 2}}, {"simple_forge"}, false,
+         "DEF-specialized armor: DEF +2 at Lv1, no RES.",
+         "DEF特化防具: Lv1でDEF+2、RESは付与しない。", UnitClass::Spearman},
+        {"craft_armor_spearman_tier3", FacilityId::Forge, "Craft: Spearman Wall Ward", "製作: 槍兵の防壁守甲",
+         OutpostStage::Encampment, {"collective_defense_records"}, {{"iron", 2}}, {"simple_forge"}, false,
+         "Balanced armor: DEF/RES +1 each at Lv1.",
+         "汎用防具: Lv1でDEF/RES各+1。", UnitClass::Spearman},
+
+        {"craft_armor_dawn_chirurgeon_tier1", FacilityId::Forge, "Craft: Dawn Chirurgeon Robe",
+         "製作: 暁の衛生兵の外衣", OutpostStage::Encampment, {kHerbThicketDiscovery}, {{"wood", 2}},
+         {"simple_forge"}, false, "Balanced armor: DEF/RES +1 each at Lv1.",
+         "汎用防具: Lv1でDEF/RES各+1。", UnitClass::DawnChirurgeon},
+        {"craft_armor_dawn_chirurgeon_tier2", FacilityId::Forge, "Craft: Dawn Chirurgeon Padded Robe",
+         "製作: 暁の衛生兵の綿入り外衣", OutpostStage::Encampment, {kMarshEmergencyMedicineDiscovery},
+         {{"quality_herb", 2}}, {"simple_forge"}, false, "DEF-specialized armor: DEF +2 at Lv1, no RES.",
+         "DEF特化防具: Lv1でDEF+2、RESは付与しない。", UnitClass::DawnChirurgeon},
+        {"craft_armor_dawn_chirurgeon_tier3", FacilityId::Forge, "Craft: Dawn Chirurgeon Sanctum Ward",
+         "製作: 暁の衛生兵の聖堂守衣", OutpostStage::Encampment, {"sanctum_field_medicine"}, {{"hardwood", 2}},
+         {"simple_forge"}, false, "Balanced armor: DEF/RES +1 each at Lv1.",
+         "汎用防具: Lv1でDEF/RES各+1。", UnitClass::DawnChirurgeon},
+
+        // M10-B (docs/deep_layers.md「防具用調整特性」): "戦闘ごとに最初の
+        // 状態異常を1回無効" - the doc's own worked example, single
+        // proof-of-mechanism entry for the new armor trait pool (separate
+        // from trait_hide_wrapped_grip above).
+        {"armor_trait_ward_step", FacilityId::Forge, "Armor Tuning: Ward Step", "防具調整: 一歩の護り",
+         OutpostStage::PioneerOutpost, {}, {{"herb", 1}, {"cloth", 1}}, {"simple_forge"}, false,
+         "Negates the first status effect the wearer receives each battle.",
+         "戦闘ごとに最初に受ける状態異常を1回無効化する。"},
+
         // docs/regions/ember_ravine.md「鍛冶場「特殊鍛造」「耐熱加工」を研究
         // 可能にする」: same "flavor-only research node gated on a region's own
         // Discovery" shape as Infirmary's pharmacology/Workshop's trapcraft

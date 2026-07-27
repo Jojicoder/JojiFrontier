@@ -262,6 +262,21 @@ struct BaseState {
         return it == weaponLevels.end() ? 1 : it->second;
     }
 
+    // M10-B (docs/deep_layers.md「Lv制」「兵種専用3防具」): armor id -> Lv
+    // (1-15), same per-id-stack shape as weaponLevels above and for the same
+    // reason - docs/deep_layers.md「スロットと基本ルール」explicitly extends
+    // the weapon shared-warehouse model to armor ("防具は武器と同じ共有倉庫
+    // 方式を流用する...1着を同時装備できるのは1人"), so there is only ever
+    // one physical copy of a given armor id in play.
+    std::unordered_map<std::string, int> armorLevels;
+
+    static constexpr int kMaxArmorLevel = 15;
+
+    int armorLevel(const std::string& armorId) const {
+        auto it = armorLevels.find(armorId);
+        return it == armorLevels.end() ? 1 : it->second;
+    }
+
     int ownedItemCount(ItemType type) const {
         auto it = itemStorage.find(type);
         return it == itemStorage.end() ? 0 : it->second;
@@ -585,6 +600,25 @@ inline std::string tuningTraitIdToString(TuningTraitId id) {
 
 inline TuningTraitId tuningTraitIdFromString(const std::string& value) {
     return value == "hide_wrapped_grip" ? TuningTraitId::HideWrappedGrip : TuningTraitId::None;
+}
+
+// M10-B (docs/deep_layers.md「防具用調整特性」): a SEPARATE trait pool from
+// weapon TuningTraitId above, same "product crafted from materials -> shared
+// warehouse -> equip/unequip" mechanism reused. `WardStep` is this Slice's
+// single proof-of-mechanism entry ("戦闘ごとに最初の状態異常を1回無効", the
+// design doc's own worked example) - a full armor trait catalog is out of
+// scope per the doc's own comparison to the small weapon trait catalog.
+enum class ArmorTuningTraitId {
+    None,
+    WardStep
+};
+
+inline std::string armorTuningTraitIdToString(ArmorTuningTraitId id) {
+    return id == ArmorTuningTraitId::WardStep ? "ward_step" : "";
+}
+
+inline ArmorTuningTraitId armorTuningTraitIdFromString(const std::string& value) {
+    return value == "ward_step" ? ArmorTuningTraitId::WardStep : ArmorTuningTraitId::None;
 }
 
 // Data-driven eligibility check (docs/base_development.md: "解放条件はUIに

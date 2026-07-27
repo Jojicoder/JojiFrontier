@@ -65,6 +65,14 @@ struct Unit {
     // FireFloor), since that's the single application entry point.
     int firstBurnNegatesRemaining = 0;
 
+    // M10-B (docs/deep_layers.md「防具用調整特性」`ward_step` armor tuning
+    // trait): "戦闘ごとに最初の状態異常を1回無効" - generic across every
+    // StatusEffectType (unlike firstBurnNegatesRemaining above, which only
+    // covers Burn), consumed at jf::applyStatusEffect()'s single choke point
+    // (jf/battle/StatusEffects.hpp) rather than duplicated per-effect. Same
+    // "set once at battle start, decremented on use" lifecycle.
+    int firstStatusNegatesRemaining = 0;
+
     // Scales down status-effect magnitude/duration instead of granting full
     // immunity (docs/status_effects.md "ボス補正"). Set once when a boss
     // encounter is instantiated; no shipped content sets this yet.

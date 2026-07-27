@@ -73,6 +73,12 @@ struct SaveData {
     std::unordered_map<UnitClass, std::string> equippedTraits;
     std::unordered_map<std::string, std::string> unitWeaponOverrides;
     std::unordered_map<std::string, std::string> unitEquippedTraits;
+    // M10-B (docs/deep_layers.md「防具システム」「防具用調整特性」): same
+    // per-unit-id shape as unitWeaponOverrides/unitEquippedTraits above, for
+    // the armor slot - no legacy class-keyed form exists (armor is new in
+    // this Slice, unlike weapons/traits which predate the per-unit-id map).
+    std::unordered_map<std::string, std::string> unitArmorOverrides;
+    std::unordered_map<std::string, std::string> unitEquippedArmorTraits;
     // docs/skill_system.md "保存データ": the equippedSkills half of that
     // doc's UnitLoadout - one flat map per slot index, mirroring
     // unitWeaponOverrides/unitEquippedTraits's shape. Empty string / no

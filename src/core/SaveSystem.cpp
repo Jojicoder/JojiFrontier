@@ -329,6 +329,7 @@ std::string serializeSave(const SaveData& save) {
             {"completedRegions", completedRegions},
             {"itemStorage", itemStorageToJson(save.base.itemStorage)},
             {"weaponLevels", save.base.weaponLevels},
+            {"armorLevels", save.base.armorLevels},
             {"rewardOverflow", rewardOverflowToJson(save.base.rewardOverflow)},
             {"joinReadyCandidateIds", save.base.joinReadyCandidateIds},
             {"joinedRecruitIds", save.base.joinedRecruitIds},
@@ -346,6 +347,8 @@ std::string serializeSave(const SaveData& save) {
         {"equippedTraits", classMapToJson(save.equippedTraits)},
         {"unitWeaponOverrides", save.unitWeaponOverrides},
         {"unitEquippedTraits", save.unitEquippedTraits},
+        {"unitArmorOverrides", save.unitArmorOverrides},
+        {"unitEquippedArmorTraits", save.unitEquippedArmorTraits},
         {"unitEquippedSkillsSlot0", save.unitEquippedSkillsSlot0},
         {"unitEquippedSkillsSlot1", save.unitEquippedSkillsSlot1},
         {"settings", {{"language", save.language}}},
@@ -398,6 +401,8 @@ std::optional<SaveData> deserializeSave(const std::string& jsonText, std::string
         if (base.contains("itemStorage")) save.base.itemStorage = itemStorageFromJson(base["itemStorage"]);
         if (base.contains("weaponLevels"))
             save.base.weaponLevels = base["weaponLevels"].get<std::unordered_map<std::string, int>>();
+        if (base.contains("armorLevels"))
+            save.base.armorLevels = base["armorLevels"].get<std::unordered_map<std::string, int>>();
         if (base.contains("rewardOverflow")) save.base.rewardOverflow = rewardOverflowFromJson(base["rewardOverflow"]);
         if (base.contains("joinReadyCandidateIds"))
             save.base.joinReadyCandidateIds = base["joinReadyCandidateIds"].get<std::unordered_set<std::string>>();
@@ -443,6 +448,11 @@ std::optional<SaveData> deserializeSave(const std::string& jsonText, std::string
             save.unitWeaponOverrides = root["unitWeaponOverrides"].get<std::unordered_map<std::string, std::string>>();
         if (root.contains("unitEquippedTraits") && root["unitEquippedTraits"].is_object())
             save.unitEquippedTraits = root["unitEquippedTraits"].get<std::unordered_map<std::string, std::string>>();
+        if (root.contains("unitArmorOverrides") && root["unitArmorOverrides"].is_object())
+            save.unitArmorOverrides = root["unitArmorOverrides"].get<std::unordered_map<std::string, std::string>>();
+        if (root.contains("unitEquippedArmorTraits") && root["unitEquippedArmorTraits"].is_object())
+            save.unitEquippedArmorTraits =
+                root["unitEquippedArmorTraits"].get<std::unordered_map<std::string, std::string>>();
         if (root.contains("unitEquippedSkillsSlot0") && root["unitEquippedSkillsSlot0"].is_object())
             save.unitEquippedSkillsSlot0 =
                 root["unitEquippedSkillsSlot0"].get<std::unordered_map<std::string, std::string>>();

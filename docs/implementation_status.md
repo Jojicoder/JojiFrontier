@@ -6257,6 +6257,162 @@ worked exampleと1:1で再現し、素材不足時は何も消費せず失敗し
 4. 拠点Lv化(`base_development.md`の3段階を拠点Lv1/3/6/10のチェックポイントへ
    再配置) - `docs/deep_layers.md`「拠点発展のLv化」節
 
+## M10-B 防具Lv制(深層遠征系の第2Slice) - 防具スロット新設 + 防具用調整特性
+
+`docs/deep_layers.md`「防具システム(新設)」「Lv1〜5 数値バランス設計」の
+「防具Lv1〜5」節、「防具用調整特性」節を実装したSlice。M10-Aの武器Lv制と
+同じデータモデル・生成式パターンを防具へ横展開した。深層マップ・Lv6以降・
+拠点Lv化は引き続き範囲外。
+
+### データモデル: `jf::ArmorDefinition` + per-armor-id-stack Lv
+
+`include/jf/core/Armor.hpp`を新設し、`ArmorDefinition{id, nameEn, nameJa,
+unitClass, tier, baseDef, baseRes}`を静的レジストリ`armorRegistry()`として
+持たせた(`jf::Weapon`が`GameData::weaponsById`という動的ロード済みマップな
+のに対し、防具はJSONローダーが存在しないため、`facilityNodeRegistry()`と
+同じ「静的`inline`関数がstatic vectorを返す」パターンを踏襲した)。Lvは
+`BaseState::armorLevels`(armorId -> Lv、未登録=Lv1、`kMaxArmorLevel=15`)で、
+M10-A`weaponLevels`と全く同じper-id-stackモデル - `docs/deep_layers.md`
+「スロットと基本ルール」が武器と同じ共有倉庫方式を明示的に要求しているため、
+「同じ防具idの複数コピー」という概念はやはり存在しない。
+
+DEF/RES加算は`armorDefBonusAtLevel()`/`armorResBonusAtLevel()`
+(Armor.hpp)で、Tier1/Tier3(汎用バランス型)はLvごとにDEF/RESへ交互に
++1(Lv15で概ね合計+15、設計ドラフトの目安と一致)、Tier2(DEF特化)は
+全成長をDEFへ集中させLv15でDEF単独+16(RESはLv1の値のまま)。
+
+### Tier3「状態異常耐性1つ付与」: DEF/RES加算のみで実装、パッシブ耐性効果は未実装
+
+設計ドラフトのTier3固有フレーバー「状態異常耐性1つ付与」は、既存コードに
+「特定の状態異常への恒常耐性を付与する」汎用機構が存在しないため、この
+Sliceでは**実装しなかった**。タスク自身が「新しい大規模な戦闘基盤をこの
+1Tierのフレーバーのためだけに作らない」という効果対スコープの判断を明示的
+に許容していたため、Tier3はTier1と全く同じDEF/RES加算メカニズムのみで
+実装し(`ArmorTier::Tier3`のコメントに明記)、パッシブ耐性効果は今後の
+別Sliceへ明示的に持ち越した。
+
+### Lv1〜5コスト生成式: `ArmorLeveling.hpp`
+
+`include/jf/core/ArmorLeveling.hpp`は`WeaponLeveling.hpp`と同じ「Lv1
+レシピ+成長倍率」生成パターンを踏襲するが、武器と違い防具にはTier1の
+既存レシピが存在しないため、設計ドラフト「防具はTier1のLv1製作費自体を
+新規に設計する必要がある」通り、Lv1製作費を**新規設計**した:
+「加入地域の主要素材1種2個」(design doc worked example通り、行軍隊長
+Tier1 = 鉄材2)を全18防具の共通パターンとして採用し、Tier2/3も同じ式を
+そのTier解放時点の地域素材へスライドして適用した(design doc「実装への
+落とし込み」の指示通り)。
+
+Lv2〜5の成長倍率(`armorLevelUpCost(armorId, primaryMaterialId,
+targetLevel)`)は行軍隊長Tier1のworked exampleと1:1で一致することを
+テストで検証済み:
+
+| Lv | 追加コスト | 行軍隊長Tier1での実際の値 |
+|---:|---|---|
+| Lv2 | 主材料×0.5 + 他地域A×1 | 鉄材1、木材1 |
+| Lv3 | 主材料×1.0 + 他地域A×1 + 他地域B×1 | 鉄材2、木材1、織物1 |
+| Lv4 | 主材料×1.0 + 他地域A×2 + 他地域B×1 + 他地域C×1 | 鉄材2、木材2、織物1、薬草1 |
+| Lv5 | 主材料×1.0 + 他地域A×2 + 他地域B×1 + `rare_material`×2 | 鉄材2、木材2、織物1、希少素材2 |
+
+他地域A/B/Cの選定(`armorLevelMaterialsByClass()`)は、行軍隊長のみdesign
+doc自身のworked exampleをそのまま採用(木材/織物/薬草)、残り5兵種は
+M10-A`weaponLevelMaterialsByClass()`のotherA/otherBをそのまま流用し
+(design doc自身が「武器Lvの選定を流用するのは妥当な簡略化」と明記)、
+otherCだけ各兵種自身の武器分岐Tier1/2レシピから既出の素材を追加で選んだ
+(M10-Aの表と同じ「既存素材を新しい組み合わせで使う」規律)。
+
+### 対象防具: 初期6兵種の18防具のみ(残り18防具は次Slice以降へ持ち越し)
+
+M10-Aの「18武器のみ実装、残り15分岐は次Slice」と同じ6兵種×3Tier=**18防具**
+のみを`armorRegistry()`へ登録した(行軍隊長/古参守備兵/監視弓兵/辺境斥候/
+槍兵/暁の衛生兵)。後半6兵種(重装兵・辺境工兵・伝令騎兵・辺境猟兵・旗手・
+戦闘魔導士)の18防具は同じ生成式・同じFacilities.hppパターンがそのまま
+使える設計だが、このSliceでは`armorRegistry()`/`armorLevelMaterialsByClass()`
+への追加登録を行っていない。
+
+### Tier1〜3の可視性ゲート撤廃(最初から素材ゲートのみ)
+
+M10-Aが武器分岐で行った「拠点段階ゲート撤廃」を防具でも最初から適用した
+(段階的にゲート付き→撤廃、という手順を踏まなかった)。`craft_armor_*`
+18ノードは全て`requiredStage = OutpostStage::Encampment`で新規登録し、
+実際のクラフト可否はレシピ自体の要求素材(Tier2/3は引き続き中盤/終盤
+地域限定素材)だけで自然にゲートされる。
+
+### 防具用調整特性: `ArmorTuningTraitId`別プール + `ward_step`1件で機構実証
+
+`BaseState.hpp`へ`ArmorTuningTraitId{None, WardStep}`を新設し(既存の武器用
+`TuningTraitId`とは完全に別のenum/別のマップ`GameApp::equippedArmorTraits_`)、
+design doc自身のworked example「戦闘ごとに最初の状態異常を1回無効」を
+`ward_step`(防具調整: 一歩の護り)として1件実装した。効果は`Unit::
+firstStatusNegatesRemaining`(新設フィールド)で、`StatusEffects.cpp`の
+`applyStatusEffect()`という単一の合流点で汎用的に消費される(`Burn`専用の
+既存`firstBurnNegatesRemaining`と違い、Poison/Burn/MoveDown/DefenseDown/
+Stagger全てに効く)。ただし地形由来のBurn(`applyBurn(unit)`を直接呼ぶ
+経路)はこの合流点を通らないため対象外 - 同じ限定を持つ`firstBurnNegatesRemaining`
+自身の既知の適用範囲と揃えた。カタログ全件実装は要求されておらず(既存
+武器特性カタログ自体が4件程度と小規模)、1件で機構の端から端までを実証する
+方針とした。
+
+### 戦闘への反映: `GameApp::applyArmorBonus()`
+
+武器Lv(`weaponsById`への事前ミューテーション)と異なり、防具のDEF/RES
+加算はユニットごとに異なる装備(`armorOverrides_`)に依存するため、
+`applyEquipmentTraits()`/`applyEquippedSkills()`と同じ「実戦闘が始まる
+6箇所全てで都度呼ぶ」パターンの新規メソッド`applyArmorBonus()`として実装
+した(`continueExpedition()`/`chooseSafePassage()`/`chooseReconnaissance()`
+(2箇所)/`chooseExplorationRoute()`/`confirmDeployment()`/`applySaveData()`の
+Camp再構築パス、計7呼び出し箇所)。`BattleFactory.cpp`のシグネチャ変更は
+不要だった。
+
+### UI: `ui_facilities.cpp`
+
+`drawFacilityNodeRow()`へ`craft_armor_`prefix専用分岐を追加(`craft_`prefix
+チェックより先に評価し、防具ノードが武器Lv表示ロジックへ誤って落ちない
+ようにした)。`drawForgeEquipmentPanel()`の武器候補一覧も`craft_armor_*`を
+除外するようフィルタを追加した(`weaponBranchClass`フィールドを防具ノードの
+per-class UIルーティングにも再利用しているため、素のprefixチェックだけでは
+誤って武器候補に混入する)。同パネルの下に防具装備セクション(現在の防具
+表示、Tier1〜3候補ボタン、防具調整特性トグル)を追加。表示文字列は
+`en.json`/`ja.json`へ新規キー10件を追加(`ui.facilities.armor_heading`等)、
+`loadAppFont()`の`facilityNodeRegistry()`走査(既存)と`gJapaneseTable`全件
+走査(既存の`allJapaneseGlyphText()`)が両方とも自動的に新規JA文字列を
+charsetへ含めるため、追加の手動登録は不要だった。
+
+### セーブ/ロード
+
+`BaseState::armorLevels`(`SaveSystem.cpp`の`base.armorLevels`キー)、
+`SaveData::unitArmorOverrides`/`unitEquippedArmorTraits`(ルート直下、
+`unitWeaponOverrides`/`unitEquippedTraits`と同じ形)を追加した。防具は
+このSliceで新設のため、武器/特性が持つ`schemaVersion==1`向けクラス
+キー旧形式からの移行ロジックは不要(最初から per-unit-id マップのみ)。
+`schemaVersion`は据え置き(既存の「`.contains()`ガードで追加」パターン)。
+
+### テスト
+
+`tests/test_battle.cpp`へ7ブロック追加: (1) `craft_armor_*`が
+`requiredStage`無視で素材ゲートのみになることの確認、(2)
+`equipArmorForUnit()`の兵種一致検証・simple_forge/craft node前提条件・
+共有倉庫単独装備ルールの確認、(3) `strengthenArmor()`が行軍隊長Tier1の
+Lv2〜5コストをworked exampleと1:1で再現し、素材不足時は何も消費せず失敗、
+Lv15上限、未登録防具idでは常に空コストになることの確認、(4)
+戦闘インスタンス化時にLv5防具のDEF/RES加算が`armorDefBonusAtLevel()`/
+`armorResBonusAtLevel()`の計算値と一致することの確認、(5)
+`equipArmorTraitForUnit()`のゲート確認と`firstStatusNegatesRemaining`が
+`applyStatusEffect()`で1回だけ状態異常を無効化し、以降は通常通り適用される
+ことの直接確認。
+
+ビルド・`ctest --test-dir build -j10 --output-on-failure`は4/4、フルスイートを
+3回連続実行し安定(フレークなし)。`git diff --check`も成功。
+
+### 次の候補(このSliceの範囲外)
+
+1. 後半6兵種18防具への`armorRegistry()`/`armorLevelMaterialsByClass()`拡張
+   (同じ生成式をそのまま流用可能)
+2. Tier3「状態異常耐性1つ付与」の実際のパッシブ効果(汎用の恒常状態異常
+   耐性機構そのものが未実装 - 上記「Tier3」節参照)
+3. Lv6以降(深層限定素材ベースの別倍率テーブル)・深層マップ骨格そのもの
+4. 拠点Lv化(`base_development.md`の3段階を拠点Lv1/3/6/10のチェックポイントへ
+   再配置) - `docs/deep_layers.md`「拠点発展のLv化」節
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/

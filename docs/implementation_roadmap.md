@@ -2422,9 +2422,19 @@ guestUnitIdsの全員が`isPresent()==false`になった時点で部隊全滅と
   戦闘might反映、武器分岐レシピの拠点段階ゲート撤廃(`craft_*`/`*_forging`の
   `requiredStage`を`Encampment`へ)。詳細は`docs/implementation_status.md`
   「M10-A」節を参照。
-- 次点候補: 後半6兵種への同Slice拡張、防具データモデル(新規スロット、36防具、
-  防具用調整特性)、Lv6以降(深層限定素材)、拠点Lv化 - いずれも
-  `docs/deep_layers.md`の「実装順序案」節どおりの順で着手する。
+- **M10-B(完了)** 防具Lv制の第2Slice: `jf::ArmorDefinition`/`armorRegistry()`
+  (新規スロット、初期6兵種18防具、後半6兵種18防具は次点)、
+  `BaseState::armorLevels`(per-armor-idスタック)、`armorLevelUpCost()`による
+  Lv2〜5コスト自動生成+Tier1 Lv1製作費の新規設計、`GameApp::equipArmorForUnit()`/
+  `strengthenArmor()`、戦闘DEF/RES反映(`GameApp::applyArmorBonus()`)、防具
+  レシピの拠点段階ゲート撤廃(最初から)、防具用調整特性`ArmorTuningTraitId`
+  別プール(`ward_step`1件で機構実証)。Tier3「状態異常耐性1つ付与」は
+  DEF/RES加算のみで実装し、パッシブ耐性効果自体は未実装(汎用機構が
+  存在しないため、明示的に次点へ持ち越し)。詳細は
+  `docs/implementation_status.md`「M10-B」節を参照。
+- 次点候補: 後半6兵種への武器/防具Lv同Slice拡張、Tier3のパッシブ状態異常
+  耐性効果、Lv6以降(深層限定素材)、拠点Lv化 - いずれも`docs/deep_layers.md`
+  の「実装順序案」節どおりの順で着手する。
 
 ## 各Sliceの完了定義
 

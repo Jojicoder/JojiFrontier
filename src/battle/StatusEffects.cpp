@@ -90,6 +90,20 @@ void applyStagger(BattleState& battle, Unit& target) {
 }
 
 void applyStatusEffect(BattleState& battle, Unit& target, StatusEffectType effect) {
+    // M10-B (docs/deep_layers.md「防具用調整特性」`ward_step`): negate exactly
+    // the first status effect applied through this choke point each battle,
+    // regardless of which StatusEffectType it is - see
+    // Unit::firstStatusNegatesRemaining's own comment. Scoped to this
+    // function (the entry point for weapon on-hit statuses via
+    // applyWeaponOnHitStatuses() below) rather than every individual
+    // apply*() helper - a terrain-sourced Burn via the direct applyBurn(unit)
+    // call at battle-phase-tick time is unaffected, same documented scope
+    // limit firstBurnNegatesRemaining itself already has for its own single
+    // effect.
+    if (target.firstStatusNegatesRemaining > 0) {
+        --target.firstStatusNegatesRemaining;
+        return;
+    }
     switch (effect) {
     case StatusEffectType::Poison: applyPoison(target); break;
     case StatusEffectType::Burn: applyBurn(target); break;

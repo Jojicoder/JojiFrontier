@@ -1956,6 +1956,203 @@ int main() {
     }
 
     {
+        // M10-B (docs/deep_layers.md「防具システム(新設)」「分岐/Tier解放を
+        // 『拠点段階ゲート』から『素材ゲート』へ変更」): every craft_armor_*
+        // node is pinned to OutpostStage::Encampment, same material-only-gate
+        // treatment as weapon branches - no facility-tier visibility gate.
+        const jf::FacilityNode* craftArmorTier1 = jf::findFacilityNode("craft_armor_march_captain_tier1");
+        assert(craftArmorTier1 && craftArmorTier1->requiredStage == jf::OutpostStage::Encampment);
+        assert(craftArmorTier1->weaponBranchClass == jf::UnitClass::MarchCaptain);
+        const jf::FacilityNode* craftArmorTier2 = jf::findFacilityNode("craft_armor_march_captain_tier2");
+        assert(craftArmorTier2 && craftArmorTier2->requiredStage == jf::OutpostStage::Encampment);
+        const jf::FacilityNode* craftArmorTier3 = jf::findFacilityNode("craft_armor_march_captain_tier3");
+        assert(craftArmorTier3 && craftArmorTier3->requiredStage == jf::OutpostStage::Encampment);
+
+        jf::BaseState freshBase; // outpostStage == Encampment (default)
+        freshBase.discoveryRegistry.insert("cinderwatch_command_drills"); // craft_armor_march_captain_tier1's own gate
+        freshBase.addStorage("iron", 2);
+        freshBase.constructedFacilityIds.insert("simple_forge");
+        freshBase.unlockedNodeIds.insert("simple_forge");
+        assert(jf::facilityNodeEligible(freshBase, *craftArmorTier1));
+    }
+
+    {
+        // Forge armor equipment: equipArmorForUnit() validates class match,
+        // requires simple_forge built and the armor's own craft node
+        // unlocked, and enforces the shared-warehouse single-owner rule
+        // (docs/deep_layers.md「スロットと基本ルール」) exactly like
+        // equipWeaponForUnit().
+        jf::GameData data = makeFactoryData();
+        data.playerParty[0].classId = jf::UnitClass::MarchCaptain; // "player0"
+        data.playerParty[1].classId = jf::UnitClass::VeteranGuard; // "player1"
+        jf::GameApp app(data);
+        assert(!app.equipArmorForUnit("player0", "armor_march_captain_tier1")); // simple_forge not built yet
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        testBase.unlockedNodeIds.insert("simple_forge");
+        testBase.constructedFacilityIds.insert("simple_forge");
+        assert(!app.equipArmorForUnit("player0", "armor_march_captain_tier1")); // craft node not unlocked yet
+        testBase.unlockedNodeIds.insert("craft_armor_march_captain_tier1");
+        // Wrong class: player1 is VeteranGuard, this armor is MarchCaptain-only.
+        assert(!app.equipArmorForUnit("player1", "armor_march_captain_tier1"));
+        assert(app.equipArmorForUnit("player0", "armor_march_captain_tier1"));
+        assert(app.armorOverrides().at("player0") == "armor_march_captain_tier1");
+        assert(app.equipArmorForUnit("player0", "")); // unequip
+        assert(!app.armorOverrides().count("player0"));
+
+        // Shared-warehouse: a single copy can't be equipped by 2 units.
+        data.playerParty[1].classId = jf::UnitClass::MarchCaptain;
+        jf::GameApp app2(data);
+        jf::BaseState& testBase2 = const_cast<jf::BaseState&>(app2.baseState());
+        testBase2.unlockedNodeIds.insert("simple_forge");
+        testBase2.constructedFacilityIds.insert("simple_forge");
+        testBase2.unlockedNodeIds.insert("craft_armor_march_captain_tier1");
+        assert(app2.equipArmorForUnit("player0", "armor_march_captain_tier1"));
+        assert(!app2.equipArmorForUnit("player1", "armor_march_captain_tier1"));
+        assert(app2.equipArmorForUnit("player0", "")); // release
+        assert(app2.equipArmorForUnit("player1", "armor_march_captain_tier1")); // now free
+    }
+
+    {
+        // M10-B: strengthenArmor() requires simple_forge built and the armor
+        // already crafted, consumes jf::armorLevelUpCost() from storage
+        // (docs/deep_layers.md「防具Lv1〜5」行軍隊長Tier1 worked example), and
+        // increments the armor's Lv - a global armorId -> Lv lookup, same
+        // per-id-stack model as weapons.
+        jf::GameData data = makeFactoryData();
+        data.playerParty[0].classId = jf::UnitClass::MarchCaptain;
+        jf::GameApp app(data);
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        testBase.unlockedNodeIds.insert("simple_forge");
+        testBase.constructedFacilityIds.insert("simple_forge");
+
+        // Not crafted yet - strengthening an armor nobody owns fails.
+        assert(!app.strengthenArmor("armor_march_captain_tier1"));
+        assert(app.armorLevel("armor_march_captain_tier1") == 1);
+
+        testBase.unlockedNodeIds.insert("craft_armor_march_captain_tier1");
+        assert(app.armorLevel("armor_march_captain_tier1") == 1); // crafted, not yet strengthened
+
+        // Lv2 cost: iron x1 (primary x0.5, rounded), wood x1 (otherA).
+        assert(!app.strengthenArmor("armor_march_captain_tier1")); // no materials yet
+        testBase.addStorage("iron", 1);
+        testBase.addStorage("wood", 1);
+        assert(app.strengthenArmor("armor_march_captain_tier1"));
+        assert(app.armorLevel("armor_march_captain_tier1") == 2);
+        assert(testBase.storageCount("iron") == 0);
+        assert(testBase.storageCount("wood") == 0);
+
+        // Lv3: iron x2, wood x1, cloth x1.
+        testBase.addStorage("iron", 2);
+        testBase.addStorage("wood", 1); // deliberately short by 1 cloth
+        assert(!app.strengthenArmor("armor_march_captain_tier1"));
+        assert(app.armorLevel("armor_march_captain_tier1") == 2); // unchanged, nothing partially spent
+        assert(testBase.storageCount("iron") == 2); // untouched
+        testBase.addStorage("cloth", 1);
+        assert(app.strengthenArmor("armor_march_captain_tier1"));
+        assert(app.armorLevel("armor_march_captain_tier1") == 3);
+
+        // Lv4: iron x2, wood x2, cloth x1, herb x1.
+        testBase.addStorage("iron", 2);
+        testBase.addStorage("wood", 2);
+        testBase.addStorage("cloth", 1);
+        testBase.addStorage("herb", 1);
+        assert(app.strengthenArmor("armor_march_captain_tier1"));
+        assert(app.armorLevel("armor_march_captain_tier1") == 4);
+
+        // Lv5: iron x2, wood x2, cloth x1, rare_material x2.
+        testBase.addStorage("iron", 2);
+        testBase.addStorage("wood", 2);
+        testBase.addStorage("cloth", 1);
+        testBase.addStorage("rare_material", 2);
+        assert(app.strengthenArmor("armor_march_captain_tier1"));
+        assert(app.armorLevel("armor_march_captain_tier1") == 5);
+
+        // Lv5 -> Lv6 needs deep-layer materials not implemented in this
+        // Slice (armorLevelUpCost() returns empty past Lv5).
+        testBase.addStorage("iron", 999);
+        testBase.addStorage("wood", 999);
+        testBase.addStorage("rare_material", 999);
+        assert(!app.strengthenArmor("armor_march_captain_tier1"));
+        assert(app.armorLevel("armor_march_captain_tier1") == 5);
+
+        // Cap: manually pinning an armor at Lv15 must refuse to strengthen
+        // further even if a cost existed.
+        testBase.armorLevels["armor_march_captain_tier1"] = jf::BaseState::kMaxArmorLevel;
+        assert(!app.strengthenArmor("armor_march_captain_tier1"));
+
+        // An armor id not registered in jf::armorRegistry() (a back-6-class
+        // piece, deferred to a follow-up Slice) never produces a cost.
+        assert(jf::armorLevelUpCost("armor_heavy_infantry_tier1", "iron", 2).empty());
+    }
+
+    {
+        // M10-B: armor Lv applies a Lv-scaled DEF/RES bonus at battle
+        // instantiation (docs/deep_layers.md「1Lvあたりの数値」), via
+        // GameApp::applyArmorBonus() - called at every real-battle entry
+        // point alongside applyEquipmentTraits()/applyEquippedSkills().
+        jf::GameData data = makeFactoryData();
+        data.playerParty[0].classId = jf::UnitClass::MarchCaptain;
+        jf::GameApp app(data);
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        testBase.unlockedNodeIds.insert("simple_forge");
+        testBase.constructedFacilityIds.insert("simple_forge");
+        testBase.unlockedNodeIds.insert("craft_armor_march_captain_tier1");
+        assert(app.equipArmorForUnit("player0", "armor_march_captain_tier1"));
+        testBase.armorLevels["armor_march_captain_tier1"] = 5; // Tier1: base(1,1), extra=4 -> def+2, res+2
+
+        const int baseDef = data.classDefinition(jf::UnitClass::MarchCaptain).baseStats.defense;
+        const int baseRes = data.classDefinition(jf::UnitClass::MarchCaptain).baseStats.resistance;
+
+        assert(app.startExpedition(jf::RegionId::AshboughForest));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        bool found = false;
+        for (const jf::Unit& unit : app.battle().battle().units()) {
+            if (unit.id != "player0") continue;
+            found = true;
+            const jf::ArmorDefinition* armor = jf::findArmorDefinition("armor_march_captain_tier1");
+            assert(armor);
+            assert(unit.stats.defense == baseDef + jf::armorDefBonusAtLevel(*armor, 5));
+            assert(unit.stats.resistance == baseRes + jf::armorResBonusAtLevel(*armor, 5));
+            assert(unit.stats.defense == baseDef + 3); // base 1 + (4+1)/2 = 3
+            assert(unit.stats.resistance == baseRes + 3); // base 1 + 4/2 = 3
+        }
+        assert(found);
+    }
+
+    {
+        // M10-B (docs/deep_layers.md「防具用調整特性」): the Ward Step armor
+        // tuning trait negates exactly the first status effect applied
+        // through jf::applyStatusEffect() each battle - equipArmorTraitForUnit()
+        // requires "armor_trait_ward_step" unlocked, and the effect is
+        // stamped onto the unit by applyArmorBonus() (verified indirectly
+        // here via direct Unit state, mirroring the Hide-Wrapped Grip test
+        // below).
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        assert(!app.equipArmorTraitForUnit("player0", jf::ArmorTuningTraitId::WardStep)); // simple_forge not built
+        testBase.unlockedNodeIds.insert("simple_forge");
+        testBase.constructedFacilityIds.insert("simple_forge");
+        assert(!app.equipArmorTraitForUnit("player0", jf::ArmorTuningTraitId::WardStep)); // trait not unlocked
+        testBase.unlockedNodeIds.insert("armor_trait_ward_step");
+        assert(app.equipArmorTraitForUnit("player0", jf::ArmorTuningTraitId::WardStep));
+        assert(app.equippedArmorTraits().at("player0") == jf::ArmorTuningTraitId::WardStep);
+        assert(app.equipArmorTraitForUnit("player0", jf::ArmorTuningTraitId::None)); // unequip
+        assert(!app.equippedArmorTraits().count("player0"));
+
+        // Direct effect check: firstStatusNegatesRemaining negates exactly
+        // the first applyStatusEffect() call, then behaves normally.
+        jf::Unit warded = makeUnit("warded", jf::Team::Player, {1, 1});
+        warded.firstStatusNegatesRemaining = 1;
+        jf::BattleState battle({warded});
+        jf::applyStatusEffect(battle, battle.units()[0], jf::StatusEffectType::Poison);
+        assert(battle.units()[0].poisonRemainingProcs == 0); // negated
+        assert(battle.units()[0].firstStatusNegatesRemaining == 0);
+        jf::applyStatusEffect(battle, battle.units()[0], jf::StatusEffectType::Poison);
+        assert(battle.units()[0].poisonRemainingProcs > 0); // applies normally now
+    }
+
+    {
         // Heavy Spear knockback: pushes the defender one tile straight back.
         jf::Unit attacker = makeUnit("attacker", jf::Team::Player, {1, 2});
         attacker.weapon.causesKnockback = true;

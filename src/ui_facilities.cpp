@@ -203,8 +203,35 @@ void drawFacilityNodeRow(jf::GameApp& app, const jf::FacilityNode& node, float x
     // a strengthen button (when the next Lv's materials are affordable) -
     // ASCII-only text ("Lv N"/"MAX"), so no new JA glyph needs registering in
     // loadAppFont()'s charset (see project memory on JA glyph coverage).
-    const bool isWeaponRecipe = node.id.rfind("craft_", 0) == 0;
-    if (unlocked && isWeaponRecipe) {
+    // M10-B: armor recipes ("craft_armor_*") get their own Lv readout below,
+    // checked BEFORE the generic weapon "craft_*" check (every armor id also
+    // starts with "craft_") so an armor row never gets misread as a weapon
+    // id via node.id.substr(6).
+    const bool isArmorRecipe = node.id.rfind("craft_armor_", 0) == 0;
+    const bool isWeaponRecipe = !isArmorRecipe && node.id.rfind("craft_", 0) == 0;
+    if (unlocked && isArmorRecipe) {
+        const std::string armorId = node.id.substr(6); // strip "craft_" only, keep "armor_..." prefix
+        const int level = base.armorLevel(armorId);
+        const std::string lvLabel = "Lv " + std::to_string(level);
+        if (level >= jf::BaseState::kMaxArmorLevel) {
+            drawText(lvLabel + " MAX", static_cast<int>(actionRect.x + 4), static_cast<int>(y) + 6, 13,
+                     kColorTextFaint);
+        } else {
+            const jf::FacilityNode* recipe = jf::findFacilityNode(node.id);
+            std::vector<jf::LootStack> cost =
+                recipe && !recipe->materialCosts.empty()
+                    ? jf::armorLevelUpCost(armorId, recipe->materialCosts[0].id, level + 1)
+                    : std::vector<jf::LootStack>{};
+            bool canAfford = !cost.empty();
+            for (const jf::LootStack& stack : cost)
+                if (base.storageCount(stack.id) < stack.quantity) canAfford = false;
+            if (canAfford) {
+                if (button(actionRect, lvLabel + " ->", mouse, clicked)) app.strengthenArmor(armorId);
+            } else {
+                drawText(lvLabel, static_cast<int>(actionRect.x + 4), static_cast<int>(y) + 6, 13, kColorTextFaint);
+            }
+        }
+    } else if (unlocked && isWeaponRecipe) {
         const std::string weaponId = node.id.substr(6);
         const int level = base.weaponLevel(weaponId);
         const std::string lvLabel = "Lv " + std::to_string(level);
@@ -459,7 +486,11 @@ std::optional<EquipmentHover> drawForgeEquipmentPanel(jf::GameApp& app, const jf
     struct Candidate { std::string id; std::string nodeId; };
     std::vector<Candidate> candidates = {{baseWeaponId, ""}};
     for (const jf::FacilityNode& node : jf::facilityNodeRegistry()) {
-        if (node.id.rfind("craft_", 0) == 0 && node.weaponBranchClass == unit.classId)
+        // M10-B: "craft_armor_*" nodes also set weaponBranchClass (reused for
+        // per-class Forge UI routing - see Facilities.hpp's own comment) but
+        // must not appear in the weapon candidate list.
+        if (node.id.rfind("craft_", 0) == 0 && node.id.rfind("craft_armor_", 0) != 0 &&
+            node.weaponBranchClass == unit.classId)
             candidates.push_back({node.id.substr(6), node.id});
     }
     float by = y + 58;
@@ -499,6 +530,56 @@ std::optional<EquipmentHover> drawForgeEquipmentPanel(jf::GameApp& app, const jf
     } else {
         disabledButton(traitRect, tr("ui.facilities.trait_locked"));
     }
+
+    // M10-B (docs/deep_layers.md「防具システム(新設)」): armor equip panel,
+    // mirroring the weapon panel above but simpler - armor has no "class base
+    // item" exemption (an empty armorOverrides() entry means no armor
+    // equipped at all, not "wearing a default"), so there's no synthetic
+    // "current" candidate the way baseWeaponId is above.
+    by += 46.0f;
+    drawSectionHeading(tr("ui.facilities.armor_heading"), static_cast<int>(x), static_cast<int>(by), 18);
+    auto armorOverrideIt = app.armorOverrides().find(unit.id);
+    std::string currentArmorId = armorOverrideIt != app.armorOverrides().end() ? armorOverrideIt->second : "";
+    const jf::ArmorDefinition* currentArmor =
+        currentArmorId.empty() ? nullptr : jf::findArmorDefinition(currentArmorId);
+    std::string currentArmorLabel = currentArmor ? pick(currentArmor->nameEn, currentArmor->nameJa)
+                                                 : tr("ui.facilities.armor_none");
+    drawText(tr("ui.facilities.current_armor_prefix") + currentArmorLabel, static_cast<int>(x),
+             static_cast<int>(by) + 26, 14, kColorTextMuted);
+
+    std::vector<const jf::ArmorDefinition*> armorCandidates;
+    for (const jf::ArmorDefinition& armor : jf::armorRegistry())
+        if (armor.unitClass == unit.classId) armorCandidates.push_back(&armor);
+
+    by += 54.0f;
+    for (std::size_t index = 0; index < armorCandidates.size(); ++index) {
+        const jf::ArmorDefinition* armor = armorCandidates[index];
+        bool craftedUnlocked = base.unlockedNodeIds.count("craft_" + armor->id) > 0;
+        Rectangle rect{x + (index % 2) * (candidateWidth + 12.0f), by + (index / 2) * 46.0f, candidateWidth, 34};
+        std::string labelEn = armor->nameEn;
+        std::string labelJa = armor->nameJa;
+        if (craftedUnlocked) {
+            if (button(rect, labelEn, labelJa, mouse, clicked)) app.equipArmorForUnit(unit.id, armor->id);
+        } else {
+            disabledButton(rect, pick(labelEn, labelJa));
+        }
+    }
+    by += static_cast<float>((armorCandidates.size() + 1) / 2) * 46.0f + 20.0f;
+
+    bool armorTraitUnlocked = base.unlockedNodeIds.count("armor_trait_ward_step") > 0;
+    bool armorTraitEquipped = app.equippedArmorTraits().count(unit.id) > 0;
+    Rectangle armorTraitRect{x, by, 280, 34};
+    if (armorTraitUnlocked) {
+        if (button(armorTraitRect,
+                   tr(armorTraitEquipped ? "ui.facilities.unequip_armor_trait" : "ui.facilities.equip_armor_trait"),
+                   mouse, clicked)) {
+            app.equipArmorTraitForUnit(
+                unit.id, armorTraitEquipped ? jf::ArmorTuningTraitId::None : jf::ArmorTuningTraitId::WardStep);
+        }
+    } else {
+        disabledButton(armorTraitRect, tr("ui.facilities.armor_trait_locked"));
+    }
+
     return hover;
 }
 

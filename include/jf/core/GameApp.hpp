@@ -22,6 +22,7 @@
 #include "jf/core/SaveSystem.hpp"
 #include "jf/core/Skill.hpp"
 #include "jf/core/Terrain.hpp"
+#include "jf/core/ArmorLeveling.hpp"
 #include "jf/core/WeaponLeveling.hpp"
 #include "jf/data/GameData.hpp"
 
@@ -141,6 +142,38 @@ public:
     // be currently built). TuningTraitId::None unequips.
     bool equipTuningTraitForUnit(const std::string& unitId, TuningTraitId traitId);
     const std::unordered_map<std::string, TuningTraitId>& equippedTraits() const { return equippedTraits_; }
+
+    // M10-B (docs/deep_layers.md「防具システム(新設)」): equips/unequips an
+    // armor for a unit, mirroring equipWeaponForUnit()'s exact validation
+    // shape (requires simple_forge built, armor's own "craft_armor_<id>"
+    // node unlocked, and the same shared-warehouse "only one unit at a time"
+    // rule - docs/deep_layers.md「スロットと基本ルール」). Unlike weapons,
+    // there's no "class base armor" exemption (armor has no default/base
+    // item) - an empty `armorId` simply unequips. `armorId` must belong to
+    // the unit's own class (docs/deep_layers.md「兵種条件は武器と同じく1対1」).
+    bool equipArmorForUnit(const std::string& unitId, const std::string& armorId);
+    const std::unordered_map<std::string, std::string>& armorOverrides() const { return armorOverrides_; }
+
+    // M10-B: strengthens a crafted armor by 1 Lv (armorId -> Lv1..15,
+    // jf::BaseState::armorLevels), mirroring strengthenWeapon() exactly.
+    // Only Lv1->5 is reachable in this Slice (Lv6+ needs deep-layer
+    // materials from a future Slice) and only the 18 armor pieces in
+    // jf::armorRegistry() are wired (the other 6 classes' 18 pieces are
+    // deferred).
+    bool strengthenArmor(const std::string& armorId);
+    int armorLevel(const std::string& armorId) const { return baseState_.armorLevel(armorId); }
+
+    // M10-B (docs/deep_layers.md「防具用調整特性」): equips/unequips the Ward
+    // Step armor tuning trait for a unit - separate trait pool/slot from
+    // equipTuningTraitForUnit() above (requires "armor_trait_ward_step"
+    // unlocked and simple_forge currently built). Unlike weapon traits
+    // (Spearman-only in this codebase so far), armor traits are class-generic
+    // - any class with an equipped armor may equip this. ArmorTuningTraitId::None
+    // unequips.
+    bool equipArmorTraitForUnit(const std::string& unitId, ArmorTuningTraitId traitId);
+    const std::unordered_map<std::string, ArmorTuningTraitId>& equippedArmorTraits() const {
+        return equippedArmorTraits_;
+    }
 
     // Training Ground: equips a skill into one of a unit's 2 skill slots
     // (docs/skill_system.md). Requires the skill's class-appropriate
@@ -356,6 +389,10 @@ private:
     // Forge equipment state (persists at the base, applied to every battle).
     std::unordered_map<std::string, std::string> weaponOverrides_;
     std::unordered_map<std::string, TuningTraitId> equippedTraits_;
+    // M10-B: same shape as weaponOverrides_/equippedTraits_ above, for the
+    // armor slot.
+    std::unordered_map<std::string, std::string> armorOverrides_;
+    std::unordered_map<std::string, ArmorTuningTraitId> equippedArmorTraits_;
     // Training Ground equip state (persists at the base, applied to every
     // battle - see applyEquippedSkills()).
     std::unordered_map<std::string, UnitSkillLoadout> equippedSkills_;
@@ -373,6 +410,12 @@ private:
     // Stamps each freshly-built battle's player units with their equipped
     // skill ids and resets their charges/cooldowns for the new battle.
     void applyEquippedSkills(BattleController& controller);
+    // M10-B: stamps each freshly-built battle's player units with their
+    // equipped armor's Lv-scaled DEF/RES bonus (jf::armorDefBonusAtLevel()/
+    // armorResBonusAtLevel()) and their equipped armor tuning trait's effect
+    // - called alongside applyEquipmentTraits()/applyEquippedSkills() above
+    // at every real-battle entry point.
+    void applyArmorBonus(BattleController& controller);
 };
 
 } // namespace jf

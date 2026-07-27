@@ -539,6 +539,7 @@ void GameApp::continueExpedition() {
         createScenarioContinuationBattle(data_, survivors, currentStage(), expeditionSeed_));
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
+    applyArmorBonus(*battleController_);
     // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
     // onto the fresh BattleState at every real-battle entry point, same as
     // applyEquipmentTraits()/applyEquippedSkills() above.
@@ -802,6 +803,7 @@ bool GameApp::chooseSafePassage() {
     }
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
+    applyArmorBonus(*battleController_);
     // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
     // onto the fresh BattleState at every real-battle entry point, same as
     // applyEquipmentTraits()/applyEquippedSkills() above.
@@ -833,6 +835,7 @@ bool GameApp::chooseReconnaissance() {
     }
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
+    applyArmorBonus(*battleController_);
     // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
     // onto the fresh BattleState at every real-battle entry point, same as
     // applyEquipmentTraits()/applyEquippedSkills() above.
@@ -861,6 +864,7 @@ int GameApp::bulkPassSecuredSites() {
     }
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
+    applyArmorBonus(*battleController_);
     // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
     // onto the fresh BattleState at every real-battle entry point, same as
     // applyEquipmentTraits()/applyEquippedSkills() above.
@@ -918,6 +922,7 @@ bool GameApp::chooseExplorationRoute(ExplorationChoice choice) {
         activeExpeditionData_, expeditionPartyUnits_, stage, expeditionSeed_, outcome));
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
+    applyArmorBonus(*battleController_);
     // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
     // onto the fresh BattleState at every real-battle entry point, same as
     // applyEquipmentTraits()/applyEquippedSkills() above.
@@ -955,6 +960,7 @@ bool GameApp::confirmDeployment() {
         activeExpeditionData_, expeditionPartyUnits_, currentStage(), expeditionSeed_, deploymentOutcome_, &positions));
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
+    applyArmorBonus(*battleController_);
     // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
     // onto the fresh BattleState at every real-battle entry point, same as
     // applyEquipmentTraits()/applyEquippedSkills() above.
@@ -987,6 +993,23 @@ void GameApp::applyEquipmentTraits(BattleController& controller) {
         auto it = equippedTraits_.find(unit.id);
         unit.knockbackNegatesRemaining =
             (it != equippedTraits_.end() && it->second == TuningTraitId::HideWrappedGrip) ? 1 : 0;
+    }
+}
+
+void GameApp::applyArmorBonus(BattleController& controller) {
+    for (Unit& unit : controller.battle().units()) {
+        if (unit.team != Team::Player) continue;
+        auto overrideIt = armorOverrides_.find(unit.id);
+        if (overrideIt != armorOverrides_.end()) {
+            if (const ArmorDefinition* armor = findArmorDefinition(overrideIt->second)) {
+                int level = baseState_.armorLevel(armor->id);
+                unit.stats.defense += armorDefBonusAtLevel(*armor, level);
+                unit.stats.resistance += armorResBonusAtLevel(*armor, level);
+            }
+        }
+        auto traitIt = equippedArmorTraits_.find(unit.id);
+        unit.firstStatusNegatesRemaining =
+            (traitIt != equippedArmorTraits_.end() && traitIt->second == ArmorTuningTraitId::WardStep) ? 1 : 0;
     }
 }
 
@@ -1158,6 +1181,68 @@ bool GameApp::strengthenWeapon(const std::string& weaponId) {
     return true;
 }
 
+bool GameApp::equipArmorForUnit(const std::string& unitId, const std::string& armorId) {
+    if (screen_ != Screen::Base) return false;
+    if (!baseState_.constructedFacilityIds.count("simple_forge")) return false;
+    auto unit = std::find_if(roster_.begin(), roster_.end(),
+                             [&](const UnitTemplate& candidate) { return candidate.id == unitId; });
+    if (unit == roster_.end()) return false;
+    if (armorId.empty()) {
+        armorOverrides_.erase(unitId);
+        markPersistentStateChanged();
+        return true;
+    }
+    const ArmorDefinition* armor = findArmorDefinition(armorId);
+    if (!armor || armor->unitClass != unit->classId) return false;
+    if (!baseState_.unlockedNodeIds.count("craft_" + armorId)) return false;
+    // docs/deep_layers.md「スロットと基本ルール」: same shared-warehouse
+    // "only one unit at a time" rule as equipWeaponForUnit() - armor has no
+    // "base item" exemption (there is no default armor issued at join).
+    for (const auto& [otherUnitId, otherArmorId] : armorOverrides_) {
+        if (otherUnitId != unitId && otherArmorId == armorId) return false;
+    }
+    armorOverrides_[unitId] = armorId;
+    markPersistentStateChanged();
+    return true;
+}
+
+bool GameApp::strengthenArmor(const std::string& armorId) {
+    if (screen_ != Screen::Base) return false;
+    if (!baseState_.constructedFacilityIds.count("simple_forge")) return false;
+    if (!baseState_.unlockedNodeIds.count("craft_" + armorId)) return false;
+    const FacilityNode* recipe = findFacilityNode("craft_" + armorId);
+    if (!recipe || recipe->materialCosts.empty()) return false;
+    int currentLevel = baseState_.armorLevel(armorId);
+    if (currentLevel >= BaseState::kMaxArmorLevel) return false;
+    std::vector<LootStack> cost = armorLevelUpCost(armorId, recipe->materialCosts[0].id, currentLevel + 1);
+    if (cost.empty()) return false; // Lv6+ or a not-yet-wired armor id
+    for (const LootStack& stack : cost) {
+        if (baseState_.storageCount(stack.id) < stack.quantity) return false;
+    }
+    for (const LootStack& stack : cost) baseState_.consumeStorage(stack.id, stack.quantity);
+    baseState_.armorLevels[armorId] = currentLevel + 1;
+    markPersistentStateChanged();
+    return true;
+}
+
+bool GameApp::equipArmorTraitForUnit(const std::string& unitId, ArmorTuningTraitId traitId) {
+    if (screen_ != Screen::Base) return false;
+    if (!baseState_.constructedFacilityIds.count("simple_forge")) return false;
+    auto unit = std::find_if(roster_.begin(), roster_.end(),
+                             [&](const UnitTemplate& candidate) { return candidate.id == unitId; });
+    if (unit == roster_.end()) return false;
+    if (traitId == ArmorTuningTraitId::None) {
+        equippedArmorTraits_.erase(unitId);
+        markPersistentStateChanged();
+        return true;
+    }
+    if (traitId != ArmorTuningTraitId::WardStep) return false;
+    if (!baseState_.unlockedNodeIds.count("armor_trait_ward_step")) return false;
+    equippedArmorTraits_[unitId] = traitId;
+    markPersistentStateChanged();
+    return true;
+}
+
 SaveData GameApp::createSaveData(const std::string& language) const {
     SaveData save;
     save.base = baseState_;
@@ -1166,6 +1251,11 @@ SaveData GameApp::createSaveData(const std::string& language) const {
     for (const auto& [unitId, traitId] : equippedTraits_) {
         std::string traitString = tuningTraitIdToString(traitId);
         if (!traitString.empty()) save.unitEquippedTraits[unitId] = traitString;
+    }
+    save.unitArmorOverrides = armorOverrides_;
+    for (const auto& [unitId, traitId] : equippedArmorTraits_) {
+        std::string traitString = armorTuningTraitIdToString(traitId);
+        if (!traitString.empty()) save.unitEquippedArmorTraits[unitId] = traitString;
     }
     for (const auto& [unitId, loadout] : equippedSkills_) {
         if (!loadout.equippedSkillIds[0].empty()) save.unitEquippedSkillsSlot0[unitId] = loadout.equippedSkillIds[0];
@@ -1265,6 +1355,39 @@ bool GameApp::applySaveData(const SaveData& save) {
             loadedTraits[unitId] = traitId;
     }
 
+    // M10-B: armor overrides, mirroring the weapon dedup shape above but
+    // data-driven off jf::armorRegistry()/unit->classId instead of a
+    // hardcoded per-class recipe table (armor has no legacy schemaVersion==1
+    // form to migrate - it's new in this Slice).
+    std::unordered_map<std::string, std::string> loadedArmors;
+    {
+        std::vector<std::pair<std::string, std::string>> sortedRequests(save.unitArmorOverrides.begin(),
+                                                                         save.unitArmorOverrides.end());
+        std::sort(sortedRequests.begin(), sortedRequests.end());
+        std::unordered_set<std::string> claimedArmors;
+        for (const auto& [unitId, armorId] : sortedRequests) {
+            auto unit = std::find_if(roster_.begin(), roster_.end(), [&](const UnitTemplate& candidate) {
+                return candidate.id == unitId;
+            });
+            if (unit == roster_.end()) continue;
+            const ArmorDefinition* armor = findArmorDefinition(armorId);
+            if (!armor || armor->unitClass != unit->classId) continue;
+            if (!loadedBase.unlockedNodeIds.count("craft_" + armorId)) continue;
+            if (!claimedArmors.insert(armorId).second) continue; // already claimed by an earlier unitId
+            loadedArmors[unitId] = armorId;
+        }
+    }
+    std::unordered_map<std::string, ArmorTuningTraitId> loadedArmorTraits;
+    for (const auto& [unitId, traitString] : save.unitEquippedArmorTraits) {
+        ArmorTuningTraitId traitId = armorTuningTraitIdFromString(traitString);
+        auto unit = std::find_if(roster_.begin(), roster_.end(), [&](const UnitTemplate& candidate) {
+            return candidate.id == unitId;
+        });
+        if (unit != roster_.end() && traitId == ArmorTuningTraitId::WardStep &&
+            loadedBase.unlockedNodeIds.count("armor_trait_ward_step"))
+            loadedArmorTraits[unitId] = traitId;
+    }
+
     std::unordered_map<std::string, UnitSkillLoadout> loadedSkills;
     auto loadSkillSlot = [&](const std::unordered_map<std::string, std::string>& requested, std::size_t slotIndex) {
         for (const auto& [unitId, skillId] : requested) {
@@ -1303,6 +1426,8 @@ bool GameApp::applySaveData(const SaveData& save) {
     selectedPartyIds_ = std::move(loadedParty);
     weaponOverrides_ = std::move(loadedWeapons);
     equippedTraits_ = std::move(loadedTraits);
+    armorOverrides_ = std::move(loadedArmors);
+    equippedArmorTraits_ = std::move(loadedArmorTraits);
     equippedSkills_ = std::move(loadedSkills);
     equippedCooperationId_ = std::move(loadedCooperationId);
     persistentRevision_ = 0;
@@ -1365,6 +1490,7 @@ bool GameApp::applySaveData(const SaveData& save) {
                     activeExpeditionData_, expeditionPartyUnits_, currentStage(), expeditionSeed_));
                 applyEquipmentTraits(*battleController_);
                 applyEquippedSkills(*battleController_);
+                applyArmorBonus(*battleController_);
                 screen_ = Screen::Camp;
             } else {
                 screen_ = Screen::Exploration;
