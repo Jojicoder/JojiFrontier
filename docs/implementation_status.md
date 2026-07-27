@@ -6043,6 +6043,91 @@ guest-escort/EscapeUnits盲点が伝播した参考値であり、地点9本体�
 本編非必須と位置付ける「深層遠征」の具体設計であり、詳細は
 `docs/implementation_roadmap.md`の該当箇所を参照。
 
+## M9-BD 地図外縁 region-clear floor-topup配線
+
+M9-BCが「見送った部分」として明示的に持ち越した*region-clear floor-topup配線は
+着手していない*を解消する。`ExpeditionService.cpp`の`computeRegionSummaries()`
+近辺・`applyExpeditionReturnToBase()`を読み、`ShatteredMarchFort`/
+`BuriedDawnSanctum`等の既存9地域が持つ`<region>MaterialsEarned`+floor tableの
+構造的パターンを`RegionId::MappedEdge`(第10・本編最終地域)へ単純拡張しただけで、
+`BattleFactory.cpp`側のコード変更は一切不要だった。
+
+### 対象範囲の確認
+
+`computeRegionSummaries()`の predecessor map(`if (id == RegionId::MappedEdge)
+return RegionId::ShatteredMarchFort;`)と地域列挙リスト自体は地域skeleton確立
+時点(地図外縁の初期Slice)で既に追加済みのスタブであり、本Sliceで新規追加した
+のはfloor-topup **ブロック本体**のみ。
+
+### `BaseState.hpp`/`SaveSystem.cpp`配線
+
+`shatteredMarchFortMaterialsEarned`と全く同じ命名規約で
+`std::unordered_map<std::string, int> mappedEdgeMaterialsEarned;`を追加し、
+`SaveSystem.cpp`のsave/load両方(`serializeSave()`のkey追加、
+`deserializeSave()`の`if (base.contains(...))`分岐追加)へ配線した - 本
+プロジェクトで繰り返し記録されている「save/loadの片側だけ配線を忘れる」
+既知の事故パターンを踏まえ、両方を同時に確認した。
+
+### floor値の出典
+
+`docs/regions/mapped_edge.md`「地域攻略と最低保証」節が明記する値
+(希少素材7、遺跡片8、地域固有素材3、高品質鉄材2、食料5、薬草4、
+地図外縁踏査記録1、最終キー素材1)をそのまま採用したが、正本の記述のみに
+依存せず、9地点全ての実際の`victoryRewardRules`(`Always`条件)を実測合算して
+一致することを確認した: `data/regions.json`の地点1〜5・7・8の`baseVictoryLoot`
++`Region.cpp`の`mappedEdgeStoneBasinStage()`(地点6)・`mappedEdgeFinalStage()`
+(地点9)の`RewardRule`を合算すると、rare_material 1+1+2+3=7、
+ruin_fragment 2+2+2+2=8、frontier_edge_material 2+1=3、quality_iron 1+1=2、
+food 1+2+2=5、herb 2+2=4、frontier_final_key 1 - 正本の最低保証値と完全一致した。
+このため床上げが必要になるのは、途中撤退や探索3択の選び方で一部地点の報酬を
+取り損ねた場合の穴埋めとしてのみ機能する(9地点全てを標準ルートで攻略した
+場合は元々floor値ちょうどに達する設計)。
+
+`kMappedEdgeSurveyRecordsDiscovery`(地点7「折れた見張台」の記録箱2個保全、
+`GameApp.cpp`のall-group-members-Completedチェック)は探索3択で「観測優先」を
+選ぶルートでは個別に到達不能なため、`kFortDefenseTechnologyDiscovery`等と
+同じ理由でDiscovery backfillリストに含めた。現時点でこの地域に登録済みの
+Discoveryはこの1件のみのため、backfillリストの要素も1件のみ。
+
+### 本編キャンペーン完了フラグの扱い
+
+`main_campaign_completed`という安定IDは正本の「安定ID」節に記載があるが、
+`BaseState.hpp`/`GameApp.cpp`/`ExpeditionService.cpp`全体を検索した結果、
+この概念に対応する既存フラグやフィールドはプロジェクトのどこにも存在しな
+かった。M9-BCの指示どおり、本Sliceの範囲(素材/Discoveryのfloor-topup機構のみ)
+を超えて新規に発明することはしなかった。
+
+一方、`RegionId::MappedEdge`のクリア自体は、`applyExpeditionReturnToBase()`
+末尾の`for (RegionId regionId : expedition.pendingRegionCompletions)
+baseState.completedRegionIds.insert(regionId);`という**地域非依存の共通経路**
+(地点固有のC++分岐なし)を他の9地域と全く同じ形で通るため、追加コード無しで
+`completedRegionIds`に`MappedEdge`が挿入される。ただし、これは「地域が
+クリアされた」ことがマークされるだけで、「本編キャンペーン全体が完了した」
+という別概念のフラグには繋がっていない - 後者を`main_campaign_completed`
+として具体的にどう配線するか(開拓都市での総括画面、深層遠征候補解放UI等)は、
+M9-BC自身が示した「地図外縁の地域攻略(安全帰還)・恒久成果配線」という
+単一地点Sliceの範囲を明らかに超える設計判断であり、次の専用Milestone候補
+として引き続き持ち越す。
+
+### テスト
+
+`tests/test_battle.cpp`へ1件追加: `jf::applyExpeditionReturnToBase()`を
+`GameApp`経由の全9地点プレイではなく直接呼び出す軽量な検証(floor機構自体は
+`ExpeditionState::pendingRegionCompletions`/`pendingLoot`と
+`BaseState::mappedEdgeMaterialsEarned`/`discoveryRegistry`のみに依存するため)。
+(a) floor未満の一部帰還ではtop-upが発動しないこと、(b)
+`pendingRegionCompletions`にMappedEdgeが立った帰還でfloor全項目
+(希少素材7/遺跡片8/地域固有素材3/高品質鉄材2/食料5/薬草4/最終キー素材1)まで
+底上げされ、`kMappedEdgeSurveyRecordsDiscovery`がbackfillされること、(c)
+region完了済み後の3回目の帰還ではtop-upが再適用されず、その回の実際の
+獲得量だけが加算されることを検証した。
+
+ビルド・`ctest --test-dir build -j10 --output-on-failure`は4/4、フルスイートを
+3回連続実行し安定(フレークなし)。`git diff --check`も成功。
+
+以上で**地図外縁のregion-clear floor-topup配線が完了した**。次の優先候補は
+本編キャンペーン完了フラグ・地域攻略(安全帰還)UI・深層遠征の具体設計。
+
 ## 次の優先候補
 
 1. Phase 3.5実装順7: 上記で実装済みのBase画面地域選択・Exploration画面分岐・安全路/
@@ -6053,3 +6138,6 @@ guest-escort/EscapeUnits盲点が伝播した参考値であり、地点9本体�
 4. Web保存の同期完了状態と保存HUD、破損復旧の専用選択画面
 5. Schema 2以降のスキーマ移行基盤
 6. 施設ID、レシピ、装備の読込検証強化
+7. 地図外縁の地域攻略(安全帰還)・恒久成果配線(`mapped_edge_secured`等)・
+   本編キャンペーン完了フラグ(`main_campaign_completed`)の具体設計
+8. 深層遠征(未確認信号の追跡/高危険素材の採取/既存地域の異常再調査)の具体設計

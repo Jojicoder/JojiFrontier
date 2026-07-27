@@ -338,6 +338,7 @@ std::string serializeSave(const SaveData& save) {
             {"emberRavineMaterialsEarned", save.base.emberRavineMaterialsEarned},
             {"buriedDawnSanctumMaterialsEarned", save.base.buriedDawnSanctumMaterialsEarned},
             {"shatteredMarchFortMaterialsEarned", save.base.shatteredMarchFortMaterialsEarned},
+            {"mappedEdgeMaterialsEarned", save.base.mappedEdgeMaterialsEarned},
         }},
         {"selectedPartyIds", save.selectedPartyIds},
         {"weaponOverrides", classMapToJson(save.weaponOverrides)},
@@ -415,6 +416,9 @@ std::optional<SaveData> deserializeSave(const std::string& jsonText, std::string
         if (base.contains("shatteredMarchFortMaterialsEarned"))
             save.base.shatteredMarchFortMaterialsEarned =
                 base["shatteredMarchFortMaterialsEarned"].get<std::unordered_map<std::string, int>>();
+        if (base.contains("mappedEdgeMaterialsEarned"))
+            save.base.mappedEdgeMaterialsEarned =
+                base["mappedEdgeMaterialsEarned"].get<std::unordered_map<std::string, int>>();
         if (base.contains("completedRegions")) {
             if (!base["completedRegions"].is_array()) throw std::runtime_error("Invalid completedRegions");
             for (const json& entry : base["completedRegions"]) {

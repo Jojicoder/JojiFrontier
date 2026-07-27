@@ -228,6 +228,13 @@ struct BaseState {
     // emberRavineMaterialsEarned/buriedDawnSanctumMaterialsEarned above,
     // tracked independently per region.
     std::unordered_map<std::string, int> shatteredMarchFortMaterialsEarned;
+    // docs/regions/mapped_edge.md「地域攻略と最低保証」: same mechanism as
+    // cinderwatchMaterialsEarned/blackwaterMaterialsEarned/
+    // windscarMaterialsEarned/settlementMaterialsEarned/
+    // emberRavineMaterialsEarned/buriedDawnSanctumMaterialsEarned/
+    // shatteredMarchFortMaterialsEarned above, tracked independently per
+    // region. This is the campaign's 10th and final region.
+    std::unordered_map<std::string, int> mappedEdgeMaterialsEarned;
 
     // docs/item_system.md "製作単位と倉庫上限": consumables owned but not
     // currently packed into an expedition bag - crafted via GameApp::

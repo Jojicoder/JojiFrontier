@@ -12793,6 +12793,63 @@ int main() {
         assert(coolUnit->currentHp == coolUnit->stats.maxHp); // CoolFloor exemption
     }
 
+    {
+        // docs/regions/mapped_edge.md「地域攻略と最低保証」: the region-clear
+        // floor top-up mechanism (M9-BD), same shape as CinderwatchGate's own
+        // floor-topup test above - exercised directly against
+        // jf::applyExpeditionReturnToBase() rather than replaying all 9 sites
+        // through GameApp, since the mechanism itself only depends on
+        // ExpeditionState::pendingRegionCompletions/pendingLoot and
+        // BaseState::mappedEdgeMaterialsEarned/discoveryRegistry.
+        jf::GameData data = makeFactoryData();
+        jf::BaseState base;
+        std::uint64_t returnGrantSequence = 0;
+
+        // First (partial) return: below every floor value, region not yet
+        // complete - should only bank the actual haul, no top-up.
+        jf::ExpeditionState first;
+        first.regionId = jf::RegionId::MappedEdge;
+        first.pendingLoot = {{"rare_material", 1}, {"food", 1}};
+        assert(jf::applyExpeditionReturnToBase(first, base, returnGrantSequence).success);
+        assert(!base.completedRegionIds.count(jf::RegionId::MappedEdge));
+        assert(base.mappedEdgeMaterialsEarned.at("rare_material") == 1);
+        assert(base.storageCount("rare_material") == 1);
+        assert(base.storageCount("food") == 1);
+        assert(!base.discoveryRegistry.count(jf::kMappedEdgeSurveyRecordsDiscovery));
+
+        // Second return: this run's own haul is still below every floor, but
+        // it also completes the region (pendingRegionCompletions set, as
+        // GameApp would do once every site reaches >= Surveyed) - the floor
+        // top-up must fire and the Discovery backfill must apply.
+        jf::ExpeditionState second;
+        second.regionId = jf::RegionId::MappedEdge;
+        second.pendingLoot = {{"herb", 1}};
+        second.pendingRegionCompletions.insert(jf::RegionId::MappedEdge);
+        assert(jf::applyExpeditionReturnToBase(second, base, returnGrantSequence).success);
+        assert(base.completedRegionIds.count(jf::RegionId::MappedEdge));
+        // Floor: 希少素材7、遺跡片8、地域固有素材3、高品質鉄材2、食料5、薬草4、
+        // 最終キー素材1 (docs/regions/mapped_edge.md「地域攻略と最低保証」).
+        assert(base.storageCount("rare_material") >= 7);
+        assert(base.storageCount("ruin_fragment") >= 8);
+        assert(base.storageCount("frontier_edge_material") >= 3);
+        assert(base.storageCount("quality_iron") >= 2);
+        assert(base.storageCount("food") >= 5);
+        assert(base.storageCount("herb") >= 4);
+        assert(base.storageCount("frontier_final_key") >= 1);
+        // 地図外縁踏査記録(地点7「折れた見張台」記録箱2個保全、観測優先ルートでは
+        // 個別に到達不能)はこの地域自身のフロア底上げで初めて到達可能になる。
+        assert(base.discoveryRegistry.count(jf::kMappedEdgeSurveyRecordsDiscovery));
+
+        // Re-clearing the (already-completed) region a 3rd time must not
+        // reapply the floor top-up a second time.
+        const int rareMaterialAfterCompletion = base.storageCount("rare_material");
+        jf::ExpeditionState third;
+        third.regionId = jf::RegionId::MappedEdge;
+        third.pendingLoot = {{"rare_material", 1}};
+        assert(jf::applyExpeditionReturnToBase(third, base, returnGrantSequence).success);
+        assert(base.storageCount("rare_material") == rareMaterialAfterCompletion + 1);
+    }
+
     std::cout << "Battle tests PASSED\n";
     return 0;
 }

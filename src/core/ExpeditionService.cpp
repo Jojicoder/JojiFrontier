@@ -478,6 +478,57 @@ ReturnToBaseResult applyExpeditionReturnToBase(ExpeditionState& expedition, Base
         }
     }
 
+    // docs/regions/mapped_edge.md「地域攻略と最低保証」: same mechanism as
+    // cinderwatchMaterialsEarned/blackwaterMaterialsEarned/
+    // windscarMaterialsEarned/settlementMaterialsEarned/
+    // emberRavineMaterialsEarned/buriedDawnSanctumMaterialsEarned/
+    // shatteredMarchFortMaterialsEarned above, tracked independently per
+    // region. Mapped Edge is the campaign's 10th and final region.
+    const bool mappedEdgeStillOpen =
+        expedition.regionId == RegionId::MappedEdge && !baseState.completedRegionIds.count(RegionId::MappedEdge);
+    if (mappedEdgeStillOpen)
+        for (const auto& [id, quantity] : materialAdds) baseState.mappedEdgeMaterialsEarned[id] += quantity;
+
+    if (mappedEdgeStillOpen && expedition.pendingRegionCompletions.count(RegionId::MappedEdge)) {
+        // Floor values compiled from docs/regions/mapped_edge.md「地域攻略と
+        // 最低保証」節そのもの: 希少素材7、遺跡片8、地域固有素材3、高品質鉄材2、
+        // 食料5、薬草4(地図外縁踏査記録1・最終キー素材1はDiscovery/Discovery側
+        // 扱いへ振り分け、下記のkMappedEdgeKeyDiscoveriesと
+        // materialFloor自体のfrontier_final_keyエントリへ分けて反映)。数値の
+        // 出典は正本の記述のみでなく、9地点全ての`baseVictoryLoot`
+        // (data/regions.json)/mappedEdgeStoneBasinStage()・
+        // mappedEdgeFinalStage()(Region.cpp)のAlways条件報酬を実測合算しても
+        // 完全一致することを確認済み(rare_material 1+1+2+3=7,
+        // ruin_fragment 2+2+2+2=8, frontier_edge_material 2+1=3,
+        // quality_iron 1+1=2, food 1+2+2=5, herb 2+2=4,
+        // frontier_final_key 1)。
+        static const std::unordered_map<LootId, int> kMappedEdgeMaterialFloor = {
+            {"rare_material", 7},        {"ruin_fragment", 8}, {"frontier_edge_material", 3},
+            {"quality_iron", 2},         {"food", 5},          {"herb", 4},
+            {"frontier_final_key", 1},
+        };
+        for (const auto& [id, floor] : kMappedEdgeMaterialFloor) {
+            const int earned = baseState.mappedEdgeMaterialsEarned[id];
+            if (earned < floor) materialAdds[id] += floor - earned;
+        }
+        // 地図外縁踏査記録(kMappedEdgeSurveyRecordsDiscovery、地点7「折れた
+        // 見張台」)は記録箱2個の全保全というsecondary/bonus-reward側の
+        // all-group-members-Completed条件でのみ付与され(GameApp.cpp)、探索
+        // 3択で「観測優先」を選ぶルートでは個別に到達不能なため、
+        // shatteredMarchFortKeyDiscoveries等と同じ理由でこの地域自身のフロア
+        // 底上げで初めて到達可能にする。現時点でこの地域に登録済みのDiscovery
+        // はこの1件のみ。
+        static const std::vector<DiscoveryId> kMappedEdgeKeyDiscoveries = {
+            kMappedEdgeSurveyRecordsDiscovery,
+        };
+        for (const DiscoveryId& discovery : kMappedEdgeKeyDiscoveries) {
+            const bool alreadyHave = baseState.discoveryRegistry.count(discovery) ||
+                                      std::find(discoveriesThisReturn.begin(), discoveriesThisReturn.end(), discovery) !=
+                                          discoveriesThisReturn.end();
+            if (!alreadyHave) discoveriesThisReturn.push_back(discovery);
+        }
+    }
+
     std::unordered_map<LootId, int> fitPlan;
     std::vector<std::pair<LootId, int>> overflowPlan;
     for (const auto& [id, quantity] : materialAdds) {

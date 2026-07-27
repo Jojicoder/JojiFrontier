@@ -452,22 +452,42 @@ EliminateTeamメンバーが無いことで自動的に成立するため、AI�
 同様に本Sliceの範囲外として未着手(mapped_edgeは`ExpeditionService.cpp`の
 region-clear floor-topupブロック自体がまだ存在しない)。詳細は
 `implementation_status.md`のM9-BC参照。
+M9-BD(地図外縁 region-clear floor-topup配線)完了(2026-07) - M9-BCが持ち越した
+「region-clear floor-topup配線は着手していない」を解消した。`ShatteredMarchFort`
+等の既存9地域と全く同じ`<region>MaterialsEarned`+floor tableパターンを
+`RegionId::MappedEdge`へ拡張しただけで、predecessor map/地域列挙リスト自体は
+地域skeleton確立時点で既に存在していたため追加不要だった。`BaseState.hpp`へ
+`mappedEdgeMaterialsEarned`を追加し`SaveSystem.cpp`のsave/load両方へ配線。
+floor値(希少素材7/遺跡片8/地域固有素材3/高品質鉄材2/食料5/薬草4/最終キー素材1)
+は正本「地域攻略と最低保証」節の値をそのまま採用し、9地点全ての実際の
+`victoryRewardRules`(`Always`条件)を実測合算しても完全一致することを確認した。
+Discovery backfillは`kMappedEdgeSurveyRecordsDiscovery`(地点7「折れた見張台」、
+「観測優先」ルートでは個別に到達不能)の1件のみ登録した(現時点でこの地域に
+登録済みのDiscoveryがこれ1件のため)。`main_campaign_completed`という安定IDに
+対応する既存フラグはプロジェクトのどこにも存在せず、本Sliceの範囲(素材/
+Discoveryのfloor-topup機構のみ)を超えるため新規発明はしなかった -
+`RegionId::MappedEdge`自体のクリアは`applyExpeditionReturnToBase()`の
+地域非依存の共通経路(`pendingRegionCompletions`→`completedRegionIds`)で
+追加コード無しに成立するが、これは「本編キャンペーン全体の完了」という
+別概念には繋がっていない。テストは`GameApp`経由の全9地点プレイではなく
+`jf::applyExpeditionReturnToBase()`を直接呼ぶ軽量な形で追加(floor機構自体が
+`ExpeditionState`/`BaseState`のみに依存するため)。詳細は
+`implementation_status.md`のM9-BD参照。
 
 直近の未完了(優先度順):
 
-1. **全10地域・全地点コンテンツが完了(M9-BCで地図外縁地点9まで到達)**。次に
-   優先度が高いのは地点コンテンツそのものではなく、地点1〜8と同様に本Sliceでも
-   見送られてきた次の2種類の横断的懸案: (a) 地図外縁の地域攻略(安全帰還)
-   Slice - 恒久成果id(`mapped_edge_secured`/`mapped_edge_survey_record`/
-   `frontier_final_key`/`main_campaign_completed`)の恒久登録配線、
-   `ExpeditionService.cpp`のregion-clear floor-topupブロック新設(他9地域が
-   持つ`<region>MaterialsEarned`パターンをmapped_edgeにも追加するかの判断を
-   含む)、および正本「物語上の最終結果」節が言う「開拓都市で全地域を総括」
-   「任意の深層遠征候補を解放」の実装。(b) 正本が本編非必須と位置付ける
-   「深層遠征」(未確認信号の追跡/高危険素材の採取/既存地域の異常再調査の
-   3カテゴリ)の具体的な地点数・物語設計 - 本編10地域とは別仕様、深層未攻略でも
-   エンディングを損なわない前提。どちらも単一地点Sliceの粒度を超える設計判断を
-   要するため、次の専用Milestoneとして切り出すことを推奨する。
+1. **全10地域・全地点コンテンツおよび地図外縁のregion-clear floor-topup配線が
+   完了(M9-BCで地図外縁地点9まで到達、M9-BDでfloor-topup配線完了)**。次に
+   優先度が高いのは地点コンテンツそのものではなく、次の2種類の横断的懸案:
+   (a) 地図外縁の地域攻略(安全帰還)Slice - 恒久成果id(`mapped_edge_secured`/
+   `mapped_edge_survey_record`/`frontier_final_key`の恒久登録側/
+   `main_campaign_completed`)の恒久登録配線、および正本「物語上の最終結果」
+   節が言う「開拓都市で全地域を総括」「任意の深層遠征候補を解放」の実装。
+   (b) 正本が本編非必須と位置付ける「深層遠征」(未確認信号の追跡/高危険素材の
+   採取/既存地域の異常再調査の3カテゴリ)の具体的な地点数・物語設計 - 本編10
+   地域とは別仕様、深層未攻略でもエンディングを損なわない前提。どちらも単一
+   地点Sliceの粒度を超える設計判断を要するため、次の専用Milestoneとして
+   切り出すことを推奨する。
 3. M7項目3 完了(2026-07)。連携作戦(新規戦闘メカニクス、
    `docs/character_progression.md`)を実装 - 6ペア中5ペアに実戦闘効果を実装
    (`paired_fallback_line`/`paired_signal_ward`/`paired_field_recovery`/
