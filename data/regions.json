@@ -123,7 +123,8 @@
         { "id": "stone", "quantity": 1 },
         { "id": "wood", "quantity": 2 },
         { "id": "hide", "quantity": 1 },
-        { "id": "gate_tools", "quantity": 1 }
+        { "id": "gate_tools", "quantity": 1 },
+        { "id": "belliron_chip", "quantity": 1 }
       ],
       "routeVictoryLootDelta": [
         { "choice": "CollapsedSidePath", "loot": [{ "id": "stone", "quantity": -1 }] }
@@ -151,7 +152,8 @@
         { "id": "stone", "quantity": 1 },
         { "id": "wood", "quantity": 2 },
         { "id": "hide", "quantity": 1 },
-        { "id": "ash_road_map", "quantity": 1 }
+        { "id": "ash_road_map", "quantity": 1 },
+        { "id": "weathered_cord", "quantity": 1 }
       ],
       "routeVictoryLootDelta": [
         { "choice": "CollapsedSidePath", "loot": [{ "id": "old_gear", "quantity": -1 }] },
@@ -178,7 +180,8 @@
         { "id": "iron", "quantity": 2 },
         { "id": "old_gear", "quantity": 1 },
         { "id": "wood", "quantity": 3 },
-        { "id": "herb", "quantity": 2 }
+        { "id": "herb", "quantity": 2 },
+        { "id": "watchglass_shard", "quantity": 1 }
       ],
       "routeVictoryLootDelta": [
         { "choice": "CollapsedSidePath", "loot": [{ "id": "iron", "quantity": 1 }] }
@@ -229,7 +232,8 @@
       ],
       "baseVictoryLoot": [
         { "id": "iron", "quantity": 1 },
-        { "id": "stone", "quantity": 1 }
+        { "id": "stone", "quantity": 1 },
+        { "id": "belliron_chip", "quantity": 1 }
       ],
       "missionNameEn": "Old Barracks",
       "missionNameJa": "旧兵舎"
@@ -246,7 +250,8 @@
       ],
       "baseVictoryLoot": [
         { "id": "iron", "quantity": 1 },
-        { "id": "old_gear", "quantity": 1 }
+        { "id": "old_gear", "quantity": 1 },
+        { "id": "watchglass_shard", "quantity": 1 }
       ],
       "routeOutcomes": [
         { "choice": "FrontalAdvance", "enableReinforcementWave": true },
@@ -320,7 +325,8 @@
         { "id": "captains_seal", "quantity": 1 },
         { "id": "ashveil_fang", "quantity": 1 },
         { "id": "wood", "quantity": 3 },
-        { "id": "hide", "quantity": 3 }
+        { "id": "hide", "quantity": 3 },
+        { "id": "weathered_cord", "quantity": 1 }
       ],
       "routeVictoryLootDelta": [
         { "choice": "ScoutRoute", "loot": [{ "id": "old_gear", "quantity": 1 }] }
@@ -359,7 +365,8 @@
       ],
       "baseVictoryLoot": [
         { "id": "stone", "quantity": 2 },
-        { "id": "wood", "quantity": 1 }
+        { "id": "wood", "quantity": 1 },
+        { "id": "grayiron_slag", "quantity": 1 }
       ],
       "routeVictoryLootDelta": [
         { "choice": "CollapsedSidePath", "loot": [{ "id": "stone", "quantity": -1 }] },
@@ -423,7 +430,7 @@
         { "id": "quarry_hoist_works_archer1", "name": "Watch Archer", "classId": "WatchArcher" },
         { "id": "quarry_hoist_works_archer2", "name": "Watch Archer", "classId": "WatchArcher" }
       ],
-      "baseVictoryLoot": [{ "id": "iron", "quantity": 2 }, { "id": "wood", "quantity": 1 }],
+      "baseVictoryLoot": [{ "id": "iron", "quantity": 2 }, { "id": "wood", "quantity": 1 }, { "id": "quarry_chain_link", "quantity": 1 }],
       "routeVictoryLootDelta": [
         { "choice": "CollapsedSidePath", "loot": [{ "id": "iron", "quantity": -1 }] },
         { "choice": "ScoutRoute", "loot": [{ "id": "combustion_oil", "quantity": 1 }] }
@@ -503,7 +510,7 @@
         { "id": "sunken_path_spider3", "name": "Marsh Poison Spider", "classId": "Wolf" },
         { "id": "sunken_path_spider4", "name": "Marsh Poison Spider", "classId": "Wolf" }
       ],
-      "baseVictoryLoot": [{ "id": "herb", "quantity": 2 }],
+      "baseVictoryLoot": [{ "id": "herb", "quantity": 2 }, { "id": "blackwater_peat", "quantity": 1 }],
       "routeVictoryLootDelta": [
         { "choice": "CollapsedSidePath", "loot": [{ "id": "herb", "quantity": -2 }] },
         { "choice": "ScoutRoute", "loot": [{ "id": "wetland_resin", "quantity": 1 }] }
@@ -595,7 +602,7 @@
         { "id": "resin_grove_viper1", "name": "Marsh Viper", "classId": "Bandit" },
         { "id": "resin_grove_viper2", "name": "Marsh Viper", "classId": "Bandit" }
       ],
-      "baseVictoryLoot": [{ "id": "wetland_resin", "quantity": 2 }, { "id": "poison_material", "quantity": 1 }],
+      "baseVictoryLoot": [{ "id": "wetland_resin", "quantity": 2 }, { "id": "poison_material", "quantity": 1 }, { "id": "marshlight_spore", "quantity": 1 }],
       "routeVictoryLootDelta": [
         { "choice": "CollapsedSidePath", "loot": [{ "id": "wetland_resin", "quantity": 1 }] },
         { "choice": "ScoutRoute", "loot": [{ "id": "quality_herb", "quantity": 1 }] }
@@ -710,7 +717,8 @@
       ],
       "baseVictoryLoot": [
         { "id": "hardwood", "quantity": 2 },
-        { "id": "cloth", "quantity": 1 }
+        { "id": "cloth", "quantity": 1 },
+        { "id": "thunderworn_stone", "quantity": 1 }
       ],
       "routeOutcomes": [
         { "choice": "CollapsedSidePath", "enemiesRemoved": 1 }
@@ -804,7 +812,8 @@
       ],
       "baseVictoryLoot": [
         { "id": "building_material", "quantity": 1 },
-        { "id": "food", "quantity": 1 }
+        { "id": "food", "quantity": 1 },
+        { "id": "hearthbrick", "quantity": 1 }
       ],
       "routeVictoryLootDelta": [
         { "choice": "CollapsedSidePath", "loot": [{ "id": "building_material", "quantity": -1 }] },
@@ -861,7 +870,8 @@
       "baseVictoryLoot": [
         { "id": "building_material", "quantity": 2 },
         { "id": "cloth", "quantity": 1 },
-        { "id": "food", "quantity": 1 }
+        { "id": "food", "quantity": 1 },
+        { "id": "sootdyed_cloth", "quantity": 1 }
       ],
       "routeVictoryLootDelta": [
         { "choice": "CollapsedSidePath", "loot": [{ "id": "food", "quantity": 1 }] }
@@ -971,7 +981,8 @@
       ],
       "baseVictoryLoot": [
         { "id": "heat_resistant_material", "quantity": 2 },
-        { "id": "iron", "quantity": 1 }
+        { "id": "iron", "quantity": 1 },
+        { "id": "ember_shell", "quantity": 1 }
       ],
       "routeVictoryLootDelta": [
         { "choice": "CollapsedSidePath", "loot": [{ "id": "heat_resistant_material", "quantity": -1 }] },
@@ -1240,7 +1251,8 @@
       ],
       "baseVictoryLoot": [
         { "id": "building_material", "quantity": 2 },
-        { "id": "stone", "quantity": 1 }
+        { "id": "stone", "quantity": 1 },
+        { "id": "prayer_wax", "quantity": 1 }
       ],
       "routeOutcomes": [
         { "choice": "CollapsedSidePath", "partyDamage": 2 }
@@ -1275,7 +1287,8 @@
       ],
       "baseVictoryLoot": [
         { "id": "herb", "quantity": 2 },
-        { "id": "building_material", "quantity": 1 }
+        { "id": "building_material", "quantity": 1 },
+        { "id": "censer_ash", "quantity": 1 }
       ],
       "scoutRouteRequiredClass": "DawnChirurgeon",
       "primarySurviveRoundsAlternative": { "id": "sanctum_infirmary_defense", "surviveUntilRound": 3 },
@@ -1384,7 +1397,8 @@
       ],
       "baseVictoryLoot": [
         { "id": "stone", "quantity": 2 },
-        { "id": "quality_iron", "quantity": 1 }
+        { "id": "quality_iron", "quantity": 1 },
+        { "id": "shattered_shield_stud", "quantity": 1 }
       ],
       "routeOutcomes": [
         { "choice": "CollapsedSidePath", "partyDamage": 2 }
@@ -1479,7 +1493,8 @@
       ],
       "baseVictoryLoot": [
         { "id": "stone", "quantity": 1 },
-        { "id": "military_supplies", "quantity": 1 }
+        { "id": "military_supplies", "quantity": 1 },
+        { "id": "signal_fuse", "quantity": 1 }
       ],
       "routeOutcomes": [
         { "choice": "FrontalAdvance" },
@@ -1603,7 +1618,8 @@
       ],
       "baseVictoryLoot": [
         { "id": "rare_material", "quantity": 1 },
-        { "id": "food", "quantity": 1 }
+        { "id": "food", "quantity": 1 },
+        { "id": "border_dust", "quantity": 1 }
       ],
       "routeOutcomes": [
         { "choice": "CollapsedSidePath", "partyDamage": 2 }
@@ -1770,7 +1786,7 @@
         { "id": "mapped_edge_broken_watchtower_pursuer5", "name": "Pursuer", "classId": "Bandit" },
         { "id": "mapped_edge_broken_watchtower_pursuer6", "name": "Pursuer", "classId": "Bandit" }
       ],
-      "baseVictoryLoot": [{ "id": "ruin_fragment", "quantity": 2 }],
+      "baseVictoryLoot": [{ "id": "ruin_fragment", "quantity": 2 }, { "id": "waystone_fragment", "quantity": 1 }],
       "routeOutcomes": [
         { "choice": "FrontalAdvance" },
         { "choice": "CollapsedSidePath" },

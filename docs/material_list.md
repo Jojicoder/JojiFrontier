@@ -52,18 +52,29 @@
 | `signal_core` | 信号装置の中核部品 | 監視所群の信号系地点 | 次地域経路/信号技術 |
 | `frontier_final_key` | 最終キー素材 | 地図外縁の主目的報酬 | 本編最終発展、深層遠征候補 |
 
-## 地域固有素材(試験導入・灰枝の森のみ)
+## 地域固有素材(全10地域、通常素材3種ずつ)
 
 [`material_redesign_proposal.md`](material_redesign_proposal.md)の全面再設計案から、
-灰枝の森1地域分だけ試験的に導入した通常素材(docs/implementation_status.md
-「素材システム全面再設計」#1)。既存の基礎素材(木材/獣皮など)は置き換えず、
-並行して追加している。
+通常素材(基礎素材/レア素材/キー素材のうち「通常」区分)のみを全10地域分導入
+(docs/implementation_status.md「素材システム全面再設計」#1)。既存の基礎素材
+(木材/獣皮など)は置き換えず、各地点の`baseVictoryLoot`(勝利報酬)へ1個ずつ
+並行追加している。レア/キー素材(ボス撃破限定などの上位区分)は未着手。
 
-| ID | 表示名 | 主な入手地域 | 用途メモ |
-|---|---|---|---|
-| `ashbark_strip` | 灰枝樹皮 | 灰枝の林縁(勝利報酬) | 辺境斥候Tier1防具のLv1製作素材 |
-| `graymoss_thread` | 灰苔糸 | 薬草の沢(勝利報酬) | 現状は倉庫のみ、レシピ未接続 |
-| `sootberry` | 煤実 | 折れ木の縄張り(勝利報酬) | 現状は倉庫のみ、レシピ未接続 |
+| 地域 | 素材ID | 入手地点(勝利報酬) |
+|---|---|---|
+| 灰枝の森 | `ashbark_strip`、`graymoss_thread`、`sootberry` | 灰枝の林縁/薬草の沢/折れ木の縄張り |
+| 沈黙した監視所群 | `belliron_chip`(×2)、`weathered_cord`(×2)、`watchglass_shard`(×2) | 6地点全て |
+| 灰鉄採石場 | `grayiron_slag`、`veinstone_powder`、`quarry_chain_link` | 崩落した搬入口/灰鉄鉱脈/巻上機区画 |
+| 黒水低湿地 | `blackwater_peat`、`marshlight_spore`、`rot_reed_fiber` | 灰水の沈み道/樹脂林/黒水渡し |
+| 風裂き高原 | `thunderworn_stone`、`windcleft_feather`、`highland_fleece` | 風見台/(登り口)/(荷馬車道) |
+| 旧辺境集落 | `hearthbrick`、`sootdyed_cloth`、`crest_nail` | 外囲柵/旧穀物庫/共同井戸 |
+| 燼火峡谷 | `ember_shell`、`firetrail_sand`、`kilnbone` | 峡谷入口/(岩棚)/硫黄の窪地 |
+| 埋没聖堂 | `prayer_wax`、`censer_ash`、`scripture_tile` | 埋没参道/療養室/崩れた礼拝堂 |
+| 破砕された前線砦 | `shattered_shield_stud`、`signal_fuse`、`trench_plate` | 外壁/信号広場/旧兵舎 |
+| 地図外縁 | `border_dust`、`waystone_fragment`、`stareater_moss` | 最後の既知地点/壊れた監視塔/(石盆地) |
+
+`ashbark_strip`(辺境斥候Tier1防具)以外は現状レシピ未接続で、倉庫に貯まるのみ。
+レシピへの接続は各地域を代表する装備を選んで今後対応する。
 
 ## 実用品寄りの戦利品
 

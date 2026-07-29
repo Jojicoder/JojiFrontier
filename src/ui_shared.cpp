@@ -548,6 +548,26 @@ std::string materialNameFor(const std::string& id) {
         // before deciding whether to roll the redesign out to the other 9
         // regions.
         "ashbark_strip", "graymoss_thread", "sootberry",
+        // Locale-only rollout of the remaining 9 regions' 3 common-tier
+        // materials each (docs/implementation_status.md「素材システム全面
+        // 再設計」#1続き): registered so the names display correctly
+        // wherever they eventually get wired into a reward table or recipe,
+        // but none of these 27 are actually reachable in-game yet (no
+        // regions.json/Region.cpp reward references exist for them) -
+        // reward-table wiring for these 9 regions is deliberately deferred,
+        // unlike Ashbough Forest's trial slice above (see that section's own
+        // note on why: these 9 regions' reward tables are hand-authored
+        // inline in Region.cpp rather than data-driven, a much larger and
+        // more error-prone surface to touch in one pass).
+        "watchglass_shard", "belliron_chip", "weathered_cord",
+        "grayiron_slag", "veinstone_powder", "quarry_chain_link",
+        "blackwater_peat", "marshlight_spore", "rot_reed_fiber",
+        "windcleft_feather", "highland_fleece", "thunderworn_stone",
+        "hearthbrick", "crest_nail", "sootdyed_cloth",
+        "ember_shell", "firetrail_sand", "kilnbone",
+        "prayer_wax", "scripture_tile", "censer_ash",
+        "shattered_shield_stud", "trench_plate", "signal_fuse",
+        "border_dust", "stareater_moss", "waystone_fragment",
     };
     return known.count(id) ? tr("material." + id) : id;
 }

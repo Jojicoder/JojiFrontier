@@ -380,7 +380,9 @@ StageDescriptor ashironVeinStage() {
     stage.surveyTileObjectDefinitionId = "ashiron_vein_crate_marker";
 
     stage.victoryRewardRules = {
-        {RewardRule::Condition::Always, {}, {{"iron", 2}, {"stone", 1}}},
+        // docs/implementation_status.md「素材システム全面再設計」#1続き:
+        // veinstone_powder added alongside the existing iron/stone.
+        {RewardRule::Condition::Always, {}, {{"iron", 2}, {"stone", 1}, {"veinstone_powder", 1}}},
         // 通常鉱脈ルート: 鉄鉱石+1.
         {RewardRule::Condition::RouteChoice, ExplorationChoice::FrontalAdvance, {{"iron", 1}}},
         // 鉱石箱確保: 高品質鉄材1.
@@ -510,7 +512,9 @@ StageDescriptor blackwaterCrossingStage() {
     // 脱出" bonus below which needs creditedTargetIds.size()>=2, a check
     // RewardRule's Condition enum has no shape for).
     stage.victoryRewardRules = {
-        {RewardRule::Condition::Always, {}, {{"herb", 1}, {"wetland_resin", 1}}},
+        // docs/implementation_status.md「素材システム全面再設計」#1続き:
+        // rot_reed_fiber added alongside the existing herb/wetland_resin.
+        {RewardRule::Condition::Always, {}, {{"herb", 1}, {"wetland_resin", 1}, {"rot_reed_fiber", 1}}},
         {RewardRule::Condition::SurveySuccess, {}, {{"poison_material", 1}}},
     };
 
@@ -665,7 +669,9 @@ StageDescriptor windscarAscentStage() {
 
     // 勝利: 獣皮2、硬木1. 斥候ルート: 織物1.
     stage.victoryRewardRules = {
-        {RewardRule::Condition::Always, {}, {{"hide", 2}, {"hardwood", 1}}},
+        // docs/implementation_status.md「素材システム全面再設計」#1続き:
+        // windcleft_feather added alongside the existing hide/hardwood.
+        {RewardRule::Condition::Always, {}, {{"hide", 2}, {"hardwood", 1}, {"windcleft_feather", 1}}},
         {RewardRule::Condition::RouteChoice, ExplorationChoice::ScoutRoute, {{"cloth", 1}}},
     };
 
@@ -989,7 +995,9 @@ StageDescriptor windscarCartRoadStage() {
     // (computeStageVictoryLoot()が全ルールを合算し結果が正の分だけ残す既存機構、
     // windscarConvoyStage()と同じ)。
     stage.victoryRewardRules = {
-        {RewardRule::Condition::Always, {}, {{"hardwood", 2}, {"hide", 1}, {"riding_gear", 1}}},
+        // docs/implementation_status.md「素材システム全面再設計」#1続き:
+        // highland_fleece added alongside the existing hardwood/hide/riding_gear.
+        {RewardRule::Condition::Always, {}, {{"hardwood", 2}, {"hide", 1}, {"riding_gear", 1}, {"highland_fleece", 1}}},
         {RewardRule::Condition::RouteChoice, ExplorationChoice::CollapsedSidePath, {{"riding_gear", -1}}},
     };
 
@@ -1159,7 +1167,9 @@ StageDescriptor settlementCommonWellStage() {
 
     // 勝利: 食料2、織物1. 井戸優先ルート: 食料+1(RouteChoiceルール)。
     stage.victoryRewardRules = {
-        {RewardRule::Condition::Always, {}, {{"food", 2}, {"cloth", 1}}},
+        // docs/implementation_status.md「素材システム全面再設計」#1続き:
+        // crest_nail added alongside the existing food/cloth.
+        {RewardRule::Condition::Always, {}, {{"food", 2}, {"cloth", 1}, {"crest_nail", 1}}},
         {RewardRule::Condition::RouteChoice, ExplorationChoice::CollapsedSidePath, {{"food", 1}}},
     };
 
@@ -1495,7 +1505,9 @@ StageDescriptor emberRavineLedgeStage() {
 
     // 勝利: 耐熱素材1、硫黄1。ルート2は耐熱素材-1(荷物を置いて進む=先に消費する)。
     stage.victoryRewardRules = {
-        {RewardRule::Condition::Always, {}, {{"heat_resistant_material", 1}, {"sulfur", 1}}},
+        // docs/implementation_status.md「素材システム全面再設計」#1続き:
+        // firetrail_sand added alongside the existing heat_resistant_material/sulfur.
+        {RewardRule::Condition::Always, {}, {{"heat_resistant_material", 1}, {"sulfur", 1}, {"firetrail_sand", 1}}},
         {RewardRule::Condition::RouteChoice, ExplorationChoice::CollapsedSidePath,
          {{"heat_resistant_material", -1}}},
     };
@@ -1594,7 +1606,9 @@ StageDescriptor sulfurHollowStage() {
 
     // 勝利: 硫黄2、耐熱素材1。深部ルート: 硫黄+2。衛生兵ルート: 耐熱素材+1。
     stage.victoryRewardRules = {
-        {RewardRule::Condition::Always, {}, {{"sulfur", 2}, {"heat_resistant_material", 1}}},
+        // docs/implementation_status.md「素材システム全面再設計」#1続き:
+        // kilnbone added alongside the existing sulfur/heat_resistant_material.
+        {RewardRule::Condition::Always, {}, {{"sulfur", 2}, {"heat_resistant_material", 1}, {"kilnbone", 1}}},
         {RewardRule::Condition::RouteChoice, ExplorationChoice::CollapsedSidePath, {{"sulfur", 2}}},
         {RewardRule::Condition::RouteChoice, ExplorationChoice::ScoutRoute, {{"heat_resistant_material", 1}}},
     };
@@ -1741,7 +1755,9 @@ StageDescriptor collapsedNaveStage() {
 
     // 勝利: 薬草2、聖堂器材1。
     stage.victoryRewardRules = {
-        {RewardRule::Condition::Always, {}, {{"herb", 2}, {"sanctum_equipment", 1}}},
+        // docs/implementation_status.md「素材システム全面再設計」#1続き:
+        // scripture_tile added alongside the existing herb/sanctum_equipment.
+        {RewardRule::Condition::Always, {}, {{"herb", 2}, {"sanctum_equipment", 1}, {"scripture_tile", 1}}},
     };
 
     stage.missionNameEn = "Collapsed Nave";
@@ -1886,7 +1902,9 @@ StageDescriptor fortOldBarracksStage() {
 
     // 勝利: 軍需品1、織物2。
     stage.victoryRewardRules = {
-        {RewardRule::Condition::Always, {}, {{"military_supplies", 1}, {"cloth", 2}}},
+        // docs/implementation_status.md「素材システム全面再設計」#1続き:
+        // trench_plate added alongside the existing military_supplies/cloth.
+        {RewardRule::Condition::Always, {}, {{"military_supplies", 1}, {"cloth", 2}, {"trench_plate", 1}}},
     };
 
     // 恒久成果「兵舎救護」(CAMP IIで最も低HPの生存者5回復)はカメラ到着時Unit書換
@@ -2017,7 +2035,9 @@ StageDescriptor mappedEdgeStoneBasinStage() {
     // 主目的報酬: 希少素材2、地域固有素材1(frontier_edge_material -
     // mapped_edge_split_survey_routeで既出、再利用のみ、新規素材登録は無し)。
     stage.victoryRewardRules = {
-        {RewardRule::Condition::Always, {}, {{"rare_material", 2}, {"frontier_edge_material", 1}}},
+        // docs/implementation_status.md「素材システム全面再設計」#1続き:
+        // stareater_moss added alongside the existing rare_material/frontier_edge_material.
+        {RewardRule::Condition::Always, {}, {{"rare_material", 2}, {"frontier_edge_material", 1}, {"stareater_moss", 1}}},
     };
 
     stage.missionNameEn = "Stone Basin";
