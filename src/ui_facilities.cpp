@@ -936,10 +936,17 @@ void drawFacilityDetail(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
             }
         }
     } else {
-        drawText(forgeCraftPage ? tr("ui.forge.crafted_weapons_note")
-                                : facilityRoleFor(facility),
+        // infoPanel is 470 wide starting at x=770; text starts at x=794, so
+        // ~430px is actually available before the panel's own right edge -
+        // neither string was wrapped to that width before, so a long one
+        // (ui.forge.hover_hint in particular) ran past the panel and off the
+        // window edge instead of wrapping inside it.
+        constexpr int kInfoPanelTextWidth = 430;
+        drawText(wrapTextToWidth(forgeCraftPage ? tr("ui.forge.crafted_weapons_note")
+                                                : facilityRoleFor(facility),
+                                 14, kInfoPanelTextWidth),
                  794, 192, 14, kColorTextPrimary);
-        drawText(tr("ui.forge.hover_hint"),
+        drawText(wrapTextToWidth(tr("ui.forge.hover_hint"), 14, kInfoPanelTextWidth),
                  794, 292, 14, kColorTextMuted);
     }
     if (hoveredNode) drawFacilityNodeTooltip(*hoveredNode, base, mouse);
