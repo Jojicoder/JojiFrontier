@@ -31,11 +31,9 @@ inline constexpr const char* kRareMaterialId = "rare_material";
 // 進行的に近い1〜2地域を個別に割り当てる"). Reused across all branch weapons
 // of one class, per the doc's own worked example doing the same thing (its
 // 号令剣/決闘剣/護衛剣 example only varies the Lv1 recipe, not otherA/otherB).
-// otherA = the doc's own MarchCaptain worked example (hide/marsh_resin, from
-// Ashbough Forest / Blackwater Lowlands respectively - the two regions
-// nearest Cinderwatch Gate where March Captain joins). The other 5 classes'
-// picks follow the same "1-2 regions near this class's own join/unlock path"
-// judgment call, documented per-class below.
+// 2026-07 material-economy pass: avoid common "can get it anywhere" staples
+// as recurring Lv gates. Other-region picks now favor higher-risk site rewards
+// and specialist materials rather than wood/iron/hide.
 struct WeaponLevelMaterials {
     std::string otherA; // used at Lv2/Lv3
     std::string otherB; // used at Lv4 (Lv5 always uses kRareMaterialId instead)
@@ -43,59 +41,24 @@ struct WeaponLevelMaterials {
 
 inline const std::unordered_map<UnitClass, WeaponLevelMaterials>& weaponLevelMaterialsByClass() {
     static const std::unordered_map<UnitClass, WeaponLevelMaterials> table = {
-        // MarchCaptain: doc's own worked example verbatim (Ashbough hide,
-        // then Blackwater marsh_resin).
-        {UnitClass::MarchCaptain, {"hide", "marsh_resin"}},
-        // VeteranGuard: Windscar Plateau's tack_material (already used by its
-        // own Patrol Lance Tier3 recipe), then Old Frontier Settlement's cloth.
-        {UnitClass::VeteranGuard, {"tack_material", "cloth"}},
-        // WatchArcher: Blackwater's marsh_resin (already used by its own
-        // Pinning Bow Tier3 recipe), then Ember Ravine's ruin_fragment.
-        {UnitClass::WatchArcher, {"marsh_resin", "ruin_fragment"}},
-        // FrontierScout: Windscar's tack_material (already used by its own
-        // Withdrawal Blade Tier3 recipe), then Blackwater's quality_herb.
-        {UnitClass::FrontierScout, {"tack_material", "quality_herb"}},
-        // Spearman: Ashbough's hide, then Ashiron Quarry's stone (already used
-        // by its own Heavy Spear Tier2 recipe).
-        {UnitClass::Spearman, {"hide", "stone"}},
-        // DawnChirurgeon: Blackwater's quality_herb (already used by its own
-        // Ward Staff Tier2 recipe), then Old Frontier Settlement's cloth.
-        {UnitClass::DawnChirurgeon, {"quality_herb", "cloth"}},
+        {UnitClass::MarchCaptain, {"quality_iron", "military_supplies"}},
+        {UnitClass::VeteranGuard, {"quality_iron", "riding_gear"}},
+        {UnitClass::WatchArcher, {"wetland_resin", "ash_crystal"}},
+        {UnitClass::FrontierScout, {"riding_gear", "wetland_resin"}},
+        {UnitClass::Spearman, {"quality_iron", "heat_resistant_material"}},
+        {UnitClass::DawnChirurgeon, {"quality_herb", "sanctum_equipment"}},
 
         // M10-C: the 6 remaining classes (docs/character_progression.md
         // 「スキル取得地点の完全対応」table gives each class's Tier2/Tier3
         // unlock location, used here as the "own join/unlock region" anchor
         // per the same judgment method M10-A's own 6 picks used).
         //
-        // HeavyInfantry: Ashiron Quarry's stone (its Tier2 unlock 灰鉄鉱脈 is
-        // in this region; stone is already the established Quarry material
-        // used by Spearman's own Heavy Spear Tier3), then Ember Ravine's
-        // ruin_fragment (its Tier3 unlock 破砕外郭 sits at the Quarry/Ember
-        // Ravine collapse boundary).
-        {UnitClass::HeavyInfantry, {"stone", "ruin_fragment"}},
-        // FrontierEngineer: Windscar Plateau's tack_material (its Tier2
-        // unlock 信号塔下層 is Windscar's own signal-tower substructure),
-        // then Old Frontier Settlement's cloth (its Tier3 unlock 兵站庫 is a
-        // Settlement supply depot).
-        {UnitClass::FrontierEngineer, {"tack_material", "cloth"}},
-        // MessengerCavalry: Windscar Plateau's tack_material (its own Tier1
-        // Road Sabre recipe already leans on mount gear; its Tier2 unlock
-        // 風見台 IS Windscar Plateau), then Blackwater's marsh_resin (its
-        // Tier3 unlock 信号庭 sits toward Blackwater).
-        {UnitClass::MessengerCavalry, {"tack_material", "marsh_resin"}},
-        // FrontierRanger: Blackwater's marsh_resin (its Tier2 unlock 樹脂林
-        // IS Blackwater's own resin forest), then Ashiron Quarry's stone
-        // (its Tier3 unlock 石盆地 is a Quarry stone basin).
-        {UnitClass::FrontierRanger, {"marsh_resin", "stone"}},
-        // BannerBearer: Ember Ravine's ruin_fragment (its Tier3 unlock 最後の
-        // 信号 sits in the Ember Ravine late-game reaches), then Blackwater's
-        // quality_herb (its Tier3 unlock 予備壁 is Blackwater-adjacent).
-        {UnitClass::BannerBearer, {"ruin_fragment", "quality_herb"}},
-        // BattleMage: Ashiron Quarry's stone (its Tier2 unlock 灰鉄鉱脈 is
-        // the same Quarry iron vein HeavyInfantry unlocks at), then Old
-        // Frontier Settlement's cloth (its Tier3 unlock 写本庫 is a
-        // Settlement archive/scriptorium).
-        {UnitClass::BattleMage, {"stone", "cloth"}},
+        {UnitClass::HeavyInfantry, {"quality_iron", "ash_crystal"}},
+        {UnitClass::FrontierEngineer, {"combustion_oil", "military_supplies"}},
+        {UnitClass::MessengerCavalry, {"riding_gear", "military_supplies"}},
+        {UnitClass::FrontierRanger, {"poison_material", "wetland_resin"}},
+        {UnitClass::BannerBearer, {"military_supplies", "frontier_edge_material"}},
+        {UnitClass::BattleMage, {"ash_crystal", "sanctum_equipment"}},
     };
     return table;
 }
@@ -140,6 +103,47 @@ inline int weaponLevelRoundedQuantity(double value) {
     return std::max(1, static_cast<int>(value + 0.5));
 }
 
+// Lv strengthening should be gated by specialist site rewards, not by the
+// same staples used for basic crafting. Recipe costs remain readable at Lv1;
+// repeated Lv2〜5 costs promote common materials into rarer equivalents.
+inline std::string equipmentLevelMaterialId(const std::string& materialId, UnitClass unitClass) {
+    if (materialId == "iron") {
+        switch (unitClass) {
+            case UnitClass::FrontierScout:
+            case UnitClass::MessengerCavalry: return "riding_gear";
+            case UnitClass::HeavyInfantry: return "heat_resistant_material";
+            case UnitClass::FrontierEngineer: return "combustion_oil";
+            case UnitClass::BannerBearer: return "military_supplies";
+            case UnitClass::BattleMage: return "ash_crystal";
+            case UnitClass::DawnChirurgeon: return "sanctum_equipment";
+            default: return "quality_iron";
+        }
+    }
+    if (materialId == "wood") {
+        switch (unitClass) {
+            case UnitClass::DawnChirurgeon: return "sanctum_equipment";
+            case UnitClass::FrontierEngineer:
+            case UnitClass::BannerBearer: return "military_supplies";
+            case UnitClass::BattleMage: return "ash_crystal";
+            default: return "hardwood";
+        }
+    }
+    if (materialId == "hide") {
+        switch (unitClass) {
+            case UnitClass::FrontierRanger:
+            case UnitClass::WatchArcher: return "wetland_resin";
+            default: return "riding_gear";
+        }
+    }
+    if (materialId == "herb") {
+        return unitClass == UnitClass::DawnChirurgeon ? "sanctum_equipment" : "quality_herb";
+    }
+    if (materialId == "stone") {
+        return unitClass == UnitClass::BattleMage ? "ash_crystal" : "ruin_fragment";
+    }
+    return materialId;
+}
+
 // docs/deep_layers.md「武器Lv2〜5」table, generalized: the weapon's own Tier1
 // recipe (`craft_<weaponId>` FacilityNode::materialCosts) is Lv1's cost;
 // materialCosts[0] is "primary", materialCosts[1] (if present) is
@@ -156,6 +160,9 @@ inline std::vector<LootStack> weaponLevelUpCost(const std::string& weaponId, int
     if (!recipe || recipe->materialCosts.empty()) return {};
     const LootStack& primary = recipe->materialCosts[0];
     const LootStack* secondary = recipe->materialCosts.size() > 1 ? &recipe->materialCosts[1] : nullptr;
+    const UnitClass unitClass = classIt->second;
+    const std::string primaryLevelMaterial = equipmentLevelMaterialId(primary.id, unitClass);
+    const std::string secondaryLevelMaterial = secondary ? equipmentLevelMaterialId(secondary->id, unitClass) : "";
     const WeaponLevelMaterials& mats = weaponLevelMaterialsByClass().at(classIt->second);
 
     std::vector<LootStack> cost;
@@ -172,21 +179,21 @@ inline std::vector<LootStack> weaponLevelUpCost(const std::string& weaponId, int
 
     switch (targetLevel) {
         case 2:
-            addOrMerge(primary.id, weaponLevelRoundedQuantity(primary.quantity * 1.0));
+            addOrMerge(primaryLevelMaterial, weaponLevelRoundedQuantity(primary.quantity * 1.0));
             addOrMerge(mats.otherA, 1);
             break;
         case 3:
-            addOrMerge(primary.id, weaponLevelRoundedQuantity(primary.quantity * 1.5));
+            addOrMerge(primaryLevelMaterial, weaponLevelRoundedQuantity(primary.quantity * 1.5));
             addOrMerge(mats.otherA, 2);
             break;
         case 4:
-            addOrMerge(primary.id, weaponLevelRoundedQuantity(primary.quantity * 1.5));
-            if (secondary) addOrMerge(secondary->id, weaponLevelRoundedQuantity(secondary->quantity * 1.0));
+            addOrMerge(primaryLevelMaterial, weaponLevelRoundedQuantity(primary.quantity * 1.5));
+            if (secondary) addOrMerge(secondaryLevelMaterial, weaponLevelRoundedQuantity(secondary->quantity * 1.0));
             addOrMerge(mats.otherB, 1);
             break;
         case 5:
-            addOrMerge(primary.id, weaponLevelRoundedQuantity(primary.quantity * 2.0));
-            if (secondary) addOrMerge(secondary->id, weaponLevelRoundedQuantity(secondary->quantity * 1.0));
+            addOrMerge(primaryLevelMaterial, weaponLevelRoundedQuantity(primary.quantity * 2.0));
+            if (secondary) addOrMerge(secondaryLevelMaterial, weaponLevelRoundedQuantity(secondary->quantity * 1.0));
             addOrMerge(kRareMaterialId, 2);
             break;
     }

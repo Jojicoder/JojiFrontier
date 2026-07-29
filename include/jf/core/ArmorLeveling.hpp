@@ -27,14 +27,8 @@ namespace jf {
 
 // Per-class "2nd/3rd/4th-region" materials seasoning armor Lv2〜5 costs
 // (docs/deep_layers.md「防具Lv1〜5」: "Lv2以降すべてに他地域素材を混ぜる...
-// 4種類の地域素材+レア枠"). otherA/otherB reuse the same picks as
-// WeaponLeveling.hpp's weaponLevelMaterialsByClass() for the same 6 classes
-// (docs/deep_layers.md itself notes reusing the weapon Slice's picks is a
-// sensible simplification, since the doc doesn't require the two axes to use
-// different materials); otherC is a 4th material, chosen from that class's
-// own Tier2/3 weapon-branch recipes (already "near" that class's own
-// progression) to keep the "existing material, new combination" discipline
-// M10-A's own table used.
+// 4種類の地域素材+レア枠"). 2026-07 material-economy pass: prefer
+// higher-risk site rewards and specialist materials over ubiquitous staples.
 struct ArmorLevelMaterials {
     std::string otherA; // Lv2/Lv3 (matches weapon's otherA - see comment above)
     std::string otherB; // Lv3/Lv4 (matches weapon's otherB)
@@ -43,54 +37,23 @@ struct ArmorLevelMaterials {
 
 inline const std::unordered_map<UnitClass, ArmorLevelMaterials>& armorLevelMaterialsByClass() {
     static const std::unordered_map<UnitClass, ArmorLevelMaterials> table = {
-        // MarchCaptain: doc's own worked example verbatim (行軍隊長Tier1:
-        // 鉄材2 / 鉄材1,木材1 / 鉄材2,木材1,織物1 / 鉄材2,木材2,織物1,薬草1 /
-        // 鉄材2,木材2,織物1,希少素材2) - wood/cloth/herb.
-        {UnitClass::MarchCaptain, {"wood", "cloth", "herb"}},
-        // VeteranGuard: same otherA/B as its own weapon Lv (tack_material,
-        // cloth - Windscar/Old Frontier Settlement), otherC = hide (its own
-        // Tier1 weapon's own secondary material, Ashbough).
-        {UnitClass::VeteranGuard, {"tack_material", "cloth", "hide"}},
-        // WatchArcher: same otherA/B as its own weapon Lv (marsh_resin,
-        // ruin_fragment - Blackwater/Ember Ravine), otherC = iron (its own
-        // Tier2 weapon war_bow's own primary material).
-        {UnitClass::WatchArcher, {"marsh_resin", "ruin_fragment", "iron"}},
-        // FrontierScout: same otherA/B as its own weapon Lv (tack_material,
-        // quality_herb - Windscar/Blackwater), otherC = hide (its own Tier1
-        // weapon trail_blade's own secondary material, Ashbough).
-        {UnitClass::FrontierScout, {"tack_material", "quality_herb", "hide"}},
-        // Spearman: same otherA/B as its own weapon Lv (hide, stone -
-        // Ashbough/Ashiron Quarry), otherC = wood (its own Tier1 weapon
-        // long_spear's own secondary material).
-        {UnitClass::Spearman, {"hide", "stone", "wood"}},
-        // DawnChirurgeon: same otherA/B as its own weapon Lv (quality_herb,
-        // cloth - Blackwater/Old Frontier Settlement), otherC = herb (its
-        // own Tier1 weapon mercy_staff's own secondary material, Ashbough).
-        {UnitClass::DawnChirurgeon, {"quality_herb", "cloth", "herb"}},
+        {UnitClass::MarchCaptain, {"quality_iron", "military_supplies", "cloth"}},
+        {UnitClass::VeteranGuard, {"quality_iron", "riding_gear", "military_supplies"}},
+        {UnitClass::WatchArcher, {"wetland_resin", "ash_crystal", "hardwood"}},
+        {UnitClass::FrontierScout, {"riding_gear", "wetland_resin", "quality_herb"}},
+        {UnitClass::Spearman, {"quality_iron", "heat_resistant_material", "stone"}},
+        {UnitClass::DawnChirurgeon, {"quality_herb", "sanctum_equipment", "cloth"}},
 
         // M10-C: the remaining 6 classes. otherA/otherB reuse
         // WeaponLeveling.hpp's weaponLevelMaterialsByClass() picks for the
         // same class (same simplification the first 6 used); otherC is a 4th
         // material drawn from that class's own weapon-branch recipes.
-        // HeavyInfantry: otherA/B = stone/ruin_fragment (weapon Lv), otherC =
-        // wood (its own Bulwark/Breaker Maul secondary material).
-        {UnitClass::HeavyInfantry, {"stone", "ruin_fragment", "wood"}},
-        // FrontierEngineer: otherA/B = tack_material/cloth (weapon Lv),
-        // otherC = herb (its own Repair Hammer's sustain-flavor material).
-        {UnitClass::FrontierEngineer, {"tack_material", "cloth", "herb"}},
-        // MessengerCavalry: otherA/B = tack_material/marsh_resin (weapon Lv),
-        // otherC = hide (its own Road/Escort Sabre secondary material).
-        {UnitClass::MessengerCavalry, {"tack_material", "marsh_resin", "hide"}},
-        // FrontierRanger: otherA/B = marsh_resin/stone (weapon Lv), otherC =
-        // iron (its own Quarry/Driving Bow secondary material).
-        {UnitClass::FrontierRanger, {"marsh_resin", "stone", "iron"}},
-        // BannerBearer: otherA/B = ruin_fragment/quality_herb (weapon Lv),
-        // otherC = hide (its own Far/Valor Standard material).
-        {UnitClass::BannerBearer, {"ruin_fragment", "quality_herb", "hide"}},
-        // BattleMage: otherA/B = stone/cloth (weapon Lv), otherC =
-        // ruin_fragment (its own Resonant/War Focus own material, already
-        // its dominant weapon-branch material).
-        {UnitClass::BattleMage, {"stone", "cloth", "ruin_fragment"}},
+        {UnitClass::HeavyInfantry, {"quality_iron", "ash_crystal", "heat_resistant_material"}},
+        {UnitClass::FrontierEngineer, {"combustion_oil", "military_supplies", "quality_iron"}},
+        {UnitClass::MessengerCavalry, {"riding_gear", "military_supplies", "wetland_resin"}},
+        {UnitClass::FrontierRanger, {"poison_material", "wetland_resin", "quality_herb"}},
+        {UnitClass::BannerBearer, {"military_supplies", "frontier_edge_material", "rare_material"}},
+        {UnitClass::BattleMage, {"ash_crystal", "sanctum_equipment", "ruin_fragment"}},
     };
     return table;
 }
@@ -141,6 +104,7 @@ inline std::vector<LootStack> armorLevelUpCost(const std::string& armorId, const
     auto matIt = armorLevelMaterialsByClass().find(armor->unitClass);
     if (matIt == armorLevelMaterialsByClass().end()) return {};
     const ArmorLevelMaterials& mats = matIt->second;
+    const std::string primaryLevelMaterial = equipmentLevelMaterialId(primaryMaterialId, armor->unitClass);
 
     std::vector<LootStack> cost;
     auto addOrMerge = [&](const std::string& id, int quantity) {
@@ -156,22 +120,22 @@ inline std::vector<LootStack> armorLevelUpCost(const std::string& armorId, const
 
     switch (targetLevel) {
         case 2:
-            addOrMerge(primaryMaterialId, armorLevelRoundedQuantity(kArmorTier1LvOneQuantity * 0.5));
+            addOrMerge(primaryLevelMaterial, armorLevelRoundedQuantity(kArmorTier1LvOneQuantity * 0.5));
             addOrMerge(mats.otherA, 1);
             break;
         case 3:
-            addOrMerge(primaryMaterialId, armorLevelRoundedQuantity(kArmorTier1LvOneQuantity * 1.0));
+            addOrMerge(primaryLevelMaterial, armorLevelRoundedQuantity(kArmorTier1LvOneQuantity * 1.0));
             addOrMerge(mats.otherA, 1);
             addOrMerge(mats.otherB, 1);
             break;
         case 4:
-            addOrMerge(primaryMaterialId, armorLevelRoundedQuantity(kArmorTier1LvOneQuantity * 1.0));
+            addOrMerge(primaryLevelMaterial, armorLevelRoundedQuantity(kArmorTier1LvOneQuantity * 1.0));
             addOrMerge(mats.otherA, 2);
             addOrMerge(mats.otherB, 1);
             addOrMerge(mats.otherC, 1);
             break;
         case 5:
-            addOrMerge(primaryMaterialId, armorLevelRoundedQuantity(kArmorTier1LvOneQuantity * 1.0));
+            addOrMerge(primaryLevelMaterial, armorLevelRoundedQuantity(kArmorTier1LvOneQuantity * 1.0));
             addOrMerge(mats.otherA, 2);
             addOrMerge(mats.otherB, 1);
             addOrMerge(kRareMaterialId, 2);

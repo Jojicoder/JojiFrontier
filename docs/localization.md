@@ -113,9 +113,9 @@ data/locales/en.json
 | `cloth` | 織物 | Cloth |
 | `food` | 食料 | Food |
 | `hardwood` | 硬木 | Hardwood |
-| `tack_materials` | 騎具素材 | Tack Materials |
+| `riding_gear` | 騎具素材 | Riding Gear |
 | `poison_material` | 毒素材 | Poison Material |
-| `marsh_resin` | 湿地樹脂 | Marsh Resin |
+| `wetland_resin` | 湿地樹脂 | Wetland Resin |
 | `heat_resistant_material` | 耐熱素材 | Heat-resistant Material |
 | `sulfur` | 硫黄 | Sulfur |
 | `ash_crystal` | 灰晶 | Ash Crystal |

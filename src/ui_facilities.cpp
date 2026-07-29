@@ -747,7 +747,7 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     // "武器、特性、スキルを選ぶと...") is known before deciding what to show there.
     // Drawing order doesn't affect the two cards' on-screen position (they
     // occupy disjoint rectangles), only which data is ready in time.
-    Rectangle equipment{548, 104, 690, 500};
+    Rectangle equipment{548, 104, 690, 666};
     drawCard(equipment, kColorCard, kColorBorderSoft, 0.04f);
     std::optional<EquipmentHover> hover;
     if (classHasWeaponBranchRecipes(unit->classId)) {
@@ -763,7 +763,7 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         drawText(tr("ui.unit_screen.no_alt_equipment"),
                  580, 246, 14, kColorTextMuted);
     }
-    std::optional<EquipmentHover> skillHover = drawSkillEquipmentPanel(app, *unit, 580, 420, 626, mouse, clicked);
+    std::optional<EquipmentHover> skillHover = drawSkillEquipmentPanel(app, *unit, 580, 572, 626, mouse, clicked);
     if (!hover) hover = skillHover;
 
     // docs/character_progression.md「ユニットページ」一覧「比較対象を1人固定できる」:
@@ -781,28 +781,28 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         if (comparisonUnit == app.roster().end()) {
             gBaseScreen.comparisonUnitId.reset();
         } else {
-            Rectangle comparisonCard{42, 620, 1196, 150};
+            Rectangle comparisonCard{42, 620, 470, 150};
             drawCard(comparisonCard, kColorCard, kColorBorderSoft, 0.04f);
             drawSectionHeading(tr("ui.unit_screen.comparison_heading"), 72, 636, 18);
-            drawText(unitDisplayNameFor(comparisonUnit->name) + "  " +
-                         classNameFor(app.gameData(), comparisonUnit->classId),
+            drawText(clipTextToWidth(unitDisplayNameFor(comparisonUnit->name) + "  " +
+                         classNameFor(app.gameData(), comparisonUnit->classId), 18, 400),
                      72, 670, 18, kColorAccentGold);
             const jf::Stats& comparisonStats = app.gameData().classDefinition(comparisonUnit->classId).baseStats;
-            drawText("HP " + std::to_string(stats.maxHp) + " (" + tr("ui.unit_screen.comparison_prefix") +
+            drawText(clipTextToWidth("HP " + std::to_string(stats.maxHp) + " (" + tr("ui.unit_screen.comparison_prefix") +
                          std::to_string(comparisonStats.maxHp) + ")    STR " + std::to_string(stats.strength) +
                          " (" + std::to_string(comparisonStats.strength) + ")    MAG " +
-                         std::to_string(stats.magic) + " (" + std::to_string(comparisonStats.magic) + ")",
+                         std::to_string(stats.magic) + " (" + std::to_string(comparisonStats.magic) + ")", 15, 400),
                      72, 710, 15, kColorTextPrimary);
-            drawText("DEF " + std::to_string(stats.defense) + " (" + std::to_string(comparisonStats.defense) +
+            drawText(clipTextToWidth("DEF " + std::to_string(stats.defense) + " (" + std::to_string(comparisonStats.defense) +
                          ")    RES " + std::to_string(stats.resistance) + " (" +
                          std::to_string(comparisonStats.resistance) + ")    MOV " + std::to_string(stats.move) +
-                         " (" + std::to_string(comparisonStats.move) + ")",
+                         " (" + std::to_string(comparisonStats.move) + ")", 15, 400),
                      72, 742, 15, kColorTextPrimary);
         }
     }
 
     if (hover) {
-        Rectangle diffPanel{42, 620, 1196, 150};
+        Rectangle diffPanel{42, 620, 470, 150};
         drawEquipmentDiffPanel(app, *hover, diffPanel);
     }
 }
@@ -845,6 +845,7 @@ void drawFacilitiesList(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
         if (button(visitRect, "Visit", "訪れる", mouse, clicked)) {
             gBaseScreen.visitedFacility = facility;
             gBaseScreen.forgeCraftClass.reset();
+            gBaseScreen.facilityNodeScroll = 0.0f;
         }
         if (CheckCollisionPointRec(mouse, card) && !CheckCollisionPointRec(mouse, visitRect)) {
             hasHoveredFacility = true;
@@ -882,15 +883,18 @@ void drawFacilityDetail(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
     const int roleLineCount = static_cast<int>(textLines(wrappedRole).size());
     const float headingY = 90.0f + static_cast<float>(roleLineCount) * 22.0f + 20.0f;
     if (forgeCraftPage) {
-        if (button(backRect, tr("ui.forge.back_to_forge"), mouse, clicked)) gBaseScreen.forgeCraftClass.reset();
+        if (button(backRect, tr("ui.forge.back_to_forge"), mouse, clicked)) {
+            gBaseScreen.forgeCraftClass.reset();
+            gBaseScreen.facilityNodeScroll = 0.0f;
+        }
     } else if (button(backRect, tr("ui.facilities.back_to_list"), mouse, clicked)) {
         gBaseScreen.visitedFacility.reset();
+        gBaseScreen.facilityNodeScroll = 0.0f;
     }
 
     drawSectionHeading(forgeCraftPage ? tr("ui.forge.recipes") : tr("ui.forge.upgrades"),
                        42, static_cast<int>(headingY), 18);
-    const jf::FacilityNode* hoveredNode = nullptr;
-    float nodeY = headingY + 42.0f;
+    std::vector<const jf::FacilityNode*> visibleNodes;
     for (const jf::FacilityNode& node : jf::facilityNodeRegistry()) {
         if (node.facility != facility) continue;
         const bool isWeaponRecipe = node.id.rfind("craft_", 0) == 0;
@@ -898,11 +902,49 @@ void drawFacilityDetail(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
             if (forgeCraftPage && (!isWeaponRecipe || node.weaponBranchClass != *gBaseScreen.forgeCraftClass)) continue;
             if (!forgeCraftPage && isWeaponRecipe) continue;
         }
-        Rectangle rowPanel{36.0f, nodeY - 5.0f, 696.0f, 38.0f};
+        visibleNodes.push_back(&node);
+    }
+
+    const jf::FacilityNode* hoveredNode = nullptr;
+    constexpr float kNodeRowStep = 44.0f;
+    constexpr float kNodeRowHeight = 38.0f;
+    const Rectangle nodeViewport{36.0f, headingY + 37.0f, 696.0f,
+                                 static_cast<float>(kScreenHeight) - (headingY + 37.0f) - 24.0f};
+    const int visibleRowCount = std::max(1, static_cast<int>(nodeViewport.height / kNodeRowStep));
+    const int maxFirstRow = std::max(0, static_cast<int>(visibleNodes.size()) - visibleRowCount);
+    if (CheckCollisionPointRec(mouse, nodeViewport)) {
+        gBaseScreen.facilityNodeScroll =
+            std::clamp(gBaseScreen.facilityNodeScroll - GetMouseWheelMove() * 2.0f,
+                       0.0f, static_cast<float>(maxFirstRow));
+    } else {
+        gBaseScreen.facilityNodeScroll =
+            std::clamp(gBaseScreen.facilityNodeScroll, 0.0f, static_cast<float>(maxFirstRow));
+    }
+
+    DrawRectangleRec(nodeViewport, Color{18, 21, 30, 255});
+    const int firstRow = static_cast<int>(gBaseScreen.facilityNodeScroll);
+    const int endRow = std::min(static_cast<int>(visibleNodes.size()), firstRow + visibleRowCount);
+    float nodeY = nodeViewport.y + 5.0f;
+    for (int row = firstRow; row < endRow; ++row) {
+        const jf::FacilityNode& node = *visibleNodes[static_cast<std::size_t>(row)];
+        Rectangle rowPanel{36.0f, nodeY - 5.0f, 696.0f, kNodeRowHeight};
         DrawRectangleRec(rowPanel, Color{25, 30, 42, 255});
         drawFacilityNodeRow(app, node, 48.0f, nodeY, 672.0f, mouse, clicked);
         if (CheckCollisionPointRec(mouse, rowPanel)) hoveredNode = &node;
-        nodeY += 44.0f;
+        nodeY += kNodeRowStep;
+    }
+    if (maxFirstRow > 0) {
+        const float thumbHeight = std::max(34.0f, nodeViewport.height * visibleRowCount /
+                                                    static_cast<float>(visibleNodes.size()));
+        const float thumbTrack = nodeViewport.height - thumbHeight;
+        const float thumbY = nodeViewport.y + thumbTrack * (gBaseScreen.facilityNodeScroll /
+                                                            static_cast<float>(maxFirstRow));
+        DrawRectangleRounded(Rectangle{nodeViewport.x + nodeViewport.width + 8.0f, nodeViewport.y,
+                                       5.0f, nodeViewport.height},
+                             0.5f, 4, Color{38, 43, 55, 180});
+        DrawRectangleRounded(Rectangle{nodeViewport.x + nodeViewport.width + 8.0f, thumbY,
+                                       5.0f, thumbHeight},
+                             0.5f, 4, kColorBorder);
     }
 
     Rectangle infoPanel{770.0f, 128.0f, 470.0f, 510.0f};
@@ -930,7 +972,10 @@ void drawFacilityDetail(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
             // now that weapon branches are generalized) routes through the
             // real crafting panel instead of the "(未実装)" fallback.
             if (classHasWeaponBranchRecipes(craftClasses[index])) {
-                if (button(craftRect, label, mouse, clicked)) gBaseScreen.forgeCraftClass = craftClasses[index];
+                if (button(craftRect, label, mouse, clicked)) {
+                    gBaseScreen.forgeCraftClass = craftClasses[index];
+                    gBaseScreen.facilityNodeScroll = 0.0f;
+                }
             } else {
                 disabledButton(craftRect, label + tr("ui.forge.craft_planned_suffix"));
             }

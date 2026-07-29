@@ -251,6 +251,7 @@ int main() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_HIGHDPI);
     InitWindow(kScreenWidth, kScreenHeight, "JOJIFrontier");
     SetWindowMinSize(960, 600);
+    MaximizeWindow();
     SetTargetFPS(60);
 
     if (!loadLocalesAndFontOrShowError()) {
