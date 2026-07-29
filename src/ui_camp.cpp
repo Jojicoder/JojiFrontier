@@ -45,7 +45,8 @@ void drawCampSummary(jf::GameApp& app) {
         drawText(tr("ui.camp.return_to_secure_loot"),
                  674, 190, 15, kColorTextMuted);
     } else if (app.expedition().regionId == jf::RegionId::AshboughForest) {
-        drawText(app.nextMissionNameJa().value_or("次地点"), 674, 146, 22, kColorTextPrimary);
+        drawText(pick(app.nextMissionNameEn().value_or("Next Site"), app.nextMissionNameJa().value_or("次地点")),
+                 674, 146, 22, kColorTextPrimary);
         drawText(tr("ui.camp.next_site_exploration"),
                  674, 184, 15, kColorTextMuted);
         drawText(tr("ui.camp.carry_over_note"),
@@ -56,7 +57,8 @@ void drawCampSummary(jf::GameApp& app) {
         if (app.scoutNetworkUnlocked()) {
             const auto roster = app.nextSiteEnemyRosterNames();
             if (roster && !roster->empty()) {
-                drawText(tr("ui.deployment.enemy_forces") + " (Scout Network)", 674, 244, 14, kColorAccentGold);
+                drawText(tr("ui.deployment.enemy_forces") + tr("ui.deployment.scout_network_suffix"), 674, 244, 14,
+                         kColorAccentGold);
                 int enemyX = 674;
                 for (const std::string& name : *roster) {
                     std::string label = unitDisplayNameFor(name);

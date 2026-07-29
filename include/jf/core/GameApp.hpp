@@ -134,11 +134,11 @@ public:
     // Requires simple_forge built and the weapon already crafted (its
     // "craft_<weaponId>" node unlocked - a Lv is meaningless for a weapon
     // nobody owns yet); consumes jf::weaponLevelUpCost(weaponId, currentLv+1)
-    // from storage. Only Lv1->5 is reachable in this Slice (Lv6+ needs
-    // deep-layer materials from a future Slice - weaponLevelUpCost() returns
-    // empty past Lv5, so this always fails once currentLv==5) and only the 18
-    // branch weapons in jf::weaponLevelEligibleWeapons() are wired (the other
-    // 6 classes' 15 branches are deferred).
+    // from storage. Only Lv1->5 is reachable so far (Lv6+ needs deep-layer
+    // materials from a future Slice - weaponLevelUpCost() returns empty past
+    // Lv5, so this always fails once currentLv==5). All 12 classes' 3
+    // branch weapons each (36 total) are wired via
+    // jf::weaponLevelEligibleWeapons() as of M10-C.
     bool strengthenWeapon(const std::string& weaponId);
     int weaponLevel(const std::string& weaponId) const { return baseState_.weaponLevel(weaponId); }
 
@@ -161,10 +161,9 @@ public:
 
     // M10-B: strengthens a crafted armor by 1 Lv (armorId -> Lv1..15,
     // jf::BaseState::armorLevels), mirroring strengthenWeapon() exactly.
-    // Only Lv1->5 is reachable in this Slice (Lv6+ needs deep-layer
-    // materials from a future Slice) and only the 18 armor pieces in
-    // jf::armorRegistry() are wired (the other 6 classes' 18 pieces are
-    // deferred).
+    // Only Lv1->5 is reachable so far (Lv6+ needs deep-layer materials from
+    // a future Slice). All 12 classes' 3 armor tiers each (36 total) are
+    // wired via jf::armorRegistry() as of M10-C.
     bool strengthenArmor(const std::string& armorId);
     int armorLevel(const std::string& armorId) const { return baseState_.armorLevel(armorId); }
 
@@ -315,6 +314,7 @@ public:
     std::string currentMissionNameJa() const;
     bool currentSiteContentImplemented() const { return currentStage().contentImplemented; }
     std::optional<std::string> nextMissionNameJa() const;
+    std::optional<std::string> nextMissionNameEn() const;
     // Camp screen decision-support (docs/campaign_balance.md "初見で途中帰還
     // することを失敗扱いにせず、情報と安全路を持ち帰る正規の進行にする"): the
     // next site's enemy roster names, gated the same way as
@@ -334,6 +334,12 @@ public:
 
 private:
     void resetToBase();
+    // Applies baseState_.weaponLevels' might bonuses onto
+    // activeExpeditionData_.weaponsById. Must run every time
+    // activeExpeditionData_ is (re)seeded from data_ for a live expedition -
+    // startExpedition() and applySaveData()'s mid-expedition recovery path
+    // both need it (docs/implementation_status.md「武器/防具Lvレビュー」#1).
+    void applyWeaponLevelBonusesToActiveExpeditionData();
     // Snapshots the current expedition into expeditionCheckpoint_. Only
     // called at the two resumable points (Exploration entry, Camp
     // entry/updates) - never mid-battle or mid-deployment.

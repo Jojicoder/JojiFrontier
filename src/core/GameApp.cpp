@@ -626,6 +626,10 @@ std::optional<std::string> GameApp::nextMissionNameJa() const {
     return computeNextMissionNameJa(expedition_, data_);
 }
 
+std::optional<std::string> GameApp::nextMissionNameEn() const {
+    return computeNextMissionNameEn(expedition_, data_);
+}
+
 std::optional<std::vector<std::string>> GameApp::nextSiteEnemyRosterNames() const {
     return computeNextSiteEnemyRosterNames(expedition_, data_, expeditionPartyUnits_);
 }
@@ -728,19 +732,26 @@ std::vector<GameApp::RegionSummary> GameApp::regionSummaries() const {
     return computeRegionSummaries(data_, baseState_);
 }
 
-bool GameApp::startExpedition(RegionId regionId) {
-    if (screen_ != Screen::Base || selectedPartyIds_.size() != 4 || !isRegionUnlocked(regionId)) return false;
-    activeExpeditionData_ = data_;
-    // M10-A (docs/deep_layers.md「1Lvあたりの数値」: "武器はLvごとに攻撃力
-    // +1"): applied once here (rather than per-instantiateUnit call) since
-    // every player-side Unit for this expedition is built from
-    // activeExpeditionData_.weaponsById (base weapon lookup and weaponOverrides_
-    // resolution both go through it) - a single mutation up front covers the
-    // whole run, including continuation battles that reuse expeditionPartyUnits_.
+// M10-A (docs/deep_layers.md「1Lvあたりの数値」: "武器はLvごとに攻撃力+1"):
+// applied once, right after activeExpeditionData_ is (re)seeded from data_,
+// since every player-side Unit for the run is built from
+// activeExpeditionData_.weaponsById (base weapon lookup and weaponOverrides_
+// resolution both go through it) - a single mutation up front covers the
+// whole run, including continuation battles that reuse expeditionPartyUnits_.
+// Shared by startExpedition() and applySaveData()'s mid-expedition recovery
+// path - the latter used to skip this entirely, silently dropping weapon Lv
+// bonuses back to Lv1-equivalent might on Load/Import/crash-recovery.
+void GameApp::applyWeaponLevelBonusesToActiveExpeditionData() {
     for (const auto& [weaponId, level] : baseState_.weaponLevels) {
         auto weaponIt = activeExpeditionData_.weaponsById.find(weaponId);
         if (weaponIt != activeExpeditionData_.weaponsById.end()) weaponIt->second.might += (level - 1);
     }
+}
+
+bool GameApp::startExpedition(RegionId regionId) {
+    if (screen_ != Screen::Base || selectedPartyIds_.size() != 4 || !isRegionUnlocked(regionId)) return false;
+    activeExpeditionData_ = data_;
+    applyWeaponLevelBonusesToActiveExpeditionData();
     activeExpeditionData_.playerParty.clear();
     for (const std::string& id : selectedPartyIds_) {
         auto it = std::find_if(roster_.begin(), roster_.end(), [&](const auto& unit) { return unit.id == id; });
@@ -1443,6 +1454,7 @@ bool GameApp::applySaveData(const SaveData& save) {
 
     if (save.expedition && save.expedition->partyUnits.size() <= 4) {
         activeExpeditionData_ = data_;
+        applyWeaponLevelBonusesToActiveExpeditionData();
         activeExpeditionData_.playerParty.clear();
         for (const std::string& id : selectedPartyIds_) {
             auto unit = std::find_if(roster_.begin(), roster_.end(), [&](const auto& candidate) { return candidate.id == id; });

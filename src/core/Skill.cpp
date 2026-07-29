@@ -181,12 +181,13 @@ std::string requiredTrainingNodeIdFor(UnitClass unitClass) {
         case UnitClass::RedbackLizard:
         case UnitClass::FrontierBeast:
             return "";
-        // docs/skill_system.md「希少技術」に対応する訓練所ノードはまだ存在しない
-        // (docs/class_reference.mdの通り、戦闘魔導士は訓練所だけで一般解放せず、
-        // 名前付き人物の加入イベントと魔法Discoveryを必要とするため) - 新ノード
-        // 追加はM7項目2(加入経路)側のスコープとし、今回はBandit等と同じ空文字列。
+        // docs/implementation_status.md「装備スキル解放レビュー」#3: previously
+        // returned "" like the enemy-only classes below, which made
+        // equipSkillForUnit() reject Battle Mage unconditionally - the class
+        // could never equip a skill at all. Now uses its own "magic_training"
+        // node (Facilities.hpp), same shape as the other 3 branches.
         case UnitClass::BattleMage:
-            return "";
+            return "magic_training";
     }
     return "";
 }

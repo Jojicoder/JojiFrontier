@@ -15,6 +15,7 @@
 namespace jfui {
 
 bool gSettingsOpen = false;
+bool gSettingsResetConfirm = false;
 
 // docs/inventory_overflow.md「倉庫整理画面」discard-confirmation target.
 // Purely local to this overlay's own two draw functions below.
@@ -111,10 +112,18 @@ void drawWarehouseDiscardConfirm(jf::GameApp& app, Vector2 mouse, bool clicked, 
 // lambda and the running `y` cursor so they stay together in one function.
 // No behavior change.
 void drawWarehouseItemLists(jf::GameApp& app, Vector2 mouse, bool clicked, const Rectangle& panel, float& y) {
+    const float footerTop = panel.y + panel.height - 66.0f;
+    bool clipped = false;
     auto drawRow = [&](const std::string& name, int quantity, WarehouseDiscardTarget target) {
-        drawText(name + "  x" + std::to_string(quantity), static_cast<int>(panel.x + 26), static_cast<int>(y) + 6, 14,
-                 kColorTextPrimary);
+        if (y + 32.0f > footerTop) {
+            clipped = true;
+            return;
+        }
         Rectangle discardBtn{panel.x + panel.width - 26 - 110, y, 110, 32};
+        const int nameWidth = static_cast<int>(discardBtn.x - (panel.x + 26) - 18.0f);
+        drawText(clipTextToWidth(name + "  x" + std::to_string(quantity), 14, nameWidth),
+                 static_cast<int>(panel.x + 26), static_cast<int>(y) + 6, 14,
+                 kColorTextPrimary);
         target.displayName = name;
         if (button(discardBtn, tr("ui.button.discard"), mouse, clicked)) gWarehouseDiscardConfirm = target;
         y += 38.0f;
@@ -138,52 +147,60 @@ void drawWarehouseItemLists(jf::GameApp& app, Vector2 mouse, bool clicked, const
         y += 26.0f;
     }
 
-    y += 12.0f;
-    drawText(tr("ui.warehouse.consumables_section"), static_cast<int>(panel.x + 26), static_cast<int>(y), 16,
-             kColorAccentGold);
-    y += 26.0f;
-    bool anyItems = false;
-    for (const jf::ItemDefinition& item : jf::kItemCatalog) {
-        const int owned = app.baseState().ownedItemCount(item.type);
-        if (owned <= 0) continue;
-        anyItems = true;
-        WarehouseDiscardTarget target;
-        target.kind = WarehouseDiscardKind::Item;
-        target.itemType = item.type;
-        target.quantity = owned;
-        drawRow(itemFullNameFor(item.type), owned, target);
-    }
-    if (!anyItems) {
-        drawText(tr("ui.warehouse.empty"), static_cast<int>(panel.x + 26), static_cast<int>(y), 13, kColorTextMuted);
+    if (!clipped) {
+        y += 12.0f;
+        drawText(tr("ui.warehouse.consumables_section"), static_cast<int>(panel.x + 26), static_cast<int>(y), 16,
+                 kColorAccentGold);
         y += 26.0f;
+        bool anyItems = false;
+        for (const jf::ItemDefinition& item : jf::kItemCatalog) {
+            const int owned = app.baseState().ownedItemCount(item.type);
+            if (owned <= 0) continue;
+            anyItems = true;
+            WarehouseDiscardTarget target;
+            target.kind = WarehouseDiscardKind::Item;
+            target.itemType = item.type;
+            target.quantity = owned;
+            drawRow(itemFullNameFor(item.type), owned, target);
+        }
+        if (!anyItems) {
+            drawText(tr("ui.warehouse.empty"), static_cast<int>(panel.x + 26), static_cast<int>(y), 13, kColorTextMuted);
+            y += 26.0f;
+        }
     }
 
-    y += 12.0f;
-    drawText(tr("ui.warehouse.pending_section"), static_cast<int>(panel.x + 26), static_cast<int>(y), 16,
-             kColorAccentGold);
-    y += 26.0f;
-    const auto& overflowStacks = app.rewardOverflow().stacks;
-    if (overflowStacks.empty()) {
-        drawText(tr("ui.warehouse.empty"), static_cast<int>(panel.x + 26), static_cast<int>(y), 13, kColorTextMuted);
+    if (!clipped) {
+        y += 12.0f;
+        drawText(tr("ui.warehouse.pending_section"), static_cast<int>(panel.x + 26), static_cast<int>(y), 16,
+                 kColorAccentGold);
         y += 26.0f;
-    }
-    for (std::size_t i = 0; i < overflowStacks.size(); ++i) {
-        const jf::OverflowStack& stack = overflowStacks[i];
-        // "item:<int>" prefix (see OverflowStack::itemId's doc comment in
-        // BaseState.hpp) distinguishes a consumable overflow entry from a
-        // material one sharing the same display path.
-        std::string name;
-        if (stack.itemId.rfind("item:", 0) == 0) {
-            const int rawType = std::stoi(stack.itemId.substr(5));
-            name = itemFullNameFor(static_cast<jf::ItemType>(rawType));
-        } else {
-            name = materialNameFor(stack.itemId);
+        const auto& overflowStacks = app.rewardOverflow().stacks;
+        if (overflowStacks.empty()) {
+            drawText(tr("ui.warehouse.empty"), static_cast<int>(panel.x + 26), static_cast<int>(y), 13, kColorTextMuted);
+            y += 26.0f;
         }
-        WarehouseDiscardTarget target;
-        target.kind = WarehouseDiscardKind::Overflow;
-        target.overflowIndex = i;
-        target.quantity = stack.quantity;
-        drawRow(name, stack.quantity, target);
+        for (std::size_t i = 0; i < overflowStacks.size(); ++i) {
+            const jf::OverflowStack& stack = overflowStacks[i];
+            // "item:<int>" prefix (see OverflowStack::itemId's doc comment in
+            // BaseState.hpp) distinguishes a consumable overflow entry from a
+            // material one sharing the same display path.
+            std::string name;
+            if (stack.itemId.rfind("item:", 0) == 0) {
+                const int rawType = std::stoi(stack.itemId.substr(5));
+                name = itemFullNameFor(static_cast<jf::ItemType>(rawType));
+            } else {
+                name = materialNameFor(stack.itemId);
+            }
+            WarehouseDiscardTarget target;
+            target.kind = WarehouseDiscardKind::Overflow;
+            target.overflowIndex = i;
+            target.quantity = stack.quantity;
+            drawRow(name, stack.quantity, target);
+        }
+    }
+    if (clipped) {
+        drawText("...", static_cast<int>(panel.x + 26), static_cast<int>(footerTop - 20.0f), 13, kColorTextFaint);
+        y = footerTop;
     }
 }
 
@@ -350,6 +367,42 @@ void drawSettingsSaveDataSection(jf::GameApp& app, Vector2 mouse, bool clicked, 
     }
 }
 
+// The start-over row. Full reset requires being at Base (mirrors Import's
+// restriction) so we never tear down an in-progress battle/expedition.
+// Resetting reconstructs GameApp from scratch (same GameData, fresh state)
+// and quarantines - never deletes - the on-disk save, matching the recovery
+// screen's "Start New" safety pattern (docs/save_system.md).
+void drawSettingsResetSection(jf::GameApp& app, Vector2 mouse, bool clicked, const Rectangle& panel) {
+    drawText(tr("ui.settings.reset_section"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 578),
+             15, kColorTextMuted);
+    const bool canReset = app.screen() == jf::Screen::Base;
+    if (gSettingsResetConfirm) {
+        drawText(wrapTextToWidth(tr("ui.settings.reset_confirm"), 12, 328), static_cast<int>(panel.x + 26),
+                 static_cast<int>(panel.y + 608), 12, Color{225, 120, 120, 255});
+        Rectangle confirmBtn{panel.x + 26, panel.y + 668, 150, 44};
+        Rectangle cancelBtn{panel.x + 26 + 150 + 16, panel.y + 668, 150, 44};
+        if (button(confirmBtn, tr("ui.button.confirm"), mouse, clicked)) {
+            app = jf::GameApp(app.gameData());
+            if (gSaveStore) gSaveStore->quarantineCorruptSave();
+            gAutoSaveEnabled = true;
+            gSettingsResetConfirm = false;
+            gSettingsOpen = false;
+        }
+        if (button(cancelBtn, tr("ui.button.cancel"), mouse, clicked)) gSettingsResetConfirm = false;
+        return;
+    }
+    Rectangle resetBtn{panel.x + 26, panel.y + 608, 328, 46};
+    if (canReset) {
+        if (button(resetBtn, tr("ui.settings.reset_save"), mouse, clicked)) gSettingsResetConfirm = true;
+        drawText(tr("ui.settings.reset_note"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 658),
+                 12, kColorTextFaint);
+    } else {
+        disabledButton(resetBtn, tr("ui.settings.reset_save"));
+        drawText(tr("ui.settings.reset_base_only"), static_cast<int>(panel.x + 26),
+                 static_cast<int>(panel.y + 658), 12, kColorTextFaint);
+    }
+}
+
 // Small always-on-top corner button + modal for switching the display
 // language. Purely a rendering/UI concern (see the Language enum above),
 // so it lives entirely in this file and never touches GameApp/BattleState.
@@ -364,8 +417,8 @@ void drawSettingsOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
 
     DrawRectangle(0, 0, kScreenWidth, kScreenHeight, Color{0, 0, 0, 150});
 
-    Rectangle panel{static_cast<float>(kScreenWidth) / 2.0f - 190.0f, static_cast<float>(kScreenHeight) / 2.0f - 320.0f,
-                    380.0f, 640.0f};
+    Rectangle panel{static_cast<float>(kScreenWidth) / 2.0f - 190.0f, static_cast<float>(kScreenHeight) / 2.0f - 380.0f,
+                    380.0f, 760.0f};
     drawCard(panel, kColorCard, withAlpha(kColorAccentGold, 230), 0.1f);
 
     drawText(tr("ui.settings.title"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 22), 24,
@@ -375,8 +428,9 @@ void drawSettingsOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
     drawSettingsWindowSection(mouse, clicked, panel);
     drawSettingsExpeditionSection(app, mouse, clicked, panel);
     drawSettingsSaveDataSection(app, mouse, clicked, panel);
+    drawSettingsResetSection(app, mouse, clicked, panel);
 
-    Rectangle closeBtn{panel.x + 26, panel.y + 580, 328, 40};
+    Rectangle closeBtn{panel.x + 26, panel.y + 700, 328, 40};
     if (button(closeBtn, tr("ui.button.close"), mouse, clicked)) gSettingsOpen = false;
 }
 

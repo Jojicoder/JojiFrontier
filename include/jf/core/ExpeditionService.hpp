@@ -35,6 +35,7 @@ StageDescriptor computeCurrentStage(const ExpeditionState& expedition, const Gam
 bool computeExpeditionComplete(const ExpeditionState& expedition, const GameData& data);
 
 std::optional<std::string> computeNextMissionNameJa(const ExpeditionState& expedition, const GameData& data);
+std::optional<std::string> computeNextMissionNameEn(const ExpeditionState& expedition, const GameData& data);
 
 std::optional<std::vector<std::string>> computeNextSiteEnemyRosterNames(const ExpeditionState& expedition,
                                                                          const GameData& data,

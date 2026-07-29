@@ -64,6 +64,8 @@ struct BaseScreenState {
     std::optional<jf::FacilityId> visitedFacility;
     std::optional<jf::UnitClass> forgeCraftClass;
     std::optional<std::string> viewedUnitId;
+    float regionListScroll = 0.0f;
+    float facilityNodeScroll = 0.0f;
     // docs/character_progression.md「ユニットページ」一覧: "比較対象を1人固定できる" -
     // a transient view aid, not Saved (comparison target resets on Load/relaunch).
     std::optional<std::string> comparisonUnitId;

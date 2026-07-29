@@ -73,7 +73,8 @@ void drawExplorationScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     // Command Post "Scout Network" node effect: reveal what's waiting ahead
     // regardless of which route gets picked.
     if (app.scoutNetworkUnlocked()) {
-        drawText(tr("ui.deployment.enemy_forces") + " (Scout Network)", 42, 168, 16, kColorAccentGold);
+        drawText(tr("ui.deployment.enemy_forces") + tr("ui.deployment.scout_network_suffix"), 42, 168, 16,
+                 kColorAccentGold);
         int enemyX = 42;
         for (const jf::Unit& enemy : app.explorationEnemyPreview()) {
             drawText(unitDisplayNameFor(enemy.name), enemyX, 192, 15, kColorTextMuted);

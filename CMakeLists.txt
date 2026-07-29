@@ -117,6 +117,9 @@ if(BUILD_TESTING)
 
     add_executable(jf_class_duel tools/class_duel.cpp)
     target_link_libraries(jf_class_duel PRIVATE jf_lib)
+
+    add_executable(jf_gen_full_unlock_save tools/gen_full_unlock_save.cpp)
+    target_link_libraries(jf_gen_full_unlock_save PRIVATE jf_lib)
 endif()
 
 if(APPLE AND NOT EMSCRIPTEN)

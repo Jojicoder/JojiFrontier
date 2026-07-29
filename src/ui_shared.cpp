@@ -523,6 +523,11 @@ std::string unitDisplayNameFor(const std::string& englishName) {
         // `heavy_recruitment`: 重装兵の加入候補・加入後の表示名(Frontier提案、
         // World Bible未登録)。
         {"Hadric", "character.hadric"},
+        {"Irien", "character.irien"},
+        {"Kael", "character.kael"},
+        {"Lessa", "character.lessa"},
+        {"Oren", "character.oren"},
+        {"Vayla", "character.vayla"},
     };
     auto it = table.find(englishName);
     return it != table.end() ? tr(it->second) : englishName;
@@ -575,6 +580,7 @@ std::string weaponNameFor(const std::string& weaponId, const std::string& englis
         "snare_bow", "quarry_bow", "driving_bow",
         "far_standard", "valor_standard", "warding_standard",
         "resonant_focus", "war_focus", "ember_focus",
+        "heavy_axe", "sanctum_glaive",
     };
     return known.count(weaponId) ? tr("weapon." + weaponId) : englishName;
 }

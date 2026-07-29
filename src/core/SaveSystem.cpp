@@ -423,10 +423,21 @@ std::optional<SaveData> deserializeSave(const std::string& jsonText, std::string
         if (base.contains("builtNodes")) save.base.constructedFacilityIds = base["builtNodes"].get<std::unordered_set<std::string>>();
         if (base.contains("siteAccess")) save.base.siteAccess = siteAccessMapFromJson(base["siteAccess"]);
         if (base.contains("itemStorage")) save.base.itemStorage = itemStorageFromJson(base["itemStorage"]);
-        if (base.contains("weaponLevels"))
-            save.base.weaponLevels = base["weaponLevels"].get<std::unordered_map<std::string, int>>();
-        if (base.contains("armorLevels"))
-            save.base.armorLevels = base["armorLevels"].get<std::unordered_map<std::string, int>>();
+        // docs/implementation_status.md「武器/防具Lvレビュー」#2: a corrupt/
+        // hand-edited/foreign save could carry a 0, negative, or absurdly
+        // large Lv - weaponLevel()'s (level - 1) feeds directly into weapon
+        // might, so an out-of-range value must never reach BaseState as-is.
+        // Clamped to the valid range rather than rejecting the whole save,
+        // matching how other individually-invalid entries elsewhere in this
+        // function (e.g. the loot stack check just above) are handled.
+        if (base.contains("weaponLevels")) {
+            for (auto& [id, level] : base["weaponLevels"].get<std::unordered_map<std::string, int>>())
+                save.base.weaponLevels[id] = std::clamp(level, 1, BaseState::kMaxWeaponLevel);
+        }
+        if (base.contains("armorLevels")) {
+            for (auto& [id, level] : base["armorLevels"].get<std::unordered_map<std::string, int>>())
+                save.base.armorLevels[id] = std::clamp(level, 1, BaseState::kMaxArmorLevel);
+        }
         if (base.contains("rewardOverflow")) save.base.rewardOverflow = rewardOverflowFromJson(base["rewardOverflow"]);
         if (base.contains("joinReadyCandidateIds"))
             save.base.joinReadyCandidateIds = base["joinReadyCandidateIds"].get<std::unordered_set<std::string>>();

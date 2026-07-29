@@ -18,6 +18,7 @@ namespace jfui {
 // event loop and autosave tick, so it stays extern rather than moving
 // entirely into ui_overlays.cpp.
 extern bool gSettingsOpen;
+extern bool gSettingsResetConfirm;
 extern std::optional<jf::SaveStore> gSaveStore;
 extern bool gAutoSaveEnabled;
 

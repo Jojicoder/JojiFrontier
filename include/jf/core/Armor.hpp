@@ -78,8 +78,12 @@ inline int armorResBonusAtLevel(const ArmorDefinition& armor, int level) {
 // docs/deep_layers.md「兵種専用3防具」: the 18 armor pieces for the 6 initial
 // classes (docs/character_progression.md「初期6兵種の武器レシピ」's own 6
 // classes), 3 tiers each. Base DEF/RES: Tier1 balanced (1/1), Tier2 DEF-
-// specialized (2/0, "引き換えにRES低め"), Tier3 same balanced shape as Tier1
-// (see ArmorTier::Tier3's own comment on the deferred passive).
+// specialized (2/0, "引き換えにRES低め"), Tier3 RES-leaning (1/2 -
+// docs/implementation_status.md「防具設定レビュー」#2: Tier1/Tier3 originally
+// shared identical (1/1) base stats, making them indistinguishable to the
+// player at a glance; Tier3 now reads as the deliberate RES-leaning pick
+// while still carrying the deferred status-resistance passive - see
+// ArmorTier::Tier3's own comment on that gap).
 inline const std::vector<ArmorDefinition>& armorRegistry() {
     static const std::vector<ArmorDefinition> armors = {
         {"armor_march_captain_tier1", "March Captain Guard", "行軍隊長の護具", UnitClass::MarchCaptain,
@@ -87,86 +91,87 @@ inline const std::vector<ArmorDefinition>& armorRegistry() {
         {"armor_march_captain_tier2", "March Captain Plate", "行軍隊長の重甲", UnitClass::MarchCaptain,
          ArmorTier::Tier2, 2, 0},
         {"armor_march_captain_tier3", "March Captain Ward", "行軍隊長の守甲", UnitClass::MarchCaptain,
-         ArmorTier::Tier3, 1, 1},
+         ArmorTier::Tier3, 1, 2},
 
         {"armor_veteran_guard_tier1", "Veteran Guard Mail", "古参守備兵の帷子", UnitClass::VeteranGuard,
          ArmorTier::Tier1, 1, 1},
         {"armor_veteran_guard_tier2", "Veteran Guard Bastion Plate", "古参守備兵の防塁甲", UnitClass::VeteranGuard,
          ArmorTier::Tier2, 2, 0},
         {"armor_veteran_guard_tier3", "Veteran Guard Sentinel Ward", "古参守備兵の哨戒守甲", UnitClass::VeteranGuard,
-         ArmorTier::Tier3, 1, 1},
+         ArmorTier::Tier3, 1, 2},
 
         {"armor_watch_archer_tier1", "Watch Archer Vest", "監視弓兵の胴衣", UnitClass::WatchArcher,
          ArmorTier::Tier1, 1, 1},
         {"armor_watch_archer_tier2", "Watch Archer Brigandine", "監視弓兵の鎖胴衣", UnitClass::WatchArcher,
          ArmorTier::Tier2, 2, 0},
         {"armor_watch_archer_tier3", "Watch Archer Marsh Ward", "監視弓兵の湿地守衣", UnitClass::WatchArcher,
-         ArmorTier::Tier3, 1, 1},
+         ArmorTier::Tier3, 1, 2},
 
         {"armor_frontier_scout_tier1", "Frontier Scout Wrap", "辺境斥候の巻き衣", UnitClass::FrontierScout,
          ArmorTier::Tier1, 1, 1},
         {"armor_frontier_scout_tier2", "Frontier Scout Hardleather", "辺境斥候の硬革衣", UnitClass::FrontierScout,
          ArmorTier::Tier2, 2, 0},
         {"armor_frontier_scout_tier3", "Frontier Scout Trailward", "辺境斥候の道守衣", UnitClass::FrontierScout,
-         ArmorTier::Tier3, 1, 1},
+         ArmorTier::Tier3, 1, 2},
 
         {"armor_spearman_tier1", "Spearman Cuirass", "槍兵の胸甲", UnitClass::Spearman, ArmorTier::Tier1, 1, 1},
         {"armor_spearman_tier2", "Spearman Bulwark Plate", "槍兵の防壁甲", UnitClass::Spearman, ArmorTier::Tier2,
          2, 0},
         {"armor_spearman_tier3", "Spearman Wall Ward", "槍兵の防壁守甲", UnitClass::Spearman, ArmorTier::Tier3,
-         1, 1},
+         1, 2},
 
         {"armor_dawn_chirurgeon_tier1", "Dawn Chirurgeon Robe", "暁の衛生兵の外衣", UnitClass::DawnChirurgeon,
          ArmorTier::Tier1, 1, 1},
         {"armor_dawn_chirurgeon_tier2", "Dawn Chirurgeon Padded Robe", "暁の衛生兵の綿入り外衣",
          UnitClass::DawnChirurgeon, ArmorTier::Tier2, 2, 0},
         {"armor_dawn_chirurgeon_tier3", "Dawn Chirurgeon Sanctum Ward", "暁の衛生兵の聖堂守衣",
-         UnitClass::DawnChirurgeon, ArmorTier::Tier3, 1, 1},
+         UnitClass::DawnChirurgeon, ArmorTier::Tier3, 1, 2},
 
         // M10-C: the remaining 6 classes' 18 armor pieces (same 3-tier
-        // pattern, base DEF/RES unchanged from the first 6: Tier1/3 (1,1),
-        // Tier2 (2,0)). Completes the full 36-of-36 armor registry.
+        // pattern, base DEF/RES unchanged from the first 6: Tier1 (1,1),
+        // Tier2 (2,0), Tier3 (1,2)). Completes the full 36-of-36 armor
+        // registry.
         {"armor_heavy_infantry_tier1", "Heavy Infantry Guard", "重装兵の護具", UnitClass::HeavyInfantry,
          ArmorTier::Tier1, 1, 1},
         {"armor_heavy_infantry_tier2", "Heavy Infantry Plate", "重装兵の重甲", UnitClass::HeavyInfantry,
          ArmorTier::Tier2, 2, 0},
         {"armor_heavy_infantry_tier3", "Heavy Infantry Ward", "重装兵の守甲", UnitClass::HeavyInfantry,
-         ArmorTier::Tier3, 1, 1},
+         ArmorTier::Tier3, 1, 2},
 
         {"armor_frontier_engineer_tier1", "Frontier Engineer Vest", "辺境工兵の作業衣", UnitClass::FrontierEngineer,
          ArmorTier::Tier1, 1, 1},
         {"armor_frontier_engineer_tier2", "Frontier Engineer Hardplate", "辺境工兵の硬甲",
          UnitClass::FrontierEngineer, ArmorTier::Tier2, 2, 0},
         {"armor_frontier_engineer_tier3", "Frontier Engineer Ward", "辺境工兵の守衣", UnitClass::FrontierEngineer,
-         ArmorTier::Tier3, 1, 1},
+         ArmorTier::Tier3, 1, 2},
 
         {"armor_messenger_cavalry_tier1", "Messenger Cavalry Coat", "伝令騎兵の外套", UnitClass::MessengerCavalry,
          ArmorTier::Tier1, 1, 1},
         {"armor_messenger_cavalry_tier2", "Messenger Cavalry Barding", "伝令騎兵の馬鎧", UnitClass::MessengerCavalry,
          ArmorTier::Tier2, 2, 0},
         {"armor_messenger_cavalry_tier3", "Messenger Cavalry Ward", "伝令騎兵の守衣", UnitClass::MessengerCavalry,
-         ArmorTier::Tier3, 1, 1},
+         ArmorTier::Tier3, 1, 2},
 
         {"armor_frontier_ranger_tier1", "Frontier Ranger Wrap", "辺境猟兵の巻き衣", UnitClass::FrontierRanger,
          ArmorTier::Tier1, 1, 1},
         {"armor_frontier_ranger_tier2", "Frontier Ranger Hardleather", "辺境猟兵の硬革衣", UnitClass::FrontierRanger,
          ArmorTier::Tier2, 2, 0},
         {"armor_frontier_ranger_tier3", "Frontier Ranger Ward", "辺境猟兵の守衣", UnitClass::FrontierRanger,
-         ArmorTier::Tier3, 1, 1},
+         ArmorTier::Tier3, 1, 2},
 
         {"armor_banner_bearer_tier1", "Banner Bearer Vest", "旗手の胴衣", UnitClass::BannerBearer,
          ArmorTier::Tier1, 1, 1},
         {"armor_banner_bearer_tier2", "Banner Bearer Bastion Plate", "旗手の防塁甲", UnitClass::BannerBearer,
          ArmorTier::Tier2, 2, 0},
         {"armor_banner_bearer_tier3", "Banner Bearer Ward", "旗手の守衣", UnitClass::BannerBearer,
-         ArmorTier::Tier3, 1, 1},
+         ArmorTier::Tier3, 1, 2},
 
         {"armor_battle_mage_tier1", "Battle Mage Robe", "戦闘魔導士の外衣", UnitClass::BattleMage,
          ArmorTier::Tier1, 1, 1},
         {"armor_battle_mage_tier2", "Battle Mage Plated Robe", "戦闘魔導士の重衣", UnitClass::BattleMage,
          ArmorTier::Tier2, 2, 0},
         {"armor_battle_mage_tier3", "Battle Mage Sanctum Ward", "戦闘魔導士の聖堂守衣", UnitClass::BattleMage,
-         ArmorTier::Tier3, 1, 1},
+         ArmorTier::Tier3, 1, 2},
     };
     return armors;
 }

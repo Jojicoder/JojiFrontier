@@ -29,10 +29,10 @@ enum class SkillUsageType {
 
 // One equippable skill's metadata (docs/skill_system.md's per-class tables).
 // This is descriptive data only, mirroring FacilityNode's effectEn/effectJa
-// convention - it does not attach any executable battle effect. Only the 6
-// shipped classes' skills are registered; the doc's "後半6兵種" classes
-// (Heavy Guard, Engineer, Courier, Ranger, Standard-Bearer, Battle Mage)
-// have no UnitClass value yet, so their skills aren't representable here.
+// convention - it does not attach any executable battle effect. All 12
+// playable classes have their skills registered (skillRegistry()); the
+// UnitClass gap the original comment here described was closed in a later
+// Slice.
 struct SkillDefinition {
     std::string id;
     UnitClass unitClass{};

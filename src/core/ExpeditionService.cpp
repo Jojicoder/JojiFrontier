@@ -33,12 +33,19 @@ bool computeExpeditionComplete(const ExpeditionState& expedition, const GameData
     return node == nullptr;
 }
 
-std::optional<std::string> computeNextMissionNameJa(const ExpeditionState& expedition, const GameData& data) {
+namespace {
+// Shared by computeNextMissionNameJa/En below - both need the same "next
+// Site stage" lookup, differing only in which of StageDescriptor's two name
+// fields they read. Returns both names by value (regionDescriptor()'s own
+// RegionDescriptor is local to this function and would dangle if a pointer
+// into it escaped).
+std::optional<std::pair<std::string, std::string>> nextMissionStageNames(const ExpeditionState& expedition,
+                                                                         const GameData& data) {
+    RegionDescriptor region = regionDescriptor(expedition.regionId, data);
     if (!expedition.routeProgress) {
-        RegionDescriptor region = regionDescriptor(expedition.regionId, data);
         std::size_t next = static_cast<std::size_t>(expedition.stageIndex + 1);
-        if (next < region.stages.size()) return region.stages[next].missionNameJa;
-        return std::nullopt;
+        if (next >= region.stages.size()) return std::nullopt;
+        return std::make_pair(region.stages[next].missionNameEn, region.stages[next].missionNameJa);
     }
     const RegionRouteGraph& graph = regionRouteGraph(expedition.regionId);
     const RouteNodeDefinition* node = nextRouteNode(graph, expedition.routeProgress->currentNodeId);
@@ -47,8 +54,19 @@ std::optional<std::string> computeNextMissionNameJa(const ExpeditionState& exped
         node = nextRouteNode(graph, node->id);
     }
     if (!node || !node->stageId) return std::nullopt;
-    for (const StageDescriptor& stage : regionDescriptor(expedition.regionId, data).stages)
-        if (stage.id == *node->stageId) return stage.missionNameJa;
+    for (const StageDescriptor& stage : region.stages)
+        if (stage.id == *node->stageId) return std::make_pair(stage.missionNameEn, stage.missionNameJa);
+    return std::nullopt;
+}
+} // namespace
+
+std::optional<std::string> computeNextMissionNameJa(const ExpeditionState& expedition, const GameData& data) {
+    if (auto names = nextMissionStageNames(expedition, data)) return names->second;
+    return std::nullopt;
+}
+
+std::optional<std::string> computeNextMissionNameEn(const ExpeditionState& expedition, const GameData& data) {
+    if (auto names = nextMissionStageNames(expedition, data)) return names->first;
     return std::nullopt;
 }
 

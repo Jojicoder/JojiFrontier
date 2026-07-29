@@ -1052,6 +1052,8 @@ int main() {
         fresh.discoveryRegistry.insert(jf::kCinderwatchReconDiscovery);
         assert(!jf::facilityNodeEligible(fresh, *scoutNode)); // still missing material
         fresh.addStorage("watch_ledger", 1);
+        fresh.addStorage("wood", 2);
+        fresh.addStorage("iron", 1);
         assert(jf::facilityNodeEligible(fresh, *scoutNode));
     }
 
@@ -1090,19 +1092,26 @@ int main() {
         // top-up specifically to keep this total intact - last_signal, still
         // a placeholder, carries the rest) bank exactly enough for
         // all 4 optional facilities (docs/base_development.md "初期4施設の
-        // 確定表"): wood:10, hide:5, herb:2.
+        // 確定表"): wood:10, hide:5, herb:2. Facility research itself is
+        // now intentionally heavier, so this block adds a research reserve
+        // below rather than treating the expedition haul as enough for
+        // every branch node too.
         assert(app.baseState().storageCount("wood") == 10);
         assert(app.baseState().storageCount("hide") == 5);
         assert(app.baseState().discoveryRegistry.count(jf::kHerbThicketDiscovery) == 1);
+        jf::BaseState& facilityBase = const_cast<jf::BaseState&>(app.baseState());
+        facilityBase.addStorage("wood", 10);
+        facilityBase.addStorage("hide", 5);
+        facilityBase.addStorage("herb", 2);
+        facilityBase.addStorage("iron", 3);
+        facilityBase.addStorage("quality_iron", 2);
 
         assert(!app.baseState().unlockedNodeIds.count("training_field"));
         assert(app.unlockFacilityNode("training_field")); // wood:3 + hide:2
         assert(app.baseState().unlockedNodeIds.count("training_field") == 1);
         assert(app.baseState().constructedFacilityIds.count("training_field") == 1);
-        assert(app.baseState().storageCount("wood") == 7);
-        assert(app.baseState().storageCount("hide") == 3);
 
-        assert(app.unlockFacilityNode("vanguard_training")); // branch: no cost, just needs the facility built
+        assert(app.unlockFacilityNode("vanguard_training"));
         assert(app.baseState().unlockedNodeIds.count("vanguard_training") == 1);
 
         // The other 3 optional facilities build in parallel - no slot cap to
@@ -1112,7 +1121,7 @@ int main() {
         assert(app.unlockFacilityNode("field_infirmary")); // wood:2 + herb:2, needs herb-thicket discovery
         assert(app.baseState().constructedFacilityIds.size() == 4);
 
-        assert(app.unlockFacilityNode("weapon_forging")); // branch, no cost
+        assert(app.unlockFacilityNode("weapon_forging"));
         assert(jf::facilityNodeEligible(app.baseState(), *jf::findFacilityNode("craft_heavy_spear")));
         assert(app.unlockFacilityNode("craft_heavy_spear"));
 
@@ -1882,35 +1891,32 @@ int main() {
         testBase.unlockedNodeIds.insert("craft_command_sword");
         assert(app.weaponLevel("command_sword") == 1); // still Lv1: crafted, not yet strengthened
 
-        // Lv2 cost (docs/deep_layers.md worked example): iron x2, hide x1.
+        // Lv2 cost: promoted primary quality_iron x2 + class special quality_iron x1.
         assert(!app.strengthenWeapon("command_sword")); // no materials yet
-        testBase.addStorage("iron", 2);
-        testBase.addStorage("hide", 1);
+        testBase.addStorage("quality_iron", 3);
         assert(app.strengthenWeapon("command_sword"));
         assert(app.weaponLevel("command_sword") == 2);
-        assert(testBase.storageCount("iron") == 0);
-        assert(testBase.storageCount("hide") == 0);
+        assert(testBase.storageCount("quality_iron") == 0);
 
-        // Lv3: iron x3, hide x2.
-        testBase.addStorage("iron", 3);
-        testBase.addStorage("hide", 1); // deliberately short by 1
+        // Lv3: quality_iron x5.
+        testBase.addStorage("quality_iron", 4); // deliberately short by 1
         assert(!app.strengthenWeapon("command_sword"));
         assert(app.weaponLevel("command_sword") == 2); // unchanged, nothing partially spent
-        assert(testBase.storageCount("iron") == 3); // untouched
-        testBase.addStorage("hide", 1);
+        assert(testBase.storageCount("quality_iron") == 4); // untouched
+        testBase.addStorage("quality_iron", 1);
         assert(app.strengthenWeapon("command_sword"));
         assert(app.weaponLevel("command_sword") == 3);
 
-        // Lv4: iron x3, wood x1, marsh_resin x1.
-        testBase.addStorage("iron", 3);
-        testBase.addStorage("wood", 1);
-        testBase.addStorage("marsh_resin", 1);
+        // Lv4: quality_iron x3, hardwood x1, military_supplies x1.
+        testBase.addStorage("quality_iron", 3);
+        testBase.addStorage("hardwood", 1);
+        testBase.addStorage("military_supplies", 1);
         assert(app.strengthenWeapon("command_sword"));
         assert(app.weaponLevel("command_sword") == 4);
 
-        // Lv5: iron x4, wood x1, rare_material x2.
-        testBase.addStorage("iron", 4);
-        testBase.addStorage("wood", 1);
+        // Lv5: quality_iron x4, hardwood x1, rare_material x2.
+        testBase.addStorage("quality_iron", 4);
+        testBase.addStorage("hardwood", 1);
         testBase.addStorage("rare_material", 2);
         assert(app.strengthenWeapon("command_sword"));
         assert(app.weaponLevel("command_sword") == 5);
@@ -1952,15 +1958,15 @@ int main() {
         testBase.unlockedNodeIds.insert("heavy_infantry_forging");
         testBase.unlockedNodeIds.insert("craft_bulwark_maul");
 
-        // Lv1 recipe: iron x2, wood x1. Lv2 cost: iron x2 (x1.0), stone x1
-        // (otherA).
+        // Lv1 recipe: iron x2, wood x1. Heavy Infantry promotes iron to
+        // heat_resistant_material, then adds class special quality_iron.
         assert(!app.strengthenWeapon("bulwark_maul")); // no materials yet
-        testBase.addStorage("iron", 2);
-        testBase.addStorage("stone", 1);
+        testBase.addStorage("heat_resistant_material", 2);
+        testBase.addStorage("quality_iron", 1);
         assert(app.strengthenWeapon("bulwark_maul"));
         assert(app.weaponLevel("bulwark_maul") == 2);
-        assert(testBase.storageCount("iron") == 0);
-        assert(testBase.storageCount("stone") == 0);
+        assert(testBase.storageCount("heat_resistant_material") == 0);
+        assert(testBase.storageCount("quality_iron") == 0);
     }
 
     {
@@ -2090,37 +2096,33 @@ int main() {
         testBase.unlockedNodeIds.insert("craft_armor_march_captain_tier1");
         assert(app.armorLevel("armor_march_captain_tier1") == 1); // crafted, not yet strengthened
 
-        // Lv2 cost: iron x1 (primary x0.5, rounded), wood x1 (otherA).
+        // Lv2 cost: promoted quality_iron x2.
         assert(!app.strengthenArmor("armor_march_captain_tier1")); // no materials yet
-        testBase.addStorage("iron", 1);
-        testBase.addStorage("wood", 1);
+        testBase.addStorage("quality_iron", 2);
         assert(app.strengthenArmor("armor_march_captain_tier1"));
         assert(app.armorLevel("armor_march_captain_tier1") == 2);
-        assert(testBase.storageCount("iron") == 0);
-        assert(testBase.storageCount("wood") == 0);
+        assert(testBase.storageCount("quality_iron") == 0);
 
-        // Lv3: iron x2, wood x1, cloth x1.
-        testBase.addStorage("iron", 2);
-        testBase.addStorage("wood", 1); // deliberately short by 1 cloth
+        // Lv3: quality_iron x3, military_supplies x1.
+        testBase.addStorage("quality_iron", 3);
+        // Deliberately short by 1 military_supplies.
         assert(!app.strengthenArmor("armor_march_captain_tier1"));
         assert(app.armorLevel("armor_march_captain_tier1") == 2); // unchanged, nothing partially spent
-        assert(testBase.storageCount("iron") == 2); // untouched
-        testBase.addStorage("cloth", 1);
+        assert(testBase.storageCount("quality_iron") == 3); // untouched
+        testBase.addStorage("military_supplies", 1);
         assert(app.strengthenArmor("armor_march_captain_tier1"));
         assert(app.armorLevel("armor_march_captain_tier1") == 3);
 
-        // Lv4: iron x2, wood x2, cloth x1, herb x1.
-        testBase.addStorage("iron", 2);
-        testBase.addStorage("wood", 2);
+        // Lv4: quality_iron x4, military_supplies x1, cloth x1.
+        testBase.addStorage("quality_iron", 4);
+        testBase.addStorage("military_supplies", 1);
         testBase.addStorage("cloth", 1);
-        testBase.addStorage("herb", 1);
         assert(app.strengthenArmor("armor_march_captain_tier1"));
         assert(app.armorLevel("armor_march_captain_tier1") == 4);
 
-        // Lv5: iron x2, wood x2, cloth x1, rare_material x2.
-        testBase.addStorage("iron", 2);
-        testBase.addStorage("wood", 2);
-        testBase.addStorage("cloth", 1);
+        // Lv5: quality_iron x4, military_supplies x1, rare_material x2.
+        testBase.addStorage("quality_iron", 4);
+        testBase.addStorage("military_supplies", 1);
         testBase.addStorage("rare_material", 2);
         assert(app.strengthenArmor("armor_march_captain_tier1"));
         assert(app.armorLevel("armor_march_captain_tier1") == 5);
@@ -2191,15 +2193,15 @@ int main() {
         testBase.constructedFacilityIds.insert("simple_forge");
         testBase.unlockedNodeIds.insert("craft_armor_battle_mage_tier2");
 
-        // Lv1 recipe: ruin_fragment x2. Lv2 cost: ruin_fragment x1 (primary
-        // x0.5, rounded), stone x1 (otherA).
+        // Lv1 recipe: ruin_fragment x2. Lv2 cost: ruin_fragment x1,
+        // ash_crystal x1.
         assert(!app.strengthenArmor("armor_battle_mage_tier2")); // no materials yet
         testBase.addStorage("ruin_fragment", 1);
-        testBase.addStorage("stone", 1);
+        testBase.addStorage("ash_crystal", 1);
         assert(app.strengthenArmor("armor_battle_mage_tier2"));
         assert(app.armorLevel("armor_battle_mage_tier2") == 2);
         assert(testBase.storageCount("ruin_fragment") == 0);
-        assert(testBase.storageCount("stone") == 0);
+        assert(testBase.storageCount("ash_crystal") == 0);
 
         assert(app.equipArmorForUnit("player0", "armor_battle_mage_tier2"));
         const jf::ArmorDefinition* armor = jf::findArmorDefinition("armor_battle_mage_tier2");
@@ -4443,7 +4445,7 @@ int main() {
 
     {
         // docs/class_reference.md「後半6兵種」/M7項目1: 戦闘魔導士(BattleMage)の
-        // Class/武器データ整合性。希少な名前付き加入クラスのため通常訓練ゲート無し。
+        // Class/武器データ整合性。
         jf::GameData data = makeFactoryData();
         const jf::ClassDefinition& def = data.classDefinition(jf::UnitClass::BattleMage);
         assert(def.baseStats.maxHp == 16 && def.baseStats.strength == 1 && def.baseStats.magic == 9 &&
@@ -4455,7 +4457,12 @@ int main() {
               weapon.damageType == jf::DamageType::Magical);
         assert(jf::unitClassFromString("BattleMage") == jf::UnitClass::BattleMage);
         assert(jf::skillsForClass(jf::UnitClass::BattleMage).size() == 3);
-        assert(jf::requiredTrainingNodeIdFor(jf::UnitClass::BattleMage) == "");
+        // docs/implementation_status.md「装備スキル解放レビュー」#3: previously
+        // asserted "" here (no training gate at all), which meant
+        // equipSkillForUnit() rejected Battle Mage unconditionally - the
+        // class could never equip a skill. Now gated by its own
+        // "magic_training" node, same as the other 3 training branches.
+        assert(jf::requiredTrainingNodeIdFor(jf::UnitClass::BattleMage) == "magic_training");
     }
 
     {

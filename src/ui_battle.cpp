@@ -552,7 +552,6 @@ void drawPhaseBanner(const jf::BattleController& controller) {
     DrawLine(0, 40, kScreenWidth, 40, withAlpha(BLACK, 130));
     int w = textWidth(label, 22);
     drawText(label, (kScreenWidth - w) / 2, 8, 22, kColorTextPrimary);
-    drawText("JOJIFrontier - Battle Prototype", 12, 44, 18, kColorTextFaint);
 }
 
 float easeInOutCubic(float t) {
