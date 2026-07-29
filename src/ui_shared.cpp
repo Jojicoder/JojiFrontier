@@ -542,6 +542,12 @@ std::string materialNameFor(const std::string& id) {
         "building_material", "food", "heat_resistant_material", "sulfur", "ash_crystal",
         "sanctum_equipment", "ruin_fragment", "military_supplies", "rare_material",
         "frontier_edge_material", "frontier_final_key",
+        // docs/material_redesign_proposal.md「1. 灰枝の森」trial slice
+        // (docs/implementation_status.md「素材システム全面再設計」#1): the
+        // region's first 3 common-tier materials, added as a proof-of-concept
+        // before deciding whether to roll the redesign out to the other 9
+        // regions.
+        "ashbark_strip", "graymoss_thread", "sootberry",
     };
     return known.count(id) ? tr("material." + id) : id;
 }
@@ -580,7 +586,7 @@ std::string weaponNameFor(const std::string& weaponId, const std::string& englis
         "snare_bow", "quarry_bow", "driving_bow",
         "far_standard", "valor_standard", "warding_standard",
         "resonant_focus", "war_focus", "ember_focus",
-        "heavy_axe", "sanctum_glaive",
+        "heavy_axe", "sanctum_glaive", "serpent_fangs",
     };
     return known.count(weaponId) ? tr("weapon." + weaponId) : englishName;
 }
@@ -672,6 +678,21 @@ std::string cooperationNameFor(const std::string& id) {
     return id;
 }
 
+// docs/implementation_status.md「連携作戦UIの情報不足」#2: CooperationDefinition
+// itself carries no effect/description text (see Cooperation.hpp), so the
+// equip slot only ever showed a bare name with no way to tell what a pair
+// actually does before selecting it. Effect text sourced verbatim from
+// docs/character_progression.md「連携作戦」's own table.
+std::string cooperationDescriptionFor(const std::string& id) {
+    if (id.empty()) return "";
+    if (id == "paired_fallback_line") return tr("ui.cooperation.paired_fallback_line_effect");
+    if (id == "paired_signal_ward") return tr("ui.cooperation.paired_signal_ward_effect");
+    if (id == "paired_field_recovery") return tr("ui.cooperation.paired_field_recovery_effect");
+    if (id == "paired_braced_breakthrough") return tr("ui.cooperation.paired_braced_breakthrough_effect");
+    if (id == "paired_rapid_works") return tr("ui.cooperation.paired_rapid_works_effect");
+    return "";
+}
+
 bool button(Rectangle rect, const std::string& labelEn, const std::string& labelJa, Vector2 mouse,
             bool mousePressed) {
     bool hovered = CheckCollisionPointRec(mouse, rect);
@@ -750,6 +771,37 @@ void drawTooltipBox(Vector2 mouse, const std::vector<TooltipLine>& lines) {
         drawText(line.text, static_cast<int>(x + kPadding), static_cast<int>(ty), line.fontSize, line.color);
         ty += textLineHeight(line.fontSize);
     }
+}
+
+std::string skillCategoryNameFor(jf::SkillCategory category) {
+    switch (category) {
+        case jf::SkillCategory::Active: return tr("skill.category.active");
+        case jf::SkillCategory::Passive: return tr("skill.category.passive");
+        case jf::SkillCategory::Reactive: return tr("skill.category.reactive");
+    }
+    return "";
+}
+
+std::string skillUsageNameFor(jf::SkillUsageType usage) {
+    switch (usage) {
+        case jf::SkillUsageType::PerTurn: return tr("skill.usage.per_turn");
+        case jf::SkillUsageType::OncePerBattle: return tr("skill.usage.once_per_battle");
+        case jf::SkillUsageType::Cooldown2: return tr("skill.usage.cooldown2");
+        case jf::SkillUsageType::OncePerPhase: return tr("skill.usage.once_per_phase");
+        case jf::SkillUsageType::Always: return tr("skill.usage.always");
+    }
+    return "";
+}
+
+std::vector<TooltipLine> skillTooltipLines(const jf::SkillDefinition& def, bool available,
+                                           const std::string& reasonEn, const std::string& reasonJa) {
+    std::vector<TooltipLine> lines;
+    lines.push_back({pick(def.nameEn, def.nameJa), kColorAccentGold, 16});
+    lines.push_back({skillCategoryNameFor(def.category) + "  /  " + skillUsageNameFor(def.usageType),
+                     Color{170, 180, 195, 255}, 12});
+    lines.push_back({pick(def.effectEn, def.effectJa), kColorTextPrimary, 13});
+    if (!available) lines.push_back({pick(reasonEn, reasonJa), Color{225, 120, 120, 255}, 12});
+    return lines;
 }
 
 // Small gold accent bar preceding a section heading, matching the same

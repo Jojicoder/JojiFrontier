@@ -434,8 +434,8 @@ inline const std::vector<FacilityNode>& facilityNodeRegistry() {
          "汎用防具: Lv1でDEF/RES各+1。", UnitClass::VeteranGuard},
         {"craft_armor_veteran_guard_tier2", FacilityId::Forge, "Craft: Veteran Guard Bastion Plate",
          "製作: 古参守備兵の防塁甲", OutpostStage::Encampment, {"quarry_brace_records"}, {{"iron", 2}},
-         {"simple_forge"}, false, "DEF-specialized armor: DEF +2 at Lv1, no RES.",
-         "DEF特化防具: Lv1でDEF+2、RESは付与しない。", UnitClass::VeteranGuard},
+         {"simple_forge"}, false, "DEF-specialized armor: DEF +3 at Lv1, no RES.",
+         "DEF特化防具: Lv1でDEF+3、RESは付与しない。", UnitClass::VeteranGuard},
         {"craft_armor_veteran_guard_tier3", FacilityId::Forge, "Craft: Veteran Guard Sentinel Ward",
          "製作: 古参守備兵の哨戒守甲", OutpostStage::Encampment, {"plateau_patrol_records"}, {{"riding_gear", 2}},
          {"simple_forge"}, false, "Balanced armor: DEF/RES +1 each at Lv1.",
@@ -454,8 +454,15 @@ inline const std::vector<FacilityNode>& facilityNodeRegistry() {
          {"simple_forge"}, false, "Balanced armor: DEF/RES +1 each at Lv1.",
          "汎用防具: Lv1でDEF/RES各+1。", UnitClass::WatchArcher},
 
+        // docs/material_redesign_proposal.md「1. 灰枝の森」trial slice: a
+        // "wrap" garment crafted from `iron` was an odd material/flavor
+        // mismatch (same issue as the Battle Mage/Dawn Chirurgeon robes
+        // fixed earlier under「防具設定レビュー」#4) - switched to
+        // `ashbark_strip`, the region's own new common-tier material,
+        // fitting for a light forest-scout wrap and gated by this same
+        // Ashbough-Forest-only Discovery.
         {"craft_armor_frontier_scout_tier1", FacilityId::Forge, "Craft: Frontier Scout Wrap", "製作: 辺境斥候の巻き衣",
-         OutpostStage::Encampment, {"ashbough_forest_survey_complete"}, {{"iron", 2}}, {"simple_forge"}, false,
+         OutpostStage::Encampment, {"ashbough_forest_survey_complete"}, {{"ashbark_strip", 2}}, {"simple_forge"}, false,
          "Balanced armor: DEF/RES +1 each at Lv1.",
          "汎用防具: Lv1でDEF/RES各+1。", UnitClass::FrontierScout},
         {"craft_armor_frontier_scout_tier2", FacilityId::Forge, "Craft: Frontier Scout Hardleather",
@@ -473,15 +480,19 @@ inline const std::vector<FacilityNode>& facilityNodeRegistry() {
          "汎用防具: Lv1でDEF/RES各+1。", UnitClass::Spearman},
         {"craft_armor_spearman_tier2", FacilityId::Forge, "Craft: Spearman Bulwark Plate", "製作: 槍兵の防壁甲",
          OutpostStage::Encampment, {"quarry_impact_records"}, {{"iron", 2}}, {"simple_forge"}, false,
-         "DEF-specialized armor: DEF +2 at Lv1, no RES.",
-         "DEF特化防具: Lv1でDEF+2、RESは付与しない。", UnitClass::Spearman},
+         "DEF-specialized armor: DEF +3 at Lv1, no RES.",
+         "DEF特化防具: Lv1でDEF+3、RESは付与しない。", UnitClass::Spearman},
         {"craft_armor_spearman_tier3", FacilityId::Forge, "Craft: Spearman Wall Ward", "製作: 槍兵の防壁守甲",
          OutpostStage::Encampment, {"collective_defense_records"}, {{"iron", 2}}, {"simple_forge"}, false,
          "Balanced armor: DEF/RES +1 each at Lv1.",
          "汎用防具: Lv1でDEF/RES各+1。", UnitClass::Spearman},
 
+        // docs/implementation_status.md「防具設定レビュー」#4: a cloth robe
+        // crafted from `wood` read as an odd material/flavor mismatch;
+        // switched to `cloth` (this recipe's own material also becomes
+        // armorLevelUpCost()'s primaryMaterialId for this armor's Lv2-5).
         {"craft_armor_dawn_chirurgeon_tier1", FacilityId::Forge, "Craft: Dawn Chirurgeon Robe",
-         "製作: 暁の衛生兵の外衣", OutpostStage::Encampment, {kHerbThicketDiscovery}, {{"wood", 2}},
+         "製作: 暁の衛生兵の外衣", OutpostStage::Encampment, {kHerbThicketDiscovery}, {{"cloth", 2}},
          {"simple_forge"}, false, "Balanced armor: DEF/RES +1 each at Lv1.",
          "汎用防具: Lv1でDEF/RES各+1。", UnitClass::DawnChirurgeon},
         {"craft_armor_dawn_chirurgeon_tier2", FacilityId::Forge, "Craft: Dawn Chirurgeon Padded Robe",
@@ -490,8 +501,8 @@ inline const std::vector<FacilityNode>& facilityNodeRegistry() {
          "DEF特化防具: Lv1でDEF+2、RESは付与しない。", UnitClass::DawnChirurgeon},
         {"craft_armor_dawn_chirurgeon_tier3", FacilityId::Forge, "Craft: Dawn Chirurgeon Sanctum Ward",
          "製作: 暁の衛生兵の聖堂守衣", OutpostStage::Encampment, {"sanctum_field_medicine"}, {{"hardwood", 2}},
-         {"simple_forge"}, false, "Balanced armor: DEF/RES +1 each at Lv1.",
-         "汎用防具: Lv1でDEF/RES各+1。", UnitClass::DawnChirurgeon},
+         {"simple_forge"}, false, "RES-leaning armor: DEF +1, RES +3 at Lv1.",
+         "RES寄り防具: Lv1でDEF+1、RES+3。", UnitClass::DawnChirurgeon},
 
         // M10-C: armor Tier1〜3 craft recipes for the remaining 6 classes,
         // same pattern as the 18 above (requiredStage pinned to Encampment,
@@ -506,8 +517,8 @@ inline const std::vector<FacilityNode>& facilityNodeRegistry() {
          "汎用防具: Lv1でDEF/RES各+1。", UnitClass::HeavyInfantry},
         {"craft_armor_heavy_infantry_tier2", FacilityId::Forge, "Craft: Heavy Infantry Plate", "製作: 重装兵の重甲",
          OutpostStage::Encampment, {"demolition_forging"}, {{"iron", 2}}, {"simple_forge"}, false,
-         "DEF-specialized armor: DEF +2 at Lv1, no RES.",
-         "DEF特化防具: Lv1でDEF+2、RESは付与しない。", UnitClass::HeavyInfantry},
+         "DEF-specialized armor: DEF +3 at Lv1, no RES.",
+         "DEF特化防具: Lv1でDEF+3、RESは付与しない。", UnitClass::HeavyInfantry},
         {"craft_armor_heavy_infantry_tier3", FacilityId::Forge, "Craft: Heavy Infantry Ward", "製作: 重装兵の守甲",
          OutpostStage::Encampment, {"impact_balance_record"}, {{"hide", 2}}, {"simple_forge"}, false,
          "Balanced armor: DEF/RES +1 each at Lv1.",
@@ -562,11 +573,15 @@ inline const std::vector<FacilityNode>& facilityNodeRegistry() {
          "DEF特化防具: Lv1でDEF+2、RESは付与しない。", UnitClass::BannerBearer},
         {"craft_armor_banner_bearer_tier3", FacilityId::Forge, "Craft: Banner Bearer Ward", "製作: 旗手の守衣",
          OutpostStage::Encampment, {"protective_banner_rite"}, {{"herb", 2}}, {"simple_forge"}, false,
-         "Balanced armor: DEF/RES +1 each at Lv1.",
-         "汎用防具: Lv1でDEF/RES各+1。", UnitClass::BannerBearer},
+         "RES-leaning armor: DEF +1, RES +3 at Lv1.",
+         "RES寄り防具: Lv1でDEF+1、RES+3。", UnitClass::BannerBearer},
 
+        // docs/implementation_status.md「防具設定レビュー」#4: a mage robe
+        // crafted from `iron` read as an odd material/flavor mismatch;
+        // switched to `cloth`, same reasoning as Dawn Chirurgeon's Tier1
+        // above.
         {"craft_armor_battle_mage_tier1", FacilityId::Forge, "Craft: Battle Mage Robe", "製作: 戦闘魔導士の外衣",
-         OutpostStage::Encampment, {"arcane_resonance_record"}, {{"iron", 2}}, {"simple_forge"}, false,
+         OutpostStage::Encampment, {"arcane_resonance_record"}, {{"cloth", 2}}, {"simple_forge"}, false,
          "Balanced armor: DEF/RES +1 each at Lv1.",
          "汎用防具: Lv1でDEF/RES各+1。", UnitClass::BattleMage},
         {"craft_armor_battle_mage_tier2", FacilityId::Forge, "Craft: Battle Mage Plated Robe",
@@ -575,8 +590,8 @@ inline const std::vector<FacilityNode>& facilityNodeRegistry() {
          "DEF特化防具: Lv1でDEF+2、RESは付与しない。", UnitClass::BattleMage},
         {"craft_armor_battle_mage_tier3", FacilityId::Forge, "Craft: Battle Mage Sanctum Ward",
          "製作: 戦闘魔導士の聖堂守衣", OutpostStage::Encampment, {"controlled_ember_formula"}, {{"herb", 2}},
-         {"simple_forge"}, false, "Balanced armor: DEF/RES +1 each at Lv1.",
-         "汎用防具: Lv1でDEF/RES各+1。", UnitClass::BattleMage},
+         {"simple_forge"}, false, "RES-leaning armor: DEF +1, RES +3 at Lv1.",
+         "RES寄り防具: Lv1でDEF+1、RES+3。", UnitClass::BattleMage},
 
         // M10-B (docs/deep_layers.md「防具用調整特性」): "戦闘ごとに最初の
         // 状態異常を1回無効" - the doc's own worked example, single

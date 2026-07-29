@@ -407,13 +407,15 @@ bool regionCleared(RegionId regionId, const BaseState& base, const GameData& dat
 
 // docs/implementation_roadmap.md "Phase 3.5" / docs/region_unlocks.md: which
 // regions are currently selectable from the Base screen. Ashbough Forest
-// starts unlocked; every other region requires the previous one's id in
-// BaseState::completedRegionIds (today: just CinderwatchGate requiring
-// AshboughForest). Nothing sets AshboughForest's completion yet - its real
-// completion condition (regions/ashbough_forest.md: defeat 灰角大猪, secure
-// all 3 locations) needs Phase 4 - so CinderwatchGate stays locked in the
-// current build. This is intentional, not a bug: a single cleared location
-// must not stand in for the whole region.
+// starts unlocked; every one of the other 9 regions requires the previous
+// region's id in BaseState::completedRegionIds, chained in a straight line
+// (AshboughForest -> CinderwatchGate -> AshironQuarry -> BlackwaterLowlands
+// -> WindscarPlateau -> OldFrontierSettlement -> EmberRavine ->
+// BuriedDawnSanctum -> ShatteredMarchFort -> MappedEdge - see Region.cpp's
+// switch for the exact edges). A single cleared location within a region
+// must never stand in for the whole region's completion - see
+// regionCleared()'s own comment for why that migration-only heuristic isn't
+// the live gate.
 bool regionUnlocked(RegionId regionId, const BaseState& base, const GameData& data);
 
 } // namespace jf

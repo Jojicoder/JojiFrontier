@@ -198,7 +198,15 @@ struct AttackSkillShape {
 const std::unordered_map<std::string, AttackSkillShape>& attackSkillShapes() {
     static const std::unordered_map<std::string, AttackSkillShape> table = {
         {"suppressing_shot", {.appliesMoveDown = true}},
-        {"halting_thrust", {.appliesMoveDown = true}},
+        // docs/implementation_status.md「装備スキル/武器の役割重複レビュー」#1:
+        // previously also `.appliesMoveDown = true`, word-for-word identical
+        // effect text to suppressing_shot despite being a completely
+        // different class/weapon type (ranged bow vs melee spear). Switched
+        // to Stagger (full "no movement next action" rather than a partial
+        // MOV reduction) - a melee halt should read as a harder, shorter
+        // stop than a ranged suppression slow, and the name "足止め" (halt
+        // the feet) fits Stagger's actual mechanic better than MoveDown's.
+        {"halting_thrust", {.statuses = {StatusEffectType::Stagger}}},
         {"ambush", {.bonusDamage = 3, .requiresUnacted = true,
                      .statuses = {StatusEffectType::DefenseDown}}},
         {"driving_shot", {.appliesForcedPush = true}},

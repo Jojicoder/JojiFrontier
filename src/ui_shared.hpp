@@ -14,6 +14,7 @@
 #include <optional>
 
 #include "jf/core/Grid.hpp"
+#include "jf/core/Skill.hpp"
 #include "jf/data/GameData.hpp"
 
 namespace jfui {
@@ -118,6 +119,7 @@ std::string outpostStageNameFor(jf::OutpostStage stage);
 std::string outpostStageShortNameFor(jf::OutpostStage stage);
 std::string discoveryNameFor(const jf::DiscoveryId& id);
 std::string cooperationNameFor(const std::string& id);
+std::string cooperationDescriptionFor(const std::string& id);
 
 // Status-effect UI (docs/status_effects.md "UI"): one badge per currently
 // active effect, in the doc's fixed display order.
@@ -141,6 +143,17 @@ struct TooltipLine {
     int fontSize;
 };
 void drawTooltipBox(Vector2 mouse, const std::vector<TooltipLine>& lines);
+
+std::string skillCategoryNameFor(jf::SkillCategory category);
+std::string skillUsageNameFor(jf::SkillUsageType usage);
+
+// Standard hover-tooltip content for one equippable skill (name, category +
+// usage type, effect text, and - when unavailable - the reason in red).
+// Shared by every screen that shows a skill button (Facilities' unit page,
+// Battle's skill command menu), so hovering a skill always looks the same
+// regardless of which screen it's shown from.
+std::vector<TooltipLine> skillTooltipLines(const jf::SkillDefinition& def, bool available,
+                                           const std::string& reasonEn, const std::string& reasonJa);
 
 void drawSectionHeading(const std::string& text, int x, int y, int fontSize);
 

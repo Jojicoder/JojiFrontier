@@ -411,10 +411,25 @@ std::optional<SaveData> deserializeSave(const std::string& jsonText, std::string
         }
         if (base.contains("storage")) {
             if (!base["storage"].is_array()) throw std::runtime_error("Invalid storage");
+            // docs/implementation_status.md「日本語UI文言/スキル説明レビュー」#4:
+            // `tack_material`/`marsh_resin` were retired in favor of
+            // `riding_gear`/`wetland_resin` (see WeaponLeveling.hpp/
+            // ArmorLeveling.hpp's own material-economy rework), but a save
+            // written before that rework still carries the old ids verbatim.
+            // Without this remap, that stock becomes permanently unspendable
+            // AND displays as a raw internal-looking string in the Warehouse
+            // screen (materialNameFor()'s known-id set was never meant to
+            // cover retired ids). Remap on load so old stock merges into its
+            // replacement's stack instead of being silently stranded.
+            static const std::unordered_map<std::string, std::string> kLegacyMaterialIds = {
+                {"tack_material", "riding_gear"},
+                {"marsh_resin", "wetland_resin"},
+            };
             for (const json& entry : base["storage"]) {
                 std::string id = entry.at("id").get<std::string>();
                 int quantity = entry.at("quantity").get<int>();
                 if (id.empty() || quantity <= 0) throw std::runtime_error("Invalid loot stack");
+                if (auto it = kLegacyMaterialIds.find(id); it != kLegacyMaterialIds.end()) id = it->second;
                 save.base.addStorage(id, quantity);
             }
         }

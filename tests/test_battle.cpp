@@ -3367,9 +3367,11 @@ int main() {
 
     {
         // docs/initial_skill_effects.md 槍兵`halting_thrust`(足止め突き): the
-        // 6th skill, identical effect shape to suppressing_shot (attack +
-        // moveDown) but on a different class - shares the same
-        // BattleController branch rather than duplicating it.
+        // 6th skill. Originally identical effect shape to suppressing_shot
+        // (attack + moveDown), but docs/implementation_status.md「装備スキル/
+        // 武器の役割重複レビュー」#1 changed it to Stagger (full halt) so the
+        // two classes' "attack + slow" skills read as mechanically distinct,
+        // not just reskins of each other.
         jf::Unit spearman = makeUnit("spearman", jf::Team::Player, {1, 4}, 4, jf::UnitClass::Spearman);
         spearman.weapon = {.id = "iron_spear", .name = "Iron Spear", .might = 6, .minRange = 1, .maxRange = 2,
                           .damageType = jf::DamageType::Physical};
@@ -3396,7 +3398,7 @@ int main() {
         const jf::Unit* hit = controller.battle().findUnit("inRangeEnemy");
         assert(hit->currentHp < maxHpBefore);
         assert(maxHpBefore - hit->currentHp == preview->damage); // Preview matched the real result
-        assert(hit->moveDownActive);
+        assert(hit->staggerActive);
         assert(!jf::skillSlotAvailable(*controller.battle().findUnit("spearman"), 0)); // CD2, just used
     }
 
@@ -6705,7 +6707,10 @@ int main() {
             return matches;
         };
         auto alwaysRules = ruleLoot(verge.victoryRewardRules, jf::RewardRule::Condition::Always);
-        assert(alwaysRules.size() == 1 && alwaysRules[0]->loot.size() == 2);
+        // docs/implementation_status.md「素材システム全面再設計」#1: trial
+        // slice added ashbark_strip to this stage's baseVictoryLoot
+        // (2 -> 3 entries).
+        assert(alwaysRules.size() == 1 && alwaysRules[0]->loot.size() == 3);
         auto routeRules = ruleLoot(verge.victoryRewardRules, jf::RewardRule::Condition::RouteChoice);
         assert(routeRules.size() == 2);
         assert(verge.surveyObjectiveId == "ashbough_verge_surveyed");
@@ -6722,7 +6727,7 @@ int main() {
         const jf::StageDescriptor& vergeStage = region.stages[0];
         assert(vergeStage.id == "ashbough_verge");
         auto vergeAlwaysRules = ruleLoot(vergeStage.victoryRewardRules, jf::RewardRule::Condition::Always);
-        assert(vergeAlwaysRules.size() == 1 && vergeAlwaysRules[0]->loot.size() == 2);
+        assert(vergeAlwaysRules.size() == 1 && vergeAlwaysRules[0]->loot.size() == 3);
         bool sawWoodMinus2 = false, sawHidePlus1 = false;
         for (const jf::RewardRule& rule : vergeStage.victoryRewardRules) {
             if (rule.condition != jf::RewardRule::Condition::RouteChoice) continue;

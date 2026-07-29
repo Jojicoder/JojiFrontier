@@ -892,6 +892,7 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
                 //不能スキルは非表示にせず、理由付きで無効表示" - an equipped
                 // but currently-unusable skill still shows, grayed out, with
                 // its reason on hover, rather than disappearing.
+                std::vector<TooltipLine> skillHoverLines;
                 if (selected) {
                     const auto skills = controller.selectedUnitSkills();
                     const int slotX[2] = {secondActionX, thirdActionX};
@@ -910,13 +911,14 @@ void drawBattleActionButtons(jf::GameApp& app, jf::BattleController& controller,
                             }
                         } else {
                             disabledButton(rect, label);
-                            if (CheckCollisionPointRec(mouse, rect)) {
-                                drawText(pick(skills[i].reasonEn, skills[i].reasonJa), slotX[i],
-                                         static_cast<int>(hudTop) + 74, 12, kColorTextMuted);
-                            }
+                        }
+                        if (def && CheckCollisionPointRec(mouse, rect)) {
+                            skillHoverLines = skillTooltipLines(*def, skills[i].available, skills[i].reasonEn,
+                                                                skills[i].reasonJa);
                         }
                     }
                 }
+                if (!skillHoverLines.empty()) drawTooltipBox(mouse, skillHoverLines);
                 if (!anySkillShown) {
                     drawText(tr("ui.battle.no_usable_skills"), firstActionX, hudTop + 39, 14,
                              kColorTextMuted);

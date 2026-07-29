@@ -11,7 +11,8 @@
       ],
       "baseVictoryLoot": [
         { "id": "wood", "quantity": 2 },
-        { "id": "hide", "quantity": 1 }
+        { "id": "hide", "quantity": 1 },
+        { "id": "ashbark_strip", "quantity": 1 }
       ],
       "routeVictoryLootDelta": [
         { "choice": "CollapsedSidePath", "loot": [{ "id": "wood", "quantity": -2 }] },
@@ -31,7 +32,7 @@
         { "id": "herbwater_wolf3", "name": "Wolf", "classId": "Wolf" },
         { "id": "herbwater_wolf4", "name": "Wolf", "classId": "Wolf" }
       ],
-      "baseVictoryLoot": [{ "id": "wood", "quantity": 1 }],
+      "baseVictoryLoot": [{ "id": "wood", "quantity": 1 }, { "id": "graymoss_thread", "quantity": 1 }],
       "routeVictoryLootDelta": [
         { "choice": "CollapsedSidePath", "loot": [{ "id": "herb", "quantity": 2 }] },
         { "choice": "ScoutRoute", "loot": [{ "id": "quality_herb", "quantity": 1 }] }
@@ -72,7 +73,8 @@
       "baseVictoryLoot": [
         { "id": "ashenhorn_fang", "quantity": 1 },
         { "id": "wood", "quantity": 2 },
-        { "id": "hide", "quantity": 2 }
+        { "id": "hide", "quantity": 2 },
+        { "id": "sootberry", "quantity": 1 }
       ],
       "routeVictoryLootDelta": [
         { "choice": "FrontalAdvance", "loot": [{ "id": "wood", "quantity": 1 }] }

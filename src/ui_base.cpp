@@ -232,8 +232,14 @@ void drawBaseBagAndExpedition(jf::GameApp& app, Vector2 mouse, bool clicked, std
     // click (no dedicated picker screen for just 1 slot / up to 5 choices -
     // `paired_cross_observation` is never offered since it has no battle
     // effect to select for, see Cooperation.hpp's own comment).
-    drawSectionHeading(tr("ui.prep.cooperation_label"), 830, 402, 18);
-    Rectangle cooperationSlot{830, 425, 370, 40};
+    //
+    // docs/implementation_status.md「連携作戦UIの情報不足」#1: this heading
+    // used to sit at a fixed y=402, only ~12px below the last bag slot's own
+    // bottom edge (125 + 6*45 = 395) - visually cramped/reads as clipped.
+    // Moved down to leave real breathing room, with the slot/start button
+    // below it shifted by the same +13px so their own spacing is unchanged.
+    drawSectionHeading(tr("ui.prep.cooperation_label"), 830, 415, 18);
+    Rectangle cooperationSlot{830, 438, 370, 40};
     std::vector<std::string> selectableIds = {""};
     for (const jf::CooperationDefinition& def : jf::cooperationDefinitions()) {
         if (def.hasBattleEffect && jf::isCooperationUnlocked(def.id, app.baseState())) selectableIds.push_back(def.id);
@@ -243,8 +249,19 @@ void drawBaseBagAndExpedition(jf::GameApp& app, Vector2 mouse, bool clicked, std
         std::size_t nextIndex = (it == selectableIds.end()) ? 0 : (static_cast<std::size_t>(it - selectableIds.begin()) + 1) % selectableIds.size();
         app.equipCooperation(selectableIds[nextIndex]);
     }
+    // docs/implementation_status.md「連携作戦UIの情報不足」#2: the slot only
+    // ever showed the pair's bare name (clicking cycles blind through every
+    // unlocked option) - hovering it now previews what the CURRENTLY
+    // equipped pair actually does, same name+description hover pattern the
+    // bag slots above already use.
+    if (!app.equippedCooperationId().empty() && CheckCollisionPointRec(mouse, cooperationSlot)) {
+        hoverLines = {
+            {cooperationNameFor(app.equippedCooperationId()), kColorAccentGold, 16},
+            {cooperationDescriptionFor(app.equippedCooperationId()), kColorTextMuted, 13},
+        };
+    }
 
-    Rectangle start{830, 478, 370, 58};
+    Rectangle start{830, 491, 370, 58};
     if (app.selectedPartyIds().size() == 4) {
         if (button(start, tr("ui.button.begin_expedition"), mouse, clicked)) {
             jf::RegionId toStart = app.isRegionUnlocked(gBaseScreen.selectedRegionId) ? gBaseScreen.selectedRegionId : jf::RegionId::AshboughForest;

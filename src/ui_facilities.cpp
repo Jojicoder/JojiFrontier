@@ -412,26 +412,6 @@ void armorDiffLines(const jf::ArmorDefinition& current, const jf::ArmorDefinitio
     }
 }
 
-std::string skillCategoryNameFor(jf::SkillCategory category) {
-    switch (category) {
-        case jf::SkillCategory::Active: return tr("skill.category.active");
-        case jf::SkillCategory::Passive: return tr("skill.category.passive");
-        case jf::SkillCategory::Reactive: return tr("skill.category.reactive");
-    }
-    return "";
-}
-
-std::string skillUsageNameFor(jf::SkillUsageType usage) {
-    switch (usage) {
-        case jf::SkillUsageType::PerTurn: return tr("skill.usage.per_turn");
-        case jf::SkillUsageType::OncePerBattle: return tr("skill.usage.once_per_battle");
-        case jf::SkillUsageType::Cooldown2: return tr("skill.usage.cooldown2");
-        case jf::SkillUsageType::OncePerPhase: return tr("skill.usage.once_per_phase");
-        case jf::SkillUsageType::Always: return tr("skill.usage.always");
-    }
-    return "";
-}
-
 // Renders the 4-block "現在/変更後/変わる戦術/失うもの" panel
 // (docs/character_progression.md「ユニットページ/詳細」) for whichever
 // weapon/skill candidate is currently hovered. Long text wraps rather than
@@ -664,6 +644,14 @@ std::optional<EquipmentHover> drawSkillEquipmentPanel(jf::GameApp& app, const jf
     if (slotIt != app.equippedSkills().end()) equipped = slotIt->second.equippedSkillIds;
 
     std::optional<EquipmentHover> hover;
+    // docs/implementation_status.md「日本語UI文言/スキル説明レビュー」#3: the
+    // 4-block diff panel below clips long effect text to its quadrant's fixed
+    // line budget (e.g. Emergency Treatment's full sentence got cut off
+    // mid-condition). A mouse-follow tooltip has no such size limit, so show
+    // the full skillTooltipLines() (same component the Battle skill menu
+    // uses) alongside the diff panel rather than trying to fit everything
+    // into the fixed quadrant.
+    std::vector<TooltipLine> skillHoverLines;
     const float candidateWidth = (width - 3 * 10.0f) / 4.0f;
     for (int slot = 0; slot < 2; ++slot) {
         float slotY = y + 30 + static_cast<float>(slot) * 70.0f;
@@ -693,8 +681,13 @@ std::optional<EquipmentHover> drawSkillEquipmentPanel(jf::GameApp& app, const jf
             // Diff preview, mirroring the weapon panel's hover rule above -
             // hovering a not-yet-available candidate (locked training branch,
             // or already equipped in the other slot) still previews it.
-            if (skill->id != equipped[slot] && CheckCollisionPointRec(mouse, rect))
+            if (skill->id != equipped[slot] && CheckCollisionPointRec(mouse, rect)) {
                 hover = EquipmentHover{EquipmentHoverKind::Skill, "", "", equipped[slot], skill->id, "", ""};
+                std::string reason = equippedElsewhere  ? tr("ui.unit_screen.skill_equipped_elsewhere")
+                                     : !trainingUnlocked ? tr("ui.unit_screen.needs_training")
+                                                        : "";
+                skillHoverLines = skillTooltipLines(*skill, available && !equippedElsewhere, reason, reason);
+            }
         }
         Rectangle clearRect{x + 3 * (candidateWidth + 10.0f), slotY + 24, candidateWidth, 34};
         if (equipped[slot].empty()) {
@@ -703,6 +696,7 @@ std::optional<EquipmentHover> drawSkillEquipmentPanel(jf::GameApp& app, const jf
             app.equipSkillForUnit(unit.id, slot, "");
         }
     }
+    if (!skillHoverLines.empty()) drawTooltipBox(mouse, skillHoverLines);
     return hover;
 }
 

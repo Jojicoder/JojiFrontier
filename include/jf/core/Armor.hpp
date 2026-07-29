@@ -84,6 +84,17 @@ inline int armorResBonusAtLevel(const ArmorDefinition& armor, int level) {
 // player at a glance; Tier3 now reads as the deliberate RES-leaning pick
 // while still carrying the deferred status-resistance passive - see
 // ArmorTier::Tier3's own comment on that gap).
+//
+// docs/implementation_status.md「防具設定レビュー」#3 (per-class flavor,
+// intentionally light-touch per that doc's own "武器分岐ほど複雑にしない"
+// caution - base-stat deltas only, no new mechanism):
+// - VeteranGuard/Spearman/HeavyInfantry (the 3 highest base-DEF classes,
+//   see data/classes.json) get Tier2 (3/0) instead of the (2/0) baseline -
+//   their armor doubles down on their own already-tanky stat line.
+// - DawnChirurgeon/BannerBearer/BattleMage (the 3 highest base-RES classes)
+//   get Tier3 (1/3) instead of the (1/2) baseline - their armor leans
+//   further into RES, matching their support/caster role.
+// - Every other class keeps the (1/1)/(2/0)/(1/2) baseline unchanged.
 inline const std::vector<ArmorDefinition>& armorRegistry() {
     static const std::vector<ArmorDefinition> armors = {
         {"armor_march_captain_tier1", "March Captain Guard", "行軍隊長の護具", UnitClass::MarchCaptain,
@@ -96,7 +107,7 @@ inline const std::vector<ArmorDefinition>& armorRegistry() {
         {"armor_veteran_guard_tier1", "Veteran Guard Mail", "古参守備兵の帷子", UnitClass::VeteranGuard,
          ArmorTier::Tier1, 1, 1},
         {"armor_veteran_guard_tier2", "Veteran Guard Bastion Plate", "古参守備兵の防塁甲", UnitClass::VeteranGuard,
-         ArmorTier::Tier2, 2, 0},
+         ArmorTier::Tier2, 3, 0},
         {"armor_veteran_guard_tier3", "Veteran Guard Sentinel Ward", "古参守備兵の哨戒守甲", UnitClass::VeteranGuard,
          ArmorTier::Tier3, 1, 2},
 
@@ -116,7 +127,7 @@ inline const std::vector<ArmorDefinition>& armorRegistry() {
 
         {"armor_spearman_tier1", "Spearman Cuirass", "槍兵の胸甲", UnitClass::Spearman, ArmorTier::Tier1, 1, 1},
         {"armor_spearman_tier2", "Spearman Bulwark Plate", "槍兵の防壁甲", UnitClass::Spearman, ArmorTier::Tier2,
-         2, 0},
+         3, 0},
         {"armor_spearman_tier3", "Spearman Wall Ward", "槍兵の防壁守甲", UnitClass::Spearman, ArmorTier::Tier3,
          1, 2},
 
@@ -125,16 +136,16 @@ inline const std::vector<ArmorDefinition>& armorRegistry() {
         {"armor_dawn_chirurgeon_tier2", "Dawn Chirurgeon Padded Robe", "暁の衛生兵の綿入り外衣",
          UnitClass::DawnChirurgeon, ArmorTier::Tier2, 2, 0},
         {"armor_dawn_chirurgeon_tier3", "Dawn Chirurgeon Sanctum Ward", "暁の衛生兵の聖堂守衣",
-         UnitClass::DawnChirurgeon, ArmorTier::Tier3, 1, 2},
+         UnitClass::DawnChirurgeon, ArmorTier::Tier3, 1, 3},
 
         // M10-C: the remaining 6 classes' 18 armor pieces (same 3-tier
         // pattern, base DEF/RES unchanged from the first 6: Tier1 (1,1),
-        // Tier2 (2,0), Tier3 (1,2)). Completes the full 36-of-36 armor
-        // registry.
+        // Tier2 (2,0), Tier3 (1,2) except where a later per-class tweak
+        // below overrides it). Completes the full 36-of-36 armor registry.
         {"armor_heavy_infantry_tier1", "Heavy Infantry Guard", "重装兵の護具", UnitClass::HeavyInfantry,
          ArmorTier::Tier1, 1, 1},
         {"armor_heavy_infantry_tier2", "Heavy Infantry Plate", "重装兵の重甲", UnitClass::HeavyInfantry,
-         ArmorTier::Tier2, 2, 0},
+         ArmorTier::Tier2, 3, 0},
         {"armor_heavy_infantry_tier3", "Heavy Infantry Ward", "重装兵の守甲", UnitClass::HeavyInfantry,
          ArmorTier::Tier3, 1, 2},
 
@@ -164,14 +175,14 @@ inline const std::vector<ArmorDefinition>& armorRegistry() {
         {"armor_banner_bearer_tier2", "Banner Bearer Bastion Plate", "旗手の防塁甲", UnitClass::BannerBearer,
          ArmorTier::Tier2, 2, 0},
         {"armor_banner_bearer_tier3", "Banner Bearer Ward", "旗手の守衣", UnitClass::BannerBearer,
-         ArmorTier::Tier3, 1, 2},
+         ArmorTier::Tier3, 1, 3},
 
         {"armor_battle_mage_tier1", "Battle Mage Robe", "戦闘魔導士の外衣", UnitClass::BattleMage,
          ArmorTier::Tier1, 1, 1},
         {"armor_battle_mage_tier2", "Battle Mage Plated Robe", "戦闘魔導士の重衣", UnitClass::BattleMage,
          ArmorTier::Tier2, 2, 0},
         {"armor_battle_mage_tier3", "Battle Mage Sanctum Ward", "戦闘魔導士の聖堂守衣", UnitClass::BattleMage,
-         ArmorTier::Tier3, 1, 2},
+         ArmorTier::Tier3, 1, 3},
     };
     return armors;
 }
