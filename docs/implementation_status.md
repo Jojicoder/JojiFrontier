@@ -7737,15 +7737,27 @@ HP50%閾値行動・地形連動(`anyShallowsOnBoard()`)・押し出し
 - **項目4・5(大型獣Bossの強化とTier適性)**: `AshronGrubworm`(灰殻穿岩虫)
   ・`MarshFangSerpent`(沼牙の大蛇)は、既存の「フルパーティ相手にはやや弱い」
   という実測所見(「敵バランスレビュー」参照)を踏まえ、HPをそれぞれ+10
-  (56→66、60→70)。`MarshFangSerpent`の専用武器`serpent_fangs`は物理→魔法へ
-  変更(`data/weapons.json`) - 沼蛇の毒牙攻撃は`performSerpentVenomBite()`が
-  `resolveAttack()`(通常武器と同じダメージ計算経路、`attacker.weapon.
-  damageType`でDEF/RESを切り替える)を通るため、この1行の変更だけで
-  「毒Boss→Tier3(RES)」が実現した。一方`AshenhornBoar`の突進/薙ぎ払いと
-  `AshironGrubworm`の突進は`effectiveDefense()`を直接ハードコードした
-  専用ダメージ式(`executeBoarCharge()`/`performBoarSweep()`等)のため、
-  武器属性を変えても効果がない - これは「物理突撃Boss→Tier2」という
-  設計意図とも一致するため、意図的に変更しなかった。
+  (56→66、60→70)。一方`AshenhornBoar`の突進/薙ぎ払いと`AshironGrubworm`の
+  突進は`effectiveDefense()`を直接ハードコードした専用ダメージ式
+  (`executeBoarCharge()`/`performBoarSweep()`等)のため、武器属性を変えても
+  効果がない - これは「物理突撃Boss→Tier2」という設計意図とも一致するため、
+  意図的に変更しなかった。
+
+  **フォローアップ修正(2026-07-30、ユーザーレビューで発見)**: 当初
+  `MarshFangSerpent`の専用武器`serpent_fangs`を物理→魔法へ変更し、
+  `resolveAttack()`経由で「毒Boss→Tier3(RES)」を実現したつもりだったが、
+  `Unit::attackPower()`(`include/jf/core/Unit.hpp`)は同じ`weapon.
+  damageType`フラグでオフェンス側もSTR/MAG切り替えており、この大蛇は
+  `magic: 0`のため毒牙の攻撃力そのものが実質ゼロ(`kSerpentVenomBonus`の
+  固定+3のみ)まで落ちてしまっていた - 「RES防具に意味を持たせる」ためが
+  「毒ボスの攻撃圧を潰す」結果になっていた。
+  修正: `serpent_fangs`は通常の物理武器に戻し(`performSerpentConstrict()`
+  など他の攻撃はSTR/DEFのまま維持)、毒牙(`performSerpentVenomBite()`)
+  だけ専用の`computeSerpentVenomDamage()`を新設 - オフェンスはSTRのまま、
+  被ダメージ側だけRESで軽減する非対称な式にした。これにより火力は維持しつつ
+  Tier3(RES)防具がこのボス戦で意味を持つ、という当初の狙い通りの結果に
+  修正できた(検証: STR9+3のダメージがRES0で12、RES7で5まで軽減、旧来の
+  DEF3想定時の9とほぼ同水準を維持)。
 
 - **項目2(HP調整)**: HP40〜48帯の人間系強敵4体を+15
   (`data/classes.json`): PlateauCourierCaptain 40→55、RaidLeader 42→57、

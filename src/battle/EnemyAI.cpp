@@ -718,12 +718,37 @@ bool anyShallowsOnBoard(const BattleState& battle) {
     return false;
 }
 
-// 毒牙: range-1 STR+3 physical attack on `target`, poisoning it unless
-// already poisoned (docs: "すでに毒状態なら追加ダメージを増やさない" - no
-// stacking, just skip the re-application).
+// docs/implementation_status.md「武器・防具・ボス敵パラメータの難度調整」
+// フォローアップ: an earlier pass tried making Tier3 (RES) armor matter here
+// by flipping `serpent_fangs` to a Magical weapon - computeDamage()'s
+// attackPower() reads the SAME weapon.damageType flag for offense too, so
+// that also switched the serpent's attack stat from STR to MAG (=0 for this
+// class), gutting the bite down to its flat kSerpentVenomBonus. This bespoke
+// formula keeps STR as the offense stat (the bite is still a physical bite)
+// while mitigating against RES instead of DEF, so a poison/RES-themed boss
+// actually rewards RES-heavy armor without losing its own bite power.
+// `serpent_fangs` itself stays a normal Physical weapon (so
+// performSerpentConstrict() below, and any other generic code path that
+// reads this unit's weapon, keeps ordinary STR/DEF behavior) - only this one
+// attack overrides the pairing.
+int computeSerpentVenomDamage(const Unit& serpent, const Unit& target, int terrainDefense) {
+    int raw = serpent.stats.strength + kSerpentVenomBonus + serpent.weapon.might - target.effectiveResistance() -
+             terrainDefense + target.markedBonusDamage;
+    if (serpent.zocEntryDamageDownActive) raw -= 2;
+    return std::max(raw, 1);
+}
+
+// 毒牙: range-1 STR+3 attack on `target`, mitigated by RES instead of DEF
+// (see computeSerpentVenomDamage()'s own comment for why), poisoning it
+// unless already poisoned (docs: "すでに毒状態なら追加ダメージを増やさない" -
+// no stacking, just skip the re-application).
 Unit* performSerpentVenomBite(BattleState& battle, Unit& serpent, Unit& target) {
     const bool hit = battle.rollAttackHit(target);
-    resolveAttack(battle, serpent, target, battle.combatDefenseBonus(target, serpent), hit, kSerpentVenomBonus);
+    if (hit) {
+        const int damage = computeSerpentVenomDamage(serpent, target, battle.combatDefenseBonus(target, serpent));
+        target.currentHp = std::max(target.currentHp - damage, 0);
+        target.markedBonusDamage = 0;
+    }
     if (hit && target.isAlive() && target.poisonRemainingProcs <= 0) applyPoison(target);
     return &target;
 }

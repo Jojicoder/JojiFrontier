@@ -21,7 +21,7 @@
     { "id": "wolf_bite", "name": "Bite", "might": 5, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
     { "id": "boar_tusks", "name": "Tusks", "might": 0, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
     { "id": "grubworm_mandibles", "name": "Mandibles", "might": 0, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
-    { "id": "serpent_fangs", "name": "Fangs", "might": 0, "minRange": 1, "maxRange": 1, "damageType": "Magical" },
+    { "id": "serpent_fangs", "name": "Fangs", "might": 0, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
     { "id": "road_sword", "name": "Road Sword", "might": 6, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
     { "id": "heavy_axe", "name": "Heavy Axe", "might": 7, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
     { "id": "lizard_claws", "name": "Claws", "might": 0, "minRange": 1, "maxRange": 1, "damageType": "Physical" },
