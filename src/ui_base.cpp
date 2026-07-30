@@ -233,13 +233,13 @@ void drawBaseBagAndExpedition(jf::GameApp& app, Vector2 mouse, bool clicked, std
     // `paired_cross_observation` is never offered since it has no battle
     // effect to select for, see Cooperation.hpp's own comment).
     //
-    // docs/implementation_status.md「連携作戦UIの情報不足」#1: this heading
-    // used to sit at a fixed y=402, only ~12px below the last bag slot's own
-    // bottom edge (125 + 6*45 = 395) - visually cramped/reads as clipped.
-    // Moved down to leave real breathing room, with the slot/start button
-    // below it shifted by the same +13px so their own spacing is unchanged.
-    drawSectionHeading(tr("ui.prep.cooperation_label"), 830, 415, 18);
-    Rectangle cooperationSlot{830, 438, 370, 40};
+    // docs/implementation_status.md「連携作戦UIの情報不足」#1: keep the
+    // cooperation control below the heading's rendered line height. Japanese
+    // font scaling makes the label taller than its nominal fontSize, so a
+    // small fixed offset clips into the first button.
+    constexpr int kCooperationHeadingY = 415;
+    drawSectionHeading(tr("ui.prep.cooperation_label"), 830, kCooperationHeadingY, 18);
+    Rectangle cooperationSlot{830, kCooperationHeadingY + textLineHeight(18) + 12.0f, 370, 40};
     std::vector<std::string> selectableIds = {""};
     for (const jf::CooperationDefinition& def : jf::cooperationDefinitions()) {
         if (def.hasBattleEffect && jf::isCooperationUnlocked(def.id, app.baseState())) selectableIds.push_back(def.id);
@@ -261,7 +261,7 @@ void drawBaseBagAndExpedition(jf::GameApp& app, Vector2 mouse, bool clicked, std
         };
     }
 
-    Rectangle start{830, 491, 370, 58};
+    Rectangle start{830, cooperationSlot.y + cooperationSlot.height + 24.0f, 370, 58};
     if (app.selectedPartyIds().size() == 4) {
         if (button(start, tr("ui.button.begin_expedition"), mouse, clicked)) {
             jf::RegionId toStart = app.isRegionUnlocked(gBaseScreen.selectedRegionId) ? gBaseScreen.selectedRegionId : jf::RegionId::AshboughForest;

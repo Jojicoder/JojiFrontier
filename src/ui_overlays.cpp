@@ -3,9 +3,11 @@
 // Split out of main.cpp; no behavior change.
 #include <raylib.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "jf/core/GameApp.hpp"
 #include "jf/core/Locale.hpp"
@@ -29,6 +31,13 @@ struct WarehouseDiscardTarget {
     std::string displayName;
 };
 std::optional<WarehouseDiscardTarget> gWarehouseDiscardConfirm;
+// docs/implementation_status.md「装備差分/帰還UIの追加文言レビュー」follow-up:
+// the storage list used to hard-clip at the footer and show a bare "..."
+// once it overflowed (silently unreachable rows below that point, easy to
+// hit with e.g. the full-unlock debug save's dozens of material stacks).
+// Scrollable now, same wheel+scrollbar pattern as
+// BaseScreenState::regionListScroll.
+float gWarehouseListScroll = 0.0f;
 
 // docs/save_system.md「破損復旧画面」: set at startup (see main()) when the
 // primary save could not be read AND no automatic ".bak" fallback inside
@@ -51,6 +60,7 @@ std::string gSaveHudFailReason;
 int gSaveHudRetryCount = 0;
 double gSaveHudNextRetryAt = 0.0;
 constexpr double kSaveHudRetryDelays[kSaveHudMaxAutoRetries] = {0.5, 1.0, 2.0};
+constexpr float kWarehouseFooterReservedHeight = 118.0f;
 
 // Save Data (Export/Import, docs/save_system.md). Lives alongside the other
 // Settings-overlay UI state; gSaveStore itself is the same store main() uses
@@ -112,26 +122,27 @@ void drawWarehouseDiscardConfirm(jf::GameApp& app, Vector2 mouse, bool clicked, 
 // lambda and the running `y` cursor so they stay together in one function.
 // No behavior change.
 void drawWarehouseItemLists(jf::GameApp& app, Vector2 mouse, bool clicked, const Rectangle& panel, float& y) {
-    const float footerTop = panel.y + panel.height - 66.0f;
-    bool clipped = false;
-    auto drawRow = [&](const std::string& name, int quantity, WarehouseDiscardTarget target) {
-        if (y + 32.0f > footerTop) {
-            clipped = true;
-            return;
-        }
-        Rectangle discardBtn{panel.x + panel.width - 26 - 110, y, 110, 32};
-        const int nameWidth = static_cast<int>(discardBtn.x - (panel.x + 26) - 18.0f);
-        drawText(clipTextToWidth(name + "  x" + std::to_string(quantity), 14, nameWidth),
-                 static_cast<int>(panel.x + 26), static_cast<int>(y) + 6, 14,
-                 kColorTextPrimary);
-        target.displayName = name;
-        if (button(discardBtn, tr("ui.button.discard"), mouse, clicked)) gWarehouseDiscardConfirm = target;
-        y += 38.0f;
-    };
+    const float footerTop = panel.y + panel.height - kWarehouseFooterReservedHeight;
+    const float viewportTop = y;
+    const Rectangle viewport{panel.x, viewportTop, panel.width, footerTop - viewportTop};
 
-    drawText(tr("ui.warehouse.storage_section"), static_cast<int>(panel.x + 26), static_cast<int>(y), 16,
-             kColorAccentGold);
-    y += 26.0f;
+    // First pass: lay out every section header + row to find the true
+    // content height, deferred so we know it before deciding the scroll
+    // offset (this replaced a hard-clip-at-the-footer "..." indicator that
+    // left rows below it silently unreachable - see gWarehouseListScroll's
+    // own comment).
+    struct Row {
+        bool isHeading;
+        std::string text;
+        std::optional<WarehouseDiscardTarget> target;  // set only for discardable rows
+        int quantity = 0;
+    };
+    std::vector<Row> rows;
+
+    auto addHeading = [&](const std::string& key) { rows.push_back({true, tr(key), std::nullopt, 0}); };
+    auto addEmpty = [&]() { rows.push_back({false, tr("ui.warehouse.empty"), std::nullopt, 0}); };
+
+    addHeading("ui.warehouse.storage_section");
     bool anyStorage = false;
     for (const jf::LootStack& stack : app.baseState().storage) {
         if (app.baseState().materialStorageCap(stack.id) == 1) continue;  // key materials: never discardable
@@ -140,68 +151,103 @@ void drawWarehouseItemLists(jf::GameApp& app, Vector2 mouse, bool clicked, const
         target.kind = WarehouseDiscardKind::Material;
         target.materialId = stack.id;
         target.quantity = stack.quantity;
-        drawRow(materialNameFor(stack.id), stack.quantity, target);
+        target.displayName = materialNameFor(stack.id);
+        rows.push_back({false, target.displayName, target, stack.quantity});
     }
-    if (!anyStorage) {
-        drawText(tr("ui.warehouse.empty"), static_cast<int>(panel.x + 26), static_cast<int>(y), 13, kColorTextMuted);
-        y += 26.0f;
+    if (!anyStorage) addEmpty();
+
+    addHeading("ui.warehouse.consumables_section");
+    bool anyItems = false;
+    for (const jf::ItemDefinition& item : jf::kItemCatalog) {
+        const int owned = app.baseState().ownedItemCount(item.type);
+        if (owned <= 0) continue;
+        anyItems = true;
+        WarehouseDiscardTarget target;
+        target.kind = WarehouseDiscardKind::Item;
+        target.itemType = item.type;
+        target.quantity = owned;
+        target.displayName = itemFullNameFor(item.type);
+        rows.push_back({false, target.displayName, target, owned});
+    }
+    if (!anyItems) addEmpty();
+
+    addHeading("ui.warehouse.pending_section");
+    const auto& overflowStacks = app.rewardOverflow().stacks;
+    if (overflowStacks.empty()) addEmpty();
+    for (std::size_t i = 0; i < overflowStacks.size(); ++i) {
+        const jf::OverflowStack& stack = overflowStacks[i];
+        // "item:<int>" prefix (see OverflowStack::itemId's doc comment in
+        // BaseState.hpp) distinguishes a consumable overflow entry from a
+        // material one sharing the same display path.
+        std::string name;
+        if (stack.itemId.rfind("item:", 0) == 0) {
+            const int rawType = std::stoi(stack.itemId.substr(5));
+            name = itemFullNameFor(static_cast<jf::ItemType>(rawType));
+        } else {
+            name = materialNameFor(stack.itemId);
+        }
+        WarehouseDiscardTarget target;
+        target.kind = WarehouseDiscardKind::Overflow;
+        target.overflowIndex = i;
+        target.quantity = stack.quantity;
+        target.displayName = name;
+        rows.push_back({false, name, target, static_cast<int>(stack.quantity)});
     }
 
-    if (!clipped) {
-        y += 12.0f;
-        drawText(tr("ui.warehouse.consumables_section"), static_cast<int>(panel.x + 26), static_cast<int>(y), 16,
-                 kColorAccentGold);
-        y += 26.0f;
-        bool anyItems = false;
-        for (const jf::ItemDefinition& item : jf::kItemCatalog) {
-            const int owned = app.baseState().ownedItemCount(item.type);
-            if (owned <= 0) continue;
-            anyItems = true;
-            WarehouseDiscardTarget target;
-            target.kind = WarehouseDiscardKind::Item;
-            target.itemType = item.type;
-            target.quantity = owned;
-            drawRow(itemFullNameFor(item.type), owned, target);
-        }
-        if (!anyItems) {
-            drawText(tr("ui.warehouse.empty"), static_cast<int>(panel.x + 26), static_cast<int>(y), 13, kColorTextMuted);
-            y += 26.0f;
-        }
+    constexpr float kHeadingStep = 26.0f;
+    constexpr float kHeadingGap = 12.0f;
+    constexpr float kRowStep = 38.0f;
+    float contentHeight = 0.0f;
+    for (std::size_t i = 0; i < rows.size(); ++i) {
+        if (rows[i].isHeading && i != 0) contentHeight += kHeadingGap;
+        contentHeight += rows[i].isHeading ? kHeadingStep : kRowStep;
+    }
+    const float maxScroll = std::max(0.0f, contentHeight - viewport.height);
+    if (CheckCollisionPointRec(mouse, viewport)) {
+        gWarehouseListScroll = std::clamp(gWarehouseListScroll - GetMouseWheelMove() * 55.0f, 0.0f, maxScroll);
+    } else {
+        gWarehouseListScroll = std::clamp(gWarehouseListScroll, 0.0f, maxScroll);
     }
 
-    if (!clipped) {
-        y += 12.0f;
-        drawText(tr("ui.warehouse.pending_section"), static_cast<int>(panel.x + 26), static_cast<int>(y), 16,
-                 kColorAccentGold);
-        y += 26.0f;
-        const auto& overflowStacks = app.rewardOverflow().stacks;
-        if (overflowStacks.empty()) {
-            drawText(tr("ui.warehouse.empty"), static_cast<int>(panel.x + 26), static_cast<int>(y), 13, kColorTextMuted);
-            y += 26.0f;
-        }
-        for (std::size_t i = 0; i < overflowStacks.size(); ++i) {
-            const jf::OverflowStack& stack = overflowStacks[i];
-            // "item:<int>" prefix (see OverflowStack::itemId's doc comment in
-            // BaseState.hpp) distinguishes a consumable overflow entry from a
-            // material one sharing the same display path.
-            std::string name;
-            if (stack.itemId.rfind("item:", 0) == 0) {
-                const int rawType = std::stoi(stack.itemId.substr(5));
-                name = itemFullNameFor(static_cast<jf::ItemType>(rawType));
+    float rowY = viewportTop - gWarehouseListScroll;
+    for (std::size_t i = 0; i < rows.size(); ++i) {
+        const Row& row = rows[i];
+        if (row.isHeading && i != 0) rowY += kHeadingGap;
+        const float step = row.isHeading ? kHeadingStep : kRowStep;
+        const bool visible = rowY + step >= viewportTop && rowY <= footerTop;
+        if (visible) {
+            if (row.isHeading) {
+                drawText(row.text, static_cast<int>(panel.x + 26), static_cast<int>(rowY), 16, kColorAccentGold);
+            } else if (!row.target) {
+                drawText(row.text, static_cast<int>(panel.x + 26), static_cast<int>(rowY), 13, kColorTextMuted);
             } else {
-                name = materialNameFor(stack.itemId);
+                Rectangle discardBtn{panel.x + panel.width - 26 - 110, rowY, 110, 32};
+                const int nameWidth = static_cast<int>(discardBtn.x - (panel.x + 26) - 18.0f);
+                drawText(clipTextToWidth(row.text + "  x" + std::to_string(row.quantity), 14, nameWidth),
+                         static_cast<int>(panel.x + 26), static_cast<int>(rowY) + 6, 14, kColorTextPrimary);
+                if (button(discardBtn, tr("ui.button.discard"), mouse, clicked))
+                    gWarehouseDiscardConfirm = row.target;
             }
-            WarehouseDiscardTarget target;
-            target.kind = WarehouseDiscardKind::Overflow;
-            target.overflowIndex = i;
-            target.quantity = stack.quantity;
-            drawRow(name, stack.quantity, target);
         }
+        rowY += step;
     }
-    if (clipped) {
-        drawText("...", static_cast<int>(panel.x + 26), static_cast<int>(footerTop - 20.0f), 13, kColorTextFaint);
-        y = footerTop;
+
+    if (maxScroll > 0.0f) {
+        // Inset inside the panel's own right edge (not past it, unlike
+        // BaseScreenState::regionListScroll's scrollbar - that list has open
+        // space to its right; this one's viewport already spans the full
+        // card width) - sits just right of the discard buttons' own edge
+        // (panel.width - 26) with a clear gap.
+        const float scrollbarX = panel.x + panel.width - 14.0f;
+        const float thumbHeight = std::max(30.0f, viewport.height * viewport.height / contentHeight);
+        const float thumbTrack = viewport.height - thumbHeight;
+        const float thumbY = viewport.y + thumbTrack * (gWarehouseListScroll / maxScroll);
+        DrawRectangleRounded(Rectangle{scrollbarX, viewport.y, 5.0f, viewport.height}, 0.5f, 4,
+                             Color{38, 43, 55, 180});
+        DrawRectangleRounded(Rectangle{scrollbarX, thumbY, 5.0f, thumbHeight}, 0.5f, 4, kColorBorder);
     }
+
+    y = footerTop;
 }
 
 // docs/inventory_overflow.md「倉庫整理画面」: lists storage/consumables/
@@ -238,7 +284,16 @@ void drawWarehouseCleanupOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) 
         gWarehouseDiscardConfirm.reset();
     }
 
-    Rectangle retryBtn{panel.x + 26, panel.y + panel.height - 50, 240, 38};
+    // docs/implementation_status.md「装備差分/帰還UIの追加文言レビュー」#3:
+    // the old label "もう一度帰還する" ("return again") didn't say what
+    // pressing it actually does (re-confirm the return, securing loot that
+    // now fits after discarding) - renamed plus a one-line note above it.
+    const std::string retryNote =
+        wrapTextToWidth(tr("ui.warehouse.try_return_again_note"), 12, static_cast<int>(panel.width - 52));
+    drawText(retryNote, static_cast<int>(panel.x + 26),
+             static_cast<int>(panel.y + panel.height - kWarehouseFooterReservedHeight + 14.0f), 12,
+             kColorTextMuted);
+    Rectangle retryBtn{panel.x + 26, panel.y + panel.height - 50, 180, 38};
     if (button(retryBtn, tr("ui.warehouse.try_return_again"), mouse, clicked)) {
         if (app.returnToBase()) gWarehouseCleanupOpen = false;
     }

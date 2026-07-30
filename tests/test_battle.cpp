@@ -12393,7 +12393,8 @@ int main() {
         // "headline sub-condition as primary" reasoning as
         // settlement_dawn_defense's own SurviveRounds(5) - the elite leader
         // is an optional retreat-tuned unit (AiSystem.cpp's
-        // retreatHpPercent=25), NOT a scripted boss.
+        // retreatHpPercent=15, lowered from 25 - see「武器・防具・ボス敵
+        // パラメータの難度調整」#3), NOT a scripted boss.
         auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
         assert(data);
         const jf::RegionDescriptor sanctumRegion =
@@ -12832,12 +12833,14 @@ int main() {
         // docs/regions/shattered_march_fort.md「地点7: 切離命令庫」: this
         // region's final site. Primary is SurviveRounds(5)
         // (sanctum_infirmary/herb_islet/fort_reserve_wall同型). 敵「隊長1、
-        // 残留隊6」: `UnitClass::FortGarrisonCaptain`(HP48/STR10/DEF9/RES5/
-        // MOV4) + Fort Garrison(Bandit3+WatchArcher3), matching the doc's
-        // 隊長「隊長撃破を必須にしない」optional-elite shape (generic AI +
-        // AiSystem.cpp's retreatHpPercent=25 tuning only, no bespoke
-        // EnemyAI.cpp turn function - see UnitClass.hpp's own comment for
-        // this class for the 3 deferred bespoke abilities).
+        // 残留隊6」: `UnitClass::FortGarrisonCaptain`(HP63/STR10/DEF9/RES5/
+        // MOV4, HP raised from 48 - see「武器・防具・ボス敵パラメータの
+        // 難度調整」#2) + Fort Garrison(Bandit3+WatchArcher3), matching the
+        // doc's 隊長「隊長撃破を必須にしない」optional-elite shape (generic
+        // AI + AiSystem.cpp's retreatHpPercent=15 tuning, lowered from 25 -
+        // see that same review's #3 - no bespoke EnemyAI.cpp turn function -
+        // see UnitClass.hpp's own comment for this class for the 3 deferred
+        // bespoke abilities).
         auto data = jf::loadGameData(JF_SOURCE_DATA_DIR);
         assert(data);
         const jf::RegionDescriptor fortRegion = jf::regionDescriptor(jf::RegionId::ShatteredMarchFort, *data);

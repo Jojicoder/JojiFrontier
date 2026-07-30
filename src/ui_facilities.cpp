@@ -454,17 +454,24 @@ void drawEquipmentDiffPanel(jf::GameApp& app, const EquipmentHover& hover, Recta
     } else {
         const jf::SkillDefinition* current = hover.currentSkillId.empty() ? nullptr : jf::findSkill(hover.currentSkillId);
         const jf::SkillDefinition* hovered = jf::findSkill(hover.hoveredSkillId);
-        currentSummary = current ? pick(current->nameEn, current->nameJa) + "\n" +
+        // docs/implementation_status.md「装備差分/帰還UIの追加文言レビュー」#2:
+        // category/usage-limit used to only show up here as a "changed to X"
+        // line when it actually differed from the currently-equipped skill,
+        // so an empty slot or a same-category swap showed neither - the
+        // player had to hover a second time (skillTooltipLines()'s own
+        // popup) just to see how many times a skill can be used. Now always
+        // shown alongside the effect text for both slots.
+        auto skillMeta = [](const jf::SkillDefinition& def) {
+            return skillCategoryNameFor(def.category) + "  /  " + skillUsageNameFor(def.usageType);
+        };
+        currentSummary = current ? pick(current->nameEn, current->nameJa) + "\n" + skillMeta(*current) + "\n" +
                                        tr("ui.unit_screen.diff.skill_effect_prefix") + pick(current->effectEn, current->effectJa)
                                  : tr("ui.unit_screen.skill_slot_empty");
         if (hovered) {
-            afterSummary = pick(hovered->nameEn, hovered->nameJa) + "\n" +
+            afterSummary = pick(hovered->nameEn, hovered->nameJa) + "\n" + skillMeta(*hovered) + "\n" +
                            tr("ui.unit_screen.diff.skill_effect_prefix") + pick(hovered->effectEn, hovered->effectJa);
+            tactics.push_back(skillMeta(*hovered));
             tactics.push_back(tr("ui.unit_screen.diff.skill_effect_prefix") + pick(hovered->effectEn, hovered->effectJa));
-            if (current && current->category != hovered->category)
-                tactics.push_back(tr("ui.unit_screen.diff.category_change", {{"value", skillCategoryNameFor(hovered->category)}}));
-            if (current && current->usageType != hovered->usageType)
-                tactics.push_back(tr("ui.unit_screen.diff.usage_change", {{"value", skillUsageNameFor(hovered->usageType)}}));
             if (current)
                 lost.push_back(tr("ui.unit_screen.diff.skill_lose", {{"value", pick(current->nameEn, current->nameJa)}}));
         }

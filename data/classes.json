@@ -107,28 +107,28 @@
     },
     {
       "id": "AshironGrubworm",
-      "baseStats": { "maxHp": 56, "strength": 9, "magic": 0, "speed": 4, "defense": 8, "resistance": 2, "move": 3 },
+      "baseStats": { "maxHp": 66, "strength": 9, "magic": 0, "speed": 4, "defense": 8, "resistance": 2, "move": 3 },
       "weaponId": "grubworm_mandibles",
       "nameKey": "class.ashiron_grubworm",
       "roleKey": "class.ashiron_grubworm.role"
     },
     {
       "id": "MarshFangSerpent",
-      "baseStats": { "maxHp": 60, "strength": 9, "magic": 0, "speed": 5, "defense": 6, "resistance": 3, "move": 4 },
+      "baseStats": { "maxHp": 70, "strength": 9, "magic": 0, "speed": 5, "defense": 6, "resistance": 3, "move": 4 },
       "weaponId": "serpent_fangs",
       "nameKey": "class.marsh_fang_serpent",
       "roleKey": "class.marsh_fang_serpent.role"
     },
     {
       "id": "PlateauCourierCaptain",
-      "baseStats": { "maxHp": 40, "strength": 9, "magic": 0, "speed": 8, "defense": 6, "resistance": 4, "move": 6 },
+      "baseStats": { "maxHp": 55, "strength": 9, "magic": 0, "speed": 8, "defense": 6, "resistance": 4, "move": 6 },
       "weaponId": "road_sword",
       "nameKey": "class.plateau_courier_captain",
       "roleKey": "class.plateau_courier_captain.role"
     },
     {
       "id": "RaidLeader",
-      "baseStats": { "maxHp": 42, "strength": 10, "magic": 0, "speed": 6, "defense": 7, "resistance": 3, "move": 4 },
+      "baseStats": { "maxHp": 57, "strength": 10, "magic": 0, "speed": 6, "defense": 7, "resistance": 3, "move": 4 },
       "weaponId": "heavy_axe",
       "nameKey": "class.raid_leader",
       "roleKey": "class.raid_leader.role"
@@ -142,14 +142,14 @@
     },
     {
       "id": "SanctumRetrievalLeader",
-      "baseStats": { "maxHp": 44, "strength": 9, "magic": 0, "speed": 6, "defense": 7, "resistance": 6, "move": 4 },
+      "baseStats": { "maxHp": 59, "strength": 9, "magic": 0, "speed": 6, "defense": 7, "resistance": 6, "move": 4 },
       "weaponId": "sanctum_glaive",
       "nameKey": "class.sanctum_retrieval_leader",
       "roleKey": "class.sanctum_retrieval_leader.role"
     },
     {
       "id": "FortGarrisonCaptain",
-      "baseStats": { "maxHp": 48, "strength": 10, "magic": 0, "speed": 6, "defense": 9, "resistance": 5, "move": 4 },
+      "baseStats": { "maxHp": 63, "strength": 10, "magic": 0, "speed": 6, "defense": 9, "resistance": 5, "move": 4 },
       "weaponId": "heavy_axe",
       "nameKey": "class.fort_garrison_captain",
       "roleKey": "class.fort_garrison_captain.role"

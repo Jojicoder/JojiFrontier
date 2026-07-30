@@ -568,6 +568,20 @@ std::string materialNameFor(const std::string& id) {
         "prayer_wax", "scripture_tile", "censer_ash",
         "shattered_shield_stud", "trench_plate", "signal_fuse",
         "border_dust", "stareater_moss", "waystone_fragment",
+        // docs/implementation_status.md「素材システム全面再設計」次の方針メモ:
+        // rare (x2) + key (x1) materials for all 10 regions, name-registered
+        // only (same "locale-only rollout" scope as the 27 common materials
+        // above) - not yet reachable via any reward table or recipe.
+        "ashhorn_sinew", "forestcore_sap", "heartwood_of_graybough",
+        "watchseal", "old_aiming_device", "silent_command_board",
+        "grayiron_core", "resonant_stone", "quarrymaster_key",
+        "blackmarsh_gall", "mudbed_pearl", "scale_of_the_sunken_lord",
+        "windbone", "skyresonance_crystal", "horn_of_the_peakwarden",
+        "settler_silver", "hearthward_stone", "first_settlement_tablet",
+        "meltvein_glass", "flameeater_fang", "canyon_furnace_core",
+        "martyrs_ring", "crypt_holy_oil", "seal_sanctum_key",
+        "officers_badge", "siege_grapnel", "frontline_command_seal",
+        "outerwild_core", "point_of_no_return_crystal", "edge_anchor",
     };
     return known.count(id) ? tr("material." + id) : id;
 }

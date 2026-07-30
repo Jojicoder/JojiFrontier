@@ -76,6 +76,30 @@
 `ashbark_strip`(辺境斥候Tier1防具)以外は現状レシピ未接続で、倉庫に貯まるのみ。
 レシピへの接続は各地域を代表する装備を選んで今後対応する。
 
+## 地域固有のレア/キー素材(名前登録のみ・未接続)
+
+`docs/implementation_status.md`「素材システム全面再設計」次の方針メモに基づき、
+各地域のレア素材2種+キー素材1種、計30種の表示名(en/ja)と`materialNameFor()`
+の既知IDへの登録のみ実施。通常素材と同様、報酬テーブル/レシピへの接続はまだ
+行っていない - 入手経路は一切なく、倉庫にも出現しない。
+
+| 地域 | レア素材 | キー素材 |
+|---|---|---|
+| 灰枝の森 | `ashhorn_sinew`、`forestcore_sap` | `heartwood_of_graybough` |
+| 沈黙した監視所群 | `watchseal`、`old_aiming_device` | `silent_command_board` |
+| 灰鉄採石場 | `grayiron_core`、`resonant_stone` | `quarrymaster_key` |
+| 黒水低湿地 | `blackmarsh_gall`、`mudbed_pearl` | `scale_of_the_sunken_lord` |
+| 風裂き高原 | `windbone`、`skyresonance_crystal` | `horn_of_the_peakwarden` |
+| 旧辺境集落 | `settler_silver`、`hearthward_stone` | `first_settlement_tablet` |
+| 燼火峡谷 | `meltvein_glass`、`flameeater_fang` | `canyon_furnace_core` |
+| 埋没聖堂 | `martyrs_ring`、`crypt_holy_oil` | `seal_sanctum_key` |
+| 破砕された前線砦 | `officers_badge`、`siege_grapnel` | `frontline_command_seal` |
+| 地図外縁 | `outerwild_core`、`point_of_no_return_crystal` | `edge_anchor` |
+
+レア素材は強敵ドロップ/危険ルート/特殊採取地点、キー素材はボス撃破/地域制圧/
+特殊探索成功への接続を想定(`material_redesign_proposal.md`参照)。実際の
+報酬テーブル接続・レシピ設計は別途対応が必要。
+
 ## 実用品寄りの戦利品
 
 | ID | 表示名 | 主な入手地域 | 現行用途 |

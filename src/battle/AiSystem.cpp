@@ -81,15 +81,22 @@ AiProfile profileFor(const Unit& unit) {
     // bespoke takeXBossTurn() (UnitClass::RaidLeader's own comment) - the
     // doc frames this as an optional elite, not a true boss, so tuning the
     // existing generic profile is the intended level of investment.
+    // docs/implementation_status.md「武器・防具・ボス敵パラメータの難度調整」#3:
+    // retreatHpPercent lowered from 30 to make this elite fight closer to
+    // the wire before retreating, rather than adding a bespoke
+    // takeXBossTurn() (still deliberately out of scope per the comment
+    // above - this is a pure threshold tune, not new mechanics).
     if (unit.unitClass == UnitClass::RaidLeader)
-        return {AiProfileId::Human, 40, 1500, 12, 20, 20, 20, 1, 6, 30};
+        return {AiProfileId::Human, 40, 1500, 12, 20, 20, 20, 1, 6, 15};
     // docs/regions/buried_dawn_sanctum.md "最終強敵 聖堂回収団長"'s 降伏条件:
     // "HP25%以下、記録箱2個保全、退路ありなら降伏する" - same simplification as
     // RaidLeader above (no round/Object-aware hook exists on AiProfile), only
     // the HP threshold is modeled. Explicitly not a bespoke takeXBossTurn()
     // for the same "optional elite, not a true boss" reasoning.
+    // docs/implementation_status.md「武器・防具・ボス敵パラメータの難度調整」#3:
+    // surrenderHpPercent lowered from 25, same reasoning as RaidLeader above.
     if (unit.unitClass == UnitClass::SanctumRetrievalLeader)
-        return {AiProfileId::Human, 40, 1500, 12, 20, 20, 20, 1, 6, 25};
+        return {AiProfileId::Human, 40, 1500, 12, 20, 20, 20, 1, 6, 15};
     // docs/regions/shattered_march_fort.md「最終強敵 残留砦隊長」's 降伏条件:
     // "HP25%以下かつ命令箱2個保全なら撤退" - same simplification as RaidLeader/
     // SanctumRetrievalLeader above (no round/Object-aware hook exists on
@@ -98,8 +105,10 @@ AiProfile profileFor(const Unit& unit) {
     // reasoning; the doc's other 3 bespoke abilities (交互防衛/壁際指揮/
     // 記録封鎖) are deferred entirely (see this class's own comment in
     // UnitClass.hpp).
+    // docs/implementation_status.md「武器・防具・ボス敵パラメータの難度調整」#3:
+    // retreatHpPercent lowered from 25, same reasoning as RaidLeader above.
     if (unit.unitClass == UnitClass::FortGarrisonCaptain)
-        return {AiProfileId::Human, 40, 1500, 12, 20, 20, 20, 1, 6, 25};
+        return {AiProfileId::Human, 40, 1500, 12, 20, 20, 20, 1, 6, 15};
     return {AiProfileId::Human, 40, 1500, 12, 20, 20, 20, 1, 6};
 }
 
