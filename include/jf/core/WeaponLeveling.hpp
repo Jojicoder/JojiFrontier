@@ -37,13 +37,17 @@ inline constexpr const char* kRareMaterialId = "rare_material";
 // (docs/deep_layers.md: "毎Lvに他地域素材を混ぜ...武器分岐と同じく地理的・
 // 進行的に近い1〜2地域を個別に割り当てる"). Reused across all branch weapons
 // of one class, per the doc's own worked example doing the same thing (its
-// 号令剣/決闘剣/護衛剣 example only varies the Lv1 recipe, not otherA/otherB).
-// 2026-07 material-economy pass: avoid common "can get it anywhere" staples
-// as recurring Lv gates. Other-region picks now favor higher-risk site rewards
-// and specialist materials rather than wood/iron/hide.
+// 号令剣/決闘剣/護衛剣 example only varies the Lv1 recipe, not otherLv2/3/4).
+// 2026-08-01 (docs/prompts/equipment_other_region_materials_prompt.md): fixed
+// a real bug where every class's "other-region" picks were actually its OWN
+// region's materials (no cross-region requirement existed at all). Also split
+// the old otherA(Lv2+Lv3 shared)/otherB(Lv4) shape into 3 independent fields
+// so Lv2/Lv3/Lv4 each pull from a genuinely different other region - no reuse
+// across levels either.
 struct WeaponLevelMaterials {
-    std::string otherA; // used at Lv2/Lv3
-    std::string otherB; // used at Lv4 (Lv5 always uses kRareMaterialId instead)
+    std::string otherLv2;
+    std::string otherLv3;
+    std::string otherLv4; // Lv5 always uses kRareMaterialId instead
 };
 
 // データ/ロジック分離方針(docs/implementation_status.md): 両テーブルの本体は
@@ -88,7 +92,8 @@ inline const std::unordered_map<UnitClass, WeaponLevelMaterials>& weaponLevelMat
         if (parsed.contains("materialsByClass")) {
             for (const auto& m : parsed.at("materialsByClass")) {
                 UnitClass uc = unitClassFromWeaponLevelingJsonString(m.at("unitClass").get<std::string>());
-                t[uc] = {m.at("otherA").get<std::string>(), m.at("otherB").get<std::string>()};
+                t[uc] = {m.at("otherLv2").get<std::string>(), m.at("otherLv3").get<std::string>(),
+                         m.at("otherLv4").get<std::string>()};
             }
         }
         return t;
@@ -197,14 +202,14 @@ inline std::vector<LootStack> weaponDeepLevelUpCost(UnitClass unitClass, int tar
             cost.push_back({(*bossMats)[layerIndex], 1});
         }
     }
-    // TODO(他地域深層の横展開時): docs/deep_layers.md「他地域深層素材の混合
-    // 要求」2026-08-01 - Lv2〜5が「毎Lvに他地域の本編素材を1種混ぜる」のと
-    // 同じ考え方で、ここにも「別地域の深層素材を少量追加要求する」項を足す
-    // 方針が決まっている(自地域の`deepMaterial`/ボス素材を代用するのでは
-    // なく、追加でもう1種混ぜる形)。現状は灰枝の森(AshboughForest)しか
-    // 深層が実装されておらず「混ぜる相手」が存在しないため未実装 - 2地域目
-    // 以降の深層を追加するタイミングで、混ぜる節目Lv・相手地域の選び方・
-    // 数量を決めてここへ追加すること。
+    // docs/deep_layers.md「他地域深層素材の混合要求」/docs/prompts/
+    // equipment_other_region_materials_prompt.md(2026-08-01設計): Lv2〜5の
+    // 「毎Lvに他地域素材を1種混ぜる」と同じ考え方で、ボス撃破チェックポイント
+    // ではない3つのLv(全兵種共通でLv8/11/17)に、自地域の`deepMaterial`/ボス
+    // 素材とは別の他地域深層共通素材を少量追加要求する(代用ではなく追加混合)。
+    for (const OtherDeepMaterialRequirement& req : otherDeepMaterialsForClass(unitClass)) {
+        if (req.targetLevel == targetLevel) cost.push_back({req.materialId, req.quantity});
+    }
     return cost;
 }
 
@@ -237,16 +242,16 @@ inline std::vector<LootStack> weaponLevelUpCost(const std::string& weaponId, int
     switch (targetLevel) {
         case 2:
             addOrMerge(primaryLevelMaterial, weaponLevelRoundedQuantity(primary.quantity * 1.0));
-            addOrMerge(mats.otherA, 1);
+            addOrMerge(mats.otherLv2, 1);
             break;
         case 3:
             addOrMerge(primaryLevelMaterial, weaponLevelRoundedQuantity(primary.quantity * 1.5));
-            addOrMerge(mats.otherA, 2);
+            addOrMerge(mats.otherLv3, 2);
             break;
         case 4:
             addOrMerge(primaryLevelMaterial, weaponLevelRoundedQuantity(primary.quantity * 1.5));
             if (secondary) addOrMerge(secondaryLevelMaterial, weaponLevelRoundedQuantity(secondary->quantity * 1.0));
-            addOrMerge(mats.otherB, 1);
+            addOrMerge(mats.otherLv4, 1);
             break;
         case 5:
             addOrMerge(primaryLevelMaterial, weaponLevelRoundedQuantity(primary.quantity * 2.0));

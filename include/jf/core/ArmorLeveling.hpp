@@ -30,14 +30,18 @@
 
 namespace jf {
 
-// Per-class "2nd/3rd/4th-region" materials seasoning armor Lv2〜5 costs
+// Per-class "other-region" materials seasoning armor Lv2〜5 costs
 // (docs/deep_layers.md「防具Lv1〜5」: "Lv2以降すべてに他地域素材を混ぜる...
-// 4種類の地域素材+レア枠"). 2026-07 material-economy pass: prefer
-// higher-risk site rewards and specialist materials over ubiquitous staples.
+// 4種類の地域素材+レア枠"). 2026-08-01 (docs/prompts/
+// equipment_other_region_materials_prompt.md): fixed the same "otherA/B/C
+// were actually the class's OWN region" bug WeaponLeveling.hpp had, and
+// switched from a cumulative "otherA carries into every later Lv" shape to
+// one independent field per Lv, mirroring the weapon side - Lv2/Lv3/Lv4 each
+// pull from a genuinely different other region, no reuse across levels.
 struct ArmorLevelMaterials {
-    std::string otherA; // Lv2/Lv3 (matches weapon's otherA - see comment above)
-    std::string otherB; // Lv3/Lv4 (matches weapon's otherB)
-    std::string otherC; // Lv4 only - armor-specific 4th material
+    std::string otherLv2;
+    std::string otherLv3;
+    std::string otherLv4; // Lv5 always uses kRareMaterialId instead
 };
 
 // データ/ロジック分離方針(docs/implementation_status.md): データ本体は
@@ -74,8 +78,8 @@ inline const std::unordered_map<UnitClass, ArmorLevelMaterials>& armorLevelMater
         }
         for (const auto& m : parsed.at("materialsByClass")) {
             UnitClass uc = unitClassFromArmorLevelingJsonString(m.at("unitClass").get<std::string>());
-            t[uc] = {m.at("otherA").get<std::string>(), m.at("otherB").get<std::string>(),
-                     m.at("otherC").get<std::string>()};
+            t[uc] = {m.at("otherLv2").get<std::string>(), m.at("otherLv3").get<std::string>(),
+                     m.at("otherLv4").get<std::string>()};
         }
         return t;
     }();
@@ -154,23 +158,18 @@ inline std::vector<LootStack> armorLevelUpCost(const std::string& armorId, const
     switch (targetLevel) {
         case 2:
             addOrMerge(primaryLevelMaterial, armorLevelRoundedQuantity(kArmorTier1LvOneQuantity * 0.5));
-            addOrMerge(mats.otherA, 1);
+            addOrMerge(mats.otherLv2, 1);
             break;
         case 3:
             addOrMerge(primaryLevelMaterial, armorLevelRoundedQuantity(kArmorTier1LvOneQuantity * 1.0));
-            addOrMerge(mats.otherA, 1);
-            addOrMerge(mats.otherB, 1);
+            addOrMerge(mats.otherLv3, 2);
             break;
         case 4:
             addOrMerge(primaryLevelMaterial, armorLevelRoundedQuantity(kArmorTier1LvOneQuantity * 1.0));
-            addOrMerge(mats.otherA, 2);
-            addOrMerge(mats.otherB, 1);
-            addOrMerge(mats.otherC, 1);
+            addOrMerge(mats.otherLv4, 1);
             break;
         case 5:
             addOrMerge(primaryLevelMaterial, armorLevelRoundedQuantity(kArmorTier1LvOneQuantity * 1.0));
-            addOrMerge(mats.otherA, 2);
-            addOrMerge(mats.otherB, 1);
             addOrMerge(kRareMaterialId, 2);
             break;
     }

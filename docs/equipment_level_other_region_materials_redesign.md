@@ -1,6 +1,8 @@
-# 武器/防具Lv2〜5「他地域素材」再設計(設計メモ、未実装)
+# 武器/防具Lv2〜5「他地域素材」再設計(実装済み、2026-08-01)
 
-文書種別: **設計メモ**(まだデータ/コードには反映していない)
+文書種別: **設計メモ**(2026-08-01、`docs/prompts/equipment_other_region_materials_prompt.md`
+経由で設計し、`data/weapon_leveling.json`/`data/armor_leveling.json`・
+`WeaponLeveling.hpp`/`ArmorLeveling.hpp`へ反映済み。本ファイルは経緯の記録として残す)。
 
 ## 発覚した問題
 

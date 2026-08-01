@@ -26,6 +26,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
@@ -33,9 +34,20 @@
 
 namespace jf {
 
+// docs/deep_layers.md「他地域深層素材の混合要求」/
+// docs/prompts/equipment_other_region_materials_prompt.md(2026-08-01設計):
+// Lv6〜20のうちボス撃破チェックポイントではない3つのLvで、自地域の深層素材とは
+// 別に他地域の深層共通素材を少量追加要求する。
+struct OtherDeepMaterialRequirement {
+    int targetLevel = 0;
+    std::string materialId;
+    int quantity = 1;
+};
+
 struct DeepLayerRegionMaterials {
     std::string deepMaterialId;
     std::array<std::string, 3> layerBossMaterialIds; // index 0/1 = 深層内2体, 2 = 最深層
+    std::vector<OtherDeepMaterialRequirement> otherDeepMaterials;
 };
 
 namespace deep_layers_detail {
@@ -79,6 +91,13 @@ inline const std::unordered_map<UnitClass, DeepLayerRegionMaterials>& deepLayerM
             const auto& bossIds = r.at("layerBossMaterialIds");
             for (std::size_t i = 0; i < 3 && i < bossIds.size(); ++i)
                 mats.layerBossMaterialIds[i] = bossIds[i].get<std::string>();
+            if (r.contains("otherDeepMaterials")) {
+                for (const auto& req : r.at("otherDeepMaterials")) {
+                    mats.otherDeepMaterials.push_back(
+                        {req.at("targetLevel").get<int>(), req.at("materialId").get<std::string>(),
+                         req.at("quantity").get<int>()});
+                }
+            }
             t[uc] = std::move(mats);
         }
         return t;
@@ -102,6 +121,17 @@ inline std::optional<std::array<std::string, 3>> layerBossMaterialIdsForClass(Un
     auto it = deepLayerMaterialsByClass().find(unitClass);
     if (it == deepLayerMaterialsByClass().end()) return std::nullopt;
     return it->second.layerBossMaterialIds;
+}
+
+// docs/deep_layers.md「他地域深層素材の混合要求」: the class's region's Lv6〜20
+// "other region" mix-in requirements (non-boss-checkpoint Lv only). Empty
+// vector (not nullopt) when the class has a deep-layer region wired but no
+// entries were authored for it yet.
+inline const std::vector<OtherDeepMaterialRequirement>& otherDeepMaterialsForClass(UnitClass unitClass) {
+    static const std::vector<OtherDeepMaterialRequirement> kEmpty;
+    auto it = deepLayerMaterialsByClass().find(unitClass);
+    if (it == deepLayerMaterialsByClass().end()) return kEmpty;
+    return it->second.otherDeepMaterials;
 }
 
 } // namespace jf

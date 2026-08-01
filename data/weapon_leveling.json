@@ -2,63 +2,75 @@
   "materialsByClass": [
     {
       "unitClass": "MarchCaptain",
-      "otherA": "belliron_chip",
-      "otherB": "weathered_cord"
+      "otherLv2": "crest_nail",
+      "otherLv3": "marshlight_spore",
+      "otherLv4": "kilnbone"
     },
     {
       "unitClass": "VeteranGuard",
-      "otherA": "shattered_shield_stud",
-      "otherB": "signal_fuse"
+      "otherLv2": "windcleft_feather",
+      "otherLv3": "watchglass_shard",
+      "otherLv4": "graymoss_thread"
     },
     {
       "unitClass": "WatchArcher",
-      "otherA": "watchglass_shard",
-      "otherB": "belliron_chip"
+      "otherLv2": "veinstone_powder",
+      "otherLv3": "crest_nail",
+      "otherLv4": "ashbark_strip"
     },
     {
       "unitClass": "FrontierScout",
-      "otherA": "ashbark_strip",
-      "otherB": "graymoss_thread"
+      "otherLv2": "trench_plate",
+      "otherLv3": "ember_shell",
+      "otherLv4": "crest_nail"
     },
     {
       "unitClass": "Spearman",
-      "otherA": "grayiron_slag",
-      "otherB": "veinstone_powder"
+      "otherLv2": "censer_ash",
+      "otherLv3": "thunderworn_stone",
+      "otherLv4": "kilnbone"
     },
     {
       "unitClass": "DawnChirurgeon",
-      "otherA": "prayer_wax",
-      "otherB": "censer_ash"
+      "otherLv2": "watchglass_shard",
+      "otherLv3": "sootberry",
+      "otherLv4": "sootdyed_cloth"
     },
     {
       "unitClass": "HeavyInfantry",
-      "otherA": "veinstone_powder",
-      "otherB": "quarry_chain_link"
+      "otherLv2": "rot_reed_fiber",
+      "otherLv3": "belliron_chip",
+      "otherLv4": "sootberry"
     },
     {
       "unitClass": "FrontierEngineer",
-      "otherA": "border_dust",
-      "otherB": "waystone_fragment"
+      "otherLv2": "ashbark_strip",
+      "otherLv3": "marshlight_spore",
+      "otherLv4": "grayiron_slag"
     },
     {
       "unitClass": "MessengerCavalry",
-      "otherA": "thunderworn_stone",
-      "otherB": "windcleft_feather"
+      "otherLv2": "trench_plate",
+      "otherLv3": "ember_shell",
+      "otherLv4": "graymoss_thread"
     },
     {
       "unitClass": "FrontierRanger",
-      "otherA": "blackwater_peat",
-      "otherB": "marshlight_spore"
+      "otherLv2": "shattered_shield_stud",
+      "otherLv3": "scripture_tile",
+      "otherLv4": "quarry_chain_link"
     },
     {
       "unitClass": "BannerBearer",
-      "otherA": "hearthbrick",
-      "otherB": "sootdyed_cloth"
+      "otherLv2": "censer_ash",
+      "otherLv3": "blackwater_peat",
+      "otherLv4": "thunderworn_stone"
     },
     {
       "unitClass": "BattleMage",
-      "otherA": "ember_shell",
-      "otherB": "firetrail_sand"
+      "otherLv2": "border_dust",
+      "otherLv3": "shattered_shield_stud",
+      "otherLv4": "blackwater_peat"
     }
   ],
   "eligibleWeapons": [

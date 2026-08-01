@@ -1054,6 +1054,11 @@ int main() {
         fresh.addStorage("watch_ledger", 1);
         fresh.addStorage("wood", 2);
         fresh.addStorage("iron", 1);
+        // docs/prompts/facility_material_redesign_prompt.md: scout_network now
+        // also requires a small amount of Cinderwatch's own region materials
+        // (watchglass_shard/weathered_cord), on top of the original 3.
+        fresh.addStorage("watchglass_shard", 1);
+        fresh.addStorage("weathered_cord", 1);
         assert(jf::facilityNodeEligible(fresh, *scoutNode));
     }
 
@@ -1105,6 +1110,15 @@ int main() {
         facilityBase.addStorage("herb", 2);
         facilityBase.addStorage("iron", 3);
         facilityBase.addStorage("quality_iron", 2);
+        // docs/prompts/facility_material_redesign_prompt.md: these nodes now
+        // also require a small amount of region-flavored materials on top of
+        // their original generic costs.
+        facilityBase.addStorage("ashbark_strip", 3);
+        facilityBase.addStorage("ashhorn_sinew", 1);
+        facilityBase.addStorage("grayiron_slag", 1);
+        facilityBase.addStorage("quarry_chain_link", 1);
+        facilityBase.addStorage("graymoss_thread", 2);
+        facilityBase.addStorage("sootberry", 1);
 
         assert(!app.baseState().unlockedNodeIds.count("training_field"));
         assert(app.unlockFacilityNode("training_field")); // wood:3 + hide:2
@@ -2002,19 +2016,19 @@ int main() {
         testBase.unlockedNodeIds.insert("craft_command_sword");
         assert(app.weaponLevel("command_sword") == 1); // still Lv1: crafted, not yet strengthened
 
-        // Lv2 cost: promoted primary quality_iron x2 + class special (地域素材
-        // 接続後のMarchCaptainのotherA) belliron_chip x1.
+        // Lv2 cost: promoted primary quality_iron x2 + class special
+        // (2026-08-01の他地域素材再設計後はcrest_nail) x1.
         assert(!app.strengthenWeapon("command_sword")); // no materials yet
         testBase.addStorage("quality_iron", 2);
-        testBase.addStorage("belliron_chip", 1);
+        testBase.addStorage("crest_nail", 1);
         assert(app.strengthenWeapon("command_sword"));
         assert(app.weaponLevel("command_sword") == 2);
         assert(testBase.storageCount("quality_iron") == 0);
-        assert(testBase.storageCount("belliron_chip") == 0);
+        assert(testBase.storageCount("crest_nail") == 0);
 
-        // Lv3: quality_iron x3, belliron_chip x2.
+        // Lv3: quality_iron x3, marshlight_spore x2.
         testBase.addStorage("quality_iron", 2); // deliberately short by 1
-        testBase.addStorage("belliron_chip", 2);
+        testBase.addStorage("marshlight_spore", 2);
         assert(!app.strengthenWeapon("command_sword"));
         assert(app.weaponLevel("command_sword") == 2); // unchanged, nothing partially spent
         assert(testBase.storageCount("quality_iron") == 2); // untouched
@@ -2022,10 +2036,10 @@ int main() {
         assert(app.strengthenWeapon("command_sword"));
         assert(app.weaponLevel("command_sword") == 3);
 
-        // Lv4: quality_iron x3, hardwood x1, weathered_cord x1 (otherB).
+        // Lv4: quality_iron x3, hardwood x1, kilnbone x1.
         testBase.addStorage("quality_iron", 3);
         testBase.addStorage("hardwood", 1);
-        testBase.addStorage("weathered_cord", 1);
+        testBase.addStorage("kilnbone", 1);
         assert(app.strengthenWeapon("command_sword"));
         assert(app.weaponLevel("command_sword") == 4);
 
@@ -2036,10 +2050,10 @@ int main() {
         assert(app.strengthenWeapon("command_sword"));
         assert(app.weaponLevel("command_sword") == 5);
 
-        // Lv5 -> Lv6 needs a deep-layer region wired for MarchCaptain
-        // (DeepLayers.hpp only has FrontierScout/AshboughForest so far, per
-        // docs/deep_layers.md「実装順序案」#5's "1地域だけ先に縦通し"
-        // scoping) - strengthening stops here even with unlimited materials.
+        // Lv5 -> Lv6 now DOES have a deep-layer region wired for MarchCaptain
+        // (cinderwatch_deep_core, docs/prompts/deep_layer_materials_prompt.md
+        // horizontal expansion) - but this block never stocks that specific
+        // material, so strengthening still correctly fails here.
         testBase.addStorage("iron", 999);
         testBase.addStorage("wood", 999);
         testBase.addStorage("rare_material", 999);
@@ -2107,11 +2121,17 @@ int main() {
             assert(lv6Cost.size() == 1 && lv6Cost[0].id == "ashbough_deep_core" && lv6Cost[0].quantity == 2);
         }
         // Non-checkpoint levels never require a boss material - only Lv
-        // 9/13/20 (the 3 mid-boss checkpoints) do.
+        // 9/13/20 (the 3 mid-boss checkpoints) do. Lv8/11/17 additionally mix
+        // in a small amount of another region's deep material
+        // (docs/prompts/equipment_other_region_materials_prompt.md
+        // 2026-08-01), so every stack is either the own-region deepMaterial
+        // or one of those 3 other-region ids - never a boss material.
         assert(!jf::weaponDeepLevelUpCost(jf::UnitClass::FrontierScout, 7).empty());
         for (int lvl : {6, 7, 8, 10, 11, 12, 14, 15, 16, 17, 18, 19}) {
-            for (const jf::LootStack& stack : jf::weaponDeepLevelUpCost(jf::UnitClass::FrontierScout, lvl))
-                assert(stack.id == "ashbough_deep_core");
+            for (const jf::LootStack& stack : jf::weaponDeepLevelUpCost(jf::UnitClass::FrontierScout, lvl)) {
+                assert(stack.id == "ashbough_deep_core" || stack.id == "cinderwatch_deep_core" ||
+                       stack.id == "shattered_fort_deep_core" || stack.id == "mapped_edge_deep_core");
+            }
         }
         {
             std::vector<jf::LootStack> lv9Cost = jf::weaponDeepLevelUpCost(jf::UnitClass::FrontierScout, 9);
@@ -2148,14 +2168,14 @@ int main() {
 
         // Lv1 recipe: iron x2, wood x1. Heavy Infantry promotes iron to
         // heat_resistant_material, then adds class special (地域素材接続後は
-        // veinstone_powder) x1.
+        // rot_reed_fiber、2026-08-01の他地域素材再設計でLv2用に割り当て) x1.
         assert(!app.strengthenWeapon("bulwark_maul")); // no materials yet
         testBase.addStorage("heat_resistant_material", 2);
-        testBase.addStorage("veinstone_powder", 1);
+        testBase.addStorage("rot_reed_fiber", 1);
         assert(app.strengthenWeapon("bulwark_maul"));
         assert(app.weaponLevel("bulwark_maul") == 2);
         assert(testBase.storageCount("heat_resistant_material") == 0);
-        assert(testBase.storageCount("veinstone_powder") == 0);
+        assert(testBase.storageCount("rot_reed_fiber") == 0);
     }
 
     {
@@ -2285,39 +2305,35 @@ int main() {
         testBase.unlockedNodeIds.insert("craft_armor_march_captain_tier1");
         assert(app.armorLevel("armor_march_captain_tier1") == 1); // crafted, not yet strengthened
 
-        // Lv2 cost: promoted quality_iron x1 + class special (地域素材接続後は
-        // belliron_chip) x1.
+        // Lv2 cost: promoted quality_iron x1 + class special (2026-08-01の
+        // 他地域素材再設計後はtrench_plate) x1.
         assert(!app.strengthenArmor("armor_march_captain_tier1")); // no materials yet
         testBase.addStorage("quality_iron", 1);
-        testBase.addStorage("belliron_chip", 1);
+        testBase.addStorage("trench_plate", 1);
         assert(app.strengthenArmor("armor_march_captain_tier1"));
         assert(app.armorLevel("armor_march_captain_tier1") == 2);
         assert(testBase.storageCount("quality_iron") == 0);
-        assert(testBase.storageCount("belliron_chip") == 0);
+        assert(testBase.storageCount("trench_plate") == 0);
 
-        // Lv3: quality_iron x2, belliron_chip x1, weathered_cord x1.
+        // Lv3: quality_iron x2, sootdyed_cloth x2.
         testBase.addStorage("quality_iron", 2);
-        testBase.addStorage("belliron_chip", 1);
-        // Deliberately short by 1 weathered_cord.
+        testBase.addStorage("sootdyed_cloth", 1);
+        // Deliberately short by 1 sootdyed_cloth.
         assert(!app.strengthenArmor("armor_march_captain_tier1"));
         assert(app.armorLevel("armor_march_captain_tier1") == 2); // unchanged, nothing partially spent
         assert(testBase.storageCount("quality_iron") == 2); // untouched
-        testBase.addStorage("weathered_cord", 1);
+        testBase.addStorage("sootdyed_cloth", 1);
         assert(app.strengthenArmor("armor_march_captain_tier1"));
         assert(app.armorLevel("armor_march_captain_tier1") == 3);
 
-        // Lv4: quality_iron x2, belliron_chip x2, weathered_cord x1, watchglass_shard x1.
+        // Lv4: quality_iron x2, prayer_wax x1.
         testBase.addStorage("quality_iron", 2);
-        testBase.addStorage("belliron_chip", 2);
-        testBase.addStorage("weathered_cord", 1);
-        testBase.addStorage("watchglass_shard", 1);
+        testBase.addStorage("prayer_wax", 1);
         assert(app.strengthenArmor("armor_march_captain_tier1"));
         assert(app.armorLevel("armor_march_captain_tier1") == 4);
 
-        // Lv5: quality_iron x2, belliron_chip x2, weathered_cord x1, rare_material x2.
+        // Lv5: quality_iron x2, rare_material x2.
         testBase.addStorage("quality_iron", 2);
-        testBase.addStorage("belliron_chip", 2);
-        testBase.addStorage("weathered_cord", 1);
         testBase.addStorage("rare_material", 2);
         assert(app.strengthenArmor("armor_march_captain_tier1"));
         assert(app.armorLevel("armor_march_captain_tier1") == 5);
@@ -2389,14 +2405,14 @@ int main() {
         testBase.unlockedNodeIds.insert("craft_armor_battle_mage_tier2");
 
         // Lv1 recipe: ruin_fragment x2. Lv2 cost: ruin_fragment x1,
-        // class special (地域素材接続後はember_shell) x1.
+        // class special (2026-08-01の他地域素材再設計後はsignal_fuse) x1.
         assert(!app.strengthenArmor("armor_battle_mage_tier2")); // no materials yet
         testBase.addStorage("ruin_fragment", 1);
-        testBase.addStorage("ember_shell", 1);
+        testBase.addStorage("signal_fuse", 1);
         assert(app.strengthenArmor("armor_battle_mage_tier2"));
         assert(app.armorLevel("armor_battle_mage_tier2") == 2);
         assert(testBase.storageCount("ruin_fragment") == 0);
-        assert(testBase.storageCount("ash_crystal") == 0);
+        assert(testBase.storageCount("signal_fuse") == 0);
 
         assert(app.equipArmorForUnit("player0", "armor_battle_mage_tier2"));
         const jf::ArmorDefinition* armor = jf::findArmorDefinition("armor_battle_mage_tier2");

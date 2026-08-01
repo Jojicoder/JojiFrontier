@@ -34,6 +34,14 @@
         {
           "id": "iron",
           "quantity": 1
+        },
+        {
+          "id": "watchglass_shard",
+          "quantity": 1
+        },
+        {
+          "id": "weathered_cord",
+          "quantity": 1
         }
       ],
       "prerequisiteNodeIds": [
@@ -62,6 +70,14 @@
         {
           "id": "stone",
           "quantity": 2
+        },
+        {
+          "id": "graymoss_thread",
+          "quantity": 1
+        },
+        {
+          "id": "watchglass_shard",
+          "quantity": 1
         }
       ],
       "prerequisiteNodeIds": [
@@ -96,6 +112,14 @@
         {
           "id": "military_supplies",
           "quantity": 1
+        },
+        {
+          "id": "watchseal",
+          "quantity": 1
+        },
+        {
+          "id": "resonant_stone",
+          "quantity": 1
         }
       ],
       "prerequisiteNodeIds": [
@@ -119,6 +143,10 @@
         },
         {
           "id": "hide",
+          "quantity": 2
+        },
+        {
+          "id": "ashbark_strip",
           "quantity": 2
         }
       ],
@@ -145,6 +173,14 @@
         },
         {
           "id": "quality_iron",
+          "quantity": 1
+        },
+        {
+          "id": "ashhorn_sinew",
+          "quantity": 1
+        },
+        {
+          "id": "grayiron_slag",
           "quantity": 1
         }
       ],
@@ -180,6 +216,14 @@
         {
           "id": "riding_gear",
           "quantity": 1
+        },
+        {
+          "id": "weathered_cord",
+          "quantity": 2
+        },
+        {
+          "id": "old_aiming_device",
+          "quantity": 1
         }
       ],
       "prerequisiteNodeIds": [
@@ -212,6 +256,14 @@
         {
           "id": "military_supplies",
           "quantity": 1
+        },
+        {
+          "id": "resonant_stone",
+          "quantity": 1
+        },
+        {
+          "id": "windcleft_feather",
+          "quantity": 1
         }
       ],
       "prerequisiteNodeIds": [
@@ -243,6 +295,14 @@
         },
         {
           "id": "military_supplies",
+          "quantity": 1
+        },
+        {
+          "id": "marshlight_spore",
+          "quantity": 2
+        },
+        {
+          "id": "skyresonance_crystal",
           "quantity": 1
         }
       ],
@@ -2540,6 +2600,14 @@
         {
           "id": "herb",
           "quantity": 2
+        },
+        {
+          "id": "graymoss_thread",
+          "quantity": 2
+        },
+        {
+          "id": "sootberry",
+          "quantity": 1
         }
       ],
       "prerequisiteNodeIds": [],
@@ -2568,6 +2636,14 @@
         {
           "id": "quality_herb",
           "quantity": 1
+        },
+        {
+          "id": "forestcore_sap",
+          "quantity": 1
+        },
+        {
+          "id": "grayiron_slag",
+          "quantity": 1
         }
       ],
       "prerequisiteNodeIds": [
@@ -2595,6 +2671,14 @@
         },
         {
           "id": "military_supplies",
+          "quantity": 1
+        },
+        {
+          "id": "ashhorn_sinew",
+          "quantity": 1
+        },
+        {
+          "id": "watchglass_shard",
           "quantity": 1
         }
       ],
@@ -2626,6 +2710,14 @@
         {
           "id": "wetland_resin",
           "quantity": 1
+        },
+        {
+          "id": "marshlight_spore",
+          "quantity": 2
+        },
+        {
+          "id": "blackmarsh_gall",
+          "quantity": 1
         }
       ],
       "prerequisiteNodeIds": [
@@ -2649,6 +2741,14 @@
         },
         {
           "id": "hide",
+          "quantity": 1
+        },
+        {
+          "id": "ashbark_strip",
+          "quantity": 1
+        },
+        {
+          "id": "quarry_chain_link",
           "quantity": 1
         }
       ],
@@ -2675,6 +2775,14 @@
         },
         {
           "id": "quality_iron",
+          "quantity": 1
+        },
+        {
+          "id": "weathered_cord",
+          "quantity": 2
+        },
+        {
+          "id": "veinstone_powder",
           "quantity": 1
         }
       ],
@@ -2704,6 +2812,14 @@
         {
           "id": "military_supplies",
           "quantity": 1
+        },
+        {
+          "id": "belliron_chip",
+          "quantity": 1
+        },
+        {
+          "id": "grayiron_slag",
+          "quantity": 2
         }
       ],
       "prerequisiteNodeIds": [
@@ -2734,6 +2850,14 @@
         {
           "id": "poison_material",
           "quantity": 1
+        },
+        {
+          "id": "rot_reed_fiber",
+          "quantity": 2
+        },
+        {
+          "id": "blackmarsh_gall",
+          "quantity": 1
         }
       ],
       "prerequisiteNodeIds": [
@@ -2763,6 +2887,14 @@
         },
         {
           "id": "ash_crystal",
+          "quantity": 1
+        },
+        {
+          "id": "ember_shell",
+          "quantity": 2
+        },
+        {
+          "id": "meltvein_glass",
           "quantity": 1
         }
       ],
@@ -2797,6 +2929,14 @@
         },
         {
           "id": "cloth",
+          "quantity": 1
+        },
+        {
+          "id": "belliron_chip",
+          "quantity": 1
+        },
+        {
+          "id": "old_aiming_device",
           "quantity": 1
         }
       ],
@@ -2835,6 +2975,14 @@
         {
           "id": "food",
           "quantity": 1
+        },
+        {
+          "id": "ashbark_strip",
+          "quantity": 2
+        },
+        {
+          "id": "veinstone_powder",
+          "quantity": 1
         }
       ],
       "prerequisiteNodeIds": [
@@ -2863,6 +3011,14 @@
         {
           "id": "military_supplies",
           "quantity": 1
+        },
+        {
+          "id": "highland_fleece",
+          "quantity": 2
+        },
+        {
+          "id": "mudbed_pearl",
+          "quantity": 1
         }
       ],
       "prerequisiteNodeIds": [
@@ -2887,6 +3043,14 @@
         {
           "id": "cloth",
           "quantity": 2
+        },
+        {
+          "id": "graymoss_thread",
+          "quantity": 1
+        },
+        {
+          "id": "belliron_chip",
+          "quantity": 1
         }
       ],
       "prerequisiteNodeIds": [

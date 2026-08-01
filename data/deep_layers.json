@@ -4,73 +4,325 @@
       "regionId": "ashbough_forest",
       "deepMaterialId": "ashbough_deep_core",
       "classId": "FrontierScout",
-      "layerBossMaterialIds": ["ashenhorn_deep_tusk", "ashenhorn_deep_horn", "ashenhorn_deep_relic"]
+      "layerBossMaterialIds": [
+        "ashenhorn_deep_tusk",
+        "ashenhorn_deep_horn",
+        "ashenhorn_deep_relic"
+      ],
+      "otherDeepMaterials": [
+        {
+          "targetLevel": 8,
+          "materialId": "cinderwatch_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 11,
+          "materialId": "shattered_fort_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 17,
+          "materialId": "mapped_edge_deep_core",
+          "quantity": 2
+        }
+      ]
     },
     {
       "regionId": "cinderwatch_gate",
       "deepMaterialId": "cinderwatch_deep_core",
       "classId": "MarchCaptain",
-      "layerBossMaterialIds": ["march_captain_deep_clapper", "march_captain_deep_lens", "march_captain_deep_watchseal"]
+      "layerBossMaterialIds": [
+        "march_captain_deep_clapper",
+        "march_captain_deep_lens",
+        "march_captain_deep_watchseal"
+      ],
+      "otherDeepMaterials": [
+        {
+          "targetLevel": 8,
+          "materialId": "mapped_edge_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 11,
+          "materialId": "ashbough_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 17,
+          "materialId": "shattered_fort_deep_core",
+          "quantity": 2
+        }
+      ]
     },
     {
       "regionId": "cinderwatch_gate",
       "deepMaterialId": "cinderwatch_deep_core",
       "classId": "WatchArcher",
-      "layerBossMaterialIds": ["march_captain_deep_clapper", "march_captain_deep_lens", "march_captain_deep_watchseal"]
+      "layerBossMaterialIds": [
+        "march_captain_deep_clapper",
+        "march_captain_deep_lens",
+        "march_captain_deep_watchseal"
+      ],
+      "otherDeepMaterials": [
+        {
+          "targetLevel": 8,
+          "materialId": "windscar_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 11,
+          "materialId": "oldsettlement_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 17,
+          "materialId": "blackwater_deep_core",
+          "quantity": 2
+        }
+      ]
     },
     {
       "regionId": "ashiron_quarry",
       "deepMaterialId": "ashiron_deep_core",
       "classId": "Spearman",
-      "layerBossMaterialIds": ["ashiron_grubworm_deep_mandible", "ashiron_grubworm_deep_carapace", "ashiron_grubworm_deep_heartstone"]
+      "layerBossMaterialIds": [
+        "ashiron_grubworm_deep_mandible",
+        "ashiron_grubworm_deep_carapace",
+        "ashiron_grubworm_deep_heartstone"
+      ],
+      "otherDeepMaterials": [
+        {
+          "targetLevel": 8,
+          "materialId": "cinderwatch_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 11,
+          "materialId": "oldsettlement_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 17,
+          "materialId": "dawn_sanctum_deep_core",
+          "quantity": 2
+        }
+      ]
     },
     {
       "regionId": "ashiron_quarry",
       "deepMaterialId": "ashiron_deep_core",
       "classId": "HeavyInfantry",
-      "layerBossMaterialIds": ["ashiron_grubworm_deep_mandible", "ashiron_grubworm_deep_carapace", "ashiron_grubworm_deep_heartstone"]
+      "layerBossMaterialIds": [
+        "ashiron_grubworm_deep_mandible",
+        "ashiron_grubworm_deep_carapace",
+        "ashiron_grubworm_deep_heartstone"
+      ],
+      "otherDeepMaterials": [
+        {
+          "targetLevel": 8,
+          "materialId": "ember_ravine_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 11,
+          "materialId": "ashbough_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 17,
+          "materialId": "oldsettlement_deep_core",
+          "quantity": 2
+        }
+      ]
     },
     {
       "regionId": "blackwater_lowlands",
       "deepMaterialId": "blackwater_deep_core",
       "classId": "FrontierRanger",
-      "layerBossMaterialIds": ["marshfang_serpent_deep_fang", "marshfang_serpent_deep_scale", "marshfang_serpent_deep_gall"]
+      "layerBossMaterialIds": [
+        "marshfang_serpent_deep_fang",
+        "marshfang_serpent_deep_scale",
+        "marshfang_serpent_deep_gall"
+      ],
+      "otherDeepMaterials": [
+        {
+          "targetLevel": 8,
+          "materialId": "windscar_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 11,
+          "materialId": "dawn_sanctum_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 17,
+          "materialId": "oldsettlement_deep_core",
+          "quantity": 2
+        }
+      ]
     },
     {
       "regionId": "windscar_plateau",
       "deepMaterialId": "windscar_deep_core",
       "classId": "MessengerCavalry",
-      "layerBossMaterialIds": ["plateau_courier_deep_spur", "plateau_courier_deep_rein", "plateau_courier_deep_wayseal"]
+      "layerBossMaterialIds": [
+        "plateau_courier_deep_spur",
+        "plateau_courier_deep_rein",
+        "plateau_courier_deep_wayseal"
+      ],
+      "otherDeepMaterials": [
+        {
+          "targetLevel": 8,
+          "materialId": "ashiron_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 11,
+          "materialId": "dawn_sanctum_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 17,
+          "materialId": "ember_ravine_deep_core",
+          "quantity": 2
+        }
+      ]
     },
     {
       "regionId": "old_frontier_settlement",
       "deepMaterialId": "oldsettlement_deep_core",
       "classId": "BannerBearer",
-      "layerBossMaterialIds": ["raid_leader_deep_firebrand", "raid_leader_deep_banner", "raid_leader_deep_hearthseal"]
+      "layerBossMaterialIds": [
+        "raid_leader_deep_firebrand",
+        "raid_leader_deep_banner",
+        "raid_leader_deep_hearthseal"
+      ],
+      "otherDeepMaterials": [
+        {
+          "targetLevel": 8,
+          "materialId": "windscar_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 11,
+          "materialId": "ember_ravine_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 17,
+          "materialId": "ashiron_deep_core",
+          "quantity": 2
+        }
+      ]
     },
     {
       "regionId": "ember_ravine",
       "deepMaterialId": "ember_ravine_deep_core",
       "classId": "BattleMage",
-      "layerBossMaterialIds": ["redback_lizard_deep_tailspine", "redback_lizard_deep_throatstone", "redback_lizard_deep_crownscale"]
+      "layerBossMaterialIds": [
+        "redback_lizard_deep_tailspine",
+        "redback_lizard_deep_throatstone",
+        "redback_lizard_deep_crownscale"
+      ],
+      "otherDeepMaterials": [
+        {
+          "targetLevel": 8,
+          "materialId": "ashbough_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 11,
+          "materialId": "cinderwatch_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 17,
+          "materialId": "mapped_edge_deep_core",
+          "quantity": 2
+        }
+      ]
     },
     {
       "regionId": "buried_dawn_sanctum",
       "deepMaterialId": "dawn_sanctum_deep_core",
       "classId": "DawnChirurgeon",
-      "layerBossMaterialIds": ["sanctum_retriever_deep_censer", "sanctum_retriever_deep_seal", "sanctum_retriever_deep_reliquary"]
+      "layerBossMaterialIds": [
+        "sanctum_retriever_deep_censer",
+        "sanctum_retriever_deep_seal",
+        "sanctum_retriever_deep_reliquary"
+      ],
+      "otherDeepMaterials": [
+        {
+          "targetLevel": 8,
+          "materialId": "windscar_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 11,
+          "materialId": "cinderwatch_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 17,
+          "materialId": "blackwater_deep_core",
+          "quantity": 2
+        }
+      ]
     },
     {
       "regionId": "shattered_march_fort",
       "deepMaterialId": "shattered_fort_deep_core",
       "classId": "VeteranGuard",
-      "layerBossMaterialIds": ["fort_captain_deep_shieldboss", "fort_captain_deep_gatekey", "fort_captain_deep_commandseal"]
+      "layerBossMaterialIds": [
+        "fort_captain_deep_shieldboss",
+        "fort_captain_deep_gatekey",
+        "fort_captain_deep_commandseal"
+      ],
+      "otherDeepMaterials": [
+        {
+          "targetLevel": 8,
+          "materialId": "ashbough_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 11,
+          "materialId": "blackwater_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 17,
+          "materialId": "ashiron_deep_core",
+          "quantity": 2
+        }
+      ]
     },
     {
       "regionId": "mapped_edge",
       "deepMaterialId": "mapped_edge_deep_core",
       "classId": "FrontierEngineer",
-      "layerBossMaterialIds": ["frontier_beast_deep_claw", "frontier_beast_deep_waystone", "frontier_beast_deep_anchor"]
+      "layerBossMaterialIds": [
+        "frontier_beast_deep_claw",
+        "frontier_beast_deep_waystone",
+        "frontier_beast_deep_anchor"
+      ],
+      "otherDeepMaterials": [
+        {
+          "targetLevel": 8,
+          "materialId": "shattered_fort_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 11,
+          "materialId": "ashiron_deep_core",
+          "quantity": 1
+        },
+        {
+          "targetLevel": 17,
+          "materialId": "blackwater_deep_core",
+          "quantity": 2
+        }
+      ]
     }
   ]
 }
