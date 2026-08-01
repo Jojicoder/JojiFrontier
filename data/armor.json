@@ -1,0 +1,328 @@
+{
+  "armor": [
+    {
+      "id": "armor_march_captain_tier1",
+      "nameEn": "March Captain Guard",
+      "nameJa": "行軍隊長の護具",
+      "unitClass": "MarchCaptain",
+      "tier": "Tier1",
+      "baseDef": 1,
+      "baseRes": 1
+    },
+    {
+      "id": "armor_march_captain_tier2",
+      "nameEn": "March Captain Plate",
+      "nameJa": "行軍隊長の重甲",
+      "unitClass": "MarchCaptain",
+      "tier": "Tier2",
+      "baseDef": 2,
+      "baseRes": 0
+    },
+    {
+      "id": "armor_march_captain_tier3",
+      "nameEn": "March Captain Ward",
+      "nameJa": "行軍隊長の守甲",
+      "unitClass": "MarchCaptain",
+      "tier": "Tier3",
+      "baseDef": 1,
+      "baseRes": 2
+    },
+    {
+      "id": "armor_veteran_guard_tier1",
+      "nameEn": "Veteran Guard Mail",
+      "nameJa": "古参守備兵の帷子",
+      "unitClass": "VeteranGuard",
+      "tier": "Tier1",
+      "baseDef": 1,
+      "baseRes": 1
+    },
+    {
+      "id": "armor_veteran_guard_tier2",
+      "nameEn": "Veteran Guard Bastion Plate",
+      "nameJa": "古参守備兵の防塁甲",
+      "unitClass": "VeteranGuard",
+      "tier": "Tier2",
+      "baseDef": 3,
+      "baseRes": 0
+    },
+    {
+      "id": "armor_veteran_guard_tier3",
+      "nameEn": "Veteran Guard Sentinel Ward",
+      "nameJa": "古参守備兵の哨戒守甲",
+      "unitClass": "VeteranGuard",
+      "tier": "Tier3",
+      "baseDef": 1,
+      "baseRes": 2
+    },
+    {
+      "id": "armor_watch_archer_tier1",
+      "nameEn": "Watch Archer Vest",
+      "nameJa": "監視弓兵の胴衣",
+      "unitClass": "WatchArcher",
+      "tier": "Tier1",
+      "baseDef": 1,
+      "baseRes": 1
+    },
+    {
+      "id": "armor_watch_archer_tier2",
+      "nameEn": "Watch Archer Brigandine",
+      "nameJa": "監視弓兵の鎖胴衣",
+      "unitClass": "WatchArcher",
+      "tier": "Tier2",
+      "baseDef": 2,
+      "baseRes": 0
+    },
+    {
+      "id": "armor_watch_archer_tier3",
+      "nameEn": "Watch Archer Marsh Ward",
+      "nameJa": "監視弓兵の湿地守衣",
+      "unitClass": "WatchArcher",
+      "tier": "Tier3",
+      "baseDef": 1,
+      "baseRes": 2
+    },
+    {
+      "id": "armor_frontier_scout_tier1",
+      "nameEn": "Frontier Scout Wrap",
+      "nameJa": "辺境斥候の巻き衣",
+      "unitClass": "FrontierScout",
+      "tier": "Tier1",
+      "baseDef": 1,
+      "baseRes": 1
+    },
+    {
+      "id": "armor_frontier_scout_tier2",
+      "nameEn": "Frontier Scout Hardleather",
+      "nameJa": "辺境斥候の硬革衣",
+      "unitClass": "FrontierScout",
+      "tier": "Tier2",
+      "baseDef": 2,
+      "baseRes": 0
+    },
+    {
+      "id": "armor_frontier_scout_tier3",
+      "nameEn": "Frontier Scout Trailward",
+      "nameJa": "辺境斥候の道守衣",
+      "unitClass": "FrontierScout",
+      "tier": "Tier3",
+      "baseDef": 1,
+      "baseRes": 2
+    },
+    {
+      "id": "armor_spearman_tier1",
+      "nameEn": "Spearman Cuirass",
+      "nameJa": "槍兵の胸甲",
+      "unitClass": "Spearman",
+      "tier": "Tier1",
+      "baseDef": 1,
+      "baseRes": 1
+    },
+    {
+      "id": "armor_spearman_tier2",
+      "nameEn": "Spearman Bulwark Plate",
+      "nameJa": "槍兵の防壁甲",
+      "unitClass": "Spearman",
+      "tier": "Tier2",
+      "baseDef": 3,
+      "baseRes": 0
+    },
+    {
+      "id": "armor_spearman_tier3",
+      "nameEn": "Spearman Wall Ward",
+      "nameJa": "槍兵の防壁守甲",
+      "unitClass": "Spearman",
+      "tier": "Tier3",
+      "baseDef": 1,
+      "baseRes": 2
+    },
+    {
+      "id": "armor_dawn_chirurgeon_tier1",
+      "nameEn": "Dawn Chirurgeon Robe",
+      "nameJa": "暁の衛生兵の外衣",
+      "unitClass": "DawnChirurgeon",
+      "tier": "Tier1",
+      "baseDef": 1,
+      "baseRes": 1
+    },
+    {
+      "id": "armor_dawn_chirurgeon_tier2",
+      "nameEn": "Dawn Chirurgeon Padded Robe",
+      "nameJa": "暁の衛生兵の綿入り外衣",
+      "unitClass": "DawnChirurgeon",
+      "tier": "Tier2",
+      "baseDef": 2,
+      "baseRes": 0
+    },
+    {
+      "id": "armor_dawn_chirurgeon_tier3",
+      "nameEn": "Dawn Chirurgeon Sanctum Ward",
+      "nameJa": "暁の衛生兵の聖堂守衣",
+      "unitClass": "DawnChirurgeon",
+      "tier": "Tier3",
+      "baseDef": 1,
+      "baseRes": 3
+    },
+    {
+      "id": "armor_heavy_infantry_tier1",
+      "nameEn": "Heavy Infantry Guard",
+      "nameJa": "重装兵の護具",
+      "unitClass": "HeavyInfantry",
+      "tier": "Tier1",
+      "baseDef": 1,
+      "baseRes": 1
+    },
+    {
+      "id": "armor_heavy_infantry_tier2",
+      "nameEn": "Heavy Infantry Plate",
+      "nameJa": "重装兵の重甲",
+      "unitClass": "HeavyInfantry",
+      "tier": "Tier2",
+      "baseDef": 3,
+      "baseRes": 0
+    },
+    {
+      "id": "armor_heavy_infantry_tier3",
+      "nameEn": "Heavy Infantry Ward",
+      "nameJa": "重装兵の守甲",
+      "unitClass": "HeavyInfantry",
+      "tier": "Tier3",
+      "baseDef": 1,
+      "baseRes": 2
+    },
+    {
+      "id": "armor_frontier_engineer_tier1",
+      "nameEn": "Frontier Engineer Vest",
+      "nameJa": "辺境工兵の作業衣",
+      "unitClass": "FrontierEngineer",
+      "tier": "Tier1",
+      "baseDef": 1,
+      "baseRes": 1
+    },
+    {
+      "id": "armor_frontier_engineer_tier2",
+      "nameEn": "Frontier Engineer Hardplate",
+      "nameJa": "辺境工兵の硬甲",
+      "unitClass": "FrontierEngineer",
+      "tier": "Tier2",
+      "baseDef": 2,
+      "baseRes": 0
+    },
+    {
+      "id": "armor_frontier_engineer_tier3",
+      "nameEn": "Frontier Engineer Ward",
+      "nameJa": "辺境工兵の守衣",
+      "unitClass": "FrontierEngineer",
+      "tier": "Tier3",
+      "baseDef": 1,
+      "baseRes": 2
+    },
+    {
+      "id": "armor_messenger_cavalry_tier1",
+      "nameEn": "Messenger Cavalry Coat",
+      "nameJa": "伝令騎兵の外套",
+      "unitClass": "MessengerCavalry",
+      "tier": "Tier1",
+      "baseDef": 1,
+      "baseRes": 1
+    },
+    {
+      "id": "armor_messenger_cavalry_tier2",
+      "nameEn": "Messenger Cavalry Barding",
+      "nameJa": "伝令騎兵の馬鎧",
+      "unitClass": "MessengerCavalry",
+      "tier": "Tier2",
+      "baseDef": 2,
+      "baseRes": 0
+    },
+    {
+      "id": "armor_messenger_cavalry_tier3",
+      "nameEn": "Messenger Cavalry Ward",
+      "nameJa": "伝令騎兵の守衣",
+      "unitClass": "MessengerCavalry",
+      "tier": "Tier3",
+      "baseDef": 1,
+      "baseRes": 2
+    },
+    {
+      "id": "armor_frontier_ranger_tier1",
+      "nameEn": "Frontier Ranger Wrap",
+      "nameJa": "辺境猟兵の巻き衣",
+      "unitClass": "FrontierRanger",
+      "tier": "Tier1",
+      "baseDef": 1,
+      "baseRes": 1
+    },
+    {
+      "id": "armor_frontier_ranger_tier2",
+      "nameEn": "Frontier Ranger Hardleather",
+      "nameJa": "辺境猟兵の硬革衣",
+      "unitClass": "FrontierRanger",
+      "tier": "Tier2",
+      "baseDef": 2,
+      "baseRes": 0
+    },
+    {
+      "id": "armor_frontier_ranger_tier3",
+      "nameEn": "Frontier Ranger Ward",
+      "nameJa": "辺境猟兵の守衣",
+      "unitClass": "FrontierRanger",
+      "tier": "Tier3",
+      "baseDef": 1,
+      "baseRes": 2
+    },
+    {
+      "id": "armor_banner_bearer_tier1",
+      "nameEn": "Banner Bearer Vest",
+      "nameJa": "旗手の胴衣",
+      "unitClass": "BannerBearer",
+      "tier": "Tier1",
+      "baseDef": 1,
+      "baseRes": 1
+    },
+    {
+      "id": "armor_banner_bearer_tier2",
+      "nameEn": "Banner Bearer Bastion Plate",
+      "nameJa": "旗手の防塁甲",
+      "unitClass": "BannerBearer",
+      "tier": "Tier2",
+      "baseDef": 2,
+      "baseRes": 0
+    },
+    {
+      "id": "armor_banner_bearer_tier3",
+      "nameEn": "Banner Bearer Ward",
+      "nameJa": "旗手の守衣",
+      "unitClass": "BannerBearer",
+      "tier": "Tier3",
+      "baseDef": 1,
+      "baseRes": 3
+    },
+    {
+      "id": "armor_battle_mage_tier1",
+      "nameEn": "Battle Mage Robe",
+      "nameJa": "戦闘魔導士の外衣",
+      "unitClass": "BattleMage",
+      "tier": "Tier1",
+      "baseDef": 1,
+      "baseRes": 1
+    },
+    {
+      "id": "armor_battle_mage_tier2",
+      "nameEn": "Battle Mage Plated Robe",
+      "nameJa": "戦闘魔導士の重衣",
+      "unitClass": "BattleMage",
+      "tier": "Tier2",
+      "baseDef": 2,
+      "baseRes": 0
+    },
+    {
+      "id": "armor_battle_mage_tier3",
+      "nameEn": "Battle Mage Sanctum Ward",
+      "nameJa": "戦闘魔導士の聖堂守衣",
+      "unitClass": "BattleMage",
+      "tier": "Tier3",
+      "baseDef": 1,
+      "baseRes": 3
+    }
+  ]
+}

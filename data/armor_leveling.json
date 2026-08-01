@@ -1,0 +1,76 @@
+{
+  "materialsByClass": [
+    {
+      "unitClass": "MarchCaptain",
+      "otherA": "belliron_chip",
+      "otherB": "weathered_cord",
+      "otherC": "watchglass_shard"
+    },
+    {
+      "unitClass": "VeteranGuard",
+      "otherA": "shattered_shield_stud",
+      "otherB": "signal_fuse",
+      "otherC": "trench_plate"
+    },
+    {
+      "unitClass": "WatchArcher",
+      "otherA": "watchglass_shard",
+      "otherB": "belliron_chip",
+      "otherC": "weathered_cord"
+    },
+    {
+      "unitClass": "FrontierScout",
+      "otherA": "ashbark_strip",
+      "otherB": "graymoss_thread",
+      "otherC": "sootberry"
+    },
+    {
+      "unitClass": "Spearman",
+      "otherA": "grayiron_slag",
+      "otherB": "veinstone_powder",
+      "otherC": "quarry_chain_link"
+    },
+    {
+      "unitClass": "DawnChirurgeon",
+      "otherA": "prayer_wax",
+      "otherB": "censer_ash",
+      "otherC": "scripture_tile"
+    },
+    {
+      "unitClass": "HeavyInfantry",
+      "otherA": "veinstone_powder",
+      "otherB": "quarry_chain_link",
+      "otherC": "grayiron_slag"
+    },
+    {
+      "unitClass": "FrontierEngineer",
+      "otherA": "border_dust",
+      "otherB": "waystone_fragment",
+      "otherC": "stareater_moss"
+    },
+    {
+      "unitClass": "MessengerCavalry",
+      "otherA": "thunderworn_stone",
+      "otherB": "windcleft_feather",
+      "otherC": "highland_fleece"
+    },
+    {
+      "unitClass": "FrontierRanger",
+      "otherA": "blackwater_peat",
+      "otherB": "marshlight_spore",
+      "otherC": "rot_reed_fiber"
+    },
+    {
+      "unitClass": "BannerBearer",
+      "otherA": "hearthbrick",
+      "otherB": "sootdyed_cloth",
+      "otherC": "crest_nail"
+    },
+    {
+      "unitClass": "BattleMage",
+      "otherA": "ember_shell",
+      "otherB": "firetrail_sand",
+      "otherC": "kilnbone"
+    }
+  ]
+}

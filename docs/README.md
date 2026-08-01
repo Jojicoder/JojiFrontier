@@ -123,6 +123,7 @@
 | `skill_list.md` | 装備スキルだけを確認するための一覧 | `skill_system.md`、`initial_skill_effects.md`、`src/core/Skill.cpp` |
 | `enemy_list.md` | 敵と強敵を確認するための一覧 | `enemy_ai_rules.md`、`boss_common_rules.md`、`regions/`、`data/classes.json` |
 | `map_feature_list.md` | 地域ごとのマップ特徴を確認するための一覧 | `campaign_regions.md`、`campaign_route_graph.md`、`route_graph_data.md`、`regions/` |
+| `equipment_levels.md` | 武器/防具Lv1〜20要求素材の一覧(実測例は灰枝の森/辺境斥候) | `deep_layers.md`、`character_progression.md` |
 
 説明文書へ数値やIDを追加する必要が生じた場合は、先に担当正本へ追加し、説明文書からリンクする。
 
@@ -133,7 +134,6 @@
 | `implementation_roadmap.md` | 実装順と完了条件 |
 | `implementation_status.md` | 現行コードとの差分 |
 | `balance_test_results.md` | 実戦計測結果 |
-| `reuse_plan.md` | 既存コード流用計画 |
 | `regression_test_plan.md` | 回帰試験計画。ゲーム規則は各正本を参照 |
 
 ## 編集規則

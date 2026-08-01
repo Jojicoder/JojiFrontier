@@ -431,31 +431,40 @@ void drawSettingsResetSection(jf::GameApp& app, Vector2 mouse, bool clicked, con
     drawText(tr("ui.settings.reset_section"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 578),
              15, kColorTextMuted);
     const bool canReset = app.screen() == jf::Screen::Base;
-    if (gSettingsResetConfirm) {
-        drawText(wrapTextToWidth(tr("ui.settings.reset_confirm"), 12, 328), static_cast<int>(panel.x + 26),
-                 static_cast<int>(panel.y + 608), 12, Color{225, 120, 120, 255});
-        Rectangle confirmBtn{panel.x + 26, panel.y + 668, 150, 44};
-        Rectangle cancelBtn{panel.x + 26 + 150 + 16, panel.y + 668, 150, 44};
-        if (button(confirmBtn, tr("ui.button.confirm"), mouse, clicked)) {
-            app = jf::GameApp(app.gameData());
-            if (gSaveStore) gSaveStore->quarantineCorruptSave();
-            gAutoSaveEnabled = true;
-            gSettingsResetConfirm = false;
-            gSettingsOpen = false;
-        }
-        if (button(cancelBtn, tr("ui.button.cancel"), mouse, clicked)) gSettingsResetConfirm = false;
-        return;
-    }
     Rectangle resetBtn{panel.x + 26, panel.y + 608, 328, 46};
     if (canReset) {
         if (button(resetBtn, tr("ui.settings.reset_save"), mouse, clicked)) gSettingsResetConfirm = true;
-        drawText(tr("ui.settings.reset_note"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 658),
-                 12, kColorTextFaint);
+        drawText(wrapTextToWidth(tr("ui.settings.reset_note"), 12, 328), static_cast<int>(panel.x + 26),
+                 static_cast<int>(panel.y + 658), 12, kColorTextFaint);
     } else {
         disabledButton(resetBtn, tr("ui.settings.reset_save"));
-        drawText(tr("ui.settings.reset_base_only"), static_cast<int>(panel.x + 26),
+        drawText(wrapTextToWidth(tr("ui.settings.reset_base_only"), 12, 328), static_cast<int>(panel.x + 26),
                  static_cast<int>(panel.y + 658), 12, kColorTextFaint);
     }
+}
+
+void drawSettingsResetConfirmDialog(jf::GameApp& app, Vector2 mouse, bool clicked, const Rectangle& panel) {
+    const float x = panel.x + 26.0f;
+    const int textWidthPx = static_cast<int>(panel.width - 52.0f);
+    drawText(tr("ui.settings.reset_section"), static_cast<int>(x), static_cast<int>(panel.y + 82), 18,
+             kColorTextMuted);
+
+    const std::string warning = wrapTextToWidth(tr("ui.settings.reset_confirm"), 13, textWidthPx);
+    const float warningY = panel.y + 132.0f;
+    drawText(warning, static_cast<int>(x), static_cast<int>(warningY), 13, Color{225, 120, 120, 255});
+
+    const float warningHeight = static_cast<float>(textLines(warning).size()) * textLineHeight(13);
+    const float buttonY = warningY + warningHeight + 28.0f;
+    Rectangle confirmBtn{x, buttonY, 150, 44};
+    Rectangle cancelBtn{x + 166, buttonY, 150, 44};
+    if (button(confirmBtn, tr("ui.button.confirm"), mouse, clicked)) {
+        app = jf::GameApp(app.gameData());
+        if (gSaveStore) gSaveStore->quarantineCorruptSave();
+        gAutoSaveEnabled = true;
+        gSettingsResetConfirm = false;
+        gSettingsOpen = false;
+    }
+    if (button(cancelBtn, tr("ui.button.cancel"), mouse, clicked)) gSettingsResetConfirm = false;
 }
 
 // Small always-on-top corner button + modal for switching the display
@@ -479,13 +488,18 @@ void drawSettingsOverlay(jf::GameApp& app, Vector2 mouse, bool clicked) {
     drawText(tr("ui.settings.title"), static_cast<int>(panel.x + 26), static_cast<int>(panel.y + 22), 24,
              kColorTextPrimary);
 
+    if (gSettingsResetConfirm) {
+        drawSettingsResetConfirmDialog(app, mouse, clicked, panel);
+        return;
+    }
+
     drawSettingsLanguageSection(mouse, clicked, panel);
     drawSettingsWindowSection(mouse, clicked, panel);
     drawSettingsExpeditionSection(app, mouse, clicked, panel);
     drawSettingsSaveDataSection(app, mouse, clicked, panel);
     drawSettingsResetSection(app, mouse, clicked, panel);
 
-    Rectangle closeBtn{panel.x + 26, panel.y + 700, 328, 40};
+    Rectangle closeBtn{panel.x + 26, panel.y + 716, 328, 40};
     if (button(closeBtn, tr("ui.button.close"), mouse, clicked)) gSettingsOpen = false;
 }
 

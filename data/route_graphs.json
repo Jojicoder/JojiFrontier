@@ -1,0 +1,1110 @@
+{
+  "routeGraphs": [
+    {
+      "regionId": "ashbough_forest",
+      "routeId": "ashbough_main_route",
+      "entranceNodeId": "ashbough_entrance",
+      "exitNodeId": "ashbough_exit",
+      "nodes": [
+        {
+          "id": "ashbough_entrance",
+          "kind": "Entrance"
+        },
+        {
+          "id": "ashbough_verge",
+          "kind": "Site",
+          "stageId": "ashbough_verge"
+        },
+        {
+          "id": "herbwater_hollow",
+          "kind": "Site",
+          "stageId": "herbwater_hollow"
+        },
+        {
+          "id": "ashbough_camp",
+          "kind": "Camp"
+        },
+        {
+          "id": "brokenwood_territory",
+          "kind": "Site",
+          "stageId": "brokenwood_territory"
+        },
+        {
+          "id": "ashbough_exit",
+          "kind": "Exit"
+        }
+      ],
+      "edges": [
+        {
+          "from": "ashbough_entrance",
+          "to": "ashbough_verge"
+        },
+        {
+          "from": "ashbough_verge",
+          "to": "herbwater_hollow"
+        },
+        {
+          "from": "herbwater_hollow",
+          "to": "ashbough_camp"
+        },
+        {
+          "from": "ashbough_camp",
+          "to": "brokenwood_territory"
+        },
+        {
+          "from": "brokenwood_territory",
+          "to": "ashbough_exit"
+        }
+      ]
+    },
+    {
+      "regionId": "cinderwatch_gate",
+      "routeId": "cinderwatch_main_route",
+      "entranceNodeId": "cinderwatch_entrance",
+      "exitNodeId": "cinderwatch_exit",
+      "nodes": [
+        {
+          "id": "cinderwatch_entrance",
+          "kind": "Entrance",
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "cinderwatch_outer_gate",
+          "kind": "Site",
+          "stageId": "cinderwatch_outer_gate",
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "ashroad_watch",
+          "kind": "Site",
+          "stageId": "ashroad_watch",
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "cinderwatch_camp1",
+          "kind": "Camp",
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "cinderwatch_stores_barracks",
+          "kind": "BranchGroup",
+          "branchMembers": [
+            "ironwatch_stores",
+            "old_barracks"
+          ],
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "ironwatch_stores",
+          "kind": "Site",
+          "stageId": "ironwatch_stores",
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "old_barracks",
+          "kind": "Site",
+          "stageId": "old_barracks",
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "cinderwatch_camp2",
+          "kind": "Camp",
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "signal_tower",
+          "kind": "Site",
+          "stageId": "signal_tower",
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "last_signal",
+          "kind": "Site",
+          "stageId": "last_signal",
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "cinderwatch_exit",
+          "kind": "Exit",
+          "branchCompletion": "AllMembers"
+        }
+      ],
+      "edges": [
+        {
+          "from": "cinderwatch_entrance",
+          "to": "cinderwatch_outer_gate"
+        },
+        {
+          "from": "cinderwatch_outer_gate",
+          "to": "ashroad_watch"
+        },
+        {
+          "from": "ashroad_watch",
+          "to": "cinderwatch_camp1"
+        },
+        {
+          "from": "cinderwatch_camp1",
+          "to": "cinderwatch_stores_barracks"
+        },
+        {
+          "from": "ironwatch_stores",
+          "to": "cinderwatch_stores_barracks"
+        },
+        {
+          "from": "old_barracks",
+          "to": "cinderwatch_stores_barracks"
+        },
+        {
+          "from": "cinderwatch_stores_barracks",
+          "to": "cinderwatch_camp2"
+        },
+        {
+          "from": "cinderwatch_camp2",
+          "to": "signal_tower"
+        },
+        {
+          "from": "signal_tower",
+          "to": "last_signal"
+        },
+        {
+          "from": "last_signal",
+          "to": "cinderwatch_exit"
+        }
+      ]
+    },
+    {
+      "regionId": "ashiron_quarry",
+      "routeId": "ashiron_quarry_main_route",
+      "entranceNodeId": "ashiron_quarry_entrance",
+      "exitNodeId": "ashiron_quarry_exit",
+      "nodes": [
+        {
+          "id": "ashiron_quarry_entrance",
+          "kind": "Entrance"
+        },
+        {
+          "id": "quarry_entrance",
+          "kind": "Site",
+          "stageId": "quarry_entrance"
+        },
+        {
+          "id": "quarry_terrace",
+          "kind": "Site",
+          "stageId": "quarry_terrace"
+        },
+        {
+          "id": "quarry_camp1",
+          "kind": "Camp"
+        },
+        {
+          "id": "quarry_mine_hoist_branch",
+          "kind": "BranchGroup",
+          "branchMembers": [
+            "quarry_old_mine",
+            "quarry_hoist_works"
+          ],
+          "branchCompletion": "AnyMember"
+        },
+        {
+          "id": "quarry_old_mine",
+          "kind": "Site",
+          "stageId": "quarry_old_mine"
+        },
+        {
+          "id": "quarry_hoist_works",
+          "kind": "Site",
+          "stageId": "quarry_hoist_works"
+        },
+        {
+          "id": "ashiron_vein",
+          "kind": "Site",
+          "stageId": "ashiron_vein"
+        },
+        {
+          "id": "quarry_camp2",
+          "kind": "Camp"
+        },
+        {
+          "id": "quarry_collapse_core",
+          "kind": "Site",
+          "stageId": "quarry_collapse_core"
+        },
+        {
+          "id": "ashiron_quarry_exit",
+          "kind": "Exit"
+        }
+      ],
+      "edges": [
+        {
+          "from": "ashiron_quarry_entrance",
+          "to": "quarry_entrance"
+        },
+        {
+          "from": "quarry_entrance",
+          "to": "quarry_terrace"
+        },
+        {
+          "from": "quarry_terrace",
+          "to": "quarry_camp1"
+        },
+        {
+          "from": "quarry_camp1",
+          "to": "quarry_mine_hoist_branch"
+        },
+        {
+          "from": "quarry_old_mine",
+          "to": "quarry_mine_hoist_branch"
+        },
+        {
+          "from": "quarry_hoist_works",
+          "to": "quarry_mine_hoist_branch"
+        },
+        {
+          "from": "quarry_mine_hoist_branch",
+          "to": "ashiron_vein"
+        },
+        {
+          "from": "ashiron_vein",
+          "to": "quarry_camp2"
+        },
+        {
+          "from": "quarry_camp2",
+          "to": "quarry_collapse_core"
+        },
+        {
+          "from": "quarry_collapse_core",
+          "to": "ashiron_quarry_exit"
+        }
+      ]
+    },
+    {
+      "regionId": "blackwater_lowlands",
+      "routeId": "blackwater_lowlands_main_route",
+      "entranceNodeId": "blackwater_lowlands_entrance",
+      "exitNodeId": "blackwater_lowlands_exit",
+      "nodes": [
+        {
+          "id": "blackwater_lowlands_entrance",
+          "kind": "Entrance"
+        },
+        {
+          "id": "sunken_path",
+          "kind": "Site",
+          "stageId": "sunken_path"
+        },
+        {
+          "id": "reedway_fork",
+          "kind": "Site",
+          "stageId": "reedway_fork"
+        },
+        {
+          "id": "blackwater_camp1",
+          "kind": "Camp"
+        },
+        {
+          "id": "herb_resin_branch",
+          "kind": "BranchGroup",
+          "branchMembers": [
+            "herb_islet",
+            "resin_grove"
+          ],
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "herb_islet",
+          "kind": "Site",
+          "stageId": "herb_islet"
+        },
+        {
+          "id": "resin_grove",
+          "kind": "Site",
+          "stageId": "resin_grove"
+        },
+        {
+          "id": "blackwater_camp2",
+          "kind": "Camp"
+        },
+        {
+          "id": "blackwater_crossing",
+          "kind": "Site",
+          "stageId": "blackwater_crossing"
+        },
+        {
+          "id": "sunken_sluice",
+          "kind": "Site",
+          "stageId": "sunken_sluice"
+        },
+        {
+          "id": "blackwater_camp3",
+          "kind": "Camp"
+        },
+        {
+          "id": "deep_mire",
+          "kind": "Site",
+          "stageId": "deep_mire"
+        },
+        {
+          "id": "blackwater_lowlands_exit",
+          "kind": "Exit"
+        }
+      ],
+      "edges": [
+        {
+          "from": "blackwater_lowlands_entrance",
+          "to": "sunken_path"
+        },
+        {
+          "from": "sunken_path",
+          "to": "reedway_fork"
+        },
+        {
+          "from": "reedway_fork",
+          "to": "blackwater_camp1"
+        },
+        {
+          "from": "blackwater_camp1",
+          "to": "herb_resin_branch"
+        },
+        {
+          "from": "herb_islet",
+          "to": "herb_resin_branch"
+        },
+        {
+          "from": "resin_grove",
+          "to": "herb_resin_branch"
+        },
+        {
+          "from": "herb_resin_branch",
+          "to": "blackwater_camp2"
+        },
+        {
+          "from": "blackwater_camp2",
+          "to": "blackwater_crossing"
+        },
+        {
+          "from": "blackwater_crossing",
+          "to": "sunken_sluice"
+        },
+        {
+          "from": "sunken_sluice",
+          "to": "blackwater_camp3"
+        },
+        {
+          "from": "blackwater_camp3",
+          "to": "deep_mire"
+        },
+        {
+          "from": "deep_mire",
+          "to": "blackwater_lowlands_exit"
+        }
+      ]
+    },
+    {
+      "regionId": "windscar_plateau",
+      "routeId": "windscar_plateau_main_route",
+      "entranceNodeId": "windscar_plateau_entrance",
+      "exitNodeId": "windscar_plateau_exit",
+      "nodes": [
+        {
+          "id": "windscar_plateau_entrance",
+          "kind": "Entrance"
+        },
+        {
+          "id": "windscar_ascent",
+          "kind": "Site",
+          "stageId": "windscar_ascent"
+        },
+        {
+          "id": "windscar_relay",
+          "kind": "Site",
+          "stageId": "windscar_relay"
+        },
+        {
+          "id": "windscar_camp1",
+          "kind": "Camp"
+        },
+        {
+          "id": "windwatch_convoy_branch",
+          "kind": "BranchGroup",
+          "branchMembers": [
+            "windwatch_station",
+            "split_convoy"
+          ],
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "windwatch_station",
+          "kind": "Site",
+          "stageId": "windwatch_station"
+        },
+        {
+          "id": "split_convoy",
+          "kind": "Site",
+          "stageId": "split_convoy"
+        },
+        {
+          "id": "windscar_camp2",
+          "kind": "Camp"
+        },
+        {
+          "id": "cliff_cart_road",
+          "kind": "Site",
+          "stageId": "cliff_cart_road"
+        },
+        {
+          "id": "plateau_relay",
+          "kind": "Site",
+          "stageId": "plateau_relay"
+        },
+        {
+          "id": "windscar_plateau_exit",
+          "kind": "Exit"
+        }
+      ],
+      "edges": [
+        {
+          "from": "windscar_plateau_entrance",
+          "to": "windscar_ascent"
+        },
+        {
+          "from": "windscar_ascent",
+          "to": "windscar_relay"
+        },
+        {
+          "from": "windscar_relay",
+          "to": "windscar_camp1"
+        },
+        {
+          "from": "windscar_camp1",
+          "to": "windwatch_convoy_branch"
+        },
+        {
+          "from": "windwatch_station",
+          "to": "windwatch_convoy_branch"
+        },
+        {
+          "from": "split_convoy",
+          "to": "windwatch_convoy_branch"
+        },
+        {
+          "from": "windwatch_convoy_branch",
+          "to": "windscar_camp2"
+        },
+        {
+          "from": "windscar_camp2",
+          "to": "cliff_cart_road"
+        },
+        {
+          "from": "cliff_cart_road",
+          "to": "plateau_relay"
+        },
+        {
+          "from": "plateau_relay",
+          "to": "windscar_plateau_exit"
+        }
+      ]
+    },
+    {
+      "regionId": "old_frontier_settlement",
+      "routeId": "old_frontier_settlement_main_route",
+      "entranceNodeId": "old_frontier_settlement_entrance",
+      "exitNodeId": "old_frontier_settlement_exit",
+      "nodes": [
+        {
+          "id": "old_frontier_settlement_entrance",
+          "kind": "Entrance"
+        },
+        {
+          "id": "settlement_outer_fence",
+          "kind": "Site",
+          "stageId": "settlement_outer_fence"
+        },
+        {
+          "id": "settlement_common_well",
+          "kind": "Site",
+          "stageId": "settlement_common_well"
+        },
+        {
+          "id": "settlement_camp1",
+          "kind": "Camp"
+        },
+        {
+          "id": "settlement_granary_hall_branch",
+          "kind": "BranchGroup",
+          "branchMembers": [
+            "settlement_old_granary",
+            "settlement_gathering_hall"
+          ],
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "settlement_old_granary",
+          "kind": "Site",
+          "stageId": "settlement_old_granary"
+        },
+        {
+          "id": "settlement_gathering_hall",
+          "kind": "Site",
+          "stageId": "settlement_gathering_hall"
+        },
+        {
+          "id": "settlement_camp2",
+          "kind": "Camp"
+        },
+        {
+          "id": "settlement_dawn_defense",
+          "kind": "Site",
+          "stageId": "settlement_dawn_defense"
+        },
+        {
+          "id": "old_frontier_settlement_exit",
+          "kind": "Exit"
+        }
+      ],
+      "edges": [
+        {
+          "from": "old_frontier_settlement_entrance",
+          "to": "settlement_outer_fence"
+        },
+        {
+          "from": "settlement_outer_fence",
+          "to": "settlement_common_well"
+        },
+        {
+          "from": "settlement_common_well",
+          "to": "settlement_camp1"
+        },
+        {
+          "from": "settlement_camp1",
+          "to": "settlement_granary_hall_branch"
+        },
+        {
+          "from": "settlement_old_granary",
+          "to": "settlement_granary_hall_branch"
+        },
+        {
+          "from": "settlement_gathering_hall",
+          "to": "settlement_granary_hall_branch"
+        },
+        {
+          "from": "settlement_granary_hall_branch",
+          "to": "settlement_camp2"
+        },
+        {
+          "from": "settlement_camp2",
+          "to": "settlement_dawn_defense"
+        },
+        {
+          "from": "settlement_dawn_defense",
+          "to": "old_frontier_settlement_exit"
+        }
+      ]
+    },
+    {
+      "regionId": "buried_dawn_sanctum",
+      "routeId": "buried_dawn_sanctum_main_route",
+      "entranceNodeId": "buried_dawn_sanctum_entrance_node",
+      "exitNodeId": "buried_dawn_sanctum_exit",
+      "nodes": [
+        {
+          "id": "buried_dawn_sanctum_entrance_node",
+          "kind": "Entrance"
+        },
+        {
+          "id": "sanctum_approach",
+          "kind": "Site",
+          "stageId": "sanctum_approach"
+        },
+        {
+          "id": "collapsed_nave",
+          "kind": "Site",
+          "stageId": "collapsed_nave"
+        },
+        {
+          "id": "sanctum_camp1",
+          "kind": "Camp"
+        },
+        {
+          "id": "sanctum_infirmary_archive_branch",
+          "kind": "BranchGroup",
+          "branchMembers": [
+            "sanctum_infirmary",
+            "sanctum_archive"
+          ],
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "sanctum_infirmary",
+          "kind": "Site",
+          "stageId": "sanctum_infirmary"
+        },
+        {
+          "id": "sanctum_archive",
+          "kind": "Site",
+          "stageId": "sanctum_archive"
+        },
+        {
+          "id": "sanctum_camp2",
+          "kind": "Camp"
+        },
+        {
+          "id": "sealed_passage",
+          "kind": "Site",
+          "stageId": "sealed_passage"
+        },
+        {
+          "id": "dawn_altar",
+          "kind": "Site",
+          "stageId": "dawn_altar"
+        },
+        {
+          "id": "buried_dawn_sanctum_exit",
+          "kind": "Exit"
+        }
+      ],
+      "edges": [
+        {
+          "from": "buried_dawn_sanctum_entrance_node",
+          "to": "sanctum_approach"
+        },
+        {
+          "from": "sanctum_approach",
+          "to": "collapsed_nave"
+        },
+        {
+          "from": "collapsed_nave",
+          "to": "sanctum_camp1"
+        },
+        {
+          "from": "sanctum_camp1",
+          "to": "sanctum_infirmary_archive_branch"
+        },
+        {
+          "from": "sanctum_infirmary",
+          "to": "sanctum_infirmary_archive_branch"
+        },
+        {
+          "from": "sanctum_archive",
+          "to": "sanctum_infirmary_archive_branch"
+        },
+        {
+          "from": "sanctum_infirmary_archive_branch",
+          "to": "sanctum_camp2"
+        },
+        {
+          "from": "sanctum_camp2",
+          "to": "sealed_passage"
+        },
+        {
+          "from": "sealed_passage",
+          "to": "dawn_altar"
+        },
+        {
+          "from": "dawn_altar",
+          "to": "buried_dawn_sanctum_exit"
+        }
+      ]
+    },
+    {
+      "regionId": "shattered_march_fort",
+      "routeId": "shattered_march_fort_main_route",
+      "entranceNodeId": "shattered_march_fort_entrance_node",
+      "exitNodeId": "shattered_march_fort_exit",
+      "nodes": [
+        {
+          "id": "shattered_march_fort_entrance_node",
+          "kind": "Entrance"
+        },
+        {
+          "id": "fort_outer_wall",
+          "kind": "Site",
+          "stageId": "fort_outer_wall"
+        },
+        {
+          "id": "fort_broken_gate",
+          "kind": "Site",
+          "stageId": "fort_broken_gate"
+        },
+        {
+          "id": "fort_camp1",
+          "kind": "Camp"
+        },
+        {
+          "id": "fort_barracks_logistics_branch",
+          "kind": "BranchGroup",
+          "branchMembers": [
+            "fort_old_barracks",
+            "fort_logistics_depot"
+          ],
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "fort_old_barracks",
+          "kind": "Site",
+          "stageId": "fort_old_barracks"
+        },
+        {
+          "id": "fort_logistics_depot",
+          "kind": "Site",
+          "stageId": "fort_logistics_depot"
+        },
+        {
+          "id": "fort_camp2",
+          "kind": "Camp"
+        },
+        {
+          "id": "fort_signal_yard",
+          "kind": "Site",
+          "stageId": "fort_signal_yard"
+        },
+        {
+          "id": "fort_reserve_wall",
+          "kind": "Site",
+          "stageId": "fort_reserve_wall"
+        },
+        {
+          "id": "fort_camp3",
+          "kind": "Camp"
+        },
+        {
+          "id": "fort_severance_order_archive",
+          "kind": "Site",
+          "stageId": "fort_severance_order_archive"
+        },
+        {
+          "id": "shattered_march_fort_exit",
+          "kind": "Exit"
+        }
+      ],
+      "edges": [
+        {
+          "from": "shattered_march_fort_entrance_node",
+          "to": "fort_outer_wall"
+        },
+        {
+          "from": "fort_outer_wall",
+          "to": "fort_broken_gate"
+        },
+        {
+          "from": "fort_broken_gate",
+          "to": "fort_camp1"
+        },
+        {
+          "from": "fort_camp1",
+          "to": "fort_barracks_logistics_branch"
+        },
+        {
+          "from": "fort_old_barracks",
+          "to": "fort_barracks_logistics_branch"
+        },
+        {
+          "from": "fort_logistics_depot",
+          "to": "fort_barracks_logistics_branch"
+        },
+        {
+          "from": "fort_barracks_logistics_branch",
+          "to": "fort_camp2"
+        },
+        {
+          "from": "fort_camp2",
+          "to": "fort_signal_yard"
+        },
+        {
+          "from": "fort_signal_yard",
+          "to": "fort_reserve_wall"
+        },
+        {
+          "from": "fort_reserve_wall",
+          "to": "fort_camp3"
+        },
+        {
+          "from": "fort_camp3",
+          "to": "fort_severance_order_archive"
+        },
+        {
+          "from": "fort_severance_order_archive",
+          "to": "shattered_march_fort_exit"
+        }
+      ]
+    },
+    {
+      "regionId": "ember_ravine",
+      "routeId": "ember_ravine_main_route",
+      "entranceNodeId": "ember_ravine_entrance_node",
+      "exitNodeId": "ember_ravine_exit",
+      "nodes": [
+        {
+          "id": "ember_ravine_entrance_node",
+          "kind": "Entrance"
+        },
+        {
+          "id": "ember_ravine_entrance",
+          "kind": "Site",
+          "stageId": "ember_ravine_entrance"
+        },
+        {
+          "id": "ember_ravine_ledge",
+          "kind": "Site",
+          "stageId": "ember_ravine_ledge"
+        },
+        {
+          "id": "ember_ravine_camp1",
+          "kind": "Camp"
+        },
+        {
+          "id": "ember_ravine_sulfur_channel_branch",
+          "kind": "BranchGroup",
+          "branchMembers": [
+            "sulfur_hollow",
+            "ravine_cooling_channel"
+          ],
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "sulfur_hollow",
+          "kind": "Site",
+          "stageId": "sulfur_hollow"
+        },
+        {
+          "id": "ravine_cooling_channel",
+          "kind": "Site",
+          "stageId": "ravine_cooling_channel"
+        },
+        {
+          "id": "ember_ravine_camp2",
+          "kind": "Camp"
+        },
+        {
+          "id": "ash_crystal_shelf",
+          "kind": "Site",
+          "stageId": "ash_crystal_shelf"
+        },
+        {
+          "id": "heatwork_shop",
+          "kind": "Site",
+          "stageId": "heatwork_shop"
+        },
+        {
+          "id": "ember_ravine_camp3",
+          "kind": "Camp"
+        },
+        {
+          "id": "ashsealed_observatory",
+          "kind": "Site",
+          "stageId": "ashsealed_observatory"
+        },
+        {
+          "id": "redheat_fissure",
+          "kind": "Site",
+          "stageId": "redheat_fissure"
+        },
+        {
+          "id": "ember_ravine_exit",
+          "kind": "Exit"
+        }
+      ],
+      "edges": [
+        {
+          "from": "ember_ravine_entrance_node",
+          "to": "ember_ravine_entrance"
+        },
+        {
+          "from": "ember_ravine_entrance",
+          "to": "ember_ravine_ledge"
+        },
+        {
+          "from": "ember_ravine_ledge",
+          "to": "ember_ravine_camp1"
+        },
+        {
+          "from": "ember_ravine_camp1",
+          "to": "ember_ravine_sulfur_channel_branch"
+        },
+        {
+          "from": "sulfur_hollow",
+          "to": "ember_ravine_sulfur_channel_branch"
+        },
+        {
+          "from": "ravine_cooling_channel",
+          "to": "ember_ravine_sulfur_channel_branch"
+        },
+        {
+          "from": "ember_ravine_sulfur_channel_branch",
+          "to": "ember_ravine_camp2"
+        },
+        {
+          "from": "ember_ravine_camp2",
+          "to": "ash_crystal_shelf"
+        },
+        {
+          "from": "ash_crystal_shelf",
+          "to": "heatwork_shop"
+        },
+        {
+          "from": "heatwork_shop",
+          "to": "ember_ravine_camp3"
+        },
+        {
+          "from": "ember_ravine_camp3",
+          "to": "ashsealed_observatory"
+        },
+        {
+          "from": "ashsealed_observatory",
+          "to": "redheat_fissure"
+        },
+        {
+          "from": "redheat_fissure",
+          "to": "ember_ravine_exit"
+        }
+      ]
+    },
+    {
+      "regionId": "mapped_edge",
+      "routeId": "mapped_edge_main_route",
+      "entranceNodeId": "mapped_edge_entrance_node",
+      "exitNodeId": "mapped_edge_exit",
+      "nodes": [
+        {
+          "id": "mapped_edge_entrance_node",
+          "kind": "Entrance"
+        },
+        {
+          "id": "mapped_edge_last_known_marker",
+          "kind": "Site",
+          "stageId": "mapped_edge_last_known_marker"
+        },
+        {
+          "id": "mapped_edge_dry_riverbed",
+          "kind": "Site",
+          "stageId": "mapped_edge_dry_riverbed"
+        },
+        {
+          "id": "mapped_edge_camp1",
+          "kind": "Camp"
+        },
+        {
+          "id": "mapped_edge_camp_survey_branch",
+          "kind": "BranchGroup",
+          "branchMembers": [
+            "mapped_edge_unrecorded_camp",
+            "mapped_edge_split_survey_route"
+          ],
+          "branchCompletion": "AllMembers"
+        },
+        {
+          "id": "mapped_edge_unrecorded_camp",
+          "kind": "Site",
+          "stageId": "mapped_edge_unrecorded_camp"
+        },
+        {
+          "id": "mapped_edge_split_survey_route",
+          "kind": "Site",
+          "stageId": "mapped_edge_split_survey_route"
+        },
+        {
+          "id": "mapped_edge_camp2",
+          "kind": "Camp"
+        },
+        {
+          "id": "mapped_edge_abandoned_relay",
+          "kind": "Site",
+          "stageId": "mapped_edge_abandoned_relay"
+        },
+        {
+          "id": "mapped_edge_stone_basin",
+          "kind": "Site",
+          "stageId": "mapped_edge_stone_basin"
+        },
+        {
+          "id": "mapped_edge_camp3",
+          "kind": "Camp"
+        },
+        {
+          "id": "mapped_edge_broken_watchtower",
+          "kind": "Site",
+          "stageId": "mapped_edge_broken_watchtower"
+        },
+        {
+          "id": "mapped_edge_return_base",
+          "kind": "Site",
+          "stageId": "mapped_edge_return_base"
+        },
+        {
+          "id": "mapped_edge_camp4",
+          "kind": "Camp"
+        },
+        {
+          "id": "mapped_edge_outermost_marker",
+          "kind": "Site",
+          "stageId": "mapped_edge_outermost_marker"
+        },
+        {
+          "id": "mapped_edge_exit",
+          "kind": "Exit"
+        }
+      ],
+      "edges": [
+        {
+          "from": "mapped_edge_entrance_node",
+          "to": "mapped_edge_last_known_marker"
+        },
+        {
+          "from": "mapped_edge_last_known_marker",
+          "to": "mapped_edge_dry_riverbed"
+        },
+        {
+          "from": "mapped_edge_dry_riverbed",
+          "to": "mapped_edge_camp1"
+        },
+        {
+          "from": "mapped_edge_camp1",
+          "to": "mapped_edge_camp_survey_branch"
+        },
+        {
+          "from": "mapped_edge_unrecorded_camp",
+          "to": "mapped_edge_camp_survey_branch"
+        },
+        {
+          "from": "mapped_edge_split_survey_route",
+          "to": "mapped_edge_camp_survey_branch"
+        },
+        {
+          "from": "mapped_edge_camp_survey_branch",
+          "to": "mapped_edge_camp2"
+        },
+        {
+          "from": "mapped_edge_camp2",
+          "to": "mapped_edge_abandoned_relay"
+        },
+        {
+          "from": "mapped_edge_abandoned_relay",
+          "to": "mapped_edge_stone_basin"
+        },
+        {
+          "from": "mapped_edge_stone_basin",
+          "to": "mapped_edge_camp3"
+        },
+        {
+          "from": "mapped_edge_camp3",
+          "to": "mapped_edge_broken_watchtower"
+        },
+        {
+          "from": "mapped_edge_broken_watchtower",
+          "to": "mapped_edge_return_base"
+        },
+        {
+          "from": "mapped_edge_return_base",
+          "to": "mapped_edge_camp4"
+        },
+        {
+          "from": "mapped_edge_camp4",
+          "to": "mapped_edge_outermost_marker"
+        },
+        {
+          "from": "mapped_edge_outermost_marker",
+          "to": "mapped_edge_exit"
+        }
+      ]
+    }
+  ]
+}

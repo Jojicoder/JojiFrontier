@@ -162,6 +162,26 @@ public:
     bool lastAttackHit() const { return lastAttackHit_; }
     std::uint64_t attackEventId() const { return attackEventId_; }
 
+    // Same one-shot-event idiom as attackEventId() above, for a player
+    // unit's Active skill use (ユーザー要望「スキル発動時のメッセージも表示
+    // して」) - set from the single choke point every skill "shape" branch
+    // funnels through (markActionResolved(), called by finishPlayerAction()).
+    // Enemy skill use isn't covered (finishPlayerAction()/markActionResolved()
+    // are player-only - enemy turns use the separate finishEnemyAction() in
+    // EnemyAI.cpp, which never touches pendingSkillSlot_).
+    const std::string& lastSkillUserId() const { return lastSkillUserId_; }
+    const std::string& lastSkillId() const { return lastSkillId_; }
+    std::uint64_t skillEventId() const { return skillEventId_; }
+
+    // Same one-shot-event idiom, for a Cooperation Tactic actually resolving
+    // (ユーザー要望「連携作戦の発動自体にもメッセージを」). Set at both
+    // markCooperationUsed() call sites in BattleController.cpp, except
+    // `paired_cross_observation` - that one already has its own dedicated
+    // message (BattleState::cooperationReveal()) describing what was learned,
+    // so a second generic "used" banner on top of it would be redundant.
+    const std::string& lastCooperationId() const { return lastCooperationId_; }
+    std::uint64_t cooperationEventId() const { return cooperationEventId_; }
+
     // UI events. Each is a no-op if called outside its expected state.
     void selectUnit(Unit& unit);
     void selectMoveTile(GridPos pos);
@@ -306,6 +326,13 @@ private:
     int lastDamage_ = 0;
     bool lastAttackHit_ = true;
     std::uint64_t attackEventId_ = 0;
+
+    std::string lastSkillUserId_;
+    std::string lastSkillId_;
+    std::uint64_t skillEventId_ = 0;
+
+    std::string lastCooperationId_;
+    std::uint64_t cooperationEventId_ = 0;
 };
 
 } // namespace jf

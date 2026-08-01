@@ -142,9 +142,10 @@ public:
     bool strengthenWeapon(const std::string& weaponId);
     int weaponLevel(const std::string& weaponId) const { return baseState_.weaponLevel(weaponId); }
 
-    // Forge: equips/unequips the Hide-Wrapped Grip tuning trait for a class
+    // Forge: equips/unequips the Hide-Wrapped Grip tuning trait for a unit
     // (requires "trait_hide_wrapped_grip" to be unlocked and simple_forge to
-    // be currently built). TuningTraitId::None unequips.
+    // be currently built). Class-generic, like the armor trait below.
+    // TuningTraitId::None unequips.
     bool equipTuningTraitForUnit(const std::string& unitId, TuningTraitId traitId);
     const std::unordered_map<std::string, TuningTraitId>& equippedTraits() const { return equippedTraits_; }
 
@@ -170,10 +171,9 @@ public:
     // M10-B (docs/deep_layers.md「防具用調整特性」): equips/unequips the Ward
     // Step armor tuning trait for a unit - separate trait pool/slot from
     // equipTuningTraitForUnit() above (requires "armor_trait_ward_step"
-    // unlocked and simple_forge currently built). Unlike weapon traits
-    // (Spearman-only in this codebase so far), armor traits are class-generic
-    // - any class with an equipped armor may equip this. ArmorTuningTraitId::None
-    // unequips.
+    // unlocked and simple_forge currently built). Class-generic, like the
+    // weapon trait above - any class with an equipped armor may equip this.
+    // ArmorTuningTraitId::None unequips.
     bool equipArmorTraitForUnit(const std::string& unitId, ArmorTuningTraitId traitId);
     const std::unordered_map<std::string, ArmorTuningTraitId>& equippedArmorTraits() const {
         return equippedArmorTraits_;
@@ -282,6 +282,17 @@ public:
     // all of this run's pending (unsecured) loot/discoveries - the same
     // forfeiture rule as a Defeat. No-op (returns false) if already at Base.
     bool retireExpedition();
+
+    // docs/deep_layers.md: shortcut shown on AshboughForest's Exploration
+    // screen once a site is already Secured (safe-passage/reconnaissance
+    // screen) - lets the player jump straight into the deep-layer expedition
+    // without a separate trip back to Base. Only valid mid-AshboughForest,
+    // at a Secured site (nothing pending to forfeit), and only for an
+    // unlocked deep-layer RegionId (AshboughForestDeep/AshboughForestDeepest -
+    // isRegionUnlocked() already rejects anything else). Internally just
+    // resetToBase() (safe here - the site being Secured means nothing of
+    // this run is at risk) followed by startExpedition(deepRegionId).
+    bool startDeepLayerExpeditionFromSecuredSite(RegionId deepRegionId);
 
     // Camp -> shows "Loot Secured" (call acknowledgeLootSecured() to continue).
     // docs/inventory_overflow.md「帰還処理」: returns false (and changes
@@ -427,6 +438,12 @@ private:
     // - called alongside applyEquipmentTraits()/applyEquippedSkills() above
     // at every real-battle entry point.
     void applyArmorBonus(BattleController& controller);
+    // docs/deep_layers.md「敵強化率」: 灰枝の森・深層/最深層(RegionId::
+    // AshboughForestDeep/AshboughForestDeepest)の戦闘にだけ、現在の
+    // expedition_.stageIndexに対応するDeepLayerScaling.hppの倍率を掛ける。
+    // 他の全地域は素通し(no-op) - 呼び出し箇所は applyArmorBonus() と同じ、
+    // 実戦闘が組み上がる全エントリポイント。
+    void applyDeepLayerScalingIfNeeded(BattleController& controller);
 };
 
 } // namespace jf

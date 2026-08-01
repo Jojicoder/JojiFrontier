@@ -209,6 +209,10 @@ std::vector<RegionSummary> computeRegionSummaries(const GameData& data, const Ba
         // docs/regions/shattered_march_fort.md「地図外縁を解放」: same "add +
         // wire predecessor here immediately" discipline as the fixes above.
         if (id == RegionId::MappedEdge) return RegionId::ShatteredMarchFort;
+        // docs/deep_layers.md「全体構成」: 本編10地域の直線チェーンとは別の支線
+        // (AshboughForest安全帰還→深層解放→深層安全帰還→最深層解放)。
+        if (id == RegionId::AshboughForestDeep) return RegionId::AshboughForest;
+        if (id == RegionId::AshboughForestDeepest) return RegionId::AshboughForestDeep;
         return std::nullopt;
     };
 
@@ -216,7 +220,7 @@ std::vector<RegionSummary> computeRegionSummaries(const GameData& data, const Ba
     for (RegionId id : {RegionId::AshboughForest, RegionId::CinderwatchGate, RegionId::AshironQuarry,
                         RegionId::BlackwaterLowlands, RegionId::WindscarPlateau, RegionId::OldFrontierSettlement,
                         RegionId::EmberRavine, RegionId::BuriedDawnSanctum, RegionId::ShatteredMarchFort,
-                        RegionId::MappedEdge}) {
+                        RegionId::MappedEdge, RegionId::AshboughForestDeep, RegionId::AshboughForestDeepest}) {
         RegionDescriptor region = regionDescriptor(id, data);
         bool unlocked = regionUnlocked(id, baseState, data);
         RegionSummary summary{id, region.displayNameEn, region.displayNameJa, unlocked, "", ""};

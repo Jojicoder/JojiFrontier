@@ -12,10 +12,17 @@
 // any weapon id not registered below).
 
 #include <algorithm>
+#include <array>
+#include <fstream>
+#include <iostream>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
+#include "jf/core/DeepLayers.hpp"
 #include "jf/core/Facilities.hpp"
 #include "jf/core/UnitClass.hpp"
 
@@ -39,62 +46,70 @@ struct WeaponLevelMaterials {
     std::string otherB; // used at Lv4 (Lv5 always uses kRareMaterialId instead)
 };
 
-inline const std::unordered_map<UnitClass, WeaponLevelMaterials>& weaponLevelMaterialsByClass() {
-    static const std::unordered_map<UnitClass, WeaponLevelMaterials> table = {
-        {UnitClass::MarchCaptain, {"quality_iron", "military_supplies"}},
-        {UnitClass::VeteranGuard, {"quality_iron", "riding_gear"}},
-        {UnitClass::WatchArcher, {"wetland_resin", "ash_crystal"}},
-        {UnitClass::FrontierScout, {"riding_gear", "wetland_resin"}},
-        {UnitClass::Spearman, {"quality_iron", "heat_resistant_material"}},
-        {UnitClass::DawnChirurgeon, {"quality_herb", "sanctum_equipment"}},
-
-        // M10-C: the 6 remaining classes (docs/character_progression.md
-        // 「スキル取得地点の完全対応」table gives each class's Tier2/Tier3
-        // unlock location, used here as the "own join/unlock region" anchor
-        // per the same judgment method M10-A's own 6 picks used).
-        //
-        {UnitClass::HeavyInfantry, {"quality_iron", "ash_crystal"}},
-        {UnitClass::FrontierEngineer, {"combustion_oil", "military_supplies"}},
-        {UnitClass::MessengerCavalry, {"riding_gear", "military_supplies"}},
-        {UnitClass::FrontierRanger, {"poison_material", "wetland_resin"}},
-        {UnitClass::BannerBearer, {"military_supplies", "frontier_edge_material"}},
-        {UnitClass::BattleMage, {"ash_crystal", "sanctum_equipment"}},
+// データ/ロジック分離方針(docs/implementation_status.md): 両テーブルの本体は
+// data/weapon_leveling.json へ切り出し済み。equipmentLevelMaterialId()の
+// per-class switch文はテーブル的な素材配分ではなく分岐ロジックそのものなので
+// JSON化の対象外(コードのまま)。
+inline UnitClass unitClassFromWeaponLevelingJsonString(const std::string& name) {
+    static const std::unordered_map<std::string, UnitClass> table = {
+        {"MarchCaptain", UnitClass::MarchCaptain},   {"VeteranGuard", UnitClass::VeteranGuard},
+        {"WatchArcher", UnitClass::WatchArcher},     {"FrontierScout", UnitClass::FrontierScout},
+        {"Spearman", UnitClass::Spearman},           {"DawnChirurgeon", UnitClass::DawnChirurgeon},
+        {"HeavyInfantry", UnitClass::HeavyInfantry}, {"FrontierEngineer", UnitClass::FrontierEngineer},
+        {"MessengerCavalry", UnitClass::MessengerCavalry}, {"FrontierRanger", UnitClass::FrontierRanger},
+        {"BannerBearer", UnitClass::BannerBearer},   {"BattleMage", UnitClass::BattleMage},
     };
+    auto it = table.find(name);
+    return it != table.end() ? it->second : UnitClass::MarchCaptain;
+}
+
+inline nlohmann::json loadWeaponLevelingJson() {
+    // cwd is always the repo root at runtime - same convention as every
+    // other data/*.json load (see skillRegistry()/facilityNodeRegistry()).
+    std::ifstream file("data/weapon_leveling.json");
+    if (!file.is_open()) {
+        std::cerr << "Failed to open data file: data/weapon_leveling.json" << std::endl;
+        return nlohmann::json::object();
+    }
+    nlohmann::json parsed;
+    try {
+        file >> parsed;
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to parse JSON file data/weapon_leveling.json: " << e.what() << std::endl;
+        return nlohmann::json::object();
+    }
+    return parsed;
+}
+
+inline const std::unordered_map<UnitClass, WeaponLevelMaterials>& weaponLevelMaterialsByClass() {
+    static const std::unordered_map<UnitClass, WeaponLevelMaterials> table = [] {
+        std::unordered_map<UnitClass, WeaponLevelMaterials> t;
+        nlohmann::json parsed = loadWeaponLevelingJson();
+        if (parsed.contains("materialsByClass")) {
+            for (const auto& m : parsed.at("materialsByClass")) {
+                UnitClass uc = unitClassFromWeaponLevelingJsonString(m.at("unitClass").get<std::string>());
+                t[uc] = {m.at("otherA").get<std::string>(), m.at("otherB").get<std::string>()};
+            }
+        }
+        return t;
+    }();
     return table;
 }
 
-// Weapon id -> owning class, for the 18 branch weapons wired for Lv strength-
+// Weapon id -> owning class, for the 36 branch weapons wired for Lv strength-
 // ening so far. Also doubles as the "is this weapon id Lv-eligible" check.
 inline const std::unordered_map<std::string, UnitClass>& weaponLevelEligibleWeapons() {
-    static const std::unordered_map<std::string, UnitClass> table = {
-        {"command_sword", UnitClass::MarchCaptain}, {"duel_sword", UnitClass::MarchCaptain},
-        {"guard_sword", UnitClass::MarchCaptain},
-        {"hook_lance", UnitClass::VeteranGuard}, {"fortress_lance", UnitClass::VeteranGuard},
-        {"patrol_lance", UnitClass::VeteranGuard},
-        {"long_watch_bow", UnitClass::WatchArcher}, {"war_bow", UnitClass::WatchArcher},
-        {"pinning_bow", UnitClass::WatchArcher},
-        {"trail_blade", UnitClass::FrontierScout}, {"ambush_blade", UnitClass::FrontierScout},
-        {"withdrawal_blade", UnitClass::FrontierScout},
-        {"long_spear", UnitClass::Spearman}, {"heavy_spear", UnitClass::Spearman},
-        {"guard_spear", UnitClass::Spearman},
-        {"mercy_staff", UnitClass::DawnChirurgeon}, {"ward_staff", UnitClass::DawnChirurgeon},
-        {"march_staff", UnitClass::DawnChirurgeon},
-        // M10-C: the 6 remaining classes' 18 branch weapons (confirmed 3
-        // branches each, 6x3=18 total, from the "craft_*" FacilityNode
-        // entries in Facilities.hpp - not 15 as a stale count once assumed).
-        {"bulwark_maul", UnitClass::HeavyInfantry}, {"breaker_maul", UnitClass::HeavyInfantry},
-        {"driving_maul", UnitClass::HeavyInfantry},
-        {"builder_hammer", UnitClass::FrontierEngineer}, {"demolition_hammer", UnitClass::FrontierEngineer},
-        {"repair_hammer", UnitClass::FrontierEngineer},
-        {"road_sabre", UnitClass::MessengerCavalry}, {"charge_lance", UnitClass::MessengerCavalry},
-        {"escort_blade", UnitClass::MessengerCavalry},
-        {"snare_bow", UnitClass::FrontierRanger}, {"quarry_bow", UnitClass::FrontierRanger},
-        {"driving_bow", UnitClass::FrontierRanger},
-        {"far_standard", UnitClass::BannerBearer}, {"valor_standard", UnitClass::BannerBearer},
-        {"warding_standard", UnitClass::BannerBearer},
-        {"resonant_focus", UnitClass::BattleMage}, {"war_focus", UnitClass::BattleMage},
-        {"ember_focus", UnitClass::BattleMage},
-    };
+    static const std::unordered_map<std::string, UnitClass> table = [] {
+        std::unordered_map<std::string, UnitClass> t;
+        nlohmann::json parsed = loadWeaponLevelingJson();
+        if (parsed.contains("eligibleWeapons")) {
+            for (const auto& e : parsed.at("eligibleWeapons")) {
+                t[e.at("weaponId").get<std::string>()] =
+                    unitClassFromWeaponLevelingJsonString(e.at("unitClass").get<std::string>());
+            }
+        }
+        return t;
+    }();
     return table;
 }
 
@@ -148,14 +163,56 @@ inline std::string equipmentLevelMaterialId(const std::string& materialId, UnitC
 // recipe (`craft_<weaponId>` FacilityNode::materialCosts) is Lv1's cost;
 // materialCosts[0] is "primary", materialCosts[1] (if present) is
 // "secondary". Returns empty if `weaponId` isn't in
-// weaponLevelEligibleWeapons(), has no registered Tier1 recipe, or
-// `targetLevel` isn't 2-5 (Lv6+ needs deep-layer materials, out of scope for
-// this Slice - docs/deep_layers.md「実装への落とし込み」's own note that Lv6+
-// uses "別の倍率テーブル...本編区間の倍率テーブルとは独立").
+// weaponLevelEligibleWeapons(), has no registered Tier1 recipe, `targetLevel`
+// is outside 2-20, or (for Lv6+) the weapon's class has no deep-layer region
+// wired yet (see DeepLayers.hpp - only FrontierScout/AshboughForest exists so
+// far, per docs/deep_layers.md「実装順序案」#5's "1地域だけ先に縦通し"
+// scoping). Lv6+ uses a separate, deep-material-only formula per docs/
+// deep_layers.md「実装への落とし込み」's own note that Lv6+ "別の倍率
+// テーブル...本編区間の倍率テーブルとは独立" - see weaponDeepLevelUpCost()
+// below.
+inline std::vector<LootStack> weaponDeepLevelUpCost(UnitClass unitClass, int targetLevel) {
+    std::optional<std::string> deepMaterial = deepMaterialIdForClass(unitClass);
+    if (!deepMaterial || targetLevel < 6 || targetLevel > 20) return {};
+    // Simple linear ramp (docs/deep_layers.md「深層限定素材の構成」2026-07-31
+    // 設計レビュー: 最大LvをLv15→Lv25→Lv20で確定。ダンジョン構成も「本編/深層/
+    // 最深層」の2段階遠征へ整理したが、素材のユニーク性は3種のまま維持する
+    // (深層内の2体のボス+最深層1体、計3種のボス素材)) - provisional,
+    // same "jf_forest_balance実測後に調整する前提の暫定値" caveat the rest of
+    // this doc's own tables carry.
+    std::vector<LootStack> cost = {{*deepMaterial, 2 + (targetLevel - 6)}};
+    // 本来の設計(docs/deep_layers.md「Lv帯と対応コンテンツ」2026-08-01訂正)は
+    // Lv9/13/20を「クリア済み深層地域数」基準のチェックポイントにする
+    // (Lv9=深層前半5地域、Lv13=深層後半5地域+地図外苑攻略後、Lv20=最深層
+    // 10地域+地図外苑攻略後)。ただし深層/最深層は灰枝の森(AshboughForest)
+    // 1地域しか実装されておらず、地域数を数える仕組み自体がまだ無いため、
+    // ここでは代わりに「灰枝の森自身のボス3体(Lv9/13=深層内2体、Lv20=最深層
+    // 1体)を倒さないと手に入らないユニーク素材」を要求する暫定コードに
+    // なっている。これは地域数ベース設計の実現ではなく仮の代替実装 - 他地域の
+    // 深層を追加するタイミングで、実際の「クリア済み深層地域数」を数える形へ
+    // このガード自体を書き換えること。
+    if (targetLevel == 9 || targetLevel == 13 || targetLevel == 20) {
+        if (std::optional<std::array<std::string, 3>> bossMats = layerBossMaterialIdsForClass(unitClass)) {
+            const std::size_t layerIndex = targetLevel == 9 ? 0 : targetLevel == 13 ? 1 : 2;
+            cost.push_back({(*bossMats)[layerIndex], 1});
+        }
+    }
+    // TODO(他地域深層の横展開時): docs/deep_layers.md「他地域深層素材の混合
+    // 要求」2026-08-01 - Lv2〜5が「毎Lvに他地域の本編素材を1種混ぜる」のと
+    // 同じ考え方で、ここにも「別地域の深層素材を少量追加要求する」項を足す
+    // 方針が決まっている(自地域の`deepMaterial`/ボス素材を代用するのでは
+    // なく、追加でもう1種混ぜる形)。現状は灰枝の森(AshboughForest)しか
+    // 深層が実装されておらず「混ぜる相手」が存在しないため未実装 - 2地域目
+    // 以降の深層を追加するタイミングで、混ぜる節目Lv・相手地域の選び方・
+    // 数量を決めてここへ追加すること。
+    return cost;
+}
+
 inline std::vector<LootStack> weaponLevelUpCost(const std::string& weaponId, int targetLevel) {
-    if (targetLevel < 2 || targetLevel > 5) return {};
+    if (targetLevel < 2 || targetLevel > 20) return {};
     auto classIt = weaponLevelEligibleWeapons().find(weaponId);
     if (classIt == weaponLevelEligibleWeapons().end()) return {};
+    if (targetLevel >= 6) return weaponDeepLevelUpCost(classIt->second, targetLevel);
     const FacilityNode* recipe = findFacilityNode("craft_" + weaponId);
     if (!recipe || recipe->materialCosts.empty()) return {};
     const LootStack& primary = recipe->materialCosts[0];

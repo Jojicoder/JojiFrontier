@@ -1,0 +1,210 @@
+{
+  "materialsByClass": [
+    {
+      "unitClass": "MarchCaptain",
+      "otherA": "belliron_chip",
+      "otherB": "weathered_cord"
+    },
+    {
+      "unitClass": "VeteranGuard",
+      "otherA": "shattered_shield_stud",
+      "otherB": "signal_fuse"
+    },
+    {
+      "unitClass": "WatchArcher",
+      "otherA": "watchglass_shard",
+      "otherB": "belliron_chip"
+    },
+    {
+      "unitClass": "FrontierScout",
+      "otherA": "ashbark_strip",
+      "otherB": "graymoss_thread"
+    },
+    {
+      "unitClass": "Spearman",
+      "otherA": "grayiron_slag",
+      "otherB": "veinstone_powder"
+    },
+    {
+      "unitClass": "DawnChirurgeon",
+      "otherA": "prayer_wax",
+      "otherB": "censer_ash"
+    },
+    {
+      "unitClass": "HeavyInfantry",
+      "otherA": "veinstone_powder",
+      "otherB": "quarry_chain_link"
+    },
+    {
+      "unitClass": "FrontierEngineer",
+      "otherA": "border_dust",
+      "otherB": "waystone_fragment"
+    },
+    {
+      "unitClass": "MessengerCavalry",
+      "otherA": "thunderworn_stone",
+      "otherB": "windcleft_feather"
+    },
+    {
+      "unitClass": "FrontierRanger",
+      "otherA": "blackwater_peat",
+      "otherB": "marshlight_spore"
+    },
+    {
+      "unitClass": "BannerBearer",
+      "otherA": "hearthbrick",
+      "otherB": "sootdyed_cloth"
+    },
+    {
+      "unitClass": "BattleMage",
+      "otherA": "ember_shell",
+      "otherB": "firetrail_sand"
+    }
+  ],
+  "eligibleWeapons": [
+    {
+      "weaponId": "command_sword",
+      "unitClass": "MarchCaptain"
+    },
+    {
+      "weaponId": "duel_sword",
+      "unitClass": "MarchCaptain"
+    },
+    {
+      "weaponId": "guard_sword",
+      "unitClass": "MarchCaptain"
+    },
+    {
+      "weaponId": "hook_lance",
+      "unitClass": "VeteranGuard"
+    },
+    {
+      "weaponId": "fortress_lance",
+      "unitClass": "VeteranGuard"
+    },
+    {
+      "weaponId": "patrol_lance",
+      "unitClass": "VeteranGuard"
+    },
+    {
+      "weaponId": "long_watch_bow",
+      "unitClass": "WatchArcher"
+    },
+    {
+      "weaponId": "war_bow",
+      "unitClass": "WatchArcher"
+    },
+    {
+      "weaponId": "pinning_bow",
+      "unitClass": "WatchArcher"
+    },
+    {
+      "weaponId": "trail_blade",
+      "unitClass": "FrontierScout"
+    },
+    {
+      "weaponId": "ambush_blade",
+      "unitClass": "FrontierScout"
+    },
+    {
+      "weaponId": "withdrawal_blade",
+      "unitClass": "FrontierScout"
+    },
+    {
+      "weaponId": "long_spear",
+      "unitClass": "Spearman"
+    },
+    {
+      "weaponId": "heavy_spear",
+      "unitClass": "Spearman"
+    },
+    {
+      "weaponId": "guard_spear",
+      "unitClass": "Spearman"
+    },
+    {
+      "weaponId": "mercy_staff",
+      "unitClass": "DawnChirurgeon"
+    },
+    {
+      "weaponId": "ward_staff",
+      "unitClass": "DawnChirurgeon"
+    },
+    {
+      "weaponId": "march_staff",
+      "unitClass": "DawnChirurgeon"
+    },
+    {
+      "weaponId": "bulwark_maul",
+      "unitClass": "HeavyInfantry"
+    },
+    {
+      "weaponId": "breaker_maul",
+      "unitClass": "HeavyInfantry"
+    },
+    {
+      "weaponId": "driving_maul",
+      "unitClass": "HeavyInfantry"
+    },
+    {
+      "weaponId": "builder_hammer",
+      "unitClass": "FrontierEngineer"
+    },
+    {
+      "weaponId": "demolition_hammer",
+      "unitClass": "FrontierEngineer"
+    },
+    {
+      "weaponId": "repair_hammer",
+      "unitClass": "FrontierEngineer"
+    },
+    {
+      "weaponId": "road_sabre",
+      "unitClass": "MessengerCavalry"
+    },
+    {
+      "weaponId": "charge_lance",
+      "unitClass": "MessengerCavalry"
+    },
+    {
+      "weaponId": "escort_blade",
+      "unitClass": "MessengerCavalry"
+    },
+    {
+      "weaponId": "snare_bow",
+      "unitClass": "FrontierRanger"
+    },
+    {
+      "weaponId": "quarry_bow",
+      "unitClass": "FrontierRanger"
+    },
+    {
+      "weaponId": "driving_bow",
+      "unitClass": "FrontierRanger"
+    },
+    {
+      "weaponId": "far_standard",
+      "unitClass": "BannerBearer"
+    },
+    {
+      "weaponId": "valor_standard",
+      "unitClass": "BannerBearer"
+    },
+    {
+      "weaponId": "warding_standard",
+      "unitClass": "BannerBearer"
+    },
+    {
+      "weaponId": "resonant_focus",
+      "unitClass": "BattleMage"
+    },
+    {
+      "weaponId": "war_focus",
+      "unitClass": "BattleMage"
+    },
+    {
+      "weaponId": "ember_focus",
+      "unitClass": "BattleMage"
+    }
+  ]
+}

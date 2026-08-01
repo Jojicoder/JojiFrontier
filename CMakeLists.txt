@@ -131,10 +131,28 @@ if(APPLE AND NOT EMSCRIPTEN)
 endif()
 
 # --- data / assets: copy next to the binary so relative paths resolve --
-add_custom_command(TARGET JOJIFrontier POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE_DIR:JOJIFrontier>/data
+# Dependency-tracked (not a JOJIFrontier POST_BUILD step) so editing a
+# data/*.json file alone - no .cpp/.hpp change - still refreshes build/data on
+# the next `cmake --build`, even if nothing needs relinking. This matters more
+# than it used to: registries like jf::skillRegistry()/jf::facilityNodeRegistry()
+# (docs/implementation_status.md「データ/ロジック分離方針」) load their JSON at
+# runtime via a relative "data/..." path (cwd = repo root by convention), and a
+# stale build/data/*.json previously meant a real content fix could silently
+# not take effect for anyone testing only via a rebuilt binary. GameData's own
+# loadGameData() sidesteps this in tests via the JF_SOURCE_DATA_DIR absolute
+# path below, but the shipped binary has no such macro, so build/data must stay
+# in sync by construction, not by incidental relink timing.
+file(GLOB_RECURSE JF_DATA_FILES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/data/*)
+add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/.jf_data_copy_stamp
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/data ${CMAKE_BINARY_DIR}/data
+    COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_BINARY_DIR}/.jf_data_copy_stamp
+    DEPENDS ${JF_DATA_FILES}
+    COMMENT "Syncing data/ into the build output"
 )
+add_custom_target(jf_copy_data ALL DEPENDS ${CMAKE_BINARY_DIR}/.jf_data_copy_stamp)
+add_dependencies(jf_lib jf_copy_data)
+
 add_custom_command(TARGET JOJIFrontier POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:JOJIFrontier>/assets

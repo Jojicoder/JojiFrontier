@@ -7656,16 +7656,23 @@ JSON編集より事故率もレビュー負担も大きい。そのため今回�
 成功。実機起動も確認済み。マテリアルは全て`ashbark_strip`(辺境斥候Tier1
 防具)を除きレシピ未接続 - 倉庫には貯まるが、まだ製作/強化には使えない。
 
-### 次の方針メモ: レア素材・キー素材・深層素材の増加 → 名前登録のみ実施済み(2026-07-30)
+### 次の方針メモ: レア素材・キー素材・深層素材の増加 → レア/キー素材は全10地域とも報酬接続済み(2026-07-30)
 
-ユーザー要望: 「もっと素材を増やしたい」。まず名前登録のみ実施(ユーザー選択)。
+ユーザー要望: 「もっと素材を増やしたい」。まず名前登録のみ実施した後、
+「既に登録済みのレア/キー素材を実際に入手可能にする」方向でユーザーが選択、
+全10地域分を報酬テーブルへ接続した。
 
 全10地域分、レア素材2種+キー素材1種、計30種を`data/locales/en.json`/
-`ja.json`と`materialNameFor()`(`ui_shared.cpp`)の既知IDへ登録済み(一覧は
-[`material_list.md`](material_list.md)「地域固有のレア/キー素材」参照)。
-通常素材30種のロールアウト時と同じ理由で、報酬テーブル/レシピへの接続は
-まだ行っていない - 現状は入手経路ゼロ(倉庫にも一切出現しない)。
-ビルド・全4テスト通過、実機起動も確認済み。
+`ja.json`と`materialNameFor()`(`ui_shared.cpp`)の既知IDへ登録済みに加え、
+`data/regions.json`(JSON駆動地点)・`src/core/Region.cpp`(ハンドオーサー
+地点)の実際の`baseVictoryLoot`/`routeVictoryLootDelta`/`surveyBonusLoot`/
+`noCasualtiesBonusLoot`/`RewardRule`へ接続した(一覧は
+[`material_list.md`](material_list.md)「地域固有のレア/キー素材(全10地域、
+報酬テーブル接続済み)」参照)。方針どおり、キー素材はボス撃破/地域最終
+防衛達成、レア素材は危険ルート選択/特殊採取地点/ボスノーダメージ討伐などへ
+割り振った。地域ごとに1つずつビルド・全4テストで確認しながら進め、最終的に
+全て成功。実機起動も確認済み。レシピ(武器・防具・施設・装備スキル)への
+接続はまだ未対応。
 
 現状は全10地域に通常素材3種ずつ、計30種を展開済み。次に増やすなら、単に
 通常戦利品を増やすより、要求素材を見ただけで「どこへ行くべきか」「どの敵・
@@ -7832,3 +7839,422 @@ HP50%閾値行動・地形連動(`anyShallowsOnBoard()`)・押し出し
 4. 大型獣/地域Bossは、単体HPより予告範囲、地形、押し出し、通行妨害で難しくする。
 5. Bossごとに「刺さる防具Tier」を分ける。物理突撃BossはTier2、毒/魔導/聖堂BossはTier3、
    長期戦/混合BossはTier1が安定、という形が望ましい。
+
+## UI余白・見切れ修正メモ(2026-07-30)
+
+状態: 修正済み。ユーザー確認上、「ウィンドウの余白はこれで全部固定」として扱う。
+
+- 設定画面: 下部の「最初から」説明文、確認文、閉じるボタンの重なりを解消。
+  確認中は通常設定項目を表示せず、確認専用レイアウトに切り替える。
+- 遠征準備/ユニット画面: 下部項目がカード境界へ食い込む問題を修正。
+- 倉庫整理: 下部ボタンとリストの見切れを避けるため、リスト側をスクロール可能にし、
+  フッター領域を固定確保。
+- ユニット装備画面: 武器・防具・スキル・特性のボタン列、比較パネル、ツールチップが
+  互いに重ならないように描画順と余白を調整。
+- 現時点でスクショ指摘済みのウィンドウ内余白/見切れはすべて対応済みとして記録する。
+
+## 装飾品(調整特性)拡張メモ(2026-07-30)
+
+状態: 全兵種共通枠(武器3種/防具3種)は実装済み。兵種専用枠(下表)は**未実装、叩き台として記録のみ**。
+
+### 用語変更
+
+「調整特性」という呼称が不自然という指摘を受け、UI表記を「装飾品」(武器側)/「防具装飾品」に統一した
+(`data/locales/ja.json`・`en.json`の`ui.facilities.*trait*`キー群、`Facilities.hpp`の
+`trait_hide_wrapped_grip`/`armor_trait_ward_step`ノード名)。内部のenum名(`TuningTraitId`/
+`ArmorTuningTraitId`)・関数名(`equipTuningTraitForUnit`等)はコード互換のため変更していない。
+
+### 実装済み: 全兵種共通装飾品(各3種、鍛冶場で生産)
+
+武器装飾品(`TuningTraitId`、`trait_*`ノード、簡易鍛冶台が前提):
+1. 獣皮の柄巻き(`hide_wrapped_grip`): 戦闘ごとに最初のノックバックを1回無効化
+2. 焦げ止めの布(`scorch_guard_wrap`): 戦闘ごとに最初の炎上を1回無効化
+3. 剛力の護符(`charm_of_might`): 武器の威力+1
+
+防具装飾品(`ArmorTuningTraitId`、`armor_trait_*`ノード、簡易鍛冶台が前提):
+1. 一歩の護り(`ward_step`): 戦闘ごとに最初の状態異常を1回無効化
+2. 頑丈な帯(`sturdy_sash`): DEF+1・RES+1
+3. 命の護符(`vital_charm`): 最大HP+3
+
+### 評価メモ: 全兵種共通装飾品6種(2026-07-30)
+
+用語変更の経緯:
+- 「調整特性」は内部仕様名としては意味が通るが、ユーザーから見ると何を装備しているのか直感的でない。
+  鍛冶場で作ってユニットに装備する選択肢なので、UI上は「装飾品」のほうが自然。
+- 既存セーブ・enum・関数名との互換を優先し、内部IDは`TuningTraitId`/`ArmorTuningTraitId`のまま維持。
+  表示名・施設ノード名だけを「装飾品」/「防具装飾品」へ寄せている。
+- 課題: `docs/character_progression.md`などの仕様系ドキュメントには旧語「調整特性」が残っている。
+  用語を正式採用するなら、仕様側も「装飾品(旧: 調整特性)」へ整理する必要がある。
+
+現仕様と評価:
+- 武器装飾品3種は「位置操作対策」「炎上対策」「火力」の3方向に分かれており、役割の入口は明確。
+  ただし、`剛力の護符`は常時有効な威力+1なので、汎用性が高すぎて迷ったらこれになりやすい。
+- `獣皮の柄巻き`はノックバック/押し出しボスや狭い3x8盤面では強いが、該当ギミックがない戦闘では価値が薄い。
+  マップや敵の予告から「今回は必要」と分かるUI補助がないと選ばれにくい。
+- `焦げ止めの布`は炎上だけを止めるため一番狭い。防具側の`一歩の護り`が炎上も含む状態異常を止めるなら、
+  効果範囲が被っており、武器枠を使う理由が弱い。
+- 防具装飾品3種は「状態異常対策」「DEF/RESの安定」「HPの余裕」で分かれており、全兵種共通枠としては扱いやすい。
+  ただし`頑丈な帯`(DEF+1/RES+1)は常時有効、`命の護符`(最大HP+3)はダメージしきい値次第なので、
+  実戦では`頑丈な帯`が標準解になりやすい可能性がある。
+
+改善案:
+- ツールチップに「おすすめ場面」を追加する。例: 獣皮の柄巻き=押し出し敵/狭い地形、
+  焦げ止めの布=炎上地形/炎上ボス、剛力の護符=短期決戦/火力不足。
+- `焦げ止めの布`は`一歩の護り`との差別化が必要。候補:
+  炎上を1回無効+最初の炎/熱地形ダメージを軽減、または炎上無効時にRES+1を1ターン付与。
+- `獣皮の柄巻き`はノックバック専用のままでよいが、押し出し予告や敵詳細に連動して価値を見せる。
+  効果自体を広げすぎると盤面ギミック対策の個性が薄れる。
+- `命の護符`はHP+3だけだと`頑丈な帯`に負けやすい。毒/地形/固定ダメージに強い説明を足すか、
+  「最大HP+3、戦闘開始時に現在HPも+3」の挙動をUIで明示する。
+- 素材要求は低コストの入口としては妥当だが、将来的にはダンジョン限定素材を混ぜて選択の重みを出す。
+  現状コストは、獣皮の柄巻き=獣皮1、焦げ止めの布=織物1+薬草1、剛力の護符=鉄材1+上質な鉄材1、
+  一歩の護り=薬草1+織物1、頑丈な帯=木材1+獣皮1、命の護符=薬草1+石材1。
+- テスト面では、セーブ/装備可否は一部確認済みだが、6種すべての戦闘効果を個別に検証する回帰テストが不足している。
+  特に焦げ止めの布、剛力の護符、頑丈な帯、命の護符は効果値のテストを追加したい。
+
+対応済み(2026-07-30、「改善案書いたから実装して」の指示を受けて):
+- ツールチップに「おすすめ場面」を追加(`ui.facilities.trait_tip_*`ロケールキー、6種すべて)。
+- `焦げ止めの布`を`一歩の護り`と差別化: 炎上無効に加えてRES+1の常時ボーナスを追加
+  (「1ターン付与」ではなく簡素化して常時付与にした)。`Facilities.hpp`のノード説明文も更新。
+- `命の護符`の効果文を「装備中、最大HP+3(戦闘開始時、現在HPも+3される)」に変更し、
+  現在HPも増える挙動をテキストで明示。
+- `tests/test_battle.cpp`に、Scorch-Guard Wrap(炎上無効+RES+1)・Charm of Might(威力+1)・
+  Sturdy Sash(DEF+1/RES+1)・Vital Charm(最大HP+3/現在HPも+3)の4種を`startExpedition()`
+  経由で end-to-end検証する回帰テストを追加。
+- `獣皮の柄巻き`は改善案どおり効果を広げず現状維持。ノックバック予告との連動UIは未着手
+  (敵の行動予告システム自体の拡張が必要なため、別タスクとして保留)。
+
+いずれも全兵種が装備可能(旧実装は武器装飾品を槍兵専用にハードコードしていたバグがあり、
+ユーザー指摘で修正・class-genericへ統一した)。装備UIは単一トグルボタンから3択グリッド
+(1行3列)に変更済み(`drawForgeEquipmentPanel()`、`src/ui_facilities.cpp`)。
+
+### 未実装: 兵種専用装飾品(各兵種、武器2種+防具2種、計48種)
+
+設計方針: 1ユニットが選べる装飾品は「全兵種共通3種+兵種専用2種」=**武器5種・防具5種**の
+候補プールから、それぞれ1つずつ選んで装備する(スロット自体は武器1枠・防具1枠のまま、
+既存の共通枠と統合しない)。効果案はユーザーへの叩き台として一括提示し、
+「まとめて記録」の指示を受けて本ドキュメントに記録するのみで留めている。実装時は
+本セクションの内容をベースに、既存の`firstBurnNegatesRemaining`/`knockbackNegatesRemaining`/
+`firstStatusNegatesRemaining`/DEF・RES・maxHP加算と同じ枠組みで実装できるものを優先し、
+命中%修正・先制操作・回避%修正・被ダメージ軽減・回復量+Nなど新規フックが要るものは
+後回しにする。
+
+| 兵種 | 武器装飾品① | 武器装飾品② | 防具装飾品① | 防具装飾品② |
+|---|---|---|---|---|
+| 行軍隊長(MarchCaptain) | 采配の柄: 味方全体の命中+3%(戦闘開始時、要新規フック) | 進軍の証: 威力+1 | 指揮官の外套: 最初の状態異常無効 | 不動の意志: 最大HP+3 |
+| 古参守備兵(VeteranGuard) | 迎撃の穂先: 最初のノックバック無効 | 熟練の柄: 威力+1 | 歴戦の盾帯: DEF+2 | 忍耐の帯: 最初の状態異常無効 |
+| 監視弓兵(WatchArcher) | 照準の紐: 最初の攻撃、命中+10%(要新規フック) | 遠矢の羽根: 威力+1 | 潜みの外套: 最初の被弾ダメージ-2(要新規フック) | 警戒の帯: 最初の状態異常無効 |
+| 辺境斥候(FrontierScout) | 疾風の鍔: 最初の攻撃、必ず先制(同速時、要新規フック) | 影断ちの柄: 威力+1 | 軽装の帯: 回避+5%常時(要新規フック) | 逃げ足の護符: 最初のノックバック無効 |
+| 槍兵(Spearman) | 穂先の重り: 威力+1 | 渡河の柄: 最初の状態異常無効(武器枠) | 衝立の帯: DEF+1・RES+1 | 守衛の護符: 最大HP+3 |
+| 暁の衛生兵(DawnChirurgeon) | 癒しの飾り紐: 自分の回復量+2、戦闘に1回(要新規フック) | 浄化の焦点珠: 威力+1 | 施療の帯: 最初の状態異常無効 | 加護の首飾り: 最大HP+3 |
+| 重装兵(HeavyInfantry) | 破砕の鎖: 最初のノックバック無効 | 剛腕の握り: 威力+1 | 鋼の帯革: DEF+2 | 巨躯の護符: 最大HP+3 |
+| 辺境工兵(FrontierEngineer) | 調整済み鎚頭: 威力+1 | 修繕の道具帯: 最初の状態異常無効(武器枠) | 現場装備の帯: DEF+1・RES+1 | 予備部品袋: 最初のノックバック無効 |
+| 伝令騎兵(MessengerCavalry) | 伝令の飾緒: 最初の攻撃、命中+10%(要新規フック) | 早駆けの柄: 威力+1 | 乗り手の帯: 最初のノックバック無効 | 伝令の外套: 最大HP+3 |
+| 辺境猟兵(FrontierRanger) | 狩人の指皮: 威力+1 | 罠師の紐: 最初の状態異常無効(武器枠) | 潜伏の帯: 最初の被弾ダメージ-2(要新規フック) | 森歩きの護符: DEF+1・RES+1 |
+| 旗手(BannerBearer) | 鼓舞の房飾り: 味方全体の命中+3%(戦闘開始時、要新規フック) | 旗竿の握り: 威力+1 | 旗手の帯: 最初の状態異常無効 | 不屈の旗印: 最大HP+3 |
+| 戦闘魔導士(BattleMage) | 魔力の焦点珠: 威力+1 | 詠唱の指輪: 最初の被魔法ダメージ-2(要新規フック) | 魔封じの帯: 最初の状態異常無効 | 集中の護符: RES+2 |
+
+実装コスト目安:
+- **すぐ実装できる**(既存フック流用): 威力+1系、DEF/RES/maxHP加算系、最初の◯◯無効系
+  (ほぼ全兵種の②/一部の①)。
+- **新規フックが必要**: 命中%修正、先制操作、回避%修正、被ダメージ軽減、回復量+N
+  (行軍隊長①、監視弓兵①③、辺境斥候①③④、辺境工兵の一部、伝令騎兵①、辺境猟兵③、
+  旗手①、戦闘魔導士③、暁の衛生兵①)。
+
+次に着手する際は、まず「すぐ実装できる」側から`Facilities.hpp`にノード追加→
+`GameApp.cpp`の`applyEquipmentTraits()`/`applyArmorBonus()`に効果分岐追加→
+`ui_facilities.cpp`の候補グリッドを兵種専用分含めて表示、の順で進める想定
+(共通3種を実装した際と同じ流れ)。兵種専用候補はグリッドの列数を5個(3+2)に
+拡張する必要がある点に注意(現状は3列固定)。
+
+## 連携作戦「交差観測」実装メモ(2026-07-30)
+
+状態: 実装済み。
+
+背景: `paired_cross_observation`(エリン&ネッサ)は「敵1体を標的指定し、その敵の次回行動候補を
+同時公開」という効果だが、敵AIの`takeEnemyTurn()`([src/battle/EnemyAI.cpp](../src/battle/EnemyAI.cpp))
+は「決定」と「実行」が一体化していて、行動を確定させずに覗き見る手段が無かったため、
+`hasBattleEffect = false`で保留されていた(名前・解放条件だけ登録、戦闘効果なし)。
+
+ユーザー指摘「既存の戦闘メッセージに出せばいいんじゃないの？」を受けて再検討:
+表示手段(`pushBattleMessage()`)は既に増援/ボス予告で使われており流用できる。本当のボトルネックは
+「決めるだけ、実行しないモードが無いこと」だけだった。
+
+実装方式: `BattleState`をまるごとコピーし(値型なので単純代入で複製可能)、複製上でだけ対象の
+`takeEnemyTurn()`を実際に走らせ、実行前後の位置/攻撃対象を比較して結果を読み取り、複製は
+使い捨てで破棄する。本番の`battle_`・乱数消費・他ユニットへは一切影響しない。
+
+- `include/jf/battle/BattleState.hpp`: `CooperationRevealResult`構造体(対象ID、移動予定、
+  攻撃予定・対象)と、one-shotポーリング用の`revealId`(BossTelegraphの状態遷移ポーリングと同じ
+  発想、`issueEventId()`を流用)を追加。
+- `src/battle/BattleController.cpp`: `chooseCooperation()`/`selectCooperationTarget()`に
+  `paired_cross_observation`分岐を追加。射程3(`read_quarry`と同じ基準)で敵を対象選択させ、
+  選択時に複製battleで`takeEnemyTurn()`を走らせて`cooperationReveal()`へ結果を書き込む。
+- `src/ui_battle.cpp`: `detectAndAnnounceBattleEvents()`に、増援/ボス予告と同じ
+  one-shotポーリングブロックを追加。`revealId`の変化を検知して`pushBattleMessage()`で
+  「◯◯は△△を狙っている。」/「◯◯は移動する構え。」/「◯◯は動かない構え。」を表示。
+- `src/battle/Cooperation.cpp`: `paired_cross_observation`の`hasBattleEffect`を`true`に変更。
+- ロケールキー3件(`battle.cross_observation_attack`/`_move`/`_wait`)を追加。
+- `tests/test_battle.cpp`: 旧「登録だけで効果なし」テストを、実際に`BattleController`経由で
+  対象選択→予測結果(`willAttack`/`attackTargetId`)を検証し、かつ本番battleが未変更のまま
+  (`hasActed`false、HP不変)であることを確認する形に書き換え。
+
+これで連携作戦6種すべてが戦闘効果を持つようになった(埋没聖堂ルート未実装の「灯火の結界」を
+除き、実質5種が実際に使用可能)。
+
+## 戦闘メッセージ拡充メモ(2026-07-31)
+
+状態: 実装済み。ユーザー指摘「あとスキル発動時のメッセージも表示して」「敵もお願い　他に
+実装されてないメッセージあるか確認して」「まとめて実装で」を受けて、以下5件を追加した。
+
+1. **プレイヤーのスキル発動**: 全スキル分岐が最終的に通る唯一の合流点
+   `BattleController::markActionResolved()`で検知(`skillEventId()`/`lastSkillUserId()`/
+   `lastSkillId()`)。「{user}が「{skill}」を発動！」。
+2. **敵のスキル発動**(ボス特殊技/敵衛生兵のSupport回復): `EnemyAI.cpp`の
+   `finishEnemyAction()`(全敵行動の合流点)で実際に解決した`ActionKind`を
+   `BattleState::lastEnemyActionKind()`へ記録し、`BattleController::update()`が
+   `takeEnemyTurn()`呼び出し直後に読む形。敵の「スキル」にはプレイヤーのような
+   登録済みID/名前が無いため「{user}が特殊行動を発動！」の汎用文言にフォールバック。
+3. **毒・炎上の継続ダメージ**: `processActionEndStatusEffects()`(Burn、1ユニットずつ)/
+   `processPhaseEndStatusEffects()`(Poison、チーム全員を1回でループ)が、ダメージが
+   実際に発生したユニットの一覧を`BattleState::setStatusTickDamage()`(バッチ+
+   `statusTickEventId()`)へ書き込む。低HP警告・撃破メッセージも既存の攻撃メッセージと
+   同じ基準で追従表示。
+4. **連携作戦の発動自体**: `BattleController::cooperationEventId()`/`lastCooperationId()`を
+   `markCooperationUsed()`の両呼び出し箇所で記録(交差観測は既存の専用メッセージがあるため
+   対象外)。「連携作戦「{name}」発動！」。
+5. **装飾品の無効化発動**: 獣皮の柄巻き(ノックバック無効)/一歩の護り(状態異常無効)/
+   焦げ止めの布(炎上無効)が実際に消費された瞬間を`BattleState::setAccessoryNegate()`で記録
+   (`AccessoryNegateKind::Knockback`/`Status`/`Burn`)。効果自体は元から正しく動いていたが、
+   発動の見た目のフィードバックが無かった。
+
+いずれも`ui_battle.cpp`の`detectAndAnnounceBattleEvents()`内で、既存の増援/ボス予告/
+交差観測と同じ「one-shot event id をポーリングして`pushBattleMessage()`」パターンを踏襲。
+`applyBurn()`のシグネチャを`Unit&`単体から`BattleState&, Unit&`へ変更(無効化検知に
+`battle`が必要になったため) - 呼び出し元3箇所(`StatusEffects.cpp`×2、
+`BattleController.cpp`×1)とテスト5箇所を追従修正。回帰テストを既存の関連テストブロックに
+追加(新規テストブロックは作らず、既存の毒/炎上/ノックバック無効/状態異常無効/連携作戦
+テストへアサーションを追記)。
+
+## データ/ロジック分離方針(2026-07-31)
+
+ユーザー指摘「データとロジックのファイルは分かれてるか確認して」→「それはダメだな　分けて」。
+
+### 現状把握(監査結果)
+
+JSON化済み(`data/*.json` + `src/data/GameData.cpp`のローダー): `classes.json`(兵種基礎)、
+`weapons.json`(武器)、`units.json`(初期パーティ/加入候補名)、`regions.json`(地域ステージの
+一部)、`terrain_profiles.json`(地形)、`locales/en.json`/`ja.json`(表示テキスト)。
+
+C++に直書き(データとロジックが同一ファイルに同居、監査時点で未対応):
+- `include/jf/core/Facilities.hpp`(747行): 施設・クラフト・装飾品ノード全データ → **対応済み(下記)**
+- `include/jf/core/Armor.hpp`(197行): 防具全種のデータ
+- `src/core/Skill.cpp`(195行): スキル全種のデータ → **本メモと同時に対応済み(下記)**
+- `include/jf/core/WeaponLeveling.hpp`/`ArmorLeveling.hpp`: 強化コスト表
+- `src/core/RouteGraph.cpp`: 地域ルート接続
+- `src/core/Region.cpp`(2386行): regions.json駆動でない手書きステージ(敵編成・報酬ルール)
+
+### 方針
+
+1. **新規データは必ずJSON化する。** ハードコードされたC++リテラル表を新規に追加しない。
+2. **既存のハードコード表も、これから触る/拡張するタイミングで順次JSON化する。** 一括で
+   全部やり直すのではなく、機能追加や修正のついでに対象ファイルを移行する。
+3. **JSON化の実装パターンは対象によって使い分ける**:
+   - `classes`/`weapons`/`units`/`regions`/`terrain_profiles`のように**GameDataを介して
+     GameApp/BattleFactory経由でしか参照されないデータ**は、既存の`GameData`ローダー
+     (`src/data/GameData.cpp`)へ素直に追加する。
+   - `skillRegistry()`/`facilityNodeRegistry()`/`armorRegistry()`のように、**戦闘層
+     (BattleState/BattleController/EnemyAI等、GameDataを一切知らない「ヘッドレスで動く」
+     設計)からも直接呼ばれるフリー関数レジストリ**は、GameDataへ統合すると戦闘層に
+     GameData依存を持ち込んでしまう(BattleState.hppの「Contains no rendering or input
+     concerns so it can be driven headlessly」という設計方針に反する)。この形は
+     **呼び出し側APIを一切変えず、レジストリ関数の内部実装だけをJSONロードに差し替える**
+     (`static const std::vector<X> data = loadXFromJson("data/x.json"); return data;`)。
+     `skillRegistry()`(下記)がこのパターンの実例。
+4. 移行時は「元のC++リテラルから機械的にJSON化する」(手で打ち直さない・スクリプトで変換して
+   diffを確認する)。効果テキスト等の実質的な内容は一切変更しない、純粋な置き場所の移動として
+   扱う。
+
+### 対応済み: `skillRegistry()` → `data/skills.json`
+
+`src/core/Skill.cpp`のハードコードされた36スキル分のリテラル配列を`data/skills.json`へ
+機械的に抽出(Pythonスクリプトで正規表現抽出→JSON化、全36件を照合)。`skillRegistry()`の
+公開APIは無変更 - 内部実装だけを「起動時に`data/skills.json`を読み込むstatic local」へ
+差し替えた(呼び出し元20箇所超は無修正)。`UnitClass`/`SkillCategory`/`SkillUsageType`の
+文字列⇔enum変換は`Skill.cpp`内のローカルテーブルとして実装(`jf/data/GameData.hpp`の
+`unitClassFromString()`は使わない - coreがdataへ依存する向きの結合を避けるため)。
+ビルド出力への配布は既存の`add_custom_command(... copy_directory data ...)`
+(`CMakeLists.txt`)がそのままカバーするため、ビルド設定の変更は不要だった。
+`jf::skillsForClass(...).size() == 3`を厳密に検証する既存テスト(7クラス分)が全て通過し、
+JSON読み込みが正しく行われていることを確認済み。
+
+### 対応済み: `facilityNodeRegistry()` → `data/facilities.json`
+
+`include/jf/core/Facilities.hpp`のハードコードされた118ノード分のリテラル配列を
+`data/facilities.json`へ機械的に抽出(Pythonで波括弧の深さを追うトップレベル分割パーサーを
+書いて抽出 - 正規表現1本では`materialCosts`のネストした`{{"id", qty}, ...}`を安全に
+扱えないため)。`FacilityId`/`OutpostStage`/`UnitClass`(`weaponBranchClass`用)の
+文字列⇔enum変換はskillRegistry()と同じ「ファイル内ローカルテーブル」方式。ヘッダには
+struct定義・ローダー・`findFacilityNode()`/`facilityNodeEligible()`の参照ロジックだけを残した。
+
+実装中に見つかった不具合と修正:
+- `requiredDiscoveries`が`kCinderwatchReconDiscovery`のような**named定数の参照**を使う
+  箇所があり(素の文字列リテラルではない)、その定数定義は`Facilities.hpp`自身ではなく
+  `BaseState.hpp`側にあったため、抽出スクリプトの定数解決テーブルがFacilities.hppしか
+  スキャンしておらず16箇所が未解決のまま(定数名の文字列そのもの)JSON化されてしまった。
+  `BaseState.hpp`側の`kXxx`定義もスキャン対象に加えて再抽出し修正。同種のC++ヘッダを
+  JSON化する際は、参照している定数の定義元が同一ファイルとは限らない点に注意。
+- **ビルド設定の不備を発見**: `data/*.json`だけを編集してソース(.cpp/.hpp)を一切変更しない
+  場合、`JOJIFrontier`が再リンクされず、`add_custom_command(TARGET JOJIFrontier POST_BUILD ...)`
+  の`data/`コピー処理自体が実行されないため、`build/data/`が古いまま(または存在しない)に
+  なり、テストが古いデータで動いてしまう不具合があった(この不具合はskillRegistry()の
+  時点でも潜在していたが、たまたま同じビルドでui_battle.cpp等も変更していたため再リンクが
+  発生し、表面化していなかった)。`CMakeLists.txt`を修正し、`data/`配下のファイル一覧を
+  `DEPENDS`に持つ専用の`jf_copy_data`ターゲット(`add_custom_target(... ALL ...)`)を作り、
+  `jf_lib`(全実行可能ターゲットの共通依存)に`add_dependencies`で紐付けた。これで
+  data/*.jsonだけの変更でも、どのターゲットをビルドしても確実に同期されるようになった。
+
+`jf::facilityNodeEligible()`の解放段階判定テストが全て通過し、JSON読み込みが正しく
+行われていることを確認済み。
+
+### 対応済み: `armorRegistry()` → `data/armor.json`
+
+`include/jf/core/Armor.hpp`のハードコードされた36件(12兵種×3Tier)を`data/armor.json`へ
+機械的に抽出。Facilities.hppと違い名前付き定数への参照が無かったため、抽出自体は
+skillRegistry()と同程度の単純さで完了。VeteranGuard/Spearman/HeavyInfantryのTier2が
+(3,0)、DawnChirurgeon/BannerBearer/BattleMageのTier3が(1,3)という per-class tweak
+(docs/implementation_status.md「防具設定レビュー」#3)も、JSON側の`baseDef`/`baseRes`の
+数値にそのまま反映されているので、コード側に特別分岐は不要だった。ヘッダにはstruct定義・
+`armorDefBonusAtLevel()`/`armorResBonusAtLevel()`のLv計算ロジック・JSONローダー・
+`findArmorDefinition()`だけを残した。
+
+なお、この移行時に新規追加した`data/armor.json`は、先の`facilities.json`移行で導入した
+`CONFIGURE_DEPENDS`グロブが正しく検知し(`cmake --build`実行時に「GLOB mismatch!」と出て
+自動再configureが走った)、`jf_copy_data`ターゲット経由でビルド出力へ確実に同期された -
+CMake側の修正が新規データファイルの追加にもそのまま効くことを実地で確認できた。
+
+全4テスト通過を確認済み。
+
+### 対応済み: `WeaponLeveling.hpp`/`ArmorLeveling.hpp` → `data/weapon_leveling.json`/`armor_leveling.json`
+
+両ファイルとも「データテーブル」と「計算ロジック」が明確に分かれていたため、テーブル部分
+だけを抽出した:
+- `weaponLevelMaterialsByClass()`(12兵種分のLv2〜5用素材)と`weaponLevelEligibleWeapons()`
+  (Lv化対象の武器id→所属兵種、抽出したら36件だった - ファイル冒頭コメントの「33」は
+  古い記述で、実データとは既に食い違っていたことが判明。コード自体は正しく36件を
+  登録していた)を`data/weapon_leveling.json`へ。
+- `armorLevelMaterialsByClass()`(12兵種分のLv2〜5用素材、otherA/B/Cの3種)を
+  `data/armor_leveling.json`へ。
+
+**`equipmentLevelMaterialId()`(兵種ごとの素材読み替えswitch文)はJSON化しなかった** -
+これは分岐ロジックそのものであり、テーブル的なデータ配分ではないため、無理にJSON化すると
+「JSON側にコード相当の分岐を埋め込む」形になり可読性が下がると判断した。同様に
+`weaponLevelUpCost()`/`armorLevelUpCost()`のLv別倍率計算(switch文)もコードのまま。
+方針3(呼び出し側APIを変えずレジストリ内部だけJSON化)の対象は「素直なテーブル」に限り、
+分岐ロジックは無理に対象へ含めない、という判断基準を今回のケースで明確化した。
+
+全4テスト通過を確認済み。
+
+### 対応済み: `RouteGraph.cpp` → `data/route_graphs.json`
+
+全10地域分のグラフ(ノード116件+エッジ106件)を`data/route_graphs.json`へ機械的に抽出。
+10個の個別`xGraph()`関数と、`regionRouteGraph()`/`usesRouteGraph()`の if連鎖を、
+`RegionId`をキーにした単一のハッシュマップ(起動時に1回JSONから構築)へ置き換えた。
+`findRouteNode()`/`nextRouteNode()`/`validateRouteGraph()`/`initialRouteProgress()`という
+グラフに対する汎用アルゴリズムはそのままコードに残した。`RegionId`文字列⇔enum変換は、
+他の移行のように新しいローカルテーブルを複製せず、同じcore層に既にある
+`jf::regionIdFromStringStrict()`(`Region.hpp`)を再利用した。
+
+**実装中に見つけて直した不具合**: 抽出スクリプトが`RegionId::CinderwatchGate`のような
+**C++の列挙子名(PascalCase)**をそのままJSONの`regionId`フィールドへ書き出してしまい、
+`regionIdFromStringStrict()`が期待する正本の文字列表現(`"cinderwatch_gate"`のような
+snake_case、`toString(RegionId)`の出力形式)と食い違っていた。この結果、JSON読み込み時に
+全10地域のグラフが1件も解決できずマップが空になり、`usesRouteGraph()`が常にfalseを返す
+状態になっていた(単純な単発ステージのテストは通ってしまうため、マルチサイト地域を
+`nextRouteNode()`で辿るテストで初めて発覚した)。抽出スクリプトの出力をPascalCase→
+snake_caseへ変換するマッピング表で修正。**enum値をJSON化する際は、コード側が実際に
+比較で使う文字列表現(toString()の出力)に合わせる必要があり、C++側の列挙子名をそのまま
+使ってはいけない**、という教訓をチェックリストに追加した(下記)。
+
+全4テスト通過、クリーンな完全リビルドでも確認済み。
+
+### 評価のみ: `Region.cpp`の手書きステージ(JSON化しない判断)
+
+`quarryOldMineStage()`/`ashironVeinStage()`等、regions.json駆動でない約15個の
+手書きステージ関数を実際に読んで確認した結果、**これらはJSON化の対象から外すと判断した**。
+理由:
+
+- `StageDescriptor`自体が`TimedReinforcement`/`PrimaryEscapeUnitsRule`/`guestUnits`等、
+  既存の`regions.json`スキーマには無いフィールドを多数使っている。これらの手書きステージが
+  存在する理由自体が「JSONスキーマにまだ無い機能を使う必要があったから」(コード内コメント
+  に明記: 「JSON-Schema-gapのため手書き」)であり、JSON化するには`regions.json`のスキーマ
+  自体を拡張する必要がある。
+- ステージの主目的/副目標の一部(例: 「作業員2人とも脱出」ボーナス)は`StageDescriptor`の
+  フィールドとしてではなく、**`GameApp.cpp`側にステージidを直接比較するad-hocな分岐**として
+  実装されている(`RewardRule::Condition`にその形が無いため)。`StageDescriptor`だけを
+  JSON化しても、対になるボーナス判定ロジックはコードに残ったままになり、「データと
+  ロジックの分離」が中途半端になる。
+- 完全な分離を実現するには、(1) `regions.json`スキーマの拡張、(2) `GameApp.cpp`の
+  ad-hoc分岐をデータ駆動な形へ書き直す、という2段階の設計変更が必要で、単純な
+  「リテラル配列をJSONへ機械的に抽出する」作業とは規模も性質も異なる。方針3の
+  「呼び出し側APIを変えず内部実装だけ差し替える」パターンが使えるのは、対象が
+  素直なデータテーブルである場合に限られる、という判断基準(WeaponLeveling.hppの
+  移行時にも一度確認した基準)がここでも当てはまる。
+
+これで着手前に挙げていた5項目のうち4項目(Facilities/Armor/WeaponLeveling・
+ArmorLeveling/RouteGraph)が完了。残り1項目(Region.cppの手書きステージ)は、
+上記の理由により今回のJSON化方針の対象外として記録し、着手しないことをここに明記する。
+将来的にどうしても分離したい場合は、まず`regions.json`スキーマの拡張(TimedReinforcement/
+guestUnits/ad-hocボーナス条件をデータとして表現できるようにする)を別タスクとして先に
+行う必要がある。
+
+### 移行作業の共通チェックリスト(今後のため)
+
+1. 元のC++リテラルをスクリプトで機械的に抽出する(手で打ち直さない)。単純な正規表現で
+   足りるか、ネスト構造がある場合はトップレベル分割パーサーが必要か見極める。
+2. 参照している名前付き定数(discovery ID等)が**別ファイル**で定義されていないか確認する。
+3. 抽出後、件数・重複ID・enum値の分布をPythonで検算してから書き込む。
+4. ヘッダ/cppには「struct定義」「JSONローダー」「参照・判定ロジック」だけを残す。
+5. ビルド・全4テスト実行で確認する。**`data/*.json`だけを変更してビルドし直した場合でも
+   正しく反映されるか(=`build/data/`が同期されるか)を必ず確認する**(上記の不具合と同じ
+   ものを踏まないため)。
+6. **enum値をJSON化するときは、C++の列挙子名(PascalCase)をそのまま書き出さず、コード側が
+   実際に文字列比較で使う正本の表現(`toString()`の出力、通常snake_case)に合わせる。**
+   RouteGraph.cpp移行時、抽出スクリプトが列挙子名をそのままJSONへ書いてしまい、
+   `regionIdFromStringStrict()`との不一致でグラフが1件も解決できない不具合を出した
+   (単発ステージのテストは通ってしまうため、マルチサイト地域のテストで初めて発覚 -
+   影響範囲が広いのに気づきにくいタイプの不具合なので特に注意)。
+7. 対象が「素直なテーブル」ではなく、分岐ロジックや他ファイル(GameApp.cpp等)の
+   ad-hocな判定と密結合している場合は、無理にJSON化しない。方針3のパターンは
+   宣言的データにのみ適用し、ロジックそのものは対象外(WeaponLeveling.hppの
+   `equipmentLevelMaterialId()`、Region.cppの手書きステージがこの判断基準の実例)。
+
+## 地域固有の常在素材30種、レシピ接続完了(2026-07-31)
+
+状態: 実装済み。ユーザー要望「素材をレシピへ接続」(スコープ選択: 常在素材30種を先に)。
+
+`docs/material_list.md`「地域固有素材(全10地域、通常素材3種ずつ)」の30種は、
+`ashbark_strip`(辺境斥候Tier1防具、既存)を除き倉庫に貯まるだけで消費経路が無かった。
+`data/weapon_leveling.json`/`armor_leveling.json`(前節でJSON化済み)の
+`materialsByClass`エントリを、各兵種の所属地域に応じて汎用素材から地域固有素材へ
+差し替えることで、全30種を武器/防具Lv2〜5強化コストへ接続した。
+
+兵種→地域の割り当ては、初期6兵種は`skill_system.md`「Discoveryの地域配置」表
+(スキル解放地域)、後半6兵種は既存の`otherA`/`otherB`が示す地域素材(例:
+FrontierRangerのpoison_material→黒水低湿地、BattleMageのash_crystal→燼火峡谷)の
+出典地域を根拠にした。12兵種/10地域のため、灰鉄採石場(槍兵・重装兵)と沈黙した
+監視所群(行軍隊長・監視弓兵)の2地域だけ2兵種が同じ3種材料を共有している。
+
+各兵種、武器Lv2〜5のotherA/otherBと防具Lv2〜5のotherA/otherB/otherCの計5枠(重複あり)に
+その地域の3種を配置し、全30種が最低1箇所以上で実際に消費されるようにした。
+
+**実装中に見つけて直した不具合**: `tests/test_battle.cpp`の複数のテスト
+(`strengthenWeapon("command_sword")`/`strengthenWeapon("bulwark_maul")`/
+`strengthenArmor("armor_march_captain_tier1")`/`strengthenArmor("armor_battle_mage_tier2")`)
+が、旧`otherA`/`otherB`/`otherC`の素材id(`quality_iron`/`military_supplies`等)を
+直接ハードコードして必要素材を計算していた。地域素材への差し替え後にこれらのテストが
+軒並み失敗したため、新しい素材idに合わせてテストの数量計算を再計算し修正した
+(ロジック自体は変更しておらず、テストのデータ側の期待値だけを更新)。
+
+全4テスト通過、クリーンな完全リビルドでも確認済み。残るレア/キー素材30種の
+レシピ接続は別タスクとして未着手のまま。

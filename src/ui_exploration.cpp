@@ -67,6 +67,22 @@ void drawExplorationScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
             app.chooseReconnaissance();
         drawText(tr("exploration.reconnaissance_effect"),
                  182, 495, 16, kColorTextMuted);
+
+        // docs/deep_layers.md: shortcut into the deep-layer expeditions from
+        // AshboughForest's own already-Secured site screen, gated the same
+        // way the Base region list gates them (isRegionUnlocked()).
+        if (isAshbough) {
+            if (app.isRegionUnlocked(jf::RegionId::AshboughForestDeep)) {
+                Rectangle deepRect{160, 550, 960, 90};
+                if (button(deepRect, tr("exploration.enter_deep_layer"), mouse, clicked))
+                    app.startDeepLayerExpeditionFromSecuredSite(jf::RegionId::AshboughForestDeep);
+            }
+            if (app.isRegionUnlocked(jf::RegionId::AshboughForestDeepest)) {
+                Rectangle deepestRect{160, 655, 960, 90};
+                if (button(deepestRect, tr("exploration.enter_deepest_layer"), mouse, clicked))
+                    app.startDeepLayerExpeditionFromSecuredSite(jf::RegionId::AshboughForestDeepest);
+            }
+        }
         return;
     }
 

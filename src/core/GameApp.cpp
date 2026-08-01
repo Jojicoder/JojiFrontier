@@ -2,6 +2,7 @@
 
 #include "jf/battle/BattleFactory.hpp"
 #include "jf/battle/SkillCharges.hpp"
+#include "jf/core/DeepLayerScaling.hpp"
 #include "jf/core/Skill.hpp"
 
 #include <algorithm>
@@ -21,6 +22,15 @@ std::uint32_t makeExpeditionSeed() {
 // resetToBase() can't drift apart.
 StageDescriptor idlePlaceholderStage(const GameData& data) {
     return regionDescriptor(RegionId::CinderwatchGate, data).stages.at(0);
+}
+
+// docs/deep_layers.md「全体構成」: 深層/最深層はRouteGraph/複数地点分岐を
+// 持たない単一の直線進行だが、ユーザー指示により各戦闘前の探索3択(道中-
+// FrontalAdvance/ScoutRoute等、地点そのものは増やさない)は他地域と同じく
+// 全戦闘で提示する。plain stageIndex進行を使う地域のうち、この2つだけ
+// 「stageIndex==0のみ探索3択」という既存の(Cinderwatch由来の)制限を外す。
+bool isDeepLayerRoutelessRegion(RegionId regionId) {
+    return regionId == RegionId::AshboughForestDeep || regionId == RegionId::AshboughForestDeepest;
 }
 } // namespace
 
@@ -524,6 +534,14 @@ bool GameApp::retireExpedition() {
     return true;
 }
 
+bool GameApp::startDeepLayerExpeditionFromSecuredSite(RegionId deepRegionId) {
+    if (screen_ != Screen::Exploration || expedition_.regionId != RegionId::AshboughForest) return false;
+    if (currentSiteAccess() != SiteAccessState::Secured) return false;
+    if (!isRegionUnlocked(deepRegionId)) return false;
+    resetToBase();
+    return startExpedition(deepRegionId);
+}
+
 void GameApp::continueExpedition() {
     if (screen_ != Screen::Camp || expeditionComplete()) return;
     syncPartySnapshotFromBattle();
@@ -533,13 +551,24 @@ void GameApp::continueExpedition() {
         updateExpeditionCheckpoint(ExpeditionCheckpoint::Stage::Exploration);
         return;
     }
-    std::vector<Unit> survivors = battleController_->battle().units();
     ++expedition_.stageIndex;
+    if (isDeepLayerRoutelessRegion(expedition_.regionId)) {
+        // docs/deep_layers.md: ユーザー指示により、深層/最深層も各戦闘前に
+        // 探索3択を挟む(地点・分岐は増やさない、単に選択のUIだけ他地域と
+        // 揃える) - Screen::Explorationへ戻し、chooseExplorationRoute()に
+        // 続きの戦闘構築を委ねる(expeditionPartyUnits_は上のsync呼び出しで
+        // 既に生存状態へ更新済み)。
+        screen_ = Screen::Exploration;
+        updateExpeditionCheckpoint(ExpeditionCheckpoint::Stage::Exploration);
+        return;
+    }
+    std::vector<Unit> survivors = battleController_->battle().units();
     battleController_ = std::make_unique<BattleController>(
         createScenarioContinuationBattle(data_, survivors, currentStage(), expeditionSeed_));
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
     applyArmorBonus(*battleController_);
+    applyDeepLayerScalingIfNeeded(*battleController_);
     // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
     // onto the fresh BattleState at every real-battle entry point, same as
     // applyEquipmentTraits()/applyEquippedSkills() above.
@@ -815,6 +844,7 @@ bool GameApp::chooseSafePassage() {
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
     applyArmorBonus(*battleController_);
+    applyDeepLayerScalingIfNeeded(*battleController_);
     // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
     // onto the fresh BattleState at every real-battle entry point, same as
     // applyEquipmentTraits()/applyEquippedSkills() above.
@@ -847,6 +877,7 @@ bool GameApp::chooseReconnaissance() {
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
     applyArmorBonus(*battleController_);
+    applyDeepLayerScalingIfNeeded(*battleController_);
     // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
     // onto the fresh BattleState at every real-battle entry point, same as
     // applyEquipmentTraits()/applyEquippedSkills() above.
@@ -876,6 +907,7 @@ int GameApp::bulkPassSecuredSites() {
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
     applyArmorBonus(*battleController_);
+    applyDeepLayerScalingIfNeeded(*battleController_);
     // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
     // onto the fresh BattleState at every real-battle entry point, same as
     // applyEquipmentTraits()/applyEquippedSkills() above.
@@ -896,7 +928,9 @@ int GameApp::bulkPassSecuredSites() {
 
 bool GameApp::chooseExplorationRoute(ExplorationChoice choice) {
     if (screen_ != Screen::Exploration || !currentStage().contentImplemented) return false;
-    if (!expedition_.routeProgress && expedition_.stageIndex != 0) return false;
+    if (!expedition_.routeProgress && expedition_.stageIndex != 0 &&
+        !isDeepLayerRoutelessRegion(expedition_.regionId))
+        return false;
     const StageDescriptor stage = currentStage();
     if (choice == ExplorationChoice::ScoutRoute && stage.scoutRouteDisabled) return false;
     if (choice == ExplorationChoice::ScoutRoute &&
@@ -934,6 +968,7 @@ bool GameApp::chooseExplorationRoute(ExplorationChoice choice) {
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
     applyArmorBonus(*battleController_);
+    applyDeepLayerScalingIfNeeded(*battleController_);
     // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
     // onto the fresh BattleState at every real-battle entry point, same as
     // applyEquipmentTraits()/applyEquippedSkills() above.
@@ -972,6 +1007,7 @@ bool GameApp::confirmDeployment() {
     applyEquipmentTraits(*battleController_);
     applyEquippedSkills(*battleController_);
     applyArmorBonus(*battleController_);
+    applyDeepLayerScalingIfNeeded(*battleController_);
     // docs/character_progression.md「連携作戦」: squad-wide, so it's copied
     // onto the fresh BattleState at every real-battle entry point, same as
     // applyEquipmentTraits()/applyEquippedSkills() above.
@@ -1009,8 +1045,21 @@ void GameApp::applyEquipmentTraits(BattleController& controller) {
     for (Unit& unit : controller.battle().units()) {
         if (unit.team != Team::Player) continue;
         auto it = equippedTraits_.find(unit.id);
-        unit.knockbackNegatesRemaining =
-            (it != equippedTraits_.end() && it->second == TuningTraitId::HideWrappedGrip) ? 1 : 0;
+        const TuningTraitId traitId = it != equippedTraits_.end() ? it->second : TuningTraitId::None;
+        unit.knockbackNegatesRemaining = traitId == TuningTraitId::HideWrappedGrip ? 1 : 0;
+        // firstBurnNegatesRemaining also seeds from UnitTemplate::
+        // firstBurnNegated (BattleFactory.cpp) - additive with Scorch-Guard
+        // Wrap's own +1 is fine since neither source exists on the same unit
+        // today, and the "consumed once" semantics don't care which source
+        // granted the charge.
+        // ドキュメント記録「評価メモ: 全兵種共通装飾品6種」(2026-07-30)のユーザー
+        // 改善案: 一歩の護り(状態異常全般を無効化)と効果範囲が被っていた炎上限定
+        // 無効を差別化するため、RES+1の常時ボーナスを追加した。
+        if (traitId == TuningTraitId::ScorchGuardWrap) {
+            unit.firstBurnNegatesRemaining += 1;
+            unit.stats.resistance += 1;
+        }
+        if (traitId == TuningTraitId::CharmOfMight) unit.weapon.might += 1;
     }
 }
 
@@ -1026,9 +1075,32 @@ void GameApp::applyArmorBonus(BattleController& controller) {
             }
         }
         auto traitIt = equippedArmorTraits_.find(unit.id);
-        unit.firstStatusNegatesRemaining =
-            (traitIt != equippedArmorTraits_.end() && traitIt->second == ArmorTuningTraitId::WardStep) ? 1 : 0;
+        const ArmorTuningTraitId armorTraitId =
+            traitIt != equippedArmorTraits_.end() ? traitIt->second : ArmorTuningTraitId::None;
+        unit.firstStatusNegatesRemaining = armorTraitId == ArmorTuningTraitId::WardStep ? 1 : 0;
+        if (armorTraitId == ArmorTuningTraitId::SturdySash) {
+            unit.stats.defense += 1;
+            unit.stats.resistance += 1;
+        }
+        if (armorTraitId == ArmorTuningTraitId::VitalCharm) {
+            unit.stats.maxHp += 3;
+            unit.currentHp += 3;
+        }
     }
+}
+
+void GameApp::applyDeepLayerScalingIfNeeded(BattleController& controller) {
+    // docs/deep_layers.md「敵強化率」: stageIndex 0/1 = 深層のボス1体目段階
+    // (ザコ+ボス1)、2/3 = ボス2体目段階(ザコ+ボス2、深層完了)。最深層は
+    // stageIndex 0/1(ザコ+ボス)とも一律ボス相当の段階3。expedition_.
+    // regionIdがこの2支線以外なら何もしない(既存の全地域は完全に素通し)。
+    const DeepLayerEnemyScaling* scale = nullptr;
+    if (expedition_.regionId == RegionId::AshboughForestDeep) {
+        scale = expedition_.stageIndex < 2 ? &kDeepLayerScaleStage1 : &kDeepLayerScaleStage2;
+    } else if (expedition_.regionId == RegionId::AshboughForestDeepest) {
+        scale = &kDeepLayerScaleStage3;
+    }
+    if (scale) applyDeepLayerEnemyScaling(controller.battle(), *scale);
 }
 
 void GameApp::applyEquippedSkills(BattleController& controller) {
@@ -1166,14 +1238,20 @@ bool GameApp::equipTuningTraitForUnit(const std::string& unitId, TuningTraitId t
     auto unit = std::find_if(roster_.begin(), roster_.end(), [&](const UnitTemplate& candidate) {
         return candidate.id == unitId;
     });
-    if (unit == roster_.end() || unit->classId != UnitClass::Spearman) return false;
+    if (unit == roster_.end()) return false;
     if (traitId == TuningTraitId::None) {
         equippedTraits_.erase(unitId);
         markPersistentStateChanged();
         return true;
     }
-    if (traitId != TuningTraitId::HideWrappedGrip) return false;
-    if (!baseState_.unlockedNodeIds.count("trait_hide_wrapped_grip")) return false;
+    std::string nodeId;
+    switch (traitId) {
+        case TuningTraitId::HideWrappedGrip: nodeId = "trait_hide_wrapped_grip"; break;
+        case TuningTraitId::ScorchGuardWrap: nodeId = "trait_scorch_guard_wrap"; break;
+        case TuningTraitId::CharmOfMight: nodeId = "trait_charm_of_might"; break;
+        default: return false;
+    }
+    if (!baseState_.unlockedNodeIds.count(nodeId)) return false;
     equippedTraits_[unitId] = traitId;
     markPersistentStateChanged();
     return true;
@@ -1254,8 +1332,14 @@ bool GameApp::equipArmorTraitForUnit(const std::string& unitId, ArmorTuningTrait
         markPersistentStateChanged();
         return true;
     }
-    if (traitId != ArmorTuningTraitId::WardStep) return false;
-    if (!baseState_.unlockedNodeIds.count("armor_trait_ward_step")) return false;
+    std::string armorNodeId;
+    switch (traitId) {
+        case ArmorTuningTraitId::WardStep: armorNodeId = "armor_trait_ward_step"; break;
+        case ArmorTuningTraitId::SturdySash: armorNodeId = "armor_trait_sturdy_sash"; break;
+        case ArmorTuningTraitId::VitalCharm: armorNodeId = "armor_trait_vital_charm"; break;
+        default: return false;
+    }
+    if (!baseState_.unlockedNodeIds.count(armorNodeId)) return false;
     equippedArmorTraits_[unitId] = traitId;
     markPersistentStateChanged();
     return true;
@@ -1367,10 +1451,15 @@ bool GameApp::applySaveData(const SaveData& save) {
         auto unit = std::find_if(roster_.begin(), roster_.end(), [&](const UnitTemplate& candidate) {
             return candidate.id == unitId;
         });
-        if (unit != roster_.end() && unit->classId == UnitClass::Spearman &&
-            traitId == TuningTraitId::HideWrappedGrip &&
-            loadedBase.unlockedNodeIds.count("trait_hide_wrapped_grip"))
-            loadedTraits[unitId] = traitId;
+        if (unit == roster_.end()) continue;
+        std::string nodeId;
+        switch (traitId) {
+            case TuningTraitId::HideWrappedGrip: nodeId = "trait_hide_wrapped_grip"; break;
+            case TuningTraitId::ScorchGuardWrap: nodeId = "trait_scorch_guard_wrap"; break;
+            case TuningTraitId::CharmOfMight: nodeId = "trait_charm_of_might"; break;
+            default: continue;
+        }
+        if (loadedBase.unlockedNodeIds.count(nodeId)) loadedTraits[unitId] = traitId;
     }
 
     // M10-B: armor overrides, mirroring the weapon dedup shape above but
@@ -1401,9 +1490,15 @@ bool GameApp::applySaveData(const SaveData& save) {
         auto unit = std::find_if(roster_.begin(), roster_.end(), [&](const UnitTemplate& candidate) {
             return candidate.id == unitId;
         });
-        if (unit != roster_.end() && traitId == ArmorTuningTraitId::WardStep &&
-            loadedBase.unlockedNodeIds.count("armor_trait_ward_step"))
-            loadedArmorTraits[unitId] = traitId;
+        if (unit == roster_.end()) continue;
+        std::string armorNodeId;
+        switch (traitId) {
+            case ArmorTuningTraitId::WardStep: armorNodeId = "armor_trait_ward_step"; break;
+            case ArmorTuningTraitId::SturdySash: armorNodeId = "armor_trait_sturdy_sash"; break;
+            case ArmorTuningTraitId::VitalCharm: armorNodeId = "armor_trait_vital_charm"; break;
+            default: continue;
+        }
+        if (loadedBase.unlockedNodeIds.count(armorNodeId)) loadedArmorTraits[unitId] = traitId;
     }
 
     std::unordered_map<std::string, UnitSkillLoadout> loadedSkills;
@@ -1510,6 +1605,7 @@ bool GameApp::applySaveData(const SaveData& save) {
                 applyEquipmentTraits(*battleController_);
                 applyEquippedSkills(*battleController_);
                 applyArmorBonus(*battleController_);
+    applyDeepLayerScalingIfNeeded(*battleController_);
                 screen_ = Screen::Camp;
             } else {
                 screen_ = Screen::Exploration;

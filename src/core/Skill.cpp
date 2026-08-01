@@ -1,142 +1,87 @@
 #include "jf/core/Skill.hpp"
 
+#include <fstream>
+#include <iostream>
+#include <unordered_map>
+
+#include <nlohmann/json.hpp>
+
 namespace jf {
 
-const std::vector<SkillDefinition>& skillRegistry() {
-    static const std::vector<SkillDefinition> skills = {
-        // 行軍隊長 (March Captain)
-        {"hold_formation", UnitClass::MarchCaptain, "Hold Formation", "隊形維持", SkillCategory::Active,
-         SkillUsageType::Cooldown2, "Self and adjacent allies DEF+2 until the next Enemy Phase ends.",
-         "自身と隣接する味方のDEF+2。次のEnemy Phase終了まで。", 1},
-        {"advance_order", UnitClass::MarchCaptain, "Advance Order", "前進命令", SkillCategory::Active,
-         SkillUsageType::OncePerBattle, "An adjacent unacted ally's MOV+1 until this Player Phase ends.",
-         "隣接する未行動の味方1人のMOV+1。このPlayer Phase終了まで。", 2},
-        {"support_order", UnitClass::MarchCaptain, "Support Order", "援護命令", SkillCategory::Reactive,
-         SkillUsageType::OncePerPhase, "An adjacent ally takes 3 less damage from an attack.",
-         "隣接味方が攻撃で受けるダメージを3軽減。", 3},
+namespace {
 
-        // 古参守備兵 (Veteran Guard)
-        {"provoke", UnitClass::VeteranGuard, "Provoke", "挑発", SkillCategory::Active, SkillUsageType::Cooldown2,
-         "One enemy is provoked: next Enemy Phase it prioritizes attacking the user if able.",
-         "敵1体へ挑発を付与。次のEnemy Phase、使用者を攻撃可能なら最優先する。", 1},
-        {"extended_lockdown", UnitClass::VeteranGuard, "Extended Lockdown", "封鎖強化", SkillCategory::Active,
-         SkillUsageType::OncePerBattle, "Zone of Control extends to Manhattan distance 2 until the next Enemy Phase ends.",
-         "次のEnemy Phase終了までZone of Controlをマンハッタン距離2へ拡張。", 2},
-        {"immovable_stance", UnitClass::VeteranGuard, "Immovable Stance", "不動の構え", SkillCategory::Passive,
-         SkillUsageType::Always, "Triggers only on confirming Wait: DEF+3 until the user's next action ends, no movement on that next action.",
-         "待機確定時のみ発動。次の自分の行動終了までDEF+3、次の自分の行動では移動不可。", 3},
-
-        // 監視弓兵 (Watch Archer)
-        {"suppressing_shot", UnitClass::WatchArcher, "Suppressing Shot", "制圧射撃", SkillCategory::Active,
-         SkillUsageType::Cooldown2, "A normal attack; a hit also applies Move Down.",
-         "通常攻撃を行い、命中した敵へ移動低下を付与。", 1},
-        {"overwatch", UnitClass::WatchArcher, "Overwatch", "警戒射撃", SkillCategory::Active,
-         SkillUsageType::OncePerBattle, "Next Enemy Phase, attacks the first enemy to enter the equipped weapon's range.",
-         "次のEnemy Phase、最初に装備武器の射程へ入った敵を1回攻撃。", 2},
-        {"mark_target", UnitClass::WatchArcher, "Mark Target", "標的指定", SkillCategory::Active,
-         SkillUsageType::Cooldown2, "Marks one enemy: the next ally attack against it deals +2 damage, then the mark clears.",
-         "敵1体へ標的を付与。次に味方から受ける攻撃ダメージ+2、その攻撃後に解除。", 3},
-
-        // 辺境斥候 (Frontier Scout)
-        {"trailblaze", UnitClass::FrontierScout, "Trailblaze", "道拓き", SkillCategory::Active, SkillUsageType::Cooldown2,
-         "Moves up to normal MOV; Ash/Shallows tiles crossed cost allies 1 movement for this Player Phase.",
-         "最大通常MOVで移動する。通過した灰地・浅瀬はそのPlayer Phase中、味方の移動コスト1。", 1},
-        {"ambush", UnitClass::FrontierScout, "Ambush", "奇襲", SkillCategory::Active, SkillUsageType::OncePerBattle,
-         "A normal attack (weapon range) against an enemy that hasn't acted this round, dealing +3 damage.",
-         "そのラウンドで未行動の敵へ通常攻撃し、与ダメージ+3。", 2},
-        {"emergency_withdrawal", UnitClass::FrontierScout, "Emergency Withdrawal", "緊急離脱", SkillCategory::Active,
-         SkillUsageType::Cooldown2, "Moves up to 3 tiles without attacking; may start from a tile adjacent to an enemy.",
-         "攻撃せず最大3マス移動。敵隣接マスから移動を開始可能。", 3},
-
-        // 槍兵 (Spearman)
-        {"spear_wall", UnitClass::Spearman, "Spear Wall", "槍壁", SkillCategory::Active, SkillUsageType::Cooldown2,
-         "Self and one adjacent ally get DEF+2 against attackers who moved 2+ tiles, until the next Enemy Phase ends.",
-         "自身と隣接味方1人へ、2マス以上移動した敵から攻撃される際のDEF+2を付与。次のEnemy Phase終了まで。", 1},
-        {"halting_thrust", UnitClass::Spearman, "Halting Thrust", "足止め突き", SkillCategory::Active,
-         SkillUsageType::Cooldown2, "A normal attack (weapon range); a hit also fully halts the target's next action (Stagger).",
-         "通常攻撃を行い、命中した敵に次の行動で移動不可(スタッガー)を付与。", 2},
-        {"counterthrust", UnitClass::Spearman, "Counterthrust", "反撃準備", SkillCategory::Reactive,
-         SkillUsageType::OncePerBattle, "Survive an enemy's attack while it's in weapon range: counter it immediately once.",
-         "敵の攻撃を受けて生存し、その敵が武器射程内なら即座に1回反撃。", 3},
-
-        // 暁の衛生兵 (Dawn Chirurgeon) - basic Heal stays an innate ability
-        // outside these 2 equip slots, per docs/skill_system.md.
-        {"cleanse", UnitClass::DawnChirurgeon, "Cleanse", "状態治療", SkillCategory::Active, SkillUsageType::Cooldown2,
-         "Clears every status effect from self or one adjacent ally.",
-         "自身または隣接味方1人の状態異常をすべて解除。", 1},
-        {"protective_treatment", UnitClass::DawnChirurgeon, "Protective Treatment", "守護処置", SkillCategory::Active,
-         SkillUsageType::Cooldown2, "Self or one adjacent ally gets RES+3 until the next Enemy Phase ends.",
-         "自身または隣接味方1人のRES+3。次のEnemy Phase終了まで。", 2},
-        {"emergency_treatment", UnitClass::DawnChirurgeon, "Emergency Treatment", "緊急処置", SkillCategory::Active,
-         SkillUsageType::OncePerBattle, "Heals one ally at or below 50% max HP for 12.",
-         "現在HPが最大HPの50%以下の味方1人を12回復。", 3},
-
-        // 重装兵 (Heavy Infantry)
-        {"armor_advance", UnitClass::HeavyInfantry, "Armor Advance", "装甲前進", SkillCategory::Active,
-         SkillUsageType::Cooldown2, "Moves up to 2 tiles without attacking, ignoring enemy Zone of Control.",
-         "最大2マス移動する。移動中は敵のZone of Controlで停止せず、攻撃せず行動終了。", 1},
-        {"brace_for_impact", UnitClass::HeavyInfantry, "Brace for Impact", "衝撃防御", SkillCategory::Passive,
-         SkillUsageType::Always, "Triggers only on confirming Wait: DEF+3 and forced movement fully negated until the user's next action ends.",
-         "待機確定時のみ発動。次の自分の行動終了までDEF+3、強制移動を完全無効。", 2},
-        {"break_obstacle", UnitClass::HeavyInfantry, "Break Obstacle", "障害物破砕", SkillCategory::Active,
-         SkillUsageType::OncePerBattle, "Instantly destroys one adjacent destructible obstacle, ending the turn.",
-         "隣接する破壊可能な障害物1個を即座に破壊して行動終了。", 3},
-
-        // 辺境工兵 (Frontier Engineer)
-        {"field_repair", UnitClass::FrontierEngineer, "Field Repair", "野戦補修", SkillCategory::Active,
-         SkillUsageType::Cooldown2, "Restores 6 durability to an adjacent friendly placed object.",
-         "隣接する味方設置物の耐久を6回復。", 1},
-        {"rubble_charge", UnitClass::FrontierEngineer, "Rubble Charge", "瓦礫爆破", SkillCategory::Active,
-         SkillUsageType::OncePerBattle, "Destroys a destructible obstacle within range 2, dealing 3 fixed damage to enemies directly above and below it.",
-         "射程2の破壊可能な障害物を破壊し、その上下隣接マスの敵へ固定3ダメージ。", 2},
-        {"rapid_barricade", UnitClass::FrontierEngineer, "Rapid Barricade", "即席防壁", SkillCategory::Active,
-         SkillUsageType::Cooldown2, "Places a durability-6 barricade on an empty tile within range 2; it disappears at the start of the next allied Phase.",
-         "射程2の空きマスへ耐久6の防護板を設置。次の自軍Phase開始時に消滅。", 3},
-
-        // 伝令騎兵 (Messenger Cavalry)
-        {"urgent_dispatch", UnitClass::MessengerCavalry, "Urgent Dispatch", "緊急伝令", SkillCategory::Active,
-         SkillUsageType::Cooldown2, "An ally within range 2 gets MOV+2 until this Player Phase ends.",
-         "射程2以内の味方1人のMOV+2。このPlayer Phase終了まで。", 1},
-        {"ride_through", UnitClass::MessengerCavalry, "Ride Through", "駆け抜け", SkillCategory::Active,
-         SkillUsageType::OncePerBattle, "Increases this action's re-move to up to 4 tiles.",
-         "この行動の再移動を最大4マスへ増加。", 2},
-        {"rescue_transfer", UnitClass::MessengerCavalry, "Rescue Transfer", "救援搬送", SkillCategory::Active,
-         SkillUsageType::Cooldown2, "Moves an adjacent ally 1 tile to the empty tile directly opposite this unit.",
-         "隣接する味方1人を自分の反対側の空きマスへ1マス移動させる。", 3},
-
-        // 辺境猟兵 (Frontier Ranger)
-        {"snare_trap", UnitClass::FrontierRanger, "Snare Trap", "拘束罠", SkillCategory::Active,
-         SkillUsageType::Cooldown2, "Places a trap on an empty tile within range 1; the first enemy to step on it gets Move Down and it disappears.",
-         "射程1の空きマスへ罠を設置。最初に踏んだ敵へ移動低下を付与して消滅。", 1},
-        {"read_quarry", UnitClass::FrontierRanger, "Read Quarry", "獲物を読む", SkillCategory::Active,
-         SkillUsageType::OncePerBattle, "Reveals one enemy's next action candidates, attack range, and priority target until the next Enemy Phase ends.",
-         "敵1体の次回行動候補・攻撃範囲・優先対象を次のEnemy Phase終了まで表示。", 2},
-        {"driving_shot", UnitClass::FrontierRanger, "Driving Shot", "追い込み射撃", SkillCategory::Active,
-         SkillUsageType::Cooldown2, "A normal attack (weapon range) that pushes the target 1 tile away from the user.",
-         "通常攻撃(武器射程)を行い、対象を使用者から離れる方向へ1マス押し出す。", 3},
-
-        // 旗手 (Banner Bearer)
-        {"rallying_banner", UnitClass::BannerBearer, "Rallying Banner", "奮起の旗", SkillCategory::Active,
-         SkillUsageType::Cooldown2, "Allies within range 2 get DEF+1/RES+1 until the next Enemy Phase ends.",
-         "距離2以内の味方のDEFとRES+1。次のEnemy Phase終了まで。", 1},
-        {"marching_rhythm", UnitClass::BannerBearer, "Marching Rhythm", "行軍の律動", SkillCategory::Active,
-         SkillUsageType::OncePerBattle, "Unacted allies within range 2 get MOV+1 until this Player Phase ends.",
-         "距離2以内にいる未行動の味方のMOV+1。このPlayer Phase終了まで。", 2},
-        {"unyielding_signal", UnitClass::BannerBearer, "Unyielding Signal", "不退の合図", SkillCategory::Reactive,
-         SkillUsageType::OncePerPhase, "Negates the first Move Down or Stagger an ally within range 2 would receive.",
-         "距離2以内の味方が受ける最初の移動低下またはよろめきを無効化。", 3},
-
-        // 戦闘魔導士 (Battle Mage)
-        {"arc_burst", UnitClass::BattleMage, "Arc Burst", "連鎖魔弾", SkillCategory::Active,
-         SkillUsageType::Cooldown2, "A normal magic attack (weapon range) that also deals 2 fixed damage to enemies directly above and below the target.",
-         "通常魔法攻撃(武器射程)を行い、対象の上下隣接にいる敵へ固定2ダメージ。", 1},
-        {"scorch_ground", UnitClass::BattleMage, "Scorch Ground", "地表灼熱", SkillCategory::Active,
-         SkillUsageType::OncePerBattle, "Scorches one empty tile within range 3 until the next allied Phase begins; whoever is standing there when it ends gets Burn.",
-         "射程3の空きマス1つを次の自軍Phase開始まで灼熱地形にし、終了時にいるユニットへ炎上を付与。", 2},
-        {"ward_break", UnitClass::BattleMage, "Ward Break", "魔防破砕", SkillCategory::Active,
-         SkillUsageType::Cooldown2, "A normal magic attack (weapon range); the target's next magic attack taken deals +3 damage, then the mark clears.",
-         "通常魔法攻撃(武器射程)を行い、対象が次に受ける魔法攻撃のダメージ+3。その攻撃後に解除。", 3},
+// データ/ロジック分離方針(docs/implementation_status.md「データ/ロジック
+// 分離方針」): スキルのデータ本体は`data/skills.json`へ切り出し、この
+// ファイルにはロード処理と参照ロジックだけを残す。呼び出し側API
+// (skillRegistry()/findSkill()等、20箇所超)は一切変更しない -
+// GameData/BattleStateはこのレジストリに依存させず(戦闘層は今もGameData
+// なしで完結できるままにする)、既存の「static localな不変レジストリを
+// 返す自己完結フリー関数」という形だけ保ったまま、内部実装だけを
+// ハードコードされたC++リテラルからJSON読み込みへ差し替えている。
+UnitClass unitClassFromSkillJsonString(const std::string& name) {
+    static const std::unordered_map<std::string, UnitClass> table = {
+        {"MarchCaptain", UnitClass::MarchCaptain},   {"VeteranGuard", UnitClass::VeteranGuard},
+        {"WatchArcher", UnitClass::WatchArcher},     {"FrontierScout", UnitClass::FrontierScout},
+        {"Spearman", UnitClass::Spearman},           {"DawnChirurgeon", UnitClass::DawnChirurgeon},
+        {"HeavyInfantry", UnitClass::HeavyInfantry}, {"FrontierEngineer", UnitClass::FrontierEngineer},
+        {"MessengerCavalry", UnitClass::MessengerCavalry}, {"FrontierRanger", UnitClass::FrontierRanger},
+        {"BannerBearer", UnitClass::BannerBearer},   {"BattleMage", UnitClass::BattleMage},
     };
+    auto it = table.find(name);
+    return it != table.end() ? it->second : UnitClass::MarchCaptain;
+}
+
+SkillCategory skillCategoryFromString(const std::string& name) {
+    if (name == "Passive") return SkillCategory::Passive;
+    if (name == "Reactive") return SkillCategory::Reactive;
+    return SkillCategory::Active;
+}
+
+SkillUsageType skillUsageTypeFromString(const std::string& name) {
+    if (name == "PerTurn") return SkillUsageType::PerTurn;
+    if (name == "OncePerBattle") return SkillUsageType::OncePerBattle;
+    if (name == "Cooldown2") return SkillUsageType::Cooldown2;
+    if (name == "OncePerPhase") return SkillUsageType::OncePerPhase;
+    return SkillUsageType::Always;
+}
+
+std::vector<SkillDefinition> loadSkillsFromJson() {
+    std::vector<SkillDefinition> skills;
+    // cwd is always the repo root at runtime (see project convention noted
+    // for tools/gen_full_unlock_save.cpp) - same relative path convention
+    // every other data/*.json load uses (jf::loadGameData()'s dataDir).
+    std::ifstream file("data/skills.json");
+    if (!file.is_open()) {
+        std::cerr << "Failed to open data file: data/skills.json" << std::endl;
+        return skills;
+    }
+    nlohmann::json parsed;
+    try {
+        file >> parsed;
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to parse JSON file data/skills.json: " << e.what() << std::endl;
+        return skills;
+    }
+    for (const auto& s : parsed.at("skills")) {
+        SkillDefinition def;
+        def.id = s.at("id").get<std::string>();
+        def.unitClass = unitClassFromSkillJsonString(s.at("classId").get<std::string>());
+        def.nameEn = s.at("nameEn").get<std::string>();
+        def.nameJa = s.at("nameJa").get<std::string>();
+        def.category = skillCategoryFromString(s.at("category").get<std::string>());
+        def.usageType = skillUsageTypeFromString(s.at("usageType").get<std::string>());
+        def.effectEn = s.at("effectEn").get<std::string>();
+        def.effectJa = s.at("effectJa").get<std::string>();
+        def.unlockTier = s.at("unlockTier").get<int>();
+        skills.push_back(std::move(def));
+    }
+    return skills;
+}
+
+} // namespace
+
+const std::vector<SkillDefinition>& skillRegistry() {
+    static const std::vector<SkillDefinition> skills = loadSkillsFromJson();
     return skills;
 }
 

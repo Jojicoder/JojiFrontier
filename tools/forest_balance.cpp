@@ -13,6 +13,7 @@
 #include "jf/battle/BattleFactory.hpp"
 #include "jf/battle/CombatResolver.hpp"
 #include "jf/battle/SkillCharges.hpp"
+#include "jf/core/DeepLayerScaling.hpp"
 #include "jf/core/Region.hpp"
 #include "jf/data/GameData.hpp"
 
@@ -470,6 +471,47 @@ RegionId regionFromArgOrDefault(int argc, char** argv) {
     return RegionId::AshboughForest;
 }
 
+// docs/deep_layers.md「敵強化率」/「全体構成」検証用: `--deep=deep` /
+// `--deep=deepest` を渡すと本編RegionDescriptorの代わりに
+// ashboughForestDeepStages()/ashboughForestDeepestStages()を使い、各段階に
+// DeepLayerScaling.hppの倍率(段階1/2/2種類しかない最深層は両戦闘とも段階3)を
+// 掛けたうえで同じ継続遠征シミュレーションを回す。RegionId/RouteGraphを
+// 経由しない生のstageリストなので、既存の`--region=`とは別の専用フラグにした。
+std::optional<std::string> deepModeFromArgs(int argc, char** argv) {
+    const std::string prefix = "--deep=";
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg.rfind(prefix, 0) == 0) return arg.substr(prefix.size());
+    }
+    return std::nullopt;
+}
+
+// docs/deep_layers.md「1Lvあたりの数値」: 武器Lvごとに攻撃力+1、防具Lvごとに
+// DEF/RES合計+1〜2。このシミュレーターは武器/防具Lvシステムそのものを持たず
+// (main-storyのforest_balance計測もLv1装備前提)、深層は「Lvが上がった状態で
+// 挑む」前提のコンテンツのため、Lv補正なしでは意味のある計測にならない。
+// `--player-lv=N`で全プレイヤーユニットへ均等にSTR/MAG+N、DEF/RES+Nを足す
+// 簡易近似(防具の軽装/中装/重装配分の違いは無視した平均的な近似値)。
+void applyApproxPlayerLevelBonus(BattleState& battle, int level) {
+    if (level <= 0) return;
+    for (Unit& unit : battle.units()) {
+        if (unit.team != Team::Player) continue;
+        unit.stats.strength += level;
+        unit.stats.magic += (unit.stats.magic > 0) ? level : 0;
+        unit.stats.defense += level;
+        unit.stats.resistance += level;
+    }
+}
+
+std::vector<DeepLayerEnemyScaling> deepLayerScalesFor(const std::string& mode) {
+    if (mode == "deep") {
+        // trash1, boss1, trash2, boss2 - see ashboughForestDeepStages().
+        return {kDeepLayerScaleStage1, kDeepLayerScaleStage1, kDeepLayerScaleStage2, kDeepLayerScaleStage2};
+    }
+    // "deepest": trash, boss - see ashboughForestDeepestStages().
+    return {kDeepLayerScaleStage3, kDeepLayerScaleStage3};
+}
+
 int main(int argc, char** argv) {
     int runs = 500;
     if (argc > 1 && std::string(argv[1]).rfind("--region=", 0) != 0) runs = std::max(std::stoi(argv[1]), 1);
@@ -480,7 +522,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    if (argc > 2 && std::string(argv[2]).rfind("--region=", 0) != 0) {
+    if (argc > 2 && std::string(argv[2]).rfind("--region=", 0) != 0 &&
+        std::string(argv[2]).rfind("--deep=", 0) != 0 &&
+        std::string(argv[2]).rfind("--player-lv=", 0) != 0) {
         const UnitClass excluded = classFromArg(argv[2]);
         auto& party = data->playerParty;
         party.erase(std::remove_if(party.begin(), party.end(),
@@ -489,27 +533,47 @@ int main(int argc, char** argv) {
         std::cout << "Excluding " << argv[2] << " from the party (" << party.size() << " remain).\n";
     }
 
+    int playerLevelBonus = 0;
+    {
+        const std::string prefix = "--player-lv=";
+        for (int i = 1; i < argc; ++i) {
+            std::string arg = argv[i];
+            if (arg.rfind(prefix, 0) == 0) playerLevelBonus = std::max(std::stoi(arg.substr(prefix.size())), 0);
+        }
+    }
+    const std::optional<std::string> deepMode = deepModeFromArgs(argc, argv);
     const RegionId regionId = regionFromArgOrDefault(argc, argv);
     const RegionDescriptor forest = regionDescriptor(regionId, *data);
-    std::cout << toString(regionId) << " headless balance simulation (" << runs << " seeds)\n"
+    const std::vector<StageDescriptor> deepStagesStorage =
+        deepMode ? (*deepMode == "deep" ? ashboughForestDeepStages() : ashboughForestDeepestStages())
+                 : std::vector<StageDescriptor>{};
+    const std::vector<StageDescriptor>& activeStages = deepMode ? deepStagesStorage : forest.stages;
+    const std::vector<DeepLayerEnemyScaling> scales = deepMode ? deepLayerScalesFor(*deepMode) : std::vector<DeepLayerEnemyScaling>{};
+    const auto applyScale = [&](BattleState& battle, std::size_t stageIndex) {
+        if (!scales.empty()) applyDeepLayerEnemyScaling(battle, scales[stageIndex]);
+    };
+    std::cout << (deepMode ? ("ashbough_forest_" + *deepMode) : toString(regionId))
+              << " headless balance simulation (" << runs << " seeds)\n"
               << "No consumables, no manual deployment, no log-lure planning.\n\n";
 
     for (Policy policy : {Policy::Direct, Policy::Tactical}) {
         const std::string policyName = policy == Policy::Direct ? "Direct" : "Tactical";
         std::cout << '[' << policyName << "] fresh party per site\n";
-        for (std::size_t stageIndex = 0; stageIndex < forest.stages.size(); ++stageIndex) {
+        for (std::size_t stageIndex = 0; stageIndex < activeStages.size(); ++stageIndex) {
             Aggregate aggregate;
             for (int seed = 1; seed <= runs; ++seed) {
-                BattleState battle = createScenarioBattle(*data, forest.stages[stageIndex],
-                    static_cast<std::uint32_t>(seed), stageRouteOutcome(forest.stages[stageIndex],
+                BattleState battle = createScenarioBattle(*data, activeStages[stageIndex],
+                    static_cast<std::uint32_t>(seed), stageRouteOutcome(activeStages[stageIndex],
                     ExplorationChoice::FrontalAdvance));
+                applyScale(battle, stageIndex);
+                applyApproxPlayerLevelBonus(battle, playerLevelBonus);
                 aggregate.add(runBattle(std::move(battle), policy));
             }
-            printAggregate(forest.stages[stageIndex].missionNameEn, aggregate);
+            printAggregate(activeStages[stageIndex].missionNameEn, aggregate);
         }
 
         Aggregate expedition;
-        std::vector<int> reached(forest.stages.size(), 0);
+        std::vector<int> reached(activeStages.size(), 0);
         // Snapshot of the party's condition the instant before the
         // second-to-last-plus-one site starts (AshboughForest's Territory
         // boss entry, stageIndex 2) - the survivors/HP carried over from the
@@ -517,7 +581,7 @@ int main(int argc, char** argv) {
         // actually as severe as the boss-alone win-rate drop would suggest.
         // Only meaningful for AshboughForest's specific 3-site shape; other
         // regions skip this snapshot (territoryEntrySamples stays 0).
-        const bool trackTerritoryEntry = regionId == RegionId::AshboughForest && forest.stages.size() > 2;
+        const bool trackTerritoryEntry = !deepMode && regionId == RegionId::AshboughForest && activeStages.size() > 2;
         long long territoryEntrySurvivors = 0;
         long long territoryEntryHpSum = 0;
         long long territoryEntryMaxHpSum = 0;
@@ -528,7 +592,7 @@ int main(int argc, char** argv) {
             bool cleared = true;
             int expeditionRounds = 0;
             int expeditionMaxHp = 0;
-            for (std::size_t stageIndex = 0; stageIndex < forest.stages.size(); ++stageIndex) {
+            for (std::size_t stageIndex = 0; stageIndex < activeStages.size(); ++stageIndex) {
                 ++reached[stageIndex];
                 if (trackTerritoryEntry && stageIndex == 2) {
                     ++territoryEntrySamples;
@@ -540,11 +604,13 @@ int main(int argc, char** argv) {
                     }
                 }
                 BattleState battle = stageIndex == 0
-                    ? createScenarioBattle(*data, forest.stages[stageIndex], static_cast<std::uint32_t>(seed),
-                        stageRouteOutcome(forest.stages[stageIndex], ExplorationChoice::FrontalAdvance))
-                    : createScenarioContinuationBattle(*data, survivors, forest.stages[stageIndex],
+                    ? createScenarioBattle(*data, activeStages[stageIndex], static_cast<std::uint32_t>(seed),
+                        stageRouteOutcome(activeStages[stageIndex], ExplorationChoice::FrontalAdvance))
+                    : createScenarioContinuationBattle(*data, survivors, activeStages[stageIndex],
                         static_cast<std::uint32_t>(seed * 17 + static_cast<int>(stageIndex)),
-                        stageRouteOutcome(forest.stages[stageIndex], ExplorationChoice::FrontalAdvance));
+                        stageRouteOutcome(activeStages[stageIndex], ExplorationChoice::FrontalAdvance));
+                applyScale(battle, stageIndex);
+                applyApproxPlayerLevelBonus(battle, playerLevelBonus);
                 finalResult = runBattle(std::move(battle), policy);
                 expeditionRounds += finalResult.rounds;
                 if (stageIndex == 0) expeditionMaxHp = finalResult.maxHp;
@@ -566,12 +632,12 @@ int main(int argc, char** argv) {
             finalResult.incapacitated = static_cast<int>(data->playerParty.size()) - livingPlayers;
             expedition.add(finalResult);
         }
-        std::cout << '[' << policyName << "] " << forest.stages.size() << "-site expedition\n";
+        std::cout << '[' << policyName << "] " << activeStages.size() << "-site expedition\n";
         printAggregate("Region clear", expedition);
         std::cout << "Reach:";
-        for (std::size_t stageIndex = 0; stageIndex < forest.stages.size(); ++stageIndex)
-            std::cout << ' ' << forest.stages[stageIndex].missionNameEn << ' ' << reached[stageIndex] << "/" << runs
-                       << (stageIndex + 1 < forest.stages.size() ? "," : "\n");
+        for (std::size_t stageIndex = 0; stageIndex < activeStages.size(); ++stageIndex)
+            std::cout << ' ' << activeStages[stageIndex].missionNameEn << ' ' << reached[stageIndex] << "/" << runs
+                       << (stageIndex + 1 < activeStages.size() ? "," : "\n");
         if (trackTerritoryEntry && territoryEntrySamples > 0) {
             std::cout << std::fixed << std::setprecision(2)
                       << "Territory entry: avg survivors "

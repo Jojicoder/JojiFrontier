@@ -16,15 +16,13 @@ struct CooperationDefinition {
     std::string id;
     std::string unitAId;
     std::string unitBId;
-    // False only for `paired_cross_observation` - Unit.hpp's own comment on
-    // `quarryRevealed` already notes that exposing enemy-AI action
-    // candidates to the player was deliberately scoped out even for an
-    // existing, shipped skill (辺境猟兵`read_quarry`); building the
-    // equivalent (and strictly bigger) reveal for a Cooperation Tactic here
-    // would be disproportionate to this Slice. The id stays registered (it's
-    // real per the design doc, selectable in principle) but never resolves
-    // to any battle effect - BattleController::chooseCooperation() no-ops
-    // for it.
+    // Every pair has a real battle effect now - `paired_cross_observation`
+    // used to be the one exception (deferred: exposing enemy-AI action
+    // candidates had no existing UI hook, unlike 辺境猟兵`read_quarry`'s
+    // purely-cosmetic quarryRevealed flag). It's implemented via a
+    // throwaway BattleState clone instead of a dedicated prediction system -
+    // see CooperationRevealResult's own comment in BattleState.hpp and
+    // BattleController::selectCooperationTarget().
     bool hasBattleEffect = true;
 };
 

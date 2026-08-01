@@ -1,0 +1,2900 @@
+{
+  "facilityNodes": [
+    {
+      "id": "operations_tent",
+      "facility": "CommandPost",
+      "nameEn": "Operations Tent",
+      "nameJa": "作戦テント",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [],
+      "prerequisiteNodeIds": [],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Choose an expedition route and preview basic danger.",
+      "effectJa": "遠征先を選択し、基本的な危険度を表示する。"
+    },
+    {
+      "id": "scout_network",
+      "facility": "CommandPost",
+      "nameEn": "Scout Network",
+      "nameJa": "偵察網",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [
+        "cinderwatch_recon_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "watch_ledger",
+          "quantity": 1
+        },
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "iron",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "operations_tent"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Shows enemy composition and starting positions before you choose a route.",
+      "effectJa": "ルート選択前に敵の種類と初期配置を表示する。"
+    },
+    {
+      "id": "map_room",
+      "facility": "CommandPost",
+      "nameEn": "Map Room",
+      "nameJa": "地図室",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "ash_road_map",
+          "quantity": 1
+        },
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "stone",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "operations_tent"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Reveals part of the route branches and the rough distance to the boss.",
+      "effectJa": "ルート分岐の一部とボスまでのおおよその距離を表示する。"
+    },
+    {
+      "id": "expedition_planning_room",
+      "facility": "CommandPost",
+      "nameEn": "Expedition Planning Room",
+      "nameJa": "遠征計画室",
+      "requiredStage": "FrontierSettlement",
+      "requiredDiscoveries": [
+        "signal_tower_return_signal_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "captains_seal",
+          "quantity": 1
+        },
+        {
+          "id": "building_material",
+          "quantity": 2
+        },
+        {
+          "id": "quality_iron",
+          "quantity": 1
+        },
+        {
+          "id": "military_supplies",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "operations_tent"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Shows deep-region intel and unlocks special expeditions.",
+      "effectJa": "深層情報を表示し、特殊遠征を解放する。"
+    },
+    {
+      "id": "training_field",
+      "facility": "TrainingGround",
+      "nameEn": "Training Field",
+      "nameJa": "訓練場",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 3
+        },
+        {
+          "id": "hide",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [],
+      "occupiesFacilitySlot": true,
+      "effectEn": "Enables the basic classes and their base class techniques.",
+      "effectJa": "基礎兵種と基本兵種技を使用可能にする。"
+    },
+    {
+      "id": "vanguard_training",
+      "facility": "TrainingGround",
+      "nameEn": "Vanguard Training",
+      "nameJa": "前衛訓練",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "hide",
+          "quantity": 2
+        },
+        {
+          "id": "quality_iron",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "training_field"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks Veteran Guard, Spearman, and other heavy-vanguard techniques.",
+      "effectJa": "古参兵・槍兵・重装兵の技術を解放する。"
+    },
+    {
+      "id": "mobility_training",
+      "facility": "TrainingGround",
+      "nameEn": "Mobility Training",
+      "nameJa": "機動訓練",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [
+        "cinderwatch_recon_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "hide",
+          "quantity": 2
+        },
+        {
+          "id": "cloth",
+          "quantity": 1
+        },
+        {
+          "id": "riding_gear",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "training_field"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks Frontier Scout and other light-cavalry techniques.",
+      "effectJa": "斥候・猟兵・伝令騎兵の技術を解放する。"
+    },
+    {
+      "id": "specialist_training",
+      "facility": "TrainingGround",
+      "nameEn": "Specialist Training",
+      "nameJa": "専門訓練",
+      "requiredStage": "FrontierSettlement",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "iron",
+          "quantity": 2
+        },
+        {
+          "id": "quality_herb",
+          "quantity": 1
+        },
+        {
+          "id": "military_supplies",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "training_field"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks engineer, standard-bearer, and other advanced class branches.",
+      "effectJa": "工兵・旗手など上位兵種分岐を解放する。"
+    },
+    {
+      "id": "magic_training",
+      "facility": "TrainingGround",
+      "nameEn": "Magic Training",
+      "nameJa": "魔導訓練",
+      "requiredStage": "FrontierSettlement",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "iron",
+          "quantity": 2
+        },
+        {
+          "id": "quality_herb",
+          "quantity": 1
+        },
+        {
+          "id": "military_supplies",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "training_field"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks Battle Mage's equippable skills.",
+      "effectJa": "戦闘魔導士の装備スキルを解放する。"
+    },
+    {
+      "id": "simple_forge",
+      "facility": "Forge",
+      "nameEn": "Simple Forge",
+      "nameJa": "簡易鍛冶台",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "hide",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [],
+      "occupiesFacilitySlot": true,
+      "effectEn": "Lets you change equipped weapons and view/craft weapon branch recipes.",
+      "effectJa": "武器の装備変更と、武器分岐レシピの閲覧・製作を可能にする。"
+    },
+    {
+      "id": "weapon_forging",
+      "facility": "Forge",
+      "nameEn": "Weapon Forging",
+      "nameJa": "武器鍛造",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        },
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "quality_iron",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks Iron Spear's branch weapon recipes (Long/Heavy/Guard Spear).",
+      "effectJa": "鉄の槍の分岐武器レシピ(長槍・重槍・迎撃槍)を解放する。"
+    },
+    {
+      "id": "heavy_reinforcement",
+      "facility": "Forge",
+      "nameEn": "Heavy Reinforcement",
+      "nameJa": "重装加工",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 3
+        },
+        {
+          "id": "stone",
+          "quantity": 2
+        },
+        {
+          "id": "quality_iron",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks armor reinforcement and knockback-resistant equipment.",
+      "effectJa": "防具強化とノックバック耐性装備を解放する。"
+    },
+    {
+      "id": "special_material_crafting",
+      "facility": "Forge",
+      "nameEn": "Special Material Crafting",
+      "nameJa": "特殊素材加工",
+      "requiredStage": "FrontierSettlement",
+      "requiredDiscoveries": [
+        "signal_tower_return_signal_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "heat_resistant_material",
+          "quantity": 2
+        },
+        {
+          "id": "ash_crystal",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks weapons crafted from monster and ruin materials.",
+      "effectJa": "魔物素材武器・遺跡素材武器を解放する。"
+    },
+    {
+      "id": "craft_long_spear",
+      "facility": "Forge",
+      "nameEn": "Craft: Long Spear",
+      "nameJa": "製作: 長槍",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "ash_road_map",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "weapon_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Ranged branch: max range +1, might -2.",
+      "effectJa": "射程型分岐: 最大射程+1、威力-2。",
+      "weaponBranchClass": "Spearman"
+    },
+    {
+      "id": "craft_heavy_spear",
+      "facility": "Forge",
+      "nameEn": "Craft: Heavy Spear",
+      "nameJa": "製作: 重槍",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "gate_tools",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "weapon_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Power branch: might +2, MOV -1, attacks knock the defender back one tile.",
+      "effectJa": "火力型分岐: 威力+2、MOV-1、攻撃命中時に相手を1マスノックバック。",
+      "weaponBranchClass": "Spearman"
+    },
+    {
+      "id": "craft_guard_spear",
+      "facility": "Forge",
+      "nameEn": "Craft: Guard Spear",
+      "nameJa": "製作: 迎撃槍",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "watch_ledger",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "weapon_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Interception branch: stronger Brace bonus, might -1.",
+      "effectJa": "迎撃型分岐: 迎撃姿勢強化、通常威力-1。",
+      "weaponBranchClass": "Spearman"
+    },
+    {
+      "id": "march_captain_forging",
+      "facility": "Forge",
+      "nameEn": "March Captain Forging",
+      "nameJa": "行軍隊長武器鍛造",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks Iron Sword's branch weapon recipes (Command/Duel/Guard Sword).",
+      "effectJa": "鉄の剣の分岐武器レシピ(号令剣・決闘剣・護衛剣)を解放する。"
+    },
+    {
+      "id": "craft_command_sword",
+      "facility": "Forge",
+      "nameEn": "Craft: Command Sword",
+      "nameJa": "製作: 号令剣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "cinderwatch_command_drills"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        },
+        {
+          "id": "wood",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "march_captain_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Formation branch: Formation Bonus range extended to distance 2, might -1.",
+      "effectJa": "隊形支援型分岐: Formation Bonus範囲を距離2へ拡張、威力-1。",
+      "weaponBranchClass": "MarchCaptain"
+    },
+    {
+      "id": "craft_duel_sword",
+      "facility": "Forge",
+      "nameEn": "Craft: Duel Sword",
+      "nameJa": "製作: 決闘剣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "quarry_combat_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 3
+        },
+        {
+          "id": "hide",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "march_captain_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Duelist branch: might +2, +2 damage vs an isolated target, loses Formation Bonus while equipped.",
+      "effectJa": "単独撃破型分岐: 威力+2、孤立した敵への与ダメージ+2、装備中はFormation Bonusを失う。",
+      "weaponBranchClass": "MarchCaptain"
+    },
+    {
+      "id": "craft_guard_sword",
+      "facility": "Forge",
+      "nameEn": "Craft: Guard Sword",
+      "nameJa": "製作: 護衛剣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "settlement_command_ledger"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        },
+        {
+          "id": "cloth",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "march_captain_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Guard branch: reduces the first hit an adjacent ally takes each battle by 3, might -1.",
+      "effectJa": "護衛型分岐: 隣接味方が受ける最初の攻撃ダメージを戦闘ごとに3軽減、威力-1。",
+      "weaponBranchClass": "MarchCaptain"
+    },
+    {
+      "id": "veteran_guard_forging",
+      "facility": "Forge",
+      "nameEn": "Veteran Guard Forging",
+      "nameJa": "古参守備兵武器鍛造",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks Iron Lance's branch weapon recipes (Hook/Fortress/Patrol Lance).",
+      "effectJa": "鉄の槍の分岐武器レシピ(鉤槍・城塞槍・巡回槍)を解放する。"
+    },
+    {
+      "id": "craft_hook_lance",
+      "facility": "Forge",
+      "nameEn": "Craft: Hook Lance",
+      "nameJa": "製作: 鉤槍",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "cinderwatch_defense_manual"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        },
+        {
+          "id": "hide",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "veteran_guard_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Disruption branch: pulls a range-2 hit target one tile closer, might -1.",
+      "effectJa": "敵の隊形を崩す型分岐: 射程2から命中させた敵を1マス引き寄せる、威力-1。",
+      "weaponBranchClass": "VeteranGuard"
+    },
+    {
+      "id": "craft_fortress_lance",
+      "facility": "Forge",
+      "nameEn": "Craft: Fortress Lance",
+      "nameJa": "製作: 城塞槍",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "quarry_brace_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 3
+        },
+        {
+          "id": "wood",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "veteran_guard_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Lockdown branch: Zone of Control also cuts the intruder's damage by 2 until their next action, might -2, MOV -1.",
+      "effectJa": "完全封鎖型分岐: Zone of Controlに入った敵の与ダメージ-2、威力-2、MOV-1。",
+      "weaponBranchClass": "VeteranGuard"
+    },
+    {
+      "id": "craft_patrol_lance",
+      "facility": "Forge",
+      "nameEn": "Craft: Patrol Lance",
+      "nameJa": "製作: 巡回槍",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "plateau_patrol_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        },
+        {
+          "id": "riding_gear",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "veteran_guard_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Mobile-defense branch: waiting grants DEF +2 until the next Player Phase, might -1, MOV +1.",
+      "effectJa": "先回りして守る機動防衛型分岐: 待機でDEF+2を次のPlayer Phaseまで付与、威力-1、MOV+1。",
+      "weaponBranchClass": "VeteranGuard"
+    },
+    {
+      "id": "watch_archer_forging",
+      "facility": "Forge",
+      "nameEn": "Watch Archer Forging",
+      "nameJa": "監視弓兵武器鍛造",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks Watch Bow's branch weapon recipes (Long Watch/War/Pinning Bow).",
+      "effectJa": "監視弓の分岐武器レシピ(遠見弓・戦弓・制圧弓)を解放する。"
+    },
+    {
+      "id": "craft_long_watch_bow",
+      "facility": "Forge",
+      "nameEn": "Craft: Long Watch Bow",
+      "nameJa": "製作: 遠見弓",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "cinderwatch_watch_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "hide",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "watch_archer_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Ultra-range branch: range 3-4 (loses range 2), might -2.",
+      "effectJa": "超長距離型分岐: 射程3-4(射程2を失う)、威力-2。",
+      "weaponBranchClass": "WatchArcher"
+    },
+    {
+      "id": "craft_war_bow",
+      "facility": "Forge",
+      "nameEn": "Craft: War Bow",
+      "nameJa": "製作: 戦弓",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "quarry_combat_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "iron",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "watch_archer_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Close-power branch: might +3, range 2 only (loses range 3), +2 damage vs a full-HP target.",
+      "effectJa": "近距離高火力型分岐: 威力+3、射程2のみ(射程3を失う)、最大HPの敵への与ダメージ+2。",
+      "weaponBranchClass": "WatchArcher"
+    },
+    {
+      "id": "craft_pinning_bow",
+      "facility": "Forge",
+      "nameEn": "Craft: Pinning Bow",
+      "nameJa": "製作: 制圧弓",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "plateau_targeting_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "hardwood",
+          "quantity": 2
+        },
+        {
+          "id": "wetland_resin",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "watch_archer_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Pin-down branch: on hit, the target's MOV is reduced next Enemy Phase, might -1.",
+      "effectJa": "足止め型分岐: 命中した敵の次のEnemy PhaseのMOVを低下させる、威力-1。",
+      "weaponBranchClass": "WatchArcher"
+    },
+    {
+      "id": "frontier_scout_forging",
+      "facility": "Forge",
+      "nameEn": "Frontier Scout Forging",
+      "nameJa": "辺境斥候武器鍛造",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks Scout Blade's branch weapon recipes (Trail/Ambush/Withdrawal Blade).",
+      "effectJa": "斥候刃の分岐武器レシピ(道拓きの刃・奇襲刃・離脱刃)を解放する。"
+    },
+    {
+      "id": "craft_trail_blade",
+      "facility": "Forge",
+      "nameEn": "Craft: Trail Blade",
+      "nameJa": "製作: 道拓きの刃",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "ashbough_forest_survey_complete"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 1
+        },
+        {
+          "id": "hide",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "frontier_scout_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Route-support branch: eases ash-ground/shallow-water movement cost for the Player Phase, might -1, MOV +1.",
+      "effectJa": "経路支援型分岐: 灰地・浅瀬の移動コストをそのPlayer Phase中緩和、威力-1、MOV+1。",
+      "weaponBranchClass": "FrontierScout"
+    },
+    {
+      "id": "craft_ambush_blade",
+      "facility": "Forge",
+      "nameEn": "Craft: Ambush Blade",
+      "nameJa": "製作: 奇襲刃",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "quarry_ambush_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        },
+        {
+          "id": "hide",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "frontier_scout_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "First-strike branch: might +2, +2 damage vs an enemy that hasn't acted this round, DEF -2 after attacking.",
+      "effectJa": "先制攻撃型分岐: 威力+2、未行動の敵への与ダメージ+2、攻撃後DEF-2。",
+      "weaponBranchClass": "FrontierScout"
+    },
+    {
+      "id": "craft_withdrawal_blade",
+      "facility": "Forge",
+      "nameEn": "Craft: Withdrawal Blade",
+      "nameJa": "製作: 離脱刃",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "courier_route_chart"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 1
+        },
+        {
+          "id": "riding_gear",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "frontier_scout_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Disruption branch: after attacking, can re-move one tile away from the enemy if it survives, might -1.",
+      "effectJa": "攪乱型分岐: 攻撃後、生存していれば敵から離れる方向へ1マス再移動できる、威力-1。",
+      "weaponBranchClass": "FrontierScout"
+    },
+    {
+      "id": "dawn_chirurgeon_forging",
+      "facility": "Forge",
+      "nameEn": "Dawn Chirurgeon Forging",
+      "nameJa": "暁の衛生兵武器鍛造",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks Dawn Staff's branch weapon recipes (Mercy/Ward/March Staff).",
+      "effectJa": "暁杖の分岐武器レシピ(慈恵杖・守護杖・行軍杖)を解放する。"
+    },
+    {
+      "id": "craft_mercy_staff",
+      "facility": "Forge",
+      "nameEn": "Craft: Mercy Staff",
+      "nameJa": "製作: 慈恵杖",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "herb_thicket_grounds"
+      ],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "herb",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "dawn_chirurgeon_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Single-target healing branch: Heal amount 8 -> 12, attack might -2.",
+      "effectJa": "単体治療型分岐: Healの回復量を8から12へ増加、攻撃威力-2。",
+      "weaponBranchClass": "DawnChirurgeon"
+    },
+    {
+      "id": "craft_ward_staff",
+      "facility": "Forge",
+      "nameEn": "Craft: Ward Staff",
+      "nameJa": "製作: 守護杖",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "marsh_emergency_medicine"
+      ],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "quality_herb",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "dawn_chirurgeon_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Magic-ward branch: Heal target gains RES +3 until the next Enemy Phase ends, attack might -1, Heal amount 6.",
+      "effectJa": "魔法防護型分岐: Heal対象へRES+3を次のEnemy Phase終了まで付与、攻撃威力-1、Heal回復量は6。",
+      "weaponBranchClass": "DawnChirurgeon"
+    },
+    {
+      "id": "craft_march_staff",
+      "facility": "Forge",
+      "nameEn": "Craft: March Staff",
+      "nameJa": "製作: 行軍杖",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "sanctum_field_medicine"
+      ],
+      "materialCosts": [
+        {
+          "id": "hardwood",
+          "quantity": 2
+        },
+        {
+          "id": "cloth",
+          "quantity": 1
+        },
+        {
+          "id": "herb",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "dawn_chirurgeon_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "March-support branch: an unacted Heal target gains MOV +1 for the Player Phase, attack might -1, Heal amount 6.",
+      "effectJa": "進軍支援型分岐: Heal対象が未行動ならそのPlayer Phase中MOV+1、攻撃威力-1、Heal回復量は6。",
+      "weaponBranchClass": "DawnChirurgeon"
+    },
+    {
+      "id": "heavy_infantry_forging",
+      "facility": "Forge",
+      "nameEn": "Heavy Infantry Forging",
+      "nameJa": "重装歩兵武器鍛造",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks Iron Maul's branch weapon recipes (Bulwark/Breaker/Driving Maul).",
+      "effectJa": "鉄の大槌の分岐武器レシピ(防壁槌・破砕槌・圧進槌)を解放する。"
+    },
+    {
+      "id": "craft_bulwark_maul",
+      "facility": "Forge",
+      "nameEn": "Craft: Bulwark Maul",
+      "nameJa": "製作: 防壁槌",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "heavy_armor_method"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        },
+        {
+          "id": "wood",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "heavy_infantry_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Braced branch: waiting grants DEF +2 until your next action, might -2.",
+      "effectJa": "受け止め型分岐: 待機時、次の自分の行動開始までDEF+2、威力-2。",
+      "weaponBranchClass": "HeavyInfantry"
+    },
+    {
+      "id": "craft_breaker_maul",
+      "facility": "Forge",
+      "nameEn": "Craft: Breaker Maul",
+      "nameJa": "製作: 破砕槌",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "demolition_forging"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 3
+        },
+        {
+          "id": "wood",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "heavy_infantry_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Breach branch: double damage vs obstacles (no bonus vs units), might +2, MOV -1.",
+      "effectJa": "障害物突破型分岐: 障害物へ与えるダメージ2倍(ユニットへの追加効果なし)、威力+2、MOV-1。",
+      "weaponBranchClass": "HeavyInfantry"
+    },
+    {
+      "id": "craft_driving_maul",
+      "facility": "Forge",
+      "nameEn": "Craft: Driving Maul",
+      "nameJa": "製作: 圧進槌",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "impact_balance_record"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        },
+        {
+          "id": "hide",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "heavy_infantry_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Knockback branch: on hit, pushes the defender back one tile, might -1.",
+      "effectJa": "位置操作型分岐: 命中した敵を1マス押し出す、威力-1。",
+      "weaponBranchClass": "HeavyInfantry"
+    },
+    {
+      "id": "frontier_engineer_forging",
+      "facility": "Forge",
+      "nameEn": "Frontier Engineer Forging",
+      "nameJa": "辺境工兵武器鍛造",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks Tool Hammer's branch weapon recipes (Builder/Demolition/Repair Hammer).",
+      "effectJa": "工作槌の分岐武器レシピ(築造槌・解体槌・補修槌)を解放する。"
+    },
+    {
+      "id": "craft_builder_hammer",
+      "facility": "Forge",
+      "nameEn": "Craft: Builder Hammer",
+      "nameJa": "製作: 築造槌",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "field_construction_manual"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 1
+        },
+        {
+          "id": "wood",
+          "quantity": 3
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "frontier_engineer_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Emplacement branch: Protective Boards placed by the class skill gain +4 durability, might -2.",
+      "effectJa": "設置型分岐: 固有能力で設置する防護板の耐久+4、威力-2。",
+      "weaponBranchClass": "FrontierEngineer"
+    },
+    {
+      "id": "craft_demolition_hammer",
+      "facility": "Forge",
+      "nameEn": "Craft: Demolition Hammer",
+      "nameJa": "製作: 解体槌",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "controlled_demolition_notes"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 3
+        },
+        {
+          "id": "wood",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "frontier_engineer_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Assault branch: +2 damage vs enemies adjacent to an obstacle, might +2, can't reinforce emplacements.",
+      "effectJa": "攻撃型分岐: 障害物に隣接する敵への与ダメージ+2、威力+2、設置物の耐久を補強できない。",
+      "weaponBranchClass": "FrontierEngineer"
+    },
+    {
+      "id": "craft_repair_hammer",
+      "facility": "Forge",
+      "nameEn": "Craft: Repair Hammer",
+      "nameJa": "製作: 補修槌",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "structural_repair_guide"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 1
+        },
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "herb",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "frontier_engineer_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Sustain branch: Field Repair heal amount 6 -> 9, might -1.",
+      "effectJa": "維持型分岐: 野戦補修の回復量を6から9へ増加、威力-1。",
+      "weaponBranchClass": "FrontierEngineer"
+    },
+    {
+      "id": "messenger_cavalry_forging",
+      "facility": "Forge",
+      "nameEn": "Messenger Cavalry Forging",
+      "nameJa": "伝令騎兵武器鍛造",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks Courier Sabre's branch weapon recipes (Road Sabre/Charge Lance/Escort Blade).",
+      "effectJa": "伝令剣の分岐武器レシピ(街道剣・突撃騎槍・護送剣)を解放する。"
+    },
+    {
+      "id": "craft_road_sabre",
+      "facility": "Forge",
+      "nameEn": "Craft: Road Sabre",
+      "nameJa": "製作: 街道剣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "courier_route_chart"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 1
+        },
+        {
+          "id": "hide",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "messenger_cavalry_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Reach branch: MOV +1 (re-move distance unchanged), might -2.",
+      "effectJa": "到達範囲型分岐: MOV+1(再移動距離は増えない)、威力-2。",
+      "weaponBranchClass": "MessengerCavalry"
+    },
+    {
+      "id": "craft_charge_lance",
+      "facility": "Forge",
+      "nameEn": "Craft: Charge Lance",
+      "nameJa": "製作: 突撃騎槍",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "mounted_charge_drill"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 3
+        },
+        {
+          "id": "hide",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "messenger_cavalry_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Charge branch: might +2, +2 damage if the unit moved 3+ tiles before attacking, DEF -2 until your next action.",
+      "effectJa": "突撃型分岐: 威力+2、攻撃前に3マス以上移動していれば与ダメージ+2、攻撃後DEF-2。",
+      "weaponBranchClass": "MessengerCavalry"
+    },
+    {
+      "id": "craft_escort_blade",
+      "facility": "Forge",
+      "nameEn": "Craft: Escort Blade",
+      "nameJa": "製作: 護送剣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "escort_signal_code"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        },
+        {
+          "id": "hide",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "messenger_cavalry_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Rescue branch: after re-moving, an adjacent ally gains DEF +2 until Enemy Phase ends, might -1.",
+      "effectJa": "救援型分岐: 再移動終了時、隣接味方へDEF+2を次のEnemy Phase終了まで付与、威力-1。",
+      "weaponBranchClass": "MessengerCavalry"
+    },
+    {
+      "id": "frontier_ranger_forging",
+      "facility": "Forge",
+      "nameEn": "Frontier Ranger Forging",
+      "nameJa": "辺境猟兵武器鍛造",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks Hunting Bow's branch weapon recipes (Snare/Quarry/Driving Bow).",
+      "effectJa": "狩猟弓の分岐武器レシピ(拘束弓・追跡弓・追込弓)を解放する。"
+    },
+    {
+      "id": "craft_snare_bow",
+      "facility": "Forge",
+      "nameEn": "Craft: Snare Bow",
+      "nameJa": "製作: 拘束弓",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "snare_pattern_record"
+      ],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "hide",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "frontier_ranger_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Trap-synergy branch: the first hit each battle applies a movement-reducing effect, might -1.",
+      "effectJa": "罠連携型分岐: 戦闘ごとに最初に命中させた敵へ移動低下を付与、威力-1。",
+      "weaponBranchClass": "FrontierRanger"
+    },
+    {
+      "id": "craft_quarry_bow",
+      "facility": "Forge",
+      "nameEn": "Craft: Quarry Bow",
+      "nameJa": "製作: 追跡弓",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "quarry_tracking_notes"
+      ],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "iron",
+          "quantity": 1
+        },
+        {
+          "id": "hide",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "frontier_ranger_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Isolation-hunt branch: +2 damage vs an enemy with no adjacent ally, might +1.",
+      "effectJa": "孤立追跡型分岐: 隣接する味方がいない敵への与ダメージ+2、威力+1。",
+      "weaponBranchClass": "FrontierRanger"
+    },
+    {
+      "id": "craft_driving_bow",
+      "facility": "Forge",
+      "nameEn": "Craft: Driving Bow",
+      "nameJa": "製作: 追込弓",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "herding_shot_method"
+      ],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "iron",
+          "quantity": 1
+        },
+        {
+          "id": "hide",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "frontier_ranger_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Herding branch: the first hit each battle pushes the target back one tile, might -1.",
+      "effectJa": "誘導型分岐: 戦闘ごとに最初に命中させた敵を1マス押し出す、威力-1。",
+      "weaponBranchClass": "FrontierRanger"
+    },
+    {
+      "id": "banner_bearer_forging",
+      "facility": "Forge",
+      "nameEn": "Banner Bearer Forging",
+      "nameJa": "旗手武器鍛造",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks Standard Spear's branch weapon recipes (Far/Valor/Warding Standard).",
+      "effectJa": "戦旗槍の分岐武器レシピ(遠征旗槍・勇壮旗槍・守護旗槍)を解放する。"
+    },
+    {
+      "id": "craft_far_standard",
+      "facility": "Forge",
+      "nameEn": "Craft: Far Standard",
+      "nameJa": "製作: 遠征旗槍",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "long_range_signal_code"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 1
+        },
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "hide",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "banner_bearer_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Wide-support branch: banner range 2 -> 3, might -2.",
+      "effectJa": "広域支援型分岐: 戦旗の範囲を距離2から3へ拡大、威力-2。",
+      "weaponBranchClass": "BannerBearer"
+    },
+    {
+      "id": "craft_valor_standard",
+      "facility": "Forge",
+      "nameEn": "Craft: Valor Standard",
+      "nameJa": "製作: 勇壮旗槍",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "vanguard_banner_record"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        },
+        {
+          "id": "wood",
+          "quantity": 1
+        },
+        {
+          "id": "hide",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "banner_bearer_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Physical-offense branch: banner grants STR +2 only (no MAG), might +1, no defensive banner support.",
+      "effectJa": "物理攻勢型分岐: 戦旗はSTR+2だけを与えMAGは上昇させない、威力+1、防御支援なし。",
+      "weaponBranchClass": "BannerBearer"
+    },
+    {
+      "id": "craft_warding_standard",
+      "facility": "Forge",
+      "nameEn": "Craft: Warding Standard",
+      "nameJa": "製作: 守護旗槍",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "protective_banner_rite"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 1
+        },
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "herb",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "banner_bearer_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Defensive-support branch: banner grants DEF +1/RES +1 instead of STR/MAG, might -1.",
+      "effectJa": "防衛支援型分岐: 戦旗をDEF+1、RES+1へ変更しSTRとMAGは上昇させない、威力-1。",
+      "weaponBranchClass": "BannerBearer"
+    },
+    {
+      "id": "battle_mage_forging",
+      "facility": "Forge",
+      "nameEn": "Battle Mage Forging",
+      "nameJa": "戦闘魔導士武器鍛造",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks Arcane Focus's branch weapon recipes (Resonant/War/Ember Focus).",
+      "effectJa": "魔導焦点具の分岐武器レシピ(共鳴焦点具・戦式焦点具・残火焦点具)を解放する。"
+    },
+    {
+      "id": "craft_resonant_focus",
+      "facility": "Forge",
+      "nameEn": "Craft: Resonant Focus",
+      "nameJa": "製作: 共鳴焦点具",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "arcane_resonance_record"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 1
+        },
+        {
+          "id": "ruin_fragment",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "battle_mage_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Splash branch: the first standard attack each battle also deals 2 fixed damage to the target's vertical neighbors, might -2.",
+      "effectJa": "範囲型分岐: 戦闘ごとに最初の通常攻撃で対象の上下隣接敵へ固定2ダメージ、威力-2。",
+      "weaponBranchClass": "BattleMage"
+    },
+    {
+      "id": "craft_war_focus",
+      "facility": "Forge",
+      "nameEn": "Craft: War Focus",
+      "nameJa": "製作: 戦式焦点具",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "battle_focus_formula"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        },
+        {
+          "id": "ruin_fragment",
+          "quantity": 3
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "battle_mage_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Single-target power branch: might +3, MOV -1.",
+      "effectJa": "単体火力型分岐: 威力+3、MOV-1。",
+      "weaponBranchClass": "BattleMage"
+    },
+    {
+      "id": "craft_ember_focus",
+      "facility": "Forge",
+      "nameEn": "Craft: Ember Focus",
+      "nameJa": "製作: 残火焦点具",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "controlled_ember_formula"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 1
+        },
+        {
+          "id": "ruin_fragment",
+          "quantity": 2
+        },
+        {
+          "id": "herb",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "battle_mage_forging"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Sustained-pressure branch: the first hit each battle inflicts Burn, might -1.",
+      "effectJa": "継続圧力型分岐: 戦闘ごとに最初に命中させた敵へ炎上を付与、威力-1。",
+      "weaponBranchClass": "BattleMage"
+    },
+    {
+      "id": "trait_hide_wrapped_grip",
+      "facility": "Forge",
+      "nameEn": "Accessory: Hide-Wrapped Grip",
+      "nameJa": "装飾品: 獣皮の柄巻き",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "hide",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Negates the first knockback the wearer receives each battle.",
+      "effectJa": "戦闘ごとに最初に受けるノックバックを1回無効化する。"
+    },
+    {
+      "id": "trait_scorch_guard_wrap",
+      "facility": "Forge",
+      "nameEn": "Accessory: Scorch-Guard Wrap",
+      "nameJa": "装飾品: 焦げ止めの布",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "cloth",
+          "quantity": 1
+        },
+        {
+          "id": "herb",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Negates the first Burn the wearer would suffer each battle. RES +1 while worn.",
+      "effectJa": "戦闘ごとに最初に受ける炎上を1回無効化する。装備中、RES+1。"
+    },
+    {
+      "id": "trait_charm_of_might",
+      "facility": "Forge",
+      "nameEn": "Accessory: Charm of Might",
+      "nameJa": "装飾品: 剛力の護符",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 1
+        },
+        {
+          "id": "quality_iron",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Weapon might +1.",
+      "effectJa": "武器の威力+1。"
+    },
+    {
+      "id": "craft_armor_march_captain_tier1",
+      "facility": "Forge",
+      "nameEn": "Craft: March Captain Guard",
+      "nameJa": "製作: 行軍隊長の護具",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "cinderwatch_command_drills"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "MarchCaptain"
+    },
+    {
+      "id": "craft_armor_march_captain_tier2",
+      "facility": "Forge",
+      "nameEn": "Craft: March Captain Plate",
+      "nameJa": "製作: 行軍隊長の重甲",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "quarry_combat_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "DEF-specialized armor: DEF +2 at Lv1, no RES.",
+      "effectJa": "DEF特化防具: Lv1でDEF+2、RESは付与しない。",
+      "weaponBranchClass": "MarchCaptain"
+    },
+    {
+      "id": "craft_armor_march_captain_tier3",
+      "facility": "Forge",
+      "nameEn": "Craft: March Captain Ward",
+      "nameJa": "製作: 行軍隊長の守甲",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "settlement_command_ledger"
+      ],
+      "materialCosts": [
+        {
+          "id": "cloth",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "MarchCaptain"
+    },
+    {
+      "id": "craft_armor_veteran_guard_tier1",
+      "facility": "Forge",
+      "nameEn": "Craft: Veteran Guard Mail",
+      "nameJa": "製作: 古参守備兵の帷子",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "cinderwatch_defense_manual"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "VeteranGuard"
+    },
+    {
+      "id": "craft_armor_veteran_guard_tier2",
+      "facility": "Forge",
+      "nameEn": "Craft: Veteran Guard Bastion Plate",
+      "nameJa": "製作: 古参守備兵の防塁甲",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "quarry_brace_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "DEF-specialized armor: DEF +3 at Lv1, no RES.",
+      "effectJa": "DEF特化防具: Lv1でDEF+3、RESは付与しない。",
+      "weaponBranchClass": "VeteranGuard"
+    },
+    {
+      "id": "craft_armor_veteran_guard_tier3",
+      "facility": "Forge",
+      "nameEn": "Craft: Veteran Guard Sentinel Ward",
+      "nameJa": "製作: 古参守備兵の哨戒守甲",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "plateau_patrol_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "riding_gear",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "VeteranGuard"
+    },
+    {
+      "id": "craft_armor_watch_archer_tier1",
+      "facility": "Forge",
+      "nameEn": "Craft: Watch Archer Vest",
+      "nameJa": "製作: 監視弓兵の胴衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "cinderwatch_watch_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "WatchArcher"
+    },
+    {
+      "id": "craft_armor_watch_archer_tier2",
+      "facility": "Forge",
+      "nameEn": "Craft: Watch Archer Brigandine",
+      "nameJa": "製作: 監視弓兵の鎖胴衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "quarry_combat_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "DEF-specialized armor: DEF +2 at Lv1, no RES.",
+      "effectJa": "DEF特化防具: Lv1でDEF+2、RESは付与しない。",
+      "weaponBranchClass": "WatchArcher"
+    },
+    {
+      "id": "craft_armor_watch_archer_tier3",
+      "facility": "Forge",
+      "nameEn": "Craft: Watch Archer Marsh Ward",
+      "nameJa": "製作: 監視弓兵の湿地守衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "plateau_targeting_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "wetland_resin",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "WatchArcher"
+    },
+    {
+      "id": "craft_armor_frontier_scout_tier1",
+      "facility": "Forge",
+      "nameEn": "Craft: Frontier Scout Wrap",
+      "nameJa": "製作: 辺境斥候の巻き衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "ashbough_forest_survey_complete"
+      ],
+      "materialCosts": [
+        {
+          "id": "ashbark_strip",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "FrontierScout"
+    },
+    {
+      "id": "craft_armor_frontier_scout_tier2",
+      "facility": "Forge",
+      "nameEn": "Craft: Frontier Scout Hardleather",
+      "nameJa": "製作: 辺境斥候の硬革衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "quarry_ambush_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "DEF-specialized armor: DEF +2 at Lv1, no RES.",
+      "effectJa": "DEF特化防具: Lv1でDEF+2、RESは付与しない。",
+      "weaponBranchClass": "FrontierScout"
+    },
+    {
+      "id": "craft_armor_frontier_scout_tier3",
+      "facility": "Forge",
+      "nameEn": "Craft: Frontier Scout Trailward",
+      "nameJa": "製作: 辺境斥候の道守衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "courier_route_chart"
+      ],
+      "materialCosts": [
+        {
+          "id": "riding_gear",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "FrontierScout"
+    },
+    {
+      "id": "craft_armor_spearman_tier1",
+      "facility": "Forge",
+      "nameEn": "Craft: Spearman Cuirass",
+      "nameJa": "製作: 槍兵の胸甲",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "cinderwatch_spear_drills"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "Spearman"
+    },
+    {
+      "id": "craft_armor_spearman_tier2",
+      "facility": "Forge",
+      "nameEn": "Craft: Spearman Bulwark Plate",
+      "nameJa": "製作: 槍兵の防壁甲",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "quarry_impact_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "DEF-specialized armor: DEF +3 at Lv1, no RES.",
+      "effectJa": "DEF特化防具: Lv1でDEF+3、RESは付与しない。",
+      "weaponBranchClass": "Spearman"
+    },
+    {
+      "id": "craft_armor_spearman_tier3",
+      "facility": "Forge",
+      "nameEn": "Craft: Spearman Wall Ward",
+      "nameJa": "製作: 槍兵の防壁守甲",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "collective_defense_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "Spearman"
+    },
+    {
+      "id": "craft_armor_dawn_chirurgeon_tier1",
+      "facility": "Forge",
+      "nameEn": "Craft: Dawn Chirurgeon Robe",
+      "nameJa": "製作: 暁の衛生兵の外衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "herb_thicket_grounds"
+      ],
+      "materialCosts": [
+        {
+          "id": "cloth",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "DawnChirurgeon"
+    },
+    {
+      "id": "craft_armor_dawn_chirurgeon_tier2",
+      "facility": "Forge",
+      "nameEn": "Craft: Dawn Chirurgeon Padded Robe",
+      "nameJa": "製作: 暁の衛生兵の綿入り外衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "marsh_emergency_medicine"
+      ],
+      "materialCosts": [
+        {
+          "id": "quality_herb",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "DEF-specialized armor: DEF +2 at Lv1, no RES.",
+      "effectJa": "DEF特化防具: Lv1でDEF+2、RESは付与しない。",
+      "weaponBranchClass": "DawnChirurgeon"
+    },
+    {
+      "id": "craft_armor_dawn_chirurgeon_tier3",
+      "facility": "Forge",
+      "nameEn": "Craft: Dawn Chirurgeon Sanctum Ward",
+      "nameJa": "製作: 暁の衛生兵の聖堂守衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "sanctum_field_medicine"
+      ],
+      "materialCosts": [
+        {
+          "id": "hardwood",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "RES-leaning armor: DEF +1, RES +3 at Lv1.",
+      "effectJa": "RES寄り防具: Lv1でDEF+1、RES+3。",
+      "weaponBranchClass": "DawnChirurgeon"
+    },
+    {
+      "id": "craft_armor_heavy_infantry_tier1",
+      "facility": "Forge",
+      "nameEn": "Craft: Heavy Infantry Guard",
+      "nameJa": "製作: 重装兵の護具",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "heavy_armor_method"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "HeavyInfantry"
+    },
+    {
+      "id": "craft_armor_heavy_infantry_tier2",
+      "facility": "Forge",
+      "nameEn": "Craft: Heavy Infantry Plate",
+      "nameJa": "製作: 重装兵の重甲",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "demolition_forging"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "DEF-specialized armor: DEF +3 at Lv1, no RES.",
+      "effectJa": "DEF特化防具: Lv1でDEF+3、RESは付与しない。",
+      "weaponBranchClass": "HeavyInfantry"
+    },
+    {
+      "id": "craft_armor_heavy_infantry_tier3",
+      "facility": "Forge",
+      "nameEn": "Craft: Heavy Infantry Ward",
+      "nameJa": "製作: 重装兵の守甲",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "impact_balance_record"
+      ],
+      "materialCosts": [
+        {
+          "id": "hide",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "HeavyInfantry"
+    },
+    {
+      "id": "craft_armor_frontier_engineer_tier1",
+      "facility": "Forge",
+      "nameEn": "Craft: Frontier Engineer Vest",
+      "nameJa": "製作: 辺境工兵の作業衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "field_construction_manual"
+      ],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "FrontierEngineer"
+    },
+    {
+      "id": "craft_armor_frontier_engineer_tier2",
+      "facility": "Forge",
+      "nameEn": "Craft: Frontier Engineer Hardplate",
+      "nameJa": "製作: 辺境工兵の硬甲",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "controlled_demolition_notes"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "DEF-specialized armor: DEF +2 at Lv1, no RES.",
+      "effectJa": "DEF特化防具: Lv1でDEF+2、RESは付与しない。",
+      "weaponBranchClass": "FrontierEngineer"
+    },
+    {
+      "id": "craft_armor_frontier_engineer_tier3",
+      "facility": "Forge",
+      "nameEn": "Craft: Frontier Engineer Ward",
+      "nameJa": "製作: 辺境工兵の守衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "structural_repair_guide"
+      ],
+      "materialCosts": [
+        {
+          "id": "herb",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "FrontierEngineer"
+    },
+    {
+      "id": "craft_armor_messenger_cavalry_tier1",
+      "facility": "Forge",
+      "nameEn": "Craft: Messenger Cavalry Coat",
+      "nameJa": "製作: 伝令騎兵の外套",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "courier_route_chart"
+      ],
+      "materialCosts": [
+        {
+          "id": "hide",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "MessengerCavalry"
+    },
+    {
+      "id": "craft_armor_messenger_cavalry_tier2",
+      "facility": "Forge",
+      "nameEn": "Craft: Messenger Cavalry Barding",
+      "nameJa": "製作: 伝令騎兵の馬鎧",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "mounted_charge_drill"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "DEF-specialized armor: DEF +2 at Lv1, no RES.",
+      "effectJa": "DEF特化防具: Lv1でDEF+2、RESは付与しない。",
+      "weaponBranchClass": "MessengerCavalry"
+    },
+    {
+      "id": "craft_armor_messenger_cavalry_tier3",
+      "facility": "Forge",
+      "nameEn": "Craft: Messenger Cavalry Ward",
+      "nameJa": "製作: 伝令騎兵の守衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "escort_signal_code"
+      ],
+      "materialCosts": [
+        {
+          "id": "hide",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "MessengerCavalry"
+    },
+    {
+      "id": "craft_armor_frontier_ranger_tier1",
+      "facility": "Forge",
+      "nameEn": "Craft: Frontier Ranger Wrap",
+      "nameJa": "製作: 辺境猟兵の巻き衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "snare_pattern_record"
+      ],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "FrontierRanger"
+    },
+    {
+      "id": "craft_armor_frontier_ranger_tier2",
+      "facility": "Forge",
+      "nameEn": "Craft: Frontier Ranger Hardleather",
+      "nameJa": "製作: 辺境猟兵の硬革衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "quarry_tracking_notes"
+      ],
+      "materialCosts": [
+        {
+          "id": "hide",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "DEF-specialized armor: DEF +2 at Lv1, no RES.",
+      "effectJa": "DEF特化防具: Lv1でDEF+2、RESは付与しない。",
+      "weaponBranchClass": "FrontierRanger"
+    },
+    {
+      "id": "craft_armor_frontier_ranger_tier3",
+      "facility": "Forge",
+      "nameEn": "Craft: Frontier Ranger Ward",
+      "nameJa": "製作: 辺境猟兵の守衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "herding_shot_method"
+      ],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "FrontierRanger"
+    },
+    {
+      "id": "craft_armor_banner_bearer_tier1",
+      "facility": "Forge",
+      "nameEn": "Craft: Banner Bearer Vest",
+      "nameJa": "製作: 旗手の胴衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "long_range_signal_code"
+      ],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "BannerBearer"
+    },
+    {
+      "id": "craft_armor_banner_bearer_tier2",
+      "facility": "Forge",
+      "nameEn": "Craft: Banner Bearer Bastion Plate",
+      "nameJa": "製作: 旗手の防塁甲",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "vanguard_banner_record"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "DEF-specialized armor: DEF +2 at Lv1, no RES.",
+      "effectJa": "DEF特化防具: Lv1でDEF+2、RESは付与しない。",
+      "weaponBranchClass": "BannerBearer"
+    },
+    {
+      "id": "craft_armor_banner_bearer_tier3",
+      "facility": "Forge",
+      "nameEn": "Craft: Banner Bearer Ward",
+      "nameJa": "製作: 旗手の守衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "protective_banner_rite"
+      ],
+      "materialCosts": [
+        {
+          "id": "herb",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "RES-leaning armor: DEF +1, RES +3 at Lv1.",
+      "effectJa": "RES寄り防具: Lv1でDEF+1、RES+3。",
+      "weaponBranchClass": "BannerBearer"
+    },
+    {
+      "id": "craft_armor_battle_mage_tier1",
+      "facility": "Forge",
+      "nameEn": "Craft: Battle Mage Robe",
+      "nameJa": "製作: 戦闘魔導士の外衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "arcane_resonance_record"
+      ],
+      "materialCosts": [
+        {
+          "id": "cloth",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Balanced armor: DEF/RES +1 each at Lv1.",
+      "effectJa": "汎用防具: Lv1でDEF/RES各+1。",
+      "weaponBranchClass": "BattleMage"
+    },
+    {
+      "id": "craft_armor_battle_mage_tier2",
+      "facility": "Forge",
+      "nameEn": "Craft: Battle Mage Plated Robe",
+      "nameJa": "製作: 戦闘魔導士の重衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "battle_focus_formula"
+      ],
+      "materialCosts": [
+        {
+          "id": "ruin_fragment",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "DEF-specialized armor: DEF +2 at Lv1, no RES.",
+      "effectJa": "DEF特化防具: Lv1でDEF+2、RESは付与しない。",
+      "weaponBranchClass": "BattleMage"
+    },
+    {
+      "id": "craft_armor_battle_mage_tier3",
+      "facility": "Forge",
+      "nameEn": "Craft: Battle Mage Sanctum Ward",
+      "nameJa": "製作: 戦闘魔導士の聖堂守衣",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "controlled_ember_formula"
+      ],
+      "materialCosts": [
+        {
+          "id": "herb",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "RES-leaning armor: DEF +1, RES +3 at Lv1.",
+      "effectJa": "RES寄り防具: Lv1でDEF+1、RES+3。",
+      "weaponBranchClass": "BattleMage"
+    },
+    {
+      "id": "armor_trait_ward_step",
+      "facility": "Forge",
+      "nameEn": "Armor Accessory: Ward Step",
+      "nameJa": "防具装飾品: 一歩の護り",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "herb",
+          "quantity": 1
+        },
+        {
+          "id": "cloth",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Negates the first status effect the wearer receives each battle.",
+      "effectJa": "戦闘ごとに最初に受ける状態異常を1回無効化する。"
+    },
+    {
+      "id": "armor_trait_sturdy_sash",
+      "facility": "Forge",
+      "nameEn": "Armor Accessory: Sturdy Sash",
+      "nameJa": "防具装飾品: 頑丈な帯",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 1
+        },
+        {
+          "id": "hide",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "DEF +1 and RES +1 while worn.",
+      "effectJa": "装備中、DEF+1・RES+1。"
+    },
+    {
+      "id": "armor_trait_vital_charm",
+      "facility": "Forge",
+      "nameEn": "Armor Accessory: Vital Charm",
+      "nameJa": "防具装飾品: 命の護符",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "herb",
+          "quantity": 1
+        },
+        {
+          "id": "stone",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Max HP +3 while worn (current HP also +3 when a battle starts).",
+      "effectJa": "装備中、最大HP+3(戦闘開始時、現在HPも+3される)。"
+    },
+    {
+      "id": "special_forging",
+      "facility": "Forge",
+      "nameEn": "Special Forging",
+      "nameJa": "特殊鍛造",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [
+        "special_forging_records"
+      ],
+      "materialCosts": [],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks specialized forging techniques for heat-worked equipment.",
+      "effectJa": "耐熱装備向けの特殊鍛造技術を解放する。"
+    },
+    {
+      "id": "heat_resistant_processing",
+      "facility": "Forge",
+      "nameEn": "Heat-Resistant Processing",
+      "nameJa": "耐熱加工",
+      "requiredStage": "FrontierSettlement",
+      "requiredDiscoveries": [
+        "heat_resistant_processing_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "heat_resistant_material",
+          "quantity": 3
+        },
+        {
+          "id": "wetland_resin",
+          "quantity": 1
+        },
+        {
+          "id": "ash_crystal",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "simple_forge"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks heat-resistant material processing for equipment.",
+      "effectJa": "装備への耐熱素材加工を解放する。"
+    },
+    {
+      "id": "field_infirmary",
+      "facility": "Infirmary",
+      "nameEn": "Field Infirmary",
+      "nameJa": "救護テント",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [
+        "herb_thicket_grounds"
+      ],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "herb",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [],
+      "occupiesFacilitySlot": true,
+      "effectEn": "Unlocks the First Aid Kit and Rescue Pack.",
+      "effectJa": "応急手当具と救命包を解放する。"
+    },
+    {
+      "id": "field_medicine_branch",
+      "facility": "Infirmary",
+      "nameEn": "Field Medicine",
+      "nameJa": "野戦医療",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [
+        "ironwatch_field_medicine_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 1
+        },
+        {
+          "id": "herb",
+          "quantity": 3
+        },
+        {
+          "id": "quality_herb",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "field_infirmary"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks the Field Treatment Kit and more advanced treatment gear.",
+      "effectJa": "野戦治療具・高度治療具を解放する。"
+    },
+    {
+      "id": "lifesaving_technique",
+      "facility": "Infirmary",
+      "nameEn": "Lifesaving Technique",
+      "nameJa": "救命技術",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "herb",
+          "quantity": 3
+        },
+        {
+          "id": "cloth",
+          "quantity": 2
+        },
+        {
+          "id": "military_supplies",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "field_infirmary"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks the upgraded Rescue Pack and increases revive HP.",
+      "effectJa": "高級救命包と、復帰時HPの増加を解放する。"
+    },
+    {
+      "id": "pharmacology",
+      "facility": "Infirmary",
+      "nameEn": "Pharmacology",
+      "nameJa": "薬学",
+      "requiredStage": "FrontierSettlement",
+      "requiredDiscoveries": [
+        "marsh_pharmacology_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "quality_herb",
+          "quantity": 1
+        },
+        {
+          "id": "poison_material",
+          "quantity": 2
+        },
+        {
+          "id": "wetland_resin",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "field_infirmary"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks the Panacea and cures for special status ailments.",
+      "effectJa": "万能薬と特殊状態異常の治療手段を解放する。"
+    },
+    {
+      "id": "workshop_bench",
+      "facility": "Workshop",
+      "nameEn": "Workshop Bench",
+      "nameJa": "工作台",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 3
+        },
+        {
+          "id": "hide",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [],
+      "occupiesFacilitySlot": true,
+      "effectEn": "Unlocks basic exploration tools.",
+      "effectJa": "基本探索道具を解放する。"
+    },
+    {
+      "id": "exploration_tools",
+      "facility": "Workshop",
+      "nameEn": "Exploration Tools",
+      "nameJa": "探索工作",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "stone",
+          "quantity": 1
+        },
+        {
+          "id": "quality_iron",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "workshop_bench"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks climbing gear, mining tools, and lanterns.",
+      "effectJa": "登攀具・採掘具・照明具を解放する。"
+    },
+    {
+      "id": "combat_tools",
+      "facility": "Workshop",
+      "nameEn": "Combat Tools",
+      "nameJa": "戦闘工作",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "wood",
+          "quantity": 2
+        },
+        {
+          "id": "iron",
+          "quantity": 2
+        },
+        {
+          "id": "military_supplies",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "workshop_bench"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks Protective Boards, caltrops, and smoke tubes.",
+      "effectJa": "防護板・鉄杭・煙幕筒を解放する。"
+    },
+    {
+      "id": "trapcraft",
+      "facility": "Workshop",
+      "nameEn": "Trapcraft",
+      "nameJa": "罠技術",
+      "requiredStage": "FrontierSettlement",
+      "requiredDiscoveries": [
+        "marsh_trapcraft_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "wetland_resin",
+          "quantity": 2
+        },
+        {
+          "id": "hardwood",
+          "quantity": 1
+        },
+        {
+          "id": "poison_material",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "workshop_bench"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks iron stakes and poison-trap disposal gear.",
+      "effectJa": "鉄杭と毒罠処理道具を解放する。"
+    },
+    {
+      "id": "advanced_fieldwork",
+      "facility": "Workshop",
+      "nameEn": "Advanced Fieldwork",
+      "nameJa": "上位戦闘工作",
+      "requiredStage": "FrontierSettlement",
+      "requiredDiscoveries": [
+        "advanced_fieldwork_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "heat_resistant_material",
+          "quantity": 2
+        },
+        {
+          "id": "sulfur",
+          "quantity": 1
+        },
+        {
+          "id": "ash_crystal",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "workshop_bench"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks advanced fieldwork tools for heat-hazard terrain.",
+      "effectJa": "熱害地形向けの上位戦闘工作道具を解放する。"
+    },
+    {
+      "id": "advanced_crafting",
+      "facility": "Workshop",
+      "nameEn": "Advanced Crafting",
+      "nameJa": "高度工作",
+      "requiredStage": "FrontierSettlement",
+      "requiredDiscoveries": [
+        "signal_tower_return_signal_records"
+      ],
+      "materialCosts": [
+        {
+          "id": "iron",
+          "quantity": 2
+        },
+        {
+          "id": "signal_core",
+          "quantity": 1
+        },
+        {
+          "id": "sulfur",
+          "quantity": 1
+        },
+        {
+          "id": "cloth",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "workshop_bench"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks the Return Flare, Protective Case, and special ruin devices.",
+      "effectJa": "帰還信号弾・保護箱・特殊遺跡装置を解放する。"
+    },
+    {
+      "id": "communal_tent",
+      "facility": "Barracks",
+      "nameEn": "Communal Tent",
+      "nameJa": "共同テント",
+      "requiredStage": "Encampment",
+      "requiredDiscoveries": [],
+      "materialCosts": [],
+      "prerequisiteNodeIds": [],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Enables the starting 4 companions and the 4-person formation.",
+      "effectJa": "初期仲間4人と4人編成を使用可能にする。"
+    },
+    {
+      "id": "barracks_expansion",
+      "facility": "Barracks",
+      "nameEn": "Barracks Expansion",
+      "nameJa": "宿舎増築",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "building_material",
+          "quantity": 2
+        },
+        {
+          "id": "food",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "communal_tent"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Increases the number of companions you can recruit.",
+      "effectJa": "新しい仲間を受け入れられる枠を増やす。"
+    },
+    {
+      "id": "specialist_quarters",
+      "facility": "Barracks",
+      "nameEn": "Specialist Quarters",
+      "nameJa": "専門区画",
+      "requiredStage": "FrontierSettlement",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "building_material",
+          "quantity": 3
+        },
+        {
+          "id": "cloth",
+          "quantity": 1
+        },
+        {
+          "id": "military_supplies",
+          "quantity": 1
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "communal_tent"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Allows recruiting companions of specialist classes.",
+      "effectJa": "特殊兵種の仲間を受け入れ可能にする。"
+    },
+    {
+      "id": "social_quarters",
+      "facility": "Barracks",
+      "nameEn": "Social Quarters",
+      "nameJa": "交流区画",
+      "requiredStage": "PioneerOutpost",
+      "requiredDiscoveries": [],
+      "materialCosts": [
+        {
+          "id": "building_material",
+          "quantity": 2
+        },
+        {
+          "id": "cloth",
+          "quantity": 2
+        }
+      ],
+      "prerequisiteNodeIds": [
+        "communal_tent"
+      ],
+      "occupiesFacilitySlot": false,
+      "effectEn": "Unlocks companion events and link skills.",
+      "effectJa": "仲間イベントと連携能力を解放する。"
+    }
+  ]
+}

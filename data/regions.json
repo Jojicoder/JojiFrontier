@@ -38,7 +38,7 @@
         { "choice": "ScoutRoute", "loot": [{ "id": "quality_herb", "quantity": 1 }] }
       ],
       "surveyObjectiveId": "herbwater_hollow_herb_secured",
-      "surveyBonusLoot": [{ "id": "herb", "quantity": 1 }],
+      "surveyBonusLoot": [{ "id": "herb", "quantity": 1 }, { "id": "forestcore_sap", "quantity": 1 }],
       "herbPatchGeneration": { "count": 2, "zoneMinCol": 2, "zoneMaxCol": 5 },
       "routeOutcomes": [
         { "choice": "FrontalAdvance" },
@@ -74,10 +74,12 @@
         { "id": "ashenhorn_fang", "quantity": 1 },
         { "id": "wood", "quantity": 2 },
         { "id": "hide", "quantity": 2 },
-        { "id": "sootberry", "quantity": 1 }
+        { "id": "sootberry", "quantity": 1 },
+        { "id": "heartwood_of_graybough", "quantity": 1 }
       ],
       "routeVictoryLootDelta": [
-        { "choice": "FrontalAdvance", "loot": [{ "id": "wood", "quantity": 1 }] }
+        { "choice": "FrontalAdvance", "loot": [{ "id": "wood", "quantity": 1 }] },
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "ashhorn_sinew", "quantity": 1 }] }
       ],
       "routeOutcomes": [
         { "choice": "FrontalAdvance", "restrictedAutoSpawnMaxColumn": 1 },
@@ -233,7 +235,8 @@
       "baseVictoryLoot": [
         { "id": "iron", "quantity": 1 },
         { "id": "stone", "quantity": 1 },
-        { "id": "belliron_chip", "quantity": 1 }
+        { "id": "belliron_chip", "quantity": 1 },
+        { "id": "watchseal", "quantity": 1 }
       ],
       "missionNameEn": "Old Barracks",
       "missionNameJa": "旧兵舎"
@@ -251,7 +254,8 @@
       "baseVictoryLoot": [
         { "id": "iron", "quantity": 1 },
         { "id": "old_gear", "quantity": 1 },
-        { "id": "watchglass_shard", "quantity": 1 }
+        { "id": "watchglass_shard", "quantity": 1 },
+        { "id": "old_aiming_device", "quantity": 1 }
       ],
       "routeOutcomes": [
         { "choice": "FrontalAdvance", "enableReinforcementWave": true },
@@ -326,7 +330,8 @@
         { "id": "ashveil_fang", "quantity": 1 },
         { "id": "wood", "quantity": 3 },
         { "id": "hide", "quantity": 3 },
-        { "id": "weathered_cord", "quantity": 1 }
+        { "id": "weathered_cord", "quantity": 1 },
+        { "id": "silent_command_board", "quantity": 1 }
       ],
       "routeVictoryLootDelta": [
         { "choice": "ScoutRoute", "loot": [{ "id": "old_gear", "quantity": 1 }] }
@@ -483,7 +488,8 @@
         { "id": "iron", "quantity": 2 },
         { "id": "stone", "quantity": 2 },
         { "id": "wood", "quantity": 1 },
-        { "id": "ashiron_shell", "quantity": 1 }
+        { "id": "ashiron_shell", "quantity": 1 },
+        { "id": "quarrymaster_key", "quantity": 1 }
       ],
       "routeVictoryLootDelta": [
         { "choice": "CollapsedSidePath", "loot": [{ "id": "wood", "quantity": 1 }] }
@@ -496,7 +502,7 @@
       "surveyObjectiveId": "quarry_collapse_core_stakes",
       "surveyTileCount": 2,
       "surveyTileObjectDefinitionId": "quarry_stake",
-      "surveyBonusLoot": [{ "id": "quality_iron", "quantity": 1 }],
+      "surveyBonusLoot": [{ "id": "quality_iron", "quantity": 1 }, { "id": "resonant_stone", "quantity": 1 }],
       "noCasualtiesBonusLoot": [{ "id": "quality_iron", "quantity": 1 }],
       "missionNameEn": "Collapse Core",
       "missionNameJa": "崩落核"
@@ -638,7 +644,7 @@
         { "id": "sunken_sluice_spider1", "name": "Marsh Poison Spider", "classId": "Wolf" },
         { "id": "sunken_sluice_spider2", "name": "Marsh Poison Spider", "classId": "Wolf" }
       ],
-      "baseVictoryLoot": [{ "id": "wetland_resin", "quantity": 2 }, { "id": "poison_material", "quantity": 1 }],
+      "baseVictoryLoot": [{ "id": "wetland_resin", "quantity": 2 }, { "id": "poison_material", "quantity": 1 }, { "id": "mudbed_pearl", "quantity": 1 }],
       "routeOutcomes": [
         { "choice": "FrontalAdvance" },
         { "choice": "CollapsedSidePath" },
@@ -676,10 +682,11 @@
         { "id": "herb", "quantity": 2 },
         { "id": "quality_herb", "quantity": 1 },
         { "id": "poison_material", "quantity": 2 },
-        { "id": "wetland_resin", "quantity": 1 }
+        { "id": "wetland_resin", "quantity": 1 },
+        { "id": "scale_of_the_sunken_lord", "quantity": 1 }
       ],
       "routeVictoryLootDelta": [
-        { "choice": "ScoutRoute", "loot": [{ "id": "poison_material", "quantity": 1 }] }
+        { "choice": "ScoutRoute", "loot": [{ "id": "poison_material", "quantity": 1 }, { "id": "blackmarsh_gall", "quantity": 1 }] }
       ],
       "routeOutcomes": [
         { "choice": "FrontalAdvance", "enemiesRemoved": 1 },
@@ -722,6 +729,9 @@
       ],
       "routeOutcomes": [
         { "choice": "CollapsedSidePath", "enemiesRemoved": 1 }
+      ],
+      "routeVictoryLootDelta": [
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "skyresonance_crystal", "quantity": 1 }] }
       ],
       "scoutRouteRequiredClass": "WatchArcher",
       "objectPlacementRules": [
@@ -789,7 +799,8 @@
       "baseVictoryLoot": [
         { "id": "hide", "quantity": 2 },
         { "id": "cloth", "quantity": 2 },
-        { "id": "riding_gear", "quantity": 1 }
+        { "id": "riding_gear", "quantity": 1 },
+        { "id": "horn_of_the_peakwarden", "quantity": 1 }
       ],
       "routeOutcomes": [
         { "choice": "FrontalAdvance", "enemiesRemoved": 1 },
@@ -797,7 +808,7 @@
         { "choice": "ScoutRoute", "enemiesRemoved": 1 }
       ],
       "scoutRouteRequiredClass": "MarchCaptain",
-      "noCasualtiesBonusLoot": [{ "id": "riding_gear", "quantity": 1 }],
+      "noCasualtiesBonusLoot": [{ "id": "riding_gear", "quantity": 1 }, { "id": "windbone", "quantity": 1 }],
       "missionNameEn": "Plateau Relay Station",
       "missionNameJa": "高原伝令所"
     },
@@ -874,7 +885,7 @@
         { "id": "sootdyed_cloth", "quantity": 1 }
       ],
       "routeVictoryLootDelta": [
-        { "choice": "CollapsedSidePath", "loot": [{ "id": "food", "quantity": 1 }] }
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "food", "quantity": 1 }, { "id": "hearthward_stone", "quantity": 1 }] }
       ],
       "routeOutcomes": [
         { "choice": "CollapsedSidePath", "enemiesRemoved": 1 },
@@ -916,7 +927,8 @@
       "baseVictoryLoot": [
         { "id": "building_material", "quantity": 1 },
         { "id": "iron", "quantity": 1 },
-        { "id": "food", "quantity": 1 }
+        { "id": "food", "quantity": 1 },
+        { "id": "settler_silver", "quantity": 1 }
       ],
       "routeOutcomes": [
         { "choice": "CollapsedSidePath", "enemiesRemoved": 1, "extraBarrierCount": 1 }
@@ -1087,7 +1099,7 @@
         { "id": "ash_crystal_shelf_lizard4", "name": "Rock Lizard", "classId": "Bandit", "firstBurnNegated": true },
         { "id": "ash_crystal_shelf_lizard5_large", "name": "Large Rock Lizard", "classId": "Bandit", "firstBurnNegated": true }
       ],
-      "baseVictoryLoot": [{ "id": "ash_crystal", "quantity": 2 }, { "id": "sulfur", "quantity": 1 }],
+      "baseVictoryLoot": [{ "id": "ash_crystal", "quantity": 2 }, { "id": "sulfur", "quantity": 1 }, { "id": "meltvein_glass", "quantity": 1 }],
       "routeOutcomes": [
         { "choice": "FrontalAdvance", "enemiesRemoved": 1 },
         { "choice": "CollapsedSidePath", "startingHeatLevel": 2 },
@@ -1200,7 +1212,8 @@
       "baseVictoryLoot": [
         { "id": "ash_crystal", "quantity": 2 },
         { "id": "sulfur", "quantity": 2 },
-        { "id": "heat_resistant_material", "quantity": 1 }
+        { "id": "heat_resistant_material", "quantity": 1 },
+        { "id": "canyon_furnace_core", "quantity": 1 }
       ],
       "routeOutcomes": [
         { "choice": "FrontalAdvance", "startingHeatLevel": 1 },
@@ -1208,7 +1221,7 @@
         { "choice": "ScoutRoute" }
       ],
       "routeVictoryLootDelta": [
-        { "choice": "CollapsedSidePath", "loot": [{ "id": "sulfur", "quantity": 1 }] }
+        { "choice": "CollapsedSidePath", "loot": [{ "id": "sulfur", "quantity": 1 }, { "id": "flameeater_fang", "quantity": 1 }] }
       ],
       "scoutRouteRequiredClass": "FrontierRanger",
       "objectPlacementRules": [
@@ -1313,6 +1326,7 @@
       "surveyObjectiveId": "sanctum_archive_crate",
       "surveyTileCount": 3,
       "surveyTileObjectDefinitionId": "sanctum_archive_crate",
+      "surveyBonusLoot": [{ "id": "crypt_holy_oil", "quantity": 1 }],
       "missionNameEn": "Archive Vault",
       "missionNameJa": "写本庫"
     },
@@ -1329,7 +1343,8 @@
       ],
       "baseVictoryLoot": [
         { "id": "sanctum_equipment", "quantity": 2 },
-        { "id": "quality_iron", "quantity": 1 }
+        { "id": "quality_iron", "quantity": 1 },
+        { "id": "martyrs_ring", "quantity": 1 }
       ],
       "scoutRouteRequiredClass": "FrontierEngineer",
       "objectPlacementRules": [
@@ -1378,7 +1393,8 @@
         { "id": "building_material", "quantity": 3 },
         { "id": "stone", "quantity": 2 },
         { "id": "quality_iron", "quantity": 1 },
-        { "id": "ruin_fragment", "quantity": 2 }
+        { "id": "ruin_fragment", "quantity": 2 },
+        { "id": "seal_sanctum_key", "quantity": 1 }
       ],
       "scoutRouteRequiredClass": "MarchCaptain",
       "primarySurviveRoundsAlternative": { "id": "dawn_altar_defense", "surviveUntilRound": 4 },
@@ -1467,7 +1483,8 @@
       ],
       "baseVictoryLoot": [
         { "id": "quality_iron", "quantity": 1 },
-        { "id": "military_supplies", "quantity": 2 }
+        { "id": "military_supplies", "quantity": 2 },
+        { "id": "officers_badge", "quantity": 1 }
       ],
       "routeOutcomes": [
         { "choice": "FrontalAdvance" },
@@ -1543,7 +1560,8 @@
       ],
       "baseVictoryLoot": [
         { "id": "quality_iron", "quantity": 1 },
-        { "id": "stone", "quantity": 2 }
+        { "id": "stone", "quantity": 2 },
+        { "id": "siege_grapnel", "quantity": 1 }
       ],
       "routeOutcomes": [
         { "choice": "FrontalAdvance" },
@@ -1581,7 +1599,8 @@
       "baseVictoryLoot": [
         { "id": "quality_iron", "quantity": 2 },
         { "id": "military_supplies", "quantity": 2 },
-        { "id": "stone", "quantity": 1 }
+        { "id": "stone", "quantity": 1 },
+        { "id": "frontline_command_seal", "quantity": 1 }
       ],
       "routeOutcomes": [
         { "choice": "FrontalAdvance" },
@@ -1826,7 +1845,8 @@
       "baseVictoryLoot": [
         { "id": "food", "quantity": 2 },
         { "id": "herb", "quantity": 2 },
-        { "id": "quality_iron", "quantity": 1 }
+        { "id": "quality_iron", "quantity": 1 },
+        { "id": "point_of_no_return_crystal", "quantity": 1 }
       ],
       "routeOutcomes": [
         { "choice": "FrontalAdvance", "enableReinforcementWave": true },

@@ -130,6 +130,7 @@ void BattleState::applyKnockback(const Unit& attacker, Unit& defender) {
     if (hasHeavyArmor(defender.unitClass) || defender.braceForImpactActive || defender.pairedBracedBreakthroughActive) return;
     if (defender.knockbackNegatesRemaining > 0) {
         --defender.knockbackNegatesRemaining;
+        setAccessoryNegate(defender.id, AccessoryNegateKind::Knockback);
         return;
     }
     const int rowDelta = defender.position.row - attacker.position.row;
@@ -157,6 +158,7 @@ void BattleState::applyPull(const Unit& attacker, Unit& defender) {
     if (hasHeavyArmor(defender.unitClass) || defender.braceForImpactActive || defender.pairedBracedBreakthroughActive) return;
     if (defender.knockbackNegatesRemaining > 0) {
         --defender.knockbackNegatesRemaining;
+        setAccessoryNegate(defender.id, AccessoryNegateKind::Knockback);
         return;
     }
     const int rowDelta = defender.position.row - attacker.position.row;

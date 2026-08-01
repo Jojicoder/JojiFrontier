@@ -23,6 +23,12 @@ namespace {
 // must already be captured/emitted by the caller (see takeEnemyTurn) before
 // this runs; this only catches a self-defeat from burn.
 void finishEnemyAction(BattleState& battle, Unit& enemy, ActionKind actionKind) {
+    // ユーザー要望「敵もお願い」: lets BattleController::update() tell a
+    // Skill-kind enemy action (boss special move, or the generic AI's
+    // Support/heal branch) apart from a plain Attack/Move/Wait without
+    // widening takeEnemyTurn()'s own Unit* return contract - see
+    // BattleState::lastEnemyActionKind()'s own comment.
+    battle.setLastEnemyActionKind(actionKind);
     const AliveSnapshot aliveBefore = captureAliveSnapshot(battle);
     processActionEndStatusEffects(battle, enemy);
     battle.markActed(enemy);

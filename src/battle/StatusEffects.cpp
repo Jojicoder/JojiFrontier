@@ -24,11 +24,12 @@ void applyPoison(Unit& target) {
     target.poisonRemainingProcs = statusPoisonMaxProcs(target.isBoss);
 }
 
-void applyBurn(Unit& target) {
+void applyBurn(BattleState& battle, Unit& target) {
     // docs/regions/ember_ravine.md 敵勢力「岩蜥蜴」: negate exactly the first
     // Burn application this battle, then behave normally afterward.
     if (target.firstBurnNegatesRemaining > 0) {
         --target.firstBurnNegatesRemaining;
+        battle.setAccessoryNegate(target.id, AccessoryNegateKind::Burn);
         return;
     }
     target.burnRemainingProcs = statusBurnMaxProcs(target.isBoss);
@@ -102,11 +103,12 @@ void applyStatusEffect(BattleState& battle, Unit& target, StatusEffectType effec
     // effect.
     if (target.firstStatusNegatesRemaining > 0) {
         --target.firstStatusNegatesRemaining;
+        battle.setAccessoryNegate(target.id, AccessoryNegateKind::Status);
         return;
     }
     switch (effect) {
     case StatusEffectType::Poison: applyPoison(target); break;
-    case StatusEffectType::Burn: applyBurn(target); break;
+    case StatusEffectType::Burn: applyBurn(battle, target); break;
     case StatusEffectType::MoveDown: applyMoveDown(battle, target); break;
     case StatusEffectType::DefenseDown: applyDefenseDown(target); break;
     case StatusEffectType::Stagger: applyStagger(battle, target); break;
@@ -162,13 +164,20 @@ void processActionEndStatusEffects(BattleState& battle, Unit& unit) {
     // ever applied after an already-confirmed hit; the tile itself is the
     // confirmation. Checked before the CoolFloor-clears-Burn branch below
     // since a unit can only ever stand on one of the two tiles at once.
-    if (battle.terrainAt(unit.position) == TerrainType::FireFloor) applyBurn(unit);
+    if (battle.terrainAt(unit.position) == TerrainType::FireFloor) applyBurn(battle, unit);
     if (unit.burnRemainingProcs > 0 && terrainClearsBurn(battle.terrainAt(unit.position))) {
         unit.burnRemainingProcs = 0;
     }
     if (unit.burnRemainingProcs > 0) {
+        const int before = unit.currentHp;
         unit.currentHp = std::max(unit.currentHp - statusBurnDamage(unit.isBoss), 0);
         --unit.burnRemainingProcs;
+        // ユーザー要望「毒・炎上の継続ダメージにもメッセージを」: single-unit
+        // call, so a 1-entry batch is enough - see StatusTickDamage's own
+        // comment in BattleState.hpp for why this is a batch (not a single
+        // last-value) at all.
+        if (unit.currentHp < before)
+            battle.setStatusTickDamage({{unit.id, before - unit.currentHp, StatusTickKind::Burn}});
     }
     // 解除後、対象側の次Phase終了までよろめき無効 (docs/status_effects.md).
     if (unit.staggerActive) unit.staggerImmune = true;
@@ -176,17 +185,22 @@ void processActionEndStatusEffects(BattleState& battle, Unit& unit) {
 }
 
 void processPhaseEndStatusEffects(BattleState& battle, Team team) {
+    std::vector<StatusTickDamage> tickDamages;
     for (Unit& unit : battle.units()) {
         if (unit.team != team || !unit.isAlive()) continue;
         if (unit.poisonRemainingProcs > 0) {
             // 毒だけはHPを1未満にしない (docs/status_effects.md).
+            const int before = unit.currentHp;
             unit.currentHp = std::max(unit.currentHp - statusPoisonDamage(unit.isBoss), 1);
             --unit.poisonRemainingProcs;
+            if (unit.currentHp < before)
+                tickDamages.push_back({unit.id, before - unit.currentHp, StatusTickKind::Poison});
         }
         unit.moveDownActive = false;
         unit.defenseDownActive = false;
         unit.staggerImmune = false;
     }
+    battle.setStatusTickDamage(std::move(tickDamages));
 }
 
 void clearSkillBuffsAtEnemyPhaseEnd(BattleState& battle) {

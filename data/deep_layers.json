@@ -1,0 +1,76 @@
+{
+  "regions": [
+    {
+      "regionId": "ashbough_forest",
+      "deepMaterialId": "ashbough_deep_core",
+      "classId": "FrontierScout",
+      "layerBossMaterialIds": ["ashenhorn_deep_tusk", "ashenhorn_deep_horn", "ashenhorn_deep_relic"]
+    },
+    {
+      "regionId": "cinderwatch_gate",
+      "deepMaterialId": "cinderwatch_deep_core",
+      "classId": "MarchCaptain",
+      "layerBossMaterialIds": ["march_captain_deep_clapper", "march_captain_deep_lens", "march_captain_deep_watchseal"]
+    },
+    {
+      "regionId": "cinderwatch_gate",
+      "deepMaterialId": "cinderwatch_deep_core",
+      "classId": "WatchArcher",
+      "layerBossMaterialIds": ["march_captain_deep_clapper", "march_captain_deep_lens", "march_captain_deep_watchseal"]
+    },
+    {
+      "regionId": "ashiron_quarry",
+      "deepMaterialId": "ashiron_deep_core",
+      "classId": "Spearman",
+      "layerBossMaterialIds": ["ashiron_grubworm_deep_mandible", "ashiron_grubworm_deep_carapace", "ashiron_grubworm_deep_heartstone"]
+    },
+    {
+      "regionId": "ashiron_quarry",
+      "deepMaterialId": "ashiron_deep_core",
+      "classId": "HeavyInfantry",
+      "layerBossMaterialIds": ["ashiron_grubworm_deep_mandible", "ashiron_grubworm_deep_carapace", "ashiron_grubworm_deep_heartstone"]
+    },
+    {
+      "regionId": "blackwater_lowlands",
+      "deepMaterialId": "blackwater_deep_core",
+      "classId": "FrontierRanger",
+      "layerBossMaterialIds": ["marshfang_serpent_deep_fang", "marshfang_serpent_deep_scale", "marshfang_serpent_deep_gall"]
+    },
+    {
+      "regionId": "windscar_plateau",
+      "deepMaterialId": "windscar_deep_core",
+      "classId": "MessengerCavalry",
+      "layerBossMaterialIds": ["plateau_courier_deep_spur", "plateau_courier_deep_rein", "plateau_courier_deep_wayseal"]
+    },
+    {
+      "regionId": "old_frontier_settlement",
+      "deepMaterialId": "oldsettlement_deep_core",
+      "classId": "BannerBearer",
+      "layerBossMaterialIds": ["raid_leader_deep_firebrand", "raid_leader_deep_banner", "raid_leader_deep_hearthseal"]
+    },
+    {
+      "regionId": "ember_ravine",
+      "deepMaterialId": "ember_ravine_deep_core",
+      "classId": "BattleMage",
+      "layerBossMaterialIds": ["redback_lizard_deep_tailspine", "redback_lizard_deep_throatstone", "redback_lizard_deep_crownscale"]
+    },
+    {
+      "regionId": "buried_dawn_sanctum",
+      "deepMaterialId": "dawn_sanctum_deep_core",
+      "classId": "DawnChirurgeon",
+      "layerBossMaterialIds": ["sanctum_retriever_deep_censer", "sanctum_retriever_deep_seal", "sanctum_retriever_deep_reliquary"]
+    },
+    {
+      "regionId": "shattered_march_fort",
+      "deepMaterialId": "shattered_fort_deep_core",
+      "classId": "VeteranGuard",
+      "layerBossMaterialIds": ["fort_captain_deep_shieldboss", "fort_captain_deep_gatekey", "fort_captain_deep_commandseal"]
+    },
+    {
+      "regionId": "mapped_edge",
+      "deepMaterialId": "mapped_edge_deep_core",
+      "classId": "FrontierEngineer",
+      "layerBossMaterialIds": ["frontier_beast_deep_claw", "frontier_beast_deep_waystone", "frontier_beast_deep_anchor"]
+    }
+  ]
+}

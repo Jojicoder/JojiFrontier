@@ -14,12 +14,17 @@
 // M10-C extended armorLevelMaterialsByClass() to the remaining 6 classes'
 // 18 armor pieces, same generator unchanged - full 36-of-36 coverage.
 
+#include <fstream>
+#include <iostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 #include "jf/core/Armor.hpp"
 #include "jf/core/BaseState.hpp"
+#include "jf/core/DeepLayers.hpp"
 #include "jf/core/UnitClass.hpp"
 #include "jf/core/WeaponLeveling.hpp" // kRareMaterialId
 
@@ -35,26 +40,45 @@ struct ArmorLevelMaterials {
     std::string otherC; // Lv4 only - armor-specific 4th material
 };
 
-inline const std::unordered_map<UnitClass, ArmorLevelMaterials>& armorLevelMaterialsByClass() {
-    static const std::unordered_map<UnitClass, ArmorLevelMaterials> table = {
-        {UnitClass::MarchCaptain, {"quality_iron", "military_supplies", "cloth"}},
-        {UnitClass::VeteranGuard, {"quality_iron", "riding_gear", "military_supplies"}},
-        {UnitClass::WatchArcher, {"wetland_resin", "ash_crystal", "hardwood"}},
-        {UnitClass::FrontierScout, {"riding_gear", "wetland_resin", "quality_herb"}},
-        {UnitClass::Spearman, {"quality_iron", "heat_resistant_material", "stone"}},
-        {UnitClass::DawnChirurgeon, {"quality_herb", "sanctum_equipment", "cloth"}},
-
-        // M10-C: the remaining 6 classes. otherA/otherB reuse
-        // WeaponLeveling.hpp's weaponLevelMaterialsByClass() picks for the
-        // same class (same simplification the first 6 used); otherC is a 4th
-        // material drawn from that class's own weapon-branch recipes.
-        {UnitClass::HeavyInfantry, {"quality_iron", "ash_crystal", "heat_resistant_material"}},
-        {UnitClass::FrontierEngineer, {"combustion_oil", "military_supplies", "quality_iron"}},
-        {UnitClass::MessengerCavalry, {"riding_gear", "military_supplies", "wetland_resin"}},
-        {UnitClass::FrontierRanger, {"poison_material", "wetland_resin", "quality_herb"}},
-        {UnitClass::BannerBearer, {"military_supplies", "frontier_edge_material", "rare_material"}},
-        {UnitClass::BattleMage, {"ash_crystal", "sanctum_equipment", "ruin_fragment"}},
+// データ/ロジック分離方針(docs/implementation_status.md): データ本体は
+// data/armor_leveling.json へ切り出し済み。
+inline UnitClass unitClassFromArmorLevelingJsonString(const std::string& name) {
+    static const std::unordered_map<std::string, UnitClass> table = {
+        {"MarchCaptain", UnitClass::MarchCaptain},   {"VeteranGuard", UnitClass::VeteranGuard},
+        {"WatchArcher", UnitClass::WatchArcher},     {"FrontierScout", UnitClass::FrontierScout},
+        {"Spearman", UnitClass::Spearman},           {"DawnChirurgeon", UnitClass::DawnChirurgeon},
+        {"HeavyInfantry", UnitClass::HeavyInfantry}, {"FrontierEngineer", UnitClass::FrontierEngineer},
+        {"MessengerCavalry", UnitClass::MessengerCavalry}, {"FrontierRanger", UnitClass::FrontierRanger},
+        {"BannerBearer", UnitClass::BannerBearer},   {"BattleMage", UnitClass::BattleMage},
     };
+    auto it = table.find(name);
+    return it != table.end() ? it->second : UnitClass::MarchCaptain;
+}
+
+inline const std::unordered_map<UnitClass, ArmorLevelMaterials>& armorLevelMaterialsByClass() {
+    static const std::unordered_map<UnitClass, ArmorLevelMaterials> table = [] {
+        std::unordered_map<UnitClass, ArmorLevelMaterials> t;
+        // cwd is always the repo root at runtime - same convention as every
+        // other data/*.json load.
+        std::ifstream file("data/armor_leveling.json");
+        if (!file.is_open()) {
+            std::cerr << "Failed to open data file: data/armor_leveling.json" << std::endl;
+            return t;
+        }
+        nlohmann::json parsed;
+        try {
+            file >> parsed;
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to parse JSON file data/armor_leveling.json: " << e.what() << std::endl;
+            return t;
+        }
+        for (const auto& m : parsed.at("materialsByClass")) {
+            UnitClass uc = unitClassFromArmorLevelingJsonString(m.at("unitClass").get<std::string>());
+            t[uc] = {m.at("otherA").get<std::string>(), m.at("otherB").get<std::string>(),
+                     m.at("otherC").get<std::string>()};
+        }
+        return t;
+    }();
     return table;
 }
 
@@ -88,19 +112,28 @@ inline std::vector<LootStack> armorTier1CraftCost(const std::string& primaryMate
     return {{primaryMaterialId, kArmorTier1LvOneQuantity}};
 }
 
+// docs/deep_layers.md「Lv6〜15」: same deep-material-only formula as
+// weaponDeepLevelUpCost() (WeaponLeveling.hpp), reused directly rather than
+// a duplicated armor-specific ramp - the doc doesn't call for weapon/armor to
+// scale differently past Lv5 the way their Lv1〜5 formulas intentionally do.
+inline std::vector<LootStack> armorDeepLevelUpCost(UnitClass unitClass, int targetLevel) {
+    return weaponDeepLevelUpCost(unitClass, targetLevel);
+}
+
 // docs/deep_layers.md「防具Lv1〜5」table, generalized exactly like
 // weaponLevelUpCost(): `primaryMaterialId` is the armor's own Lv1 recipe
 // material (armorTier1CraftCost()'s argument, recovered from the
 // "craft_<armorId>" FacilityNode's materialCosts[0] by the caller - GameApp
 // resolves it, since only Facilities.hpp's registry knows it). Returns empty
 // if `armorId` isn't registered in armorRegistry(), `primaryMaterialId` is
-// empty, or `targetLevel` isn't 2-5 (Lv6+ needs deep-layer materials, out of
-// scope for this Slice - same "別の倍率テーブル" split as weapons).
+// empty, `targetLevel` is outside 2-15, or (for Lv6+) the armor's class has
+// no deep-layer region wired yet (see armorDeepLevelUpCost() above).
 inline std::vector<LootStack> armorLevelUpCost(const std::string& armorId, const std::string& primaryMaterialId,
                                                int targetLevel) {
-    if (targetLevel < 2 || targetLevel > 5) return {};
+    if (targetLevel < 2 || targetLevel > 20) return {};
     const ArmorDefinition* armor = armorLevelEligibleArmor(armorId);
     if (!armor || primaryMaterialId.empty()) return {};
+    if (targetLevel >= 6) return armorDeepLevelUpCost(armor->unitClass, targetLevel);
     auto matIt = armorLevelMaterialsByClass().find(armor->unitClass);
     if (matIt == armorLevelMaterialsByClass().end()) return {};
     const ArmorLevelMaterials& mats = matIt->second;

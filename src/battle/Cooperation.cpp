@@ -5,7 +5,7 @@ namespace jf {
 const std::vector<CooperationDefinition>& cooperationDefinitions() {
     static const std::vector<CooperationDefinition> kDefinitions = {
         {"paired_fallback_line", "leon", "gareth", true},
-        {"paired_cross_observation", "erin", "scout_reserve", false},
+        {"paired_cross_observation", "erin", "scout_reserve", true},
         {"paired_field_recovery", "mira", "ranger_recruit", true},
         {"paired_braced_breakthrough", "spear_reserve", "heavy_recruit", true},
         {"paired_rapid_works", "engineer_recruit", "cavalry_recruit", true},

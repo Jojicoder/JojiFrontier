@@ -1499,6 +1499,117 @@ int main() {
     }
 
     {
+        // docs/deep_layers.md「全体構成」: 灰枝の森・深層/最深層はRegionId/
+        // RouteGraphを持たない生のstageIndex連番進行(RegionId::
+        // AshboughForestDeep/AshboughForestDeepest、usesRouteGraph()未登録)。
+        // AshboughForest単体クリアでは解放されず、AshboughForest安全帰還後に
+        // 深層が、深層安全帰還後に最深層が解放される、本編10地域のチェーンとは
+        // 独立した支線であることを確認する。
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(!app.isRegionUnlocked(jf::RegionId::AshboughForestDeep));
+        assert(!app.startExpedition(jf::RegionId::AshboughForestDeep));
+
+        jf::SaveData save = app.createSaveData("en");
+        save.base.completedRegionIds.insert(jf::RegionId::AshboughForest);
+        assert(app.applySaveData(save));
+        assert(app.isRegionUnlocked(jf::RegionId::AshboughForestDeep));
+        assert(!app.isRegionUnlocked(jf::RegionId::AshboughForestDeepest));
+
+        assert(app.startExpedition(jf::RegionId::AshboughForestDeep));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        for (int stage = 0; stage < 4; ++stage) {
+            winCurrentBattle(app);
+            app.proceedToCamp();
+            if (stage < 3) {
+                // 深層/最深層は道中(探索3択)を毎戦闘挟む - ルート分岐は
+                // 増やさないが、continueExpedition()はScreen::Explorationへ
+                // 戻すだけで、続きの戦闘構築はchooseExplorationRoute()任せ。
+                app.continueExpedition();
+                assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+            }
+        }
+        assert(!app.baseState().completedRegionIds.count(jf::RegionId::AshboughForestDeep));
+        app.returnToBase();
+        assert(app.baseState().completedRegionIds.count(jf::RegionId::AshboughForestDeep) == 1);
+        assert(app.isRegionUnlocked(jf::RegionId::AshboughForestDeepest));
+
+        assert(app.startExpedition(jf::RegionId::AshboughForestDeepest));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        for (int stage = 0; stage < 2; ++stage) {
+            winCurrentBattle(app);
+            app.proceedToCamp();
+            if (stage < 1) {
+                app.continueExpedition();
+                assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+            }
+        }
+        app.returnToBase();
+        assert(app.baseState().completedRegionIds.count(jf::RegionId::AshboughForestDeepest) == 1);
+    }
+
+    {
+        // docs/deep_layers.md: AshboughForest's Exploration screen shows a
+        // "深層へ行く"/"最深層へ行く" shortcut once a site is already Secured
+        // (revisiting a fully-cleared region) - startDeepLayerExpeditionFromSecuredSite()
+        // is the backing method, gated the same way as the Base region list.
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        jf::BaseState& base = const_cast<jf::BaseState&>(app.baseState());
+        base.completedRegionIds.insert(jf::RegionId::AshboughForest);
+        assert(app.startExpedition(jf::RegionId::AshboughForest));
+
+        // Not yet Secured - the shortcut must refuse.
+        assert(!app.startDeepLayerExpeditionFromSecuredSite(jf::RegionId::AshboughForestDeep));
+
+        base.siteAccess[jf::siteAccessKey(jf::RegionId::AshboughForest, "ashbough_verge")] =
+            jf::SiteAccessState::Secured;
+        assert(app.currentSiteAccess() == jf::SiteAccessState::Secured);
+        // AshboughForestDeepest isn't unlocked yet (AshboughForestDeep not cleared).
+        assert(!app.startDeepLayerExpeditionFromSecuredSite(jf::RegionId::AshboughForestDeepest));
+
+        assert(app.startDeepLayerExpeditionFromSecuredSite(jf::RegionId::AshboughForestDeep));
+        assert(app.screen() == jf::Screen::Exploration);
+        assert(app.expedition().regionId == jf::RegionId::AshboughForestDeep);
+    }
+
+    {
+        // docs/deep_layers.md「拠点発展のLv化」: Lv10->Lv15(中継拠点)/Lv15->
+        // Lv20(最奥拠点)の新設チェックポイント。ゲートは灰枝の森・深層/最深層
+        // の安全帰還(completedRegionIds)のみ(Discoveryなし)、コストは
+        // 深層限定の共通素材(ashbough_deep_core)。
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        jf::BaseState& base = const_cast<jf::BaseState&>(app.baseState());
+        base.outpostLevel = 10;
+        assert(app.baseState().outpostStage() == jf::OutpostStage::PioneerCity);
+
+        const jf::OutpostLevelCheckpoint* checkpoint = jf::activeOutpostLevelCheckpoint(base.outpostLevel);
+        assert(checkpoint != nullptr && checkpoint->level == 15);
+        assert(!jf::outpostCheckpointGateMet(base, *checkpoint)); // AshboughForestDeep not cleared yet
+        assert(!app.advanceOutpostLevel());
+
+        base.completedRegionIds.insert(jf::RegionId::AshboughForestDeep);
+        assert(jf::outpostCheckpointGateMet(base, *checkpoint));
+        assert(!app.advanceOutpostLevel()); // gate met, but no ashbough_deep_core in storage yet
+        base.addStorage("ashbough_deep_core", 100); // Lv10->15 total cost: 6*(5+4+3+2+1)=90
+        for (int level = 10; level < 15; ++level) assert(app.advanceOutpostLevel());
+        assert(app.baseState().outpostLevel == 15);
+        assert(app.baseState().outpostStage() == jf::OutpostStage::RelayOutpost);
+
+        checkpoint = jf::activeOutpostLevelCheckpoint(app.baseState().outpostLevel);
+        assert(checkpoint != nullptr && checkpoint->level == 20);
+        assert(!app.advanceOutpostLevel()); // AshboughForestDeepest not cleared yet
+        base.completedRegionIds.insert(jf::RegionId::AshboughForestDeepest);
+        base.addStorage("ashbough_deep_core", 200); // Lv15->20 total cost: 8*(5+4+3+2+1)=120
+        for (int level = 15; level < 20; ++level) assert(app.advanceOutpostLevel());
+        assert(app.baseState().outpostLevel == 20);
+        assert(app.baseState().outpostStage() == jf::OutpostStage::OutermostOutpost);
+        assert(jf::activeOutpostLevelCheckpoint(app.baseState().outpostLevel) == nullptr);
+        assert(!app.advanceOutpostLevel()); // at kMaxImplementedOutpostLevel
+    }
+
+    {
         // docs/regions/cinderwatch_gate.md「地域の最低保証報酬」: a missed
         // Discovery (ironwatch_stores' 野戦医療記録, only granted via the
         // FrontalAdvance route) is caught up at region completion.
@@ -1891,26 +2002,30 @@ int main() {
         testBase.unlockedNodeIds.insert("craft_command_sword");
         assert(app.weaponLevel("command_sword") == 1); // still Lv1: crafted, not yet strengthened
 
-        // Lv2 cost: promoted primary quality_iron x2 + class special quality_iron x1.
+        // Lv2 cost: promoted primary quality_iron x2 + class special (地域素材
+        // 接続後のMarchCaptainのotherA) belliron_chip x1.
         assert(!app.strengthenWeapon("command_sword")); // no materials yet
-        testBase.addStorage("quality_iron", 3);
+        testBase.addStorage("quality_iron", 2);
+        testBase.addStorage("belliron_chip", 1);
         assert(app.strengthenWeapon("command_sword"));
         assert(app.weaponLevel("command_sword") == 2);
         assert(testBase.storageCount("quality_iron") == 0);
+        assert(testBase.storageCount("belliron_chip") == 0);
 
-        // Lv3: quality_iron x5.
-        testBase.addStorage("quality_iron", 4); // deliberately short by 1
+        // Lv3: quality_iron x3, belliron_chip x2.
+        testBase.addStorage("quality_iron", 2); // deliberately short by 1
+        testBase.addStorage("belliron_chip", 2);
         assert(!app.strengthenWeapon("command_sword"));
         assert(app.weaponLevel("command_sword") == 2); // unchanged, nothing partially spent
-        assert(testBase.storageCount("quality_iron") == 4); // untouched
+        assert(testBase.storageCount("quality_iron") == 2); // untouched
         testBase.addStorage("quality_iron", 1);
         assert(app.strengthenWeapon("command_sword"));
         assert(app.weaponLevel("command_sword") == 3);
 
-        // Lv4: quality_iron x3, hardwood x1, military_supplies x1.
+        // Lv4: quality_iron x3, hardwood x1, weathered_cord x1 (otherB).
         testBase.addStorage("quality_iron", 3);
         testBase.addStorage("hardwood", 1);
-        testBase.addStorage("military_supplies", 1);
+        testBase.addStorage("weathered_cord", 1);
         assert(app.strengthenWeapon("command_sword"));
         assert(app.weaponLevel("command_sword") == 4);
 
@@ -1921,17 +2036,19 @@ int main() {
         assert(app.strengthenWeapon("command_sword"));
         assert(app.weaponLevel("command_sword") == 5);
 
-        // Lv5 -> Lv6 needs deep-layer materials not implemented in this Slice
-        // (weaponLevelUpCost() returns empty past Lv5) - strengthening stops
-        // here even with unlimited materials.
+        // Lv5 -> Lv6 needs a deep-layer region wired for MarchCaptain
+        // (DeepLayers.hpp only has FrontierScout/AshboughForest so far, per
+        // docs/deep_layers.md「実装順序案」#5's "1地域だけ先に縦通し"
+        // scoping) - strengthening stops here even with unlimited materials.
         testBase.addStorage("iron", 999);
         testBase.addStorage("wood", 999);
         testBase.addStorage("rare_material", 999);
         assert(!app.strengthenWeapon("command_sword"));
         assert(app.weaponLevel("command_sword") == 5);
 
-        // Cap: manually pinning a weapon at Lv15 (the eventual deep-layer
-        // ceiling) must refuse to strengthen further even if a cost existed.
+        // Cap: manually pinning a weapon at kMaxWeaponLevel (the deep-layer
+        // ceiling, Lv20) must refuse to strengthen further even if a cost
+        // existed.
         testBase.weaponLevels["command_sword"] = jf::BaseState::kMaxWeaponLevel;
         assert(!app.strengthenWeapon("command_sword"));
 
@@ -1941,6 +2058,77 @@ int main() {
         // resonant_focus/etc for all 12 classes, so this now uses a
         // deliberately nonexistent id instead.)
         assert(jf::weaponLevelUpCost("nonexistent_weapon_id", 2).empty());
+    }
+
+    {
+        // docs/deep_layers.md「深層限定素材の構成」(2026-07-31設計レビュー、
+        // 2段階遠征への整理後): FrontierScout/AshboughForest is the one
+        // deep-layer region wired so far (DeepLayers.hpp) - its own weapon/
+        // armor can strengthen past Lv5 up to the Lv20 ceiling using
+        // ashbough_deep_core, unlike command_sword/MarchCaptain above.
+        // Dungeon structure is 2 expeditions (深層/最深層), but 3 unique
+        // mid-boss materials remain (2 inside 深層, 1 in 最深層) at
+        // checkpoint Lv 9/13/20.
+        jf::GameData data = makeFactoryData();
+        data.playerParty[0].classId = jf::UnitClass::FrontierScout;
+        jf::GameApp app(data);
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        testBase.outpostLevel = 10;
+        testBase.unlockedNodeIds.insert("simple_forge");
+        testBase.constructedFacilityIds.insert("simple_forge");
+        testBase.weaponLevels["trail_blade"] = jf::BaseState::kMaxWeaponLevel - 1; // pretend already Lv19
+        testBase.unlockedNodeIds.insert("craft_trail_blade");
+
+        // Lv20 is 最深層's capstone level, so it additionally requires its
+        // mid-boss's unique material (ashenhorn_deep_relic) - farming
+        // ashbough_deep_core alone is not enough (ユーザー方針2026-07-31:
+        // 各ボスチェックポイントだけ撃破限定素材を追加要求する).
+        {
+            std::vector<jf::LootStack> lv20Cost = jf::weaponLevelUpCost("trail_blade", 20);
+            assert(lv20Cost.size() == 2);
+            assert(lv20Cost[0].id == "ashbough_deep_core" && lv20Cost[0].quantity == 16);
+            assert(lv20Cost[1].id == "ashenhorn_deep_relic" && lv20Cost[1].quantity == 1);
+        }
+        assert(!app.strengthenWeapon("trail_blade")); // no materials yet
+        testBase.addStorage("ashbough_deep_core", 16);
+        assert(!app.strengthenWeapon("trail_blade")); // still missing the 最深層 boss material
+        assert(app.weaponLevel("trail_blade") == jf::BaseState::kMaxWeaponLevel - 1);
+        testBase.addStorage("ashenhorn_deep_relic", 1);
+        assert(app.strengthenWeapon("trail_blade"));
+        assert(app.weaponLevel("trail_blade") == jf::BaseState::kMaxWeaponLevel);
+        assert(testBase.storageCount("ashbough_deep_core") == 0);
+        assert(testBase.storageCount("ashenhorn_deep_relic") == 0);
+
+        // Cap still applies past Lv20 even for the one wired deep-layer class.
+        assert(!app.strengthenWeapon("trail_blade"));
+
+        {
+            std::vector<jf::LootStack> lv6Cost = jf::weaponDeepLevelUpCost(jf::UnitClass::FrontierScout, 6);
+            assert(lv6Cost.size() == 1 && lv6Cost[0].id == "ashbough_deep_core" && lv6Cost[0].quantity == 2);
+        }
+        // Non-checkpoint levels never require a boss material - only Lv
+        // 9/13/20 (the 3 mid-boss checkpoints) do.
+        assert(!jf::weaponDeepLevelUpCost(jf::UnitClass::FrontierScout, 7).empty());
+        for (int lvl : {6, 7, 8, 10, 11, 12, 14, 15, 16, 17, 18, 19}) {
+            for (const jf::LootStack& stack : jf::weaponDeepLevelUpCost(jf::UnitClass::FrontierScout, lvl))
+                assert(stack.id == "ashbough_deep_core");
+        }
+        {
+            std::vector<jf::LootStack> lv9Cost = jf::weaponDeepLevelUpCost(jf::UnitClass::FrontierScout, 9);
+            assert(lv9Cost.size() == 2 && lv9Cost[1].id == "ashenhorn_deep_tusk" && lv9Cost[1].quantity == 1);
+        }
+        {
+            std::vector<jf::LootStack> lv13Cost = jf::weaponDeepLevelUpCost(jf::UnitClass::FrontierScout, 13);
+            assert(lv13Cost.size() == 2 && lv13Cost[1].id == "ashenhorn_deep_horn" && lv13Cost[1].quantity == 1);
+        }
+        // docs/deep_layers.md: all 12 classes' deep-layer regions are now
+        // wired in data/deep_layers.json (materials designed via the
+        // deep_layer_materials_prompt.md pass) - VeteranGuard's own region
+        // (ShatteredMarchFort) now resolves too, using its own deep material.
+        {
+            std::vector<jf::LootStack> lv6Cost = jf::weaponDeepLevelUpCost(jf::UnitClass::VeteranGuard, 6);
+            assert(lv6Cost.size() == 1 && lv6Cost[0].id == "shattered_fort_deep_core" && lv6Cost[0].quantity == 2);
+        }
     }
 
     {
@@ -1959,14 +2147,15 @@ int main() {
         testBase.unlockedNodeIds.insert("craft_bulwark_maul");
 
         // Lv1 recipe: iron x2, wood x1. Heavy Infantry promotes iron to
-        // heat_resistant_material, then adds class special quality_iron.
+        // heat_resistant_material, then adds class special (地域素材接続後は
+        // veinstone_powder) x1.
         assert(!app.strengthenWeapon("bulwark_maul")); // no materials yet
         testBase.addStorage("heat_resistant_material", 2);
-        testBase.addStorage("quality_iron", 1);
+        testBase.addStorage("veinstone_powder", 1);
         assert(app.strengthenWeapon("bulwark_maul"));
         assert(app.weaponLevel("bulwark_maul") == 2);
         assert(testBase.storageCount("heat_resistant_material") == 0);
-        assert(testBase.storageCount("quality_iron") == 0);
+        assert(testBase.storageCount("veinstone_powder") == 0);
     }
 
     {
@@ -2096,33 +2285,39 @@ int main() {
         testBase.unlockedNodeIds.insert("craft_armor_march_captain_tier1");
         assert(app.armorLevel("armor_march_captain_tier1") == 1); // crafted, not yet strengthened
 
-        // Lv2 cost: promoted quality_iron x2.
+        // Lv2 cost: promoted quality_iron x1 + class special (地域素材接続後は
+        // belliron_chip) x1.
         assert(!app.strengthenArmor("armor_march_captain_tier1")); // no materials yet
-        testBase.addStorage("quality_iron", 2);
+        testBase.addStorage("quality_iron", 1);
+        testBase.addStorage("belliron_chip", 1);
         assert(app.strengthenArmor("armor_march_captain_tier1"));
         assert(app.armorLevel("armor_march_captain_tier1") == 2);
         assert(testBase.storageCount("quality_iron") == 0);
+        assert(testBase.storageCount("belliron_chip") == 0);
 
-        // Lv3: quality_iron x3, military_supplies x1.
-        testBase.addStorage("quality_iron", 3);
-        // Deliberately short by 1 military_supplies.
+        // Lv3: quality_iron x2, belliron_chip x1, weathered_cord x1.
+        testBase.addStorage("quality_iron", 2);
+        testBase.addStorage("belliron_chip", 1);
+        // Deliberately short by 1 weathered_cord.
         assert(!app.strengthenArmor("armor_march_captain_tier1"));
         assert(app.armorLevel("armor_march_captain_tier1") == 2); // unchanged, nothing partially spent
-        assert(testBase.storageCount("quality_iron") == 3); // untouched
-        testBase.addStorage("military_supplies", 1);
+        assert(testBase.storageCount("quality_iron") == 2); // untouched
+        testBase.addStorage("weathered_cord", 1);
         assert(app.strengthenArmor("armor_march_captain_tier1"));
         assert(app.armorLevel("armor_march_captain_tier1") == 3);
 
-        // Lv4: quality_iron x4, military_supplies x1, cloth x1.
-        testBase.addStorage("quality_iron", 4);
-        testBase.addStorage("military_supplies", 1);
-        testBase.addStorage("cloth", 1);
+        // Lv4: quality_iron x2, belliron_chip x2, weathered_cord x1, watchglass_shard x1.
+        testBase.addStorage("quality_iron", 2);
+        testBase.addStorage("belliron_chip", 2);
+        testBase.addStorage("weathered_cord", 1);
+        testBase.addStorage("watchglass_shard", 1);
         assert(app.strengthenArmor("armor_march_captain_tier1"));
         assert(app.armorLevel("armor_march_captain_tier1") == 4);
 
-        // Lv5: quality_iron x4, military_supplies x1, rare_material x2.
-        testBase.addStorage("quality_iron", 4);
-        testBase.addStorage("military_supplies", 1);
+        // Lv5: quality_iron x2, belliron_chip x2, weathered_cord x1, rare_material x2.
+        testBase.addStorage("quality_iron", 2);
+        testBase.addStorage("belliron_chip", 2);
+        testBase.addStorage("weathered_cord", 1);
         testBase.addStorage("rare_material", 2);
         assert(app.strengthenArmor("armor_march_captain_tier1"));
         assert(app.armorLevel("armor_march_captain_tier1") == 5);
@@ -2135,8 +2330,8 @@ int main() {
         assert(!app.strengthenArmor("armor_march_captain_tier1"));
         assert(app.armorLevel("armor_march_captain_tier1") == 5);
 
-        // Cap: manually pinning an armor at Lv15 must refuse to strengthen
-        // further even if a cost existed.
+        // Cap: manually pinning an armor at kMaxArmorLevel (Lv20) must refuse
+        // to strengthen further even if a cost existed.
         testBase.armorLevels["armor_march_captain_tier1"] = jf::BaseState::kMaxArmorLevel;
         assert(!app.strengthenArmor("armor_march_captain_tier1"));
 
@@ -2194,10 +2389,10 @@ int main() {
         testBase.unlockedNodeIds.insert("craft_armor_battle_mage_tier2");
 
         // Lv1 recipe: ruin_fragment x2. Lv2 cost: ruin_fragment x1,
-        // ash_crystal x1.
+        // class special (地域素材接続後はember_shell) x1.
         assert(!app.strengthenArmor("armor_battle_mage_tier2")); // no materials yet
         testBase.addStorage("ruin_fragment", 1);
-        testBase.addStorage("ash_crystal", 1);
+        testBase.addStorage("ember_shell", 1);
         assert(app.strengthenArmor("armor_battle_mage_tier2"));
         assert(app.armorLevel("armor_battle_mage_tier2") == 2);
         assert(testBase.storageCount("ruin_fragment") == 0);
@@ -2239,8 +2434,84 @@ int main() {
         jf::applyStatusEffect(battle, battle.units()[0], jf::StatusEffectType::Poison);
         assert(battle.units()[0].poisonRemainingProcs == 0); // negated
         assert(battle.units()[0].firstStatusNegatesRemaining == 0);
+        // ユーザー要望「装飾品の無効化発動にもメッセージを」
+        assert(battle.accessoryNegate().unitId == "warded");
+        assert(battle.accessoryNegate().kind == jf::AccessoryNegateKind::Status);
+        const int negateEventIdAfterFirst = battle.accessoryNegate().eventId;
+        assert(negateEventIdAfterFirst != 0);
         jf::applyStatusEffect(battle, battle.units()[0], jf::StatusEffectType::Poison);
         assert(battle.units()[0].poisonRemainingProcs > 0); // applies normally now
+        assert(battle.accessoryNegate().eventId == negateEventIdAfterFirst); // no 2nd negate this time
+    }
+
+    {
+        // docs/implementation_status.md「装飾品(調整特性)拡張メモ」: the 4
+        // accessories added alongside Hide-Wrapped Grip/Ward Step (Scorch-
+        // Guard Wrap, Charm of Might, Sturdy Sash, Vital Charm) each apply a
+        // flat stat/counter bonus via GameApp::applyEquipmentTraits()/
+        // applyArmorBonus() - exercised end to end here (equip -> start a
+        // real expedition -> inspect the instantiated battle Unit), mirroring
+        // the armor-Lv-bonus test above rather than the direct-Unit-field
+        // style used for Hide-Wrapped Grip/Ward Step, since these have no
+        // dedicated lower-level function to call directly.
+        jf::GameData data = makeFactoryData();
+        data.playerParty[0].classId = jf::UnitClass::MarchCaptain;
+        jf::GameApp app(data);
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        testBase.unlockedNodeIds.insert("simple_forge");
+        testBase.constructedFacilityIds.insert("simple_forge");
+        testBase.unlockedNodeIds.insert("trait_scorch_guard_wrap");
+        testBase.unlockedNodeIds.insert("armor_trait_sturdy_sash");
+        assert(app.equipTuningTraitForUnit("player0", jf::TuningTraitId::ScorchGuardWrap));
+        assert(app.equipArmorTraitForUnit("player0", jf::ArmorTuningTraitId::SturdySash));
+
+        const int baseRes = data.classDefinition(jf::UnitClass::MarchCaptain).baseStats.resistance;
+        const int baseDef = data.classDefinition(jf::UnitClass::MarchCaptain).baseStats.defense;
+
+        assert(app.startExpedition(jf::RegionId::AshboughForest));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        bool found = false;
+        for (const jf::Unit& unit : app.battle().battle().units()) {
+            if (unit.id != "player0") continue;
+            found = true;
+            assert(unit.firstBurnNegatesRemaining == 1); // Scorch-Guard Wrap
+            // RES+1 from Scorch-Guard Wrap (weapon accessory) and RES+1 from
+            // Sturdy Sash (armor accessory) stack - separate accessory pools.
+            assert(unit.stats.resistance == baseRes + 2);
+            assert(unit.stats.defense == baseDef + 1); // Sturdy Sash
+        }
+        assert(found);
+    }
+
+    {
+        // Same as above, for the other 2 new accessories (Charm of Might /
+        // Vital Charm) - kept in a separate GameApp since only one weapon
+        // accessory and one armor accessory can be equipped at a time.
+        jf::GameData data = makeFactoryData();
+        data.playerParty[0].classId = jf::UnitClass::MarchCaptain;
+        jf::GameApp app(data);
+        jf::BaseState& testBase = const_cast<jf::BaseState&>(app.baseState());
+        testBase.unlockedNodeIds.insert("simple_forge");
+        testBase.constructedFacilityIds.insert("simple_forge");
+        testBase.unlockedNodeIds.insert("trait_charm_of_might");
+        testBase.unlockedNodeIds.insert("armor_trait_vital_charm");
+        assert(app.equipTuningTraitForUnit("player0", jf::TuningTraitId::CharmOfMight));
+        assert(app.equipArmorTraitForUnit("player0", jf::ArmorTuningTraitId::VitalCharm));
+
+        const int baseMight = data.weaponsById.at(data.classDefinition(jf::UnitClass::MarchCaptain).weaponId).might;
+        const int baseMaxHp = data.classDefinition(jf::UnitClass::MarchCaptain).baseStats.maxHp;
+
+        assert(app.startExpedition(jf::RegionId::AshboughForest));
+        assert(app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance));
+        bool found = false;
+        for (const jf::Unit& unit : app.battle().battle().units()) {
+            if (unit.id != "player0") continue;
+            found = true;
+            assert(unit.weapon.might == baseMight + 1); // Charm of Might
+            assert(unit.stats.maxHp == baseMaxHp + 3);   // Vital Charm
+            assert(unit.currentHp == unit.stats.maxHp);  // full HP, so +3 shows on current too
+        }
+        assert(found);
     }
 
     {
@@ -2262,6 +2533,10 @@ int main() {
         battle.applyKnockback(battle.units()[0], battle.units()[1]);
         assert((battle.units()[1].position == jf::GridPos{1, 3})); // unmoved
         assert(battle.units()[1].knockbackNegatesRemaining == 0);
+        // ユーザー要望「装飾品の無効化発動にもメッセージを」
+        assert(battle.accessoryNegate().unitId == "defender");
+        assert(battle.accessoryNegate().kind == jf::AccessoryNegateKind::Knockback);
+        assert(battle.accessoryNegate().eventId != 0);
     }
 
     {
@@ -2894,10 +3169,9 @@ int main() {
         jf::applyPoison(boss);
         assert(boss.poisonRemainingProcs == 2); // ボス補正: 3回ではなく2回
 
-        jf::applyBurn(unit);
-        assert(unit.burnRemainingProcs == 2);
-
         jf::BattleState soloBattle({unit});
+        jf::applyBurn(soloBattle, soloBattle.units()[0]);
+        assert(soloBattle.units()[0].burnRemainingProcs == 2);
         jf::applyMoveDown(soloBattle, soloBattle.units()[0]);
         assert(soloBattle.units()[0].moveDownActive);
         assert(soloBattle.units()[0].effectiveMove() == unit.stats.move - 2);
@@ -2961,6 +3235,12 @@ int main() {
         assert(battle.units()[0].poisonRemainingProcs == 2);
         assert(!battle.units()[0].moveDownActive);
         assert(battle.units()[1].moveDownActive); // enemy untouched by Player Phase end
+        // ユーザー要望「毒・炎上の継続ダメージにもメッセージを」
+        assert(battle.statusTickDamage().size() == 1);
+        assert(battle.statusTickDamage()[0].unitId == "player");
+        assert(battle.statusTickDamage()[0].damage == 2);
+        assert(battle.statusTickDamage()[0].kind == jf::StatusTickKind::Poison);
+        assert(battle.statusTickEventId() != 0);
 
         jf::processPhaseEndStatusEffects(battle, jf::Team::Player);
         assert(battle.units()[0].currentHp == 1); // still floored, never a defeat via poison
@@ -2979,7 +3259,11 @@ int main() {
         // clears every unit completely, immunity included.
         jf::Unit unit = makeUnit("cured", jf::Team::Player, {1, 0});
         jf::applyPoison(unit);
-        jf::applyBurn(unit);
+        {
+            jf::BattleState tmp({unit});
+            jf::applyBurn(tmp, tmp.units()[0]);
+            unit = tmp.units()[0];
+        }
         unit.moveDownActive = true; // not testing applyMoveDown() itself here, just the cure
         jf::applyDefenseDown(unit);
         unit.staggerImmune = true;
@@ -3264,6 +3548,7 @@ int main() {
         assert(contains(controller.skillTargetTiles(), jf::GridPos{1, 2})); // adjacent ally
         assert(!contains(controller.skillTargetTiles(), jf::GridPos{1, 0})); // out of range
 
+        const std::uint64_t skillEventIdBefore = controller.skillEventId();
         assert(controller.selectSkillTarget(jf::GridPos{1, 2}));
         const jf::Unit* healed = controller.battle().findUnit("adjacentAlly");
         assert(healed->burnRemainingProcs == 0 && !healed->moveDownActive && !healed->defenseDownActive &&
@@ -3271,6 +3556,13 @@ int main() {
         // Untouched: self wasn't the chosen target, and the out-of-range ally.
         assert(controller.battle().findUnit("medic")->poisonRemainingProcs == 2);
         assert(controller.battle().findUnit("farAlly")->poisonRemainingProcs == 3);
+
+        // ユーザー要望「スキル発動時のメッセージも表示して」: markActionResolved()
+        // stamps the user/skill id + bumps skillEventId() exactly once per
+        // player skill use, for ui_battle.cpp's message-banner polling.
+        assert(controller.skillEventId() == skillEventIdBefore + 1);
+        assert(controller.lastSkillUserId() == "medic");
+        assert(controller.lastSkillId() == "cleanse");
     }
 
     {
@@ -4713,6 +5005,31 @@ int main() {
         assert(attacked == controller.battle().findUnit("guard"));
         assert(controller.battle().findUnit("nearPlayer")->currentHp ==
                controller.battle().findUnit("nearPlayer")->stats.maxHp);
+    }
+
+    {
+        // ユーザー要望「敵もお願い(スキル発動メッセージ)」:
+        // BattleState::lastEnemyActionKind() (stamped by EnemyAI.cpp's
+        // finishEnemyAction() choke point) must read Skill for a Support/heal
+        // action (attacked stays null - no attack target), and Attack for a
+        // plain attack (established behavior, checked here for contrast).
+        jf::Unit healer =
+            makeUnit("enemy_healer", jf::Team::Enemy, {1, 0}, 4, jf::UnitClass::DawnChirurgeon);
+        jf::Unit wounded = makeUnit("wounded_ally", jf::Team::Enemy, {1, 1});
+        wounded.currentHp = wounded.stats.maxHp - 10;
+        jf::Unit farPlayer = makeUnit("far_player", jf::Team::Player, {6, 6}); // keeps battle from auto-Victory
+        jf::BattleState battle({healer, wounded, farPlayer});
+        jf::Unit* attacked = jf::takeEnemyTurn(battle, battle.units()[0]);
+        assert(attacked == nullptr); // Support actions never report an attack target
+        assert(battle.lastEnemyActionKind() == jf::ActionKind::Skill);
+        assert(battle.findUnit("wounded_ally")->currentHp > wounded.stats.maxHp - 10); // actually healed
+
+        jf::Unit meleeAttacker = makeUnit("melee_attacker", jf::Team::Enemy, {1, 1});
+        jf::Unit adjacentTarget = makeUnit("adjacent_target", jf::Team::Player, {1, 2});
+        jf::BattleState attackBattle({meleeAttacker, adjacentTarget});
+        jf::Unit* attackedTarget = jf::takeEnemyTurn(attackBattle, attackBattle.units()[0]);
+        assert(attackedTarget == &attackBattle.units()[1]);
+        assert(attackBattle.lastEnemyActionKind() == jf::ActionKind::Attack);
     }
 
     {
@@ -6272,7 +6589,11 @@ int main() {
         // region-clear stub). A later Slice added a 10th (MappedEdge,
         // ShatteredMarchFort's own region-clear stub - the 10th and FINAL
         // region of the whole campaign).
-        assert(summaries.size() == 10);
+        // docs/deep_layers.md added 2 more (AshboughForestDeep/
+        // AshboughForestDeepest) - a side branch off AshboughForest, not
+        // part of the main 10-region chain, but still listed here since
+        // computeRegionSummaries() covers every RegionId.
+        assert(summaries.size() == 12);
         bool sawAshboughUnlocked = false, sawCinderwatchLocked = false, sawAshironLocked = false;
         for (const auto& summary : summaries) {
             if (summary.id == jf::RegionId::AshboughForest) sawAshboughUnlocked = summary.unlocked;
@@ -11367,6 +11688,12 @@ int main() {
         assert(controller.battle().cooperationUsedThisBattle());
         assert(controller.inputState() == jf::BattleInputState::SelectUnit);
 
+        // ユーザー要望「連携作戦の発動自体にもメッセージを」: cooperationEventId()
+        // bumps exactly once for an immediate-effect pair (chooseCooperation()'s
+        // own tail, not the target-selecting selectCooperationTarget() path).
+        assert(controller.cooperationEventId() == 1);
+        assert(controller.lastCooperationId() == "paired_fallback_line");
+
         // Second unit's turn: already used this battle, so unavailable even
         // though gareth is also one of the pair.
         controller.selectUnit(controller.battle().units()[1]); // gareth
@@ -11465,18 +11792,44 @@ int main() {
         assert(controller.inputState() == jf::BattleInputState::SelectUnit);
     }
     {
-        // paired_cross_observation stays registered but never resolves to a
-        // battle effect (deferred gap - see Cooperation.hpp's own comment).
+        // paired_cross_observation (交差観測): now implemented via a
+        // throwaway BattleState clone (docs/implementation_status.md「装飾品
+        // 拡張メモ」の後に対応した別件、ユーザー提案の"既存戦闘メッセージへ
+        // 出す"方式) - target an enemy within range 3, run its own
+        // takeEnemyTurn() on the clone, and stamp the result onto
+        // BattleState::cooperationReveal() without touching the real battle.
         jf::Unit erin = makeUnit("erin", jf::Team::Player, {1, 0}, 4, jf::UnitClass::WatchArcher);
         jf::Unit scoutReserve = makeUnit("scout_reserve", jf::Team::Player, {1, 1}, 4, jf::UnitClass::FrontierScout);
-        jf::BattleController controller(jf::BattleState({erin, scoutReserve}));
+        jf::Unit enemy = makeUnit("enemy", jf::Team::Enemy, {1, 2});
+        jf::BattleController controller(jf::BattleState({erin, scoutReserve, enemy}));
         controller.battle().setEquippedCooperationId("paired_cross_observation");
-        controller.selectUnit(controller.battle().units()[0]);
+        controller.selectUnit(controller.battle().units()[0]); // erin (the actor)
         controller.selectMoveTile(controller.battle().units()[0].position);
-        assert(!controller.canUseCooperation());
-        controller.chooseCooperation(); // no-op
-        assert(controller.inputState() == jf::BattleInputState::SelectAction);
-        assert(!controller.battle().cooperationUsedThisBattle());
+        assert(controller.canUseCooperation());
+        controller.chooseCooperation();
+        assert(controller.inputState() == jf::BattleInputState::SelectCooperationTarget);
+        assert(!controller.cooperationTargetTiles().empty());
+        const jf::GridPos enemyPos = controller.battle().findUnit("enemy")->position;
+        assert(std::find(controller.cooperationTargetTiles().begin(), controller.cooperationTargetTiles().end(),
+                         enemyPos) != controller.cooperationTargetTiles().end());
+
+        const int revealIdBefore = controller.battle().cooperationReveal().revealId;
+        controller.selectCooperationTarget(enemyPos);
+        assert(controller.battle().cooperationUsedThisBattle());
+        const jf::CooperationRevealResult& reveal = controller.battle().cooperationReveal();
+        assert(reveal.targetEnemyId == "enemy");
+        assert(reveal.revealId != revealIdBefore);
+        // scout_reserve sits adjacent to the enemy (distance 1), so the
+        // preview's AI turn should predict a real, in-range attack rather
+        // than a move/wait.
+        assert(reveal.willAttack);
+        assert(reveal.attackTargetId == "erin" || reveal.attackTargetId == "scout_reserve");
+        // The real battle itself must be untouched by the preview clone: the
+        // enemy hasn't actually acted and neither player unit took damage.
+        assert(!controller.battle().findUnit("enemy")->hasActed);
+        assert(controller.battle().findUnit("erin")->currentHp == controller.battle().findUnit("erin")->stats.maxHp);
+        assert(controller.battle().findUnit("scout_reserve")->currentHp ==
+              controller.battle().findUnit("scout_reserve")->stats.maxHp);
     }
     {
         // Unlock gating (jf::isCooperationUnlocked()): approximated onto
@@ -13186,8 +13539,14 @@ int main() {
         jf::BattleState battle({onFire, cooled}, terrain);
         jf::Unit* onFireUnit = battle.findUnit("on_fire");
         jf::Unit* cooledUnit = battle.findUnit("cooled");
-        jf::applyBurn(*cooledUnit); // pre-existing Burn, standing on CoolFloor
+        jf::applyBurn(battle, *cooledUnit); // pre-existing Burn, standing on CoolFloor
         jf::processActionEndStatusEffects(battle, *onFireUnit);
+        // ユーザー要望「毒・炎上の継続ダメージにもメッセージを」: FireFloor's
+        // applyBurn() grants a fresh charge, then the very same
+        // processActionEndStatusEffects() call immediately ticks its damage.
+        assert(battle.statusTickDamage().size() == 1);
+        assert(battle.statusTickDamage()[0].unitId == "on_fire");
+        assert(battle.statusTickDamage()[0].kind == jf::StatusTickKind::Burn);
         jf::processActionEndStatusEffects(battle, *cooledUnit);
         assert(onFireUnit->burnRemainingProcs > 0); // FireFloor's guaranteed Burn
         assert(cooledUnit->burnRemainingProcs == 0); // CoolFloor cleared it before damage
@@ -13200,11 +13559,12 @@ int main() {
         // second behaves normally.
         jf::Unit lizard = makeUnit("lizard", jf::Team::Enemy, {0, 0});
         lizard.firstBurnNegatesRemaining = 1;
-        jf::applyBurn(lizard);
-        assert(lizard.burnRemainingProcs == 0);
-        assert(lizard.firstBurnNegatesRemaining == 0);
-        jf::applyBurn(lizard);
-        assert(lizard.burnRemainingProcs > 0);
+        jf::BattleState lizardBattle({lizard});
+        jf::applyBurn(lizardBattle, lizardBattle.units()[0]);
+        assert(lizardBattle.units()[0].burnRemainingProcs == 0);
+        assert(lizardBattle.units()[0].firstBurnNegatesRemaining == 0);
+        jf::applyBurn(lizardBattle, lizardBattle.units()[0]);
+        assert(lizardBattle.units()[0].burnRemainingProcs > 0);
     }
 
     {

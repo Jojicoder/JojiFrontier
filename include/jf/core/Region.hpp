@@ -356,6 +356,17 @@ struct RegionDescriptor {
 // `data` at all.
 RegionDescriptor regionDescriptor(RegionId id, const GameData& data);
 
+// docs/deep_layers.md「全体構成」: 深層/最深層はRegionId/RouteGraphを持たない
+// 単純な連続戦闘リスト(ルート構造なし)。RegionDescriptorへ包まず生の
+// std::vector<StageDescriptor>を返すのはこのため - 呼び出し側は
+// createScenarioBattle()/createScenarioContinuationBattle()へ直接渡し、
+// 各戦闘後にDeepLayerScaling.hppの倍率をBattleStateへ後掛けする
+// (jf_forest_balanceの--deep=<region>:<deep|deepest>モードが実装例)。
+// 現状は「1地域だけ先に縦通しを作る」方針により灰枝の森(AshboughForest)のみ。
+// 深層: ザコ戦2回+ボス2体(計4戦)、最深層: ザコ戦1回+ボス1体(計2戦)。
+std::vector<StageDescriptor> ashboughForestDeepStages();
+std::vector<StageDescriptor> ashboughForestDeepestStages();
+
 // Stable ASCII ids for save data (docs/save_system.md's ID-not-string-name
 // convention). An unrecognized string falls back to CinderwatchGate, same
 // as a save file predating this field entirely.

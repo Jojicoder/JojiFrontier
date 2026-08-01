@@ -80,6 +80,15 @@ enum class RegionId {
     // precedent, a stub region does NOT get a real RouteGraph entry (
     // `usesRouteGraph()`) until its own first content Slice builds one.
     MappedEdge,
+    // docs/deep_layers.md「全体構成」: 灰枝の森(AshboughForest)の深層/最深層。
+    // 本編10地域の直線チェーン(regionUnlocked())には含めない - AshboughForest
+    // 安全帰還後にAshboughForestDeepが、AshboughForestDeep安全帰還後に
+    // AshboughForestDeepestが解放される、本編とは独立した支線として扱う
+    // (Region.cpp regionUnlocked()参照)。RouteGraphは持たない(RouteGraph.cpp
+    // のroutesByRegionに未登録 - usesRouteGraph()が自動的にfalseを返し、
+    // ExpeditionService.cppの素朴なstageIndex連番進行がそのまま使われる)。
+    AshboughForestDeep,
+    AshboughForestDeepest,
 };
 
 using LootId = std::string;
@@ -105,7 +114,13 @@ enum class OutpostStage {
     Encampment = 0,      // 野営地
     PioneerOutpost = 1,  // 開拓拠点
     FrontierSettlement = 2, // 辺境集落
-    PioneerCity = 3       // 開拓都市
+    PioneerCity = 3,      // 開拓都市
+    // docs/deep_layers.md「拠点発展のLv化」: Lv15/Lv20の新設段階(それぞれ
+    // 深層/最深層の踏破が解放条件)。既存4段階と同じ「requiredStageで比較
+    // されるアクセス上限」の位置づけで、現状これらのLvをrequiredStageとする
+    // 施設ノードはまだ存在しない(将来の拡張余地)。
+    RelayOutpost = 4,     // 中継拠点(Lv15)
+    OutermostOutpost = 5  // 最奥拠点(Lv20)
 };
 
 // The 司令所 and 宿舎 initial nodes are core-loop facilities that never cost a
@@ -180,13 +195,15 @@ struct BaseState {
 
     static constexpr int kMinOutpostLevel = 1;
     static constexpr int kMaxOutpostLevel = 20;
-    // This Slice (M10-D) only implements the Lv1->Lv10 climb (deep_layers.md's
-    // existing 3-stage model, reindexed onto Lv1/3/6/10 checkpoints). Lv10-15
-    // ("中継拠点") and Lv15-20 ("最奥拠点") are reserved numeric range only,
-    // pending deep-layer content that doesn't exist yet - intentionally out
-    // of scope per docs/deep_layers.md「未確定事項」and this milestone's own
-    // scoping. Nothing in code ever sets outpostLevel above this value.
-    static constexpr int kMaxImplementedOutpostLevel = 10;
+    // M10-D implemented the Lv1->Lv10 climb (deep_layers.md's existing
+    // 3-stage model, reindexed onto Lv1/3/6/10 checkpoints). This later
+    // Slice added Lv10->Lv15("中継拠点")/Lv15->Lv20("最奥拠点"), gated by the
+    // AshboughForest深層/最深層プロトタイプの安全帰還(docs/deep_layers.md
+    // 「拠点発展のLv化」) - a single-region gate for now, matching the deep
+    // layers' own "1地域だけ先に縦通しを作る" implementation-order policy
+    // (deepLayerMaterialsByClass()と同じ前提)。他地域へ深層を横展開する際は
+    // outpostLevelCheckpoints()のゲート条件を「N地域踏破」へ拡張する。
+    static constexpr int kMaxImplementedOutpostLevel = 20;
 
     // Derives the old 4-value stage from the new Lv field, so every existing
     // `requiredStage`-gated check elsewhere in the codebase (Facilities.hpp,
@@ -194,6 +211,8 @@ struct BaseState {
     // once a save reaches the corresponding Lv (docs/deep_layers.md's own
     // Lv1=野営地, Lv3+=開拓拠点, Lv6+=辺境集落, Lv10+=開拓都市 mapping).
     OutpostStage outpostStage() const {
+        if (outpostLevel >= 20) return OutpostStage::OutermostOutpost;
+        if (outpostLevel >= 15) return OutpostStage::RelayOutpost;
         if (outpostLevel >= 10) return OutpostStage::PioneerCity;
         if (outpostLevel >= 6) return OutpostStage::FrontierSettlement;
         if (outpostLevel >= 3) return OutpostStage::PioneerOutpost;
@@ -295,7 +314,14 @@ struct BaseState {
     // ない" without needing a separate per-instance identity scheme.
     std::unordered_map<std::string, int> weaponLevels;
 
-    static constexpr int kMaxWeaponLevel = 15;
+    // docs/deep_layers.md「深層限定素材の構成」: raised from 15 to 20
+    // (2026-07-31 design review). Briefly went to 25 with a 3-expedition
+    // "層1/2/3" dungeon split, but the dungeon structure was simplified to
+    // 2 expeditions (深層/最深層) to avoid over-scoping deep-layer content -
+    // settled on 20 as the matching equipment ceiling, while still keeping 3
+    // unique mid-boss materials (2 inside 深層, 1 in 最深層 - see
+    // DeepLayers.hpp).
+    static constexpr int kMaxWeaponLevel = 20;
 
     int weaponLevel(const std::string& weaponId) const {
         auto it = weaponLevels.find(weaponId);
@@ -310,7 +336,9 @@ struct BaseState {
     // one physical copy of a given armor id in play.
     std::unordered_map<std::string, int> armorLevels;
 
-    static constexpr int kMaxArmorLevel = 15;
+    // docs/deep_layers.md「深層限定素材の構成」: raised from 15 to 20 in
+    // lockstep with kMaxWeaponLevel above (2026-07-31 design review).
+    static constexpr int kMaxArmorLevel = 20;
 
     int armorLevel(const std::string& armorId) const {
         auto it = armorLevels.find(armorId);
@@ -625,40 +653,60 @@ inline constexpr const char* kGroupTriageRecordsDiscovery = "fort_old_barracks_g
 // kGroupTriageRecordsDiscovery above.
 inline constexpr const char* kLogisticsManagementRecordsDiscovery = "fort_logistics_depot_management_records";
 
-// Forge tuning traits, tracked as an id rather than a free string so a typo
-// can't silently create an unrecognized "equipped" trait.
+// Forge tuning traits ("装飾品"/accessories), tracked as an id rather than a
+// free string so a typo can't silently create an unrecognized "equipped"
+// trait. All 3 are class-generic (any class may equip any of them) -
+// per-class accessories are a separate, larger catalog still in design.
 enum class TuningTraitId {
     None,
-    HideWrappedGrip
+    HideWrappedGrip,
+    ScorchGuardWrap,
+    CharmOfMight
 };
 
 // String form is only for save-file/JSON stability; runtime code should
 // pass TuningTraitId around, not strings.
 inline std::string tuningTraitIdToString(TuningTraitId id) {
-    return id == TuningTraitId::HideWrappedGrip ? "hide_wrapped_grip" : "";
+    switch (id) {
+        case TuningTraitId::HideWrappedGrip: return "hide_wrapped_grip";
+        case TuningTraitId::ScorchGuardWrap: return "scorch_guard_wrap";
+        case TuningTraitId::CharmOfMight: return "charm_of_might";
+        default: return "";
+    }
 }
 
 inline TuningTraitId tuningTraitIdFromString(const std::string& value) {
-    return value == "hide_wrapped_grip" ? TuningTraitId::HideWrappedGrip : TuningTraitId::None;
+    if (value == "hide_wrapped_grip") return TuningTraitId::HideWrappedGrip;
+    if (value == "scorch_guard_wrap") return TuningTraitId::ScorchGuardWrap;
+    if (value == "charm_of_might") return TuningTraitId::CharmOfMight;
+    return TuningTraitId::None;
 }
 
 // M10-B (docs/deep_layers.md「防具用調整特性」): a SEPARATE trait pool from
 // weapon TuningTraitId above, same "product crafted from materials -> shared
-// warehouse -> equip/unequip" mechanism reused. `WardStep` is this Slice's
-// single proof-of-mechanism entry ("戦闘ごとに最初の状態異常を1回無効", the
-// design doc's own worked example) - a full armor trait catalog is out of
-// scope per the doc's own comparison to the small weapon trait catalog.
+// warehouse -> equip/unequip" mechanism reused. Class-generic, same as the
+// weapon pool above.
 enum class ArmorTuningTraitId {
     None,
-    WardStep
+    WardStep,
+    SturdySash,
+    VitalCharm
 };
 
 inline std::string armorTuningTraitIdToString(ArmorTuningTraitId id) {
-    return id == ArmorTuningTraitId::WardStep ? "ward_step" : "";
+    switch (id) {
+        case ArmorTuningTraitId::WardStep: return "ward_step";
+        case ArmorTuningTraitId::SturdySash: return "sturdy_sash";
+        case ArmorTuningTraitId::VitalCharm: return "vital_charm";
+        default: return "";
+    }
 }
 
 inline ArmorTuningTraitId armorTuningTraitIdFromString(const std::string& value) {
-    return value == "ward_step" ? ArmorTuningTraitId::WardStep : ArmorTuningTraitId::None;
+    if (value == "ward_step") return ArmorTuningTraitId::WardStep;
+    if (value == "sturdy_sash") return ArmorTuningTraitId::SturdySash;
+    if (value == "vital_charm") return ArmorTuningTraitId::VitalCharm;
+    return ArmorTuningTraitId::None;
 }
 
 // Data-driven eligibility check (docs/base_development.md: "解放条件はUIに
@@ -729,12 +777,21 @@ inline const std::vector<OutpostLevelCheckpoint>& outpostLevelCheckpoints() {
         // amount as a minimum guarantee on region clear).
         {10, 6, RegionId::BuriedDawnSanctum, kMedicalCodexDiscovery,
          {{"building_material", 6}, {"stone", 4}, {"quality_iron", 2}}},
+        // 開拓都市→中継拠点(Lv15、新設): docs/deep_layers.md「拠点発展の
+        // Lv化」。ゲートは灰枝の森・深層(RegionId::AshboughForestDeep)の
+        // 安全帰還(completedRegionIds) - gateDiscoveryは使わないため空文字
+        // (Lv3チェックポイントと同じ特別扱い、outpostCheckpointGateMet()
+        // 参照)。コストは深層限定の共通素材(ashbough_deep_core)のみ。
+        {15, 10, RegionId::AshboughForestDeep, "", {{"ashbough_deep_core", 6}}},
+        // 中継拠点→最奥拠点(Lv20、新設): 灰枝の森・最深層
+        // (RegionId::AshboughForestDeepest)の安全帰還がゲート。
+        {20, 15, RegionId::AshboughForestDeepest, "", {{"ashbough_deep_core", 8}}},
     };
     return kCheckpoints;
 }
 
 // Which checkpoint (if any) governs climbing from `currentLevel`. Returns
-// nullptr once currentLevel reaches kMaxImplementedOutpostLevel (10) - no
+// nullptr once currentLevel reaches kMaxImplementedOutpostLevel (20) - no
 // checkpoint beyond that is implemented yet (see that constant's comment).
 inline const OutpostLevelCheckpoint* activeOutpostLevelCheckpoint(int currentLevel) {
     for (const OutpostLevelCheckpoint& checkpoint : outpostLevelCheckpoints())
@@ -753,6 +810,11 @@ inline bool outpostCheckpointGateMet(const BaseState& base, const OutpostLevelCh
         // independent regions can satisfy this gate.
         return base.storageCount(kAshveilFangMaterial) > 0 ||
                (base.storageCount(kAshenhornFangMaterial) > 0 && base.storageCount("wood") >= 3);
+    }
+    if (checkpoint.gateDiscovery.empty()) {
+        // Lv15/Lv20 (深層/最深層プロトタイプ) - region-clear only, no
+        // Discovery record involved (see outpostLevelCheckpoints() comment).
+        return base.completedRegionIds.count(checkpoint.gateRegion) > 0;
     }
     return base.completedRegionIds.count(checkpoint.gateRegion) > 0 &&
            base.discoveryRegistry.count(checkpoint.gateDiscovery) > 0;

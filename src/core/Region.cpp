@@ -174,6 +174,106 @@ RegionDescriptor ashboughForestRegion(const GameData& data) {
     return region;
 }
 
+std::vector<StageDescriptor> ashboughForestDeepStagesImpl() {
+    StageDescriptor trash1;
+    trash1.id = "ashbough_deep_1";
+    trash1.terrainProfileId = "brokenwood_territory";
+    trash1.enemyRoster = {
+        {"ashbough_deep_wolf1", "Deepwood Wolf", UnitClass::Wolf},
+        {"ashbough_deep_wolf2", "Deepwood Wolf", UnitClass::Wolf},
+        {"ashbough_deep_wolf3", "Deepwood Wolf", UnitClass::Wolf},
+        {"ashbough_deep_wolf4", "Deepwood Wolf", UnitClass::Wolf},
+    };
+    trash1.victoryRewardRules = {
+        {RewardRule::Condition::Always, {}, {{"ashbough_deep_core", 2}}},
+    };
+    trash1.missionNameEn = "Deep Layer - Wolf Pack";
+    trash1.missionNameJa = "深層・狼の群れ";
+
+    // 深層ボス1体目: 「灰角大猪の眷属・片牙」(AshenhornBoarのリスキン)。
+    StageDescriptor boss1;
+    boss1.id = "ashbough_deep_boss1";
+    boss1.terrainProfileId = "brokenwood_territory";
+    boss1.enemyRoster = {
+        {"ashbough_deep_boar1", "Ashenhorn Kin, Tuskscar", UnitClass::AshenhornBoar},
+        {"ashbough_deep_boss1_wolf", "Deepwood Wolf", UnitClass::Wolf},
+    };
+    boss1.victoryRewardRules = {
+        {RewardRule::Condition::Always, {}, {{"ashbough_deep_core", 3}, {"ashenhorn_deep_tusk", 1}}},
+    };
+    boss1.missionNameEn = "Deep Layer - Tuskscar";
+    boss1.missionNameJa = "深層・灰角大猪の眷属「片牙」";
+
+    StageDescriptor trash2;
+    trash2.id = "ashbough_deep_2";
+    trash2.terrainProfileId = "brokenwood_territory";
+    trash2.enemyRoster = {
+        {"ashbough_deep_wolf5", "Deepwood Wolf", UnitClass::Wolf},
+        {"ashbough_deep_wolf6", "Deepwood Wolf", UnitClass::Wolf},
+        {"ashbough_deep_wolf7", "Deepwood Wolf", UnitClass::Wolf},
+        {"ashbough_deep_wolf8", "Deepwood Wolf", UnitClass::Wolf},
+    };
+    trash2.victoryRewardRules = {
+        {RewardRule::Condition::Always, {}, {{"ashbough_deep_core", 3}}},
+    };
+    trash2.missionNameEn = "Deep Layer - Wolf Pack II";
+    trash2.missionNameJa = "深層・狼の群れ(二陣)";
+
+    // 深層ボス2体目(=深層完了): 「灰角大猪の頭目・森ノ主」(同じくリスキン)。
+    StageDescriptor boss2;
+    boss2.id = "ashbough_deep_boss2";
+    boss2.terrainProfileId = "brokenwood_territory";
+    boss2.enemyRoster = {
+        {"ashbough_deep_boar2", "Ashenhorn Chief, Forestwarden", UnitClass::AshenhornBoar},
+        {"ashbough_deep_boss2_wolf", "Deepwood Wolf", UnitClass::Wolf},
+    };
+    boss2.victoryRewardRules = {
+        {RewardRule::Condition::Always, {}, {{"ashbough_deep_core", 4}, {"ashenhorn_deep_horn", 1}}},
+    };
+    boss2.missionNameEn = "Deep Layer - Forestwarden";
+    boss2.missionNameJa = "深層・灰角大猪の頭目「森ノ主」";
+
+    return {trash1, boss1, trash2, boss2};
+}
+
+std::vector<StageDescriptor> ashboughForestDeepestStagesImpl() {
+    StageDescriptor trash;
+    trash.id = "ashbough_deepest_1";
+    trash.terrainProfileId = "brokenwood_territory";
+    trash.enemyRoster = {
+        {"ashbough_deepest_wolf1", "Abyssal Wolf", UnitClass::Wolf},
+        {"ashbough_deepest_wolf2", "Abyssal Wolf", UnitClass::Wolf},
+        {"ashbough_deepest_wolf3", "Abyssal Wolf", UnitClass::Wolf},
+        {"ashbough_deepest_wolf4", "Abyssal Wolf", UnitClass::Wolf},
+    };
+    trash.victoryRewardRules = {
+        {RewardRule::Condition::Always, {}, {{"ashbough_deep_core", 4}}},
+    };
+    trash.missionNameEn = "Deepest Layer - Wolf Pack";
+    trash.missionNameJa = "最深層・狼の群れ";
+
+    // 最深層ボス(計3体目、最終): 「灰角大猪の古老・朽木の王」。docs/deep_layers.md
+    // は最深層ボスにだけ`chargeTelegraphed`/`bossRuntime`の固有ギミックを1つ
+    // 追加してよいとしているが、既存AIは`UnitClass`単位のディスパッチ
+    // (EnemyAI.cpp `takeBoarBossTurn`)で、同じクラスの個体ごとに行動を
+    // 分岐させる仕組みが今のところ無い。このプロトタイプでは既存の
+    // `takeBoarBossTurn`をそのまま再利用し(ステータスの強化のみ)、固有
+    // ギミックの追加は個体差分の仕組みが要る別Sliceの課題として残す。
+    StageDescriptor boss;
+    boss.id = "ashbough_deepest_boss";
+    boss.terrainProfileId = "brokenwood_territory";
+    boss.enemyRoster = {
+        {"ashbough_deepest_boar", "Ashenhorn Elder, Rotwood King", UnitClass::AshenhornBoar},
+    };
+    boss.victoryRewardRules = {
+        {RewardRule::Condition::Always, {}, {{"ashbough_deep_core", 5}, {"ashenhorn_deep_relic", 1}}},
+    };
+    boss.missionNameEn = "Deepest Layer - Rotwood King";
+    boss.missionNameJa = "最深層・灰角大猪の古老「朽木の王」";
+
+    return {trash, boss};
+}
+
 // docs/implementation_roadmap.md M6-D: minimal placeholder for the 3rd
 // region, unlocked once CinderwatchGate completes (docs/regions/
 // cinderwatch_gate.md「地域攻略結果」/「安全帰還時」の「灰鉄採石場を遠征先へ
@@ -385,8 +485,9 @@ StageDescriptor ashironVeinStage() {
         {RewardRule::Condition::Always, {}, {{"iron", 2}, {"stone", 1}, {"veinstone_powder", 1}}},
         // 通常鉱脈ルート: 鉄鉱石+1.
         {RewardRule::Condition::RouteChoice, ExplorationChoice::FrontalAdvance, {{"iron", 1}}},
-        // 鉱石箱確保: 高品質鉄材1.
-        {RewardRule::Condition::SurveySuccess, {}, {{"quality_iron", 1}}},
+        // 鉱石箱確保: 高品質鉄材1。灰鉄芯(レア素材)も同じ特殊採取条件に接続
+        // (docs/implementation_status.md「素材システム全面再設計」次の方針メモ)。
+        {RewardRule::Condition::SurveySuccess, {}, {{"quality_iron", 1}, {"grayiron_core", 1}}},
     };
 
     // 「測定完了かつイリエン生存: 異常鉱脈記録、mage_recruit」: measurement
@@ -1372,8 +1473,13 @@ StageDescriptor settlementDawnDefenseStage() {
     stage.noCasualtiesBonusLoot = {{"building_material", 1}};
 
     // 勝利: 建築材2、鉄材2、食料2(主目的達成時)。
+    // docs/implementation_status.md「素材システム全面再設計」次の方針メモ:
+    // first_settlement_tablet(キー素材) - この地域には固有Bossクラスが
+    // いないため、地域最終防衛戦の達成を「地域制圧」相当として接続。
     stage.victoryRewardRules = {
-        {RewardRule::Condition::Always, {}, {{"building_material", 2}, {"iron", 2}, {"food", 2}}},
+        {RewardRule::Condition::Always,
+        {},
+        {{"building_material", 2}, {"iron", 2}, {"food", 2}, {"first_settlement_tablet", 1}}},
     };
 
     stage.missionNameEn = "Dawn's Joint Defense";
@@ -2198,8 +2304,17 @@ StageDescriptor mappedEdgeFinalStage() {
     // 主目的報酬: 最終キー素材1(新規`frontier_final_key`、本編最終発展/深層
     // 遠征候補の解放条件 - 正本「安定ID」節どおりの名前をそのまま採用)、
     // 希少素材3、遺跡片2(どちらも既存登録素材の再利用)。
+    // docs/implementation_status.md「素材システム全面再設計」次の方針メモ:
+    // edge_anchor(キー素材)・outerwild_core(レア素材、外縁固有の大型獣
+    // ドロップ)も同じ主目的達成へ接続。
     stage.victoryRewardRules = {
-        {RewardRule::Condition::Always, {}, {{"frontier_final_key", 1}, {"rare_material", 3}, {"ruin_fragment", 2}}},
+        {RewardRule::Condition::Always,
+        {},
+        {{"frontier_final_key", 1},
+         {"rare_material", 3},
+         {"ruin_fragment", 2},
+         {"edge_anchor", 1},
+         {"outerwild_core", 1}}},
     };
 
     stage.missionNameEn = "Mapped Edge";
@@ -2238,6 +2353,19 @@ RegionDescriptor mappedEdgeRegion(const GameData& data) {
 
 } // namespace
 
+// docs/deep_layers.md「全体構成」/「ボス(深層に2体、最深層に1体、計3体)」:
+// 灰枝の森(AshboughForest)の深層縦通し用ステージ。RegionId/RouteGraphを持たず
+// (regionDescriptor()のswitchにもRouteGraph.cppのroute一覧にも登録しない)、
+// 呼び出し側が生の配列として直接BattleFactoryへ渡す(Region.hppのコメント参照)。
+// 新規地形/新規敵UnitClassは追加しない方針のとおり、本編と同じ`brokenwood_
+// territory`地形と、既存の`Wolf`/`AshenhornBoar`をそのまま再利用する
+// (ボスは`MappedEdge`の"Stone Basin Beast"と同じ「再利用+リスキン」の前例)。
+// 敵の強化倍率自体はここでは掛けない(StageDescriptorにその概念がないため) -
+// 呼び出し側がDeepLayerScaling.hppのkDeepLayerScaleStage1/2/3をBattleState
+// 構築後に後掛けする。実体(*Impl)は無名namespace内、これは公開ラッパー。
+std::vector<StageDescriptor> ashboughForestDeepStages() { return ashboughForestDeepStagesImpl(); }
+std::vector<StageDescriptor> ashboughForestDeepestStages() { return ashboughForestDeepestStagesImpl(); }
+
 RegionDescriptor regionDescriptor(RegionId id, const GameData& data) {
     switch (id) {
         case RegionId::CinderwatchGate: return cinderwatchGateRegion(data);
@@ -2250,6 +2378,22 @@ RegionDescriptor regionDescriptor(RegionId id, const GameData& data) {
         case RegionId::BuriedDawnSanctum: return buriedDawnSanctumRegion(data);
         case RegionId::ShatteredMarchFort: return shatteredMarchFortRegion(data);
         case RegionId::MappedEdge: return mappedEdgeRegion(data);
+        case RegionId::AshboughForestDeep: {
+            RegionDescriptor region;
+            region.id = RegionId::AshboughForestDeep;
+            region.displayNameEn = "Ashbough Forest - Deep Layer";
+            region.displayNameJa = "灰枝の森・深層";
+            region.stages = ashboughForestDeepStages();
+            return region;
+        }
+        case RegionId::AshboughForestDeepest: {
+            RegionDescriptor region;
+            region.id = RegionId::AshboughForestDeepest;
+            region.displayNameEn = "Ashbough Forest - Deepest Layer";
+            region.displayNameJa = "灰枝の森・最深層";
+            region.stages = ashboughForestDeepestStages();
+            return region;
+        }
     }
     return cinderwatchGateRegion(data);
 }
@@ -2266,6 +2410,8 @@ std::string toString(RegionId id) {
         case RegionId::BuriedDawnSanctum: return "buried_dawn_sanctum";
         case RegionId::ShatteredMarchFort: return "shattered_march_fort";
         case RegionId::MappedEdge: return "mapped_edge";
+        case RegionId::AshboughForestDeep: return "ashbough_forest_deep";
+        case RegionId::AshboughForestDeepest: return "ashbough_forest_deepest";
     }
     return "cinderwatch_gate";
 }
@@ -2280,6 +2426,8 @@ RegionId regionIdFromString(const std::string& id) {
     if (id == "buried_dawn_sanctum") return RegionId::BuriedDawnSanctum;
     if (id == "shattered_march_fort") return RegionId::ShatteredMarchFort;
     if (id == "mapped_edge") return RegionId::MappedEdge;
+    if (id == "ashbough_forest_deep") return RegionId::AshboughForestDeep;
+    if (id == "ashbough_forest_deepest") return RegionId::AshboughForestDeepest;
     return RegionId::CinderwatchGate;
 }
 
@@ -2294,6 +2442,8 @@ std::optional<RegionId> regionIdFromStringStrict(const std::string& id) {
     if (id == "buried_dawn_sanctum") return RegionId::BuriedDawnSanctum;
     if (id == "shattered_march_fort") return RegionId::ShatteredMarchFort;
     if (id == "mapped_edge") return RegionId::MappedEdge;
+    if (id == "ashbough_forest_deep") return RegionId::AshboughForestDeep;
+    if (id == "ashbough_forest_deepest") return RegionId::AshboughForestDeepest;
     return std::nullopt;
 }
 
@@ -2364,6 +2514,12 @@ bool regionUnlocked(RegionId regionId, const BaseState& base, const GameData& /*
         case RegionId::BuriedDawnSanctum: return base.completedRegionIds.count(RegionId::EmberRavine) > 0;
         case RegionId::ShatteredMarchFort: return base.completedRegionIds.count(RegionId::BuriedDawnSanctum) > 0;
         case RegionId::MappedEdge: return base.completedRegionIds.count(RegionId::ShatteredMarchFort) > 0;
+        // docs/deep_layers.md「全体構成」: 本編10地域の直線チェーンとは別の支線
+        // (AshboughForest安全帰還が前提、深層クリアで最深層が解放 - 段階的
+        // アンロック)。他の9地域の解放判定には一切影響しない。
+        case RegionId::AshboughForestDeep: return base.completedRegionIds.count(RegionId::AshboughForest) > 0;
+        case RegionId::AshboughForestDeepest:
+            return base.completedRegionIds.count(RegionId::AshboughForestDeep) > 0;
     }
     return true;
 }

@@ -17,6 +17,52 @@
 
 namespace jf {
 
+// `paired_cross_observation`(交差観測、docs/character_progression.md「連携
+// 作戦」): "敵1体を標的指定し、その敵の次回行動候補を同時公開". Computed by
+// BattleController via a throwaway BattleState clone (run the target's own
+// takeEnemyTurn() on the clone, diff before/after, discard the clone) rather
+// than a dedicated prediction engine - see the struct's own field comments.
+// `revealId` mirrors BossTelegraph's state-transition-polling idiom (ui_
+// battle.cpp watches for a value change, same as it watches
+// TelegraphState::Announced) instead of a fresh event type, since this is a
+// single one-shot value, not a per-entity collection like
+// reinforcementWaves_.
+// ユーザー要望「毒・炎上の継続ダメージにもメッセージを」: processActionEnd
+// StatusEffects()(Burn、1ユニットずつ)とprocessPhaseEndStatusEffects()
+// (Poison、チーム全員を1回でループ)はどちらも「ダメージが実際に発生した
+// ユニットの一覧」を1回の呼び出しごとにまとめて報告する必要がある
+// (CooperationRevealResultのような単一値では、Poisonが複数ユニットへ同時に
+// 入った場合に後勝ちで取りこぼす) - そのためバッチ(vector)+1回の呼び出し
+// ごとに1つ増えるeventIdという形にしている。
+// ユーザー要望「装飾品の無効化発動にもメッセージを」: Hide-Wrapped Grip
+// (knockbackNegatesRemaining)/Ward Step(firstStatusNegatesRemaining)/
+// Scorch-Guard Wrap(firstBurnNegatesRemaining)は既に正しく動作しているが、
+// 発動した瞬間の見た目のフィードバックが無かった。単一値でよい(同時に複数
+// ユニットが同種の無効を消費することはほぼ無い実戦形状のため、
+// StatusTickDamageのようなバッチにはしていない)。
+enum class AccessoryNegateKind { Knockback, Status, Burn };
+struct AccessoryNegateEvent {
+    std::string unitId;
+    AccessoryNegateKind kind = AccessoryNegateKind::Knockback;
+    int eventId = 0; // 0 = none yet
+};
+
+enum class StatusTickKind { Poison, Burn };
+struct StatusTickDamage {
+    std::string unitId;
+    int damage = 0;
+    StatusTickKind kind = StatusTickKind::Poison;
+};
+
+struct CooperationRevealResult {
+    std::string targetEnemyId;
+    bool willMove = false;
+    GridPos moveTo{};
+    bool willAttack = false;
+    std::string attackTargetId;
+    int revealId = 0; // 0 = nothing revealed yet this battle
+};
+
 // Pure battle data model: the roster, positions, and phase. Contains no
 // rendering or input concerns so it can be driven headlessly (tests, AI,
 // future netcode) as well as from the raylib front end.
@@ -186,6 +232,42 @@ public:
     bool cooperationUsedThisBattle() const { return cooperationUsedThisBattle_; }
     void markCooperationUsed() { cooperationUsedThisBattle_ = true; }
 
+    // 交差観測 result (see CooperationRevealResult's own comment above).
+    const CooperationRevealResult& cooperationReveal() const { return cooperationReveal_; }
+    void setCooperationReveal(CooperationRevealResult result) {
+        result.revealId = static_cast<int>(issueEventId());
+        cooperationReveal_ = std::move(result);
+    }
+
+    // ユーザー要望「敵もお願い(スキル発動メッセージ)」: EnemyAI.cpp's
+    // finishEnemyAction() (the one choke point every enemy action - plain
+    // attack, boss special move, or a Support/heal action - funnels through)
+    // stamps the ActionKind it actually resolved here, so
+    // BattleController::update() can tell a Skill-kind enemy action apart
+    // from a plain Attack/Move/Wait right after calling takeEnemyTurn(),
+    // without widening EnemyAI's own return type. Read-once, valid only for
+    // the action that was just resolved (no history).
+    ActionKind lastEnemyActionKind() const { return lastEnemyActionKind_; }
+    void setLastEnemyActionKind(ActionKind kind) { lastEnemyActionKind_ = kind; }
+
+    // StatusTickDamage batch (see its own comment above). Only bumps
+    // statusTickEventId() when the batch is non-empty, so a tick that
+    // dealt no real damage (e.g. every charge already consumed) doesn't
+    // fire a spurious poll transition.
+    const std::vector<StatusTickDamage>& statusTickDamage() const { return statusTickDamage_; }
+    int statusTickEventId() const { return statusTickEventId_; }
+    void setStatusTickDamage(std::vector<StatusTickDamage> damages) {
+        if (damages.empty()) return;
+        statusTickDamage_ = std::move(damages);
+        statusTickEventId_ = static_cast<int>(issueEventId());
+    }
+
+    // AccessoryNegateEvent (see its own comment above).
+    const AccessoryNegateEvent& accessoryNegate() const { return accessoryNegate_; }
+    void setAccessoryNegate(std::string unitId, AccessoryNegateKind kind) {
+        accessoryNegate_ = {std::move(unitId), kind, static_cast<int>(issueEventId())};
+    }
+
 private:
     std::vector<Unit> units_;
     std::array<TerrainType, kGridRows * kGridCols> terrain_{};
@@ -204,6 +286,11 @@ private:
     int heatLevel_ = 0;
     std::string equippedCooperationId_;
     bool cooperationUsedThisBattle_ = false;
+    CooperationRevealResult cooperationReveal_;
+    ActionKind lastEnemyActionKind_ = ActionKind::Wait;
+    std::vector<StatusTickDamage> statusTickDamage_;
+    int statusTickEventId_ = 0;
+    AccessoryNegateEvent accessoryNegate_;
 };
 
 // docs/regions/windscar_plateau.md "強風ルール": called at Round End (same

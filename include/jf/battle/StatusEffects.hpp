@@ -10,7 +10,7 @@ namespace jf {
 // reapplying an already-active one resets it to its full count/duration
 // rather than stacking.
 void applyPoison(Unit& target);
-void applyBurn(Unit& target);
+void applyBurn(BattleState& battle, Unit& target);
 // 旗手`unyielding_signal`(不退の合図): before actually applying Move Down,
 // checks for a nearby available-charge BannerBearer via
 // consumeUnyieldingSignalIfAvailable() and no-ops if one consumes it - hence

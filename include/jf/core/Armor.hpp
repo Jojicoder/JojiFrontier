@@ -14,9 +14,13 @@
 // pattern unchanged - full 36-of-36 coverage.
 
 #include <algorithm>
+#include <fstream>
+#include <iostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include <nlohmann/json.hpp>
 
 #include "jf/core/UnitClass.hpp"
 
@@ -75,115 +79,65 @@ inline int armorResBonusAtLevel(const ArmorDefinition& armor, int level) {
     }
 }
 
-// docs/deep_layers.md「兵種専用3防具」: the 18 armor pieces for the 6 initial
-// classes (docs/character_progression.md「初期6兵種の武器レシピ」's own 6
-// classes), 3 tiers each. Base DEF/RES: Tier1 balanced (1/1), Tier2 DEF-
-// specialized (2/0, "引き換えにRES低め"), Tier3 RES-leaning (1/2 -
-// docs/implementation_status.md「防具設定レビュー」#2: Tier1/Tier3 originally
-// shared identical (1/1) base stats, making them indistinguishable to the
-// player at a glance; Tier3 now reads as the deliberate RES-leaning pick
-// while still carrying the deferred status-resistance passive - see
-// ArmorTier::Tier3's own comment on that gap).
-//
-// docs/implementation_status.md「防具設定レビュー」#3 (per-class flavor,
-// intentionally light-touch per that doc's own "武器分岐ほど複雑にしない"
-// caution - base-stat deltas only, no new mechanism):
-// - VeteranGuard/Spearman/HeavyInfantry (the 3 highest base-DEF classes,
-//   see data/classes.json) get Tier2 (3/0) instead of the (2/0) baseline -
-//   their armor doubles down on their own already-tanky stat line.
-// - DawnChirurgeon/BannerBearer/BattleMage (the 3 highest base-RES classes)
-//   get Tier3 (1/3) instead of the (1/2) baseline - their armor leans
-//   further into RES, matching their support/caster role.
-// - Every other class keeps the (1/1)/(2/0)/(1/2) baseline unchanged.
-inline const std::vector<ArmorDefinition>& armorRegistry() {
-    static const std::vector<ArmorDefinition> armors = {
-        {"armor_march_captain_tier1", "March Captain Guard", "行軍隊長の護具", UnitClass::MarchCaptain,
-         ArmorTier::Tier1, 1, 1},
-        {"armor_march_captain_tier2", "March Captain Plate", "行軍隊長の重甲", UnitClass::MarchCaptain,
-         ArmorTier::Tier2, 2, 0},
-        {"armor_march_captain_tier3", "March Captain Ward", "行軍隊長の守甲", UnitClass::MarchCaptain,
-         ArmorTier::Tier3, 1, 2},
-
-        {"armor_veteran_guard_tier1", "Veteran Guard Mail", "古参守備兵の帷子", UnitClass::VeteranGuard,
-         ArmorTier::Tier1, 1, 1},
-        {"armor_veteran_guard_tier2", "Veteran Guard Bastion Plate", "古参守備兵の防塁甲", UnitClass::VeteranGuard,
-         ArmorTier::Tier2, 3, 0},
-        {"armor_veteran_guard_tier3", "Veteran Guard Sentinel Ward", "古参守備兵の哨戒守甲", UnitClass::VeteranGuard,
-         ArmorTier::Tier3, 1, 2},
-
-        {"armor_watch_archer_tier1", "Watch Archer Vest", "監視弓兵の胴衣", UnitClass::WatchArcher,
-         ArmorTier::Tier1, 1, 1},
-        {"armor_watch_archer_tier2", "Watch Archer Brigandine", "監視弓兵の鎖胴衣", UnitClass::WatchArcher,
-         ArmorTier::Tier2, 2, 0},
-        {"armor_watch_archer_tier3", "Watch Archer Marsh Ward", "監視弓兵の湿地守衣", UnitClass::WatchArcher,
-         ArmorTier::Tier3, 1, 2},
-
-        {"armor_frontier_scout_tier1", "Frontier Scout Wrap", "辺境斥候の巻き衣", UnitClass::FrontierScout,
-         ArmorTier::Tier1, 1, 1},
-        {"armor_frontier_scout_tier2", "Frontier Scout Hardleather", "辺境斥候の硬革衣", UnitClass::FrontierScout,
-         ArmorTier::Tier2, 2, 0},
-        {"armor_frontier_scout_tier3", "Frontier Scout Trailward", "辺境斥候の道守衣", UnitClass::FrontierScout,
-         ArmorTier::Tier3, 1, 2},
-
-        {"armor_spearman_tier1", "Spearman Cuirass", "槍兵の胸甲", UnitClass::Spearman, ArmorTier::Tier1, 1, 1},
-        {"armor_spearman_tier2", "Spearman Bulwark Plate", "槍兵の防壁甲", UnitClass::Spearman, ArmorTier::Tier2,
-         3, 0},
-        {"armor_spearman_tier3", "Spearman Wall Ward", "槍兵の防壁守甲", UnitClass::Spearman, ArmorTier::Tier3,
-         1, 2},
-
-        {"armor_dawn_chirurgeon_tier1", "Dawn Chirurgeon Robe", "暁の衛生兵の外衣", UnitClass::DawnChirurgeon,
-         ArmorTier::Tier1, 1, 1},
-        {"armor_dawn_chirurgeon_tier2", "Dawn Chirurgeon Padded Robe", "暁の衛生兵の綿入り外衣",
-         UnitClass::DawnChirurgeon, ArmorTier::Tier2, 2, 0},
-        {"armor_dawn_chirurgeon_tier3", "Dawn Chirurgeon Sanctum Ward", "暁の衛生兵の聖堂守衣",
-         UnitClass::DawnChirurgeon, ArmorTier::Tier3, 1, 3},
-
-        // M10-C: the remaining 6 classes' 18 armor pieces (same 3-tier
-        // pattern, base DEF/RES unchanged from the first 6: Tier1 (1,1),
-        // Tier2 (2,0), Tier3 (1,2) except where a later per-class tweak
-        // below overrides it). Completes the full 36-of-36 armor registry.
-        {"armor_heavy_infantry_tier1", "Heavy Infantry Guard", "重装兵の護具", UnitClass::HeavyInfantry,
-         ArmorTier::Tier1, 1, 1},
-        {"armor_heavy_infantry_tier2", "Heavy Infantry Plate", "重装兵の重甲", UnitClass::HeavyInfantry,
-         ArmorTier::Tier2, 3, 0},
-        {"armor_heavy_infantry_tier3", "Heavy Infantry Ward", "重装兵の守甲", UnitClass::HeavyInfantry,
-         ArmorTier::Tier3, 1, 2},
-
-        {"armor_frontier_engineer_tier1", "Frontier Engineer Vest", "辺境工兵の作業衣", UnitClass::FrontierEngineer,
-         ArmorTier::Tier1, 1, 1},
-        {"armor_frontier_engineer_tier2", "Frontier Engineer Hardplate", "辺境工兵の硬甲",
-         UnitClass::FrontierEngineer, ArmorTier::Tier2, 2, 0},
-        {"armor_frontier_engineer_tier3", "Frontier Engineer Ward", "辺境工兵の守衣", UnitClass::FrontierEngineer,
-         ArmorTier::Tier3, 1, 2},
-
-        {"armor_messenger_cavalry_tier1", "Messenger Cavalry Coat", "伝令騎兵の外套", UnitClass::MessengerCavalry,
-         ArmorTier::Tier1, 1, 1},
-        {"armor_messenger_cavalry_tier2", "Messenger Cavalry Barding", "伝令騎兵の馬鎧", UnitClass::MessengerCavalry,
-         ArmorTier::Tier2, 2, 0},
-        {"armor_messenger_cavalry_tier3", "Messenger Cavalry Ward", "伝令騎兵の守衣", UnitClass::MessengerCavalry,
-         ArmorTier::Tier3, 1, 2},
-
-        {"armor_frontier_ranger_tier1", "Frontier Ranger Wrap", "辺境猟兵の巻き衣", UnitClass::FrontierRanger,
-         ArmorTier::Tier1, 1, 1},
-        {"armor_frontier_ranger_tier2", "Frontier Ranger Hardleather", "辺境猟兵の硬革衣", UnitClass::FrontierRanger,
-         ArmorTier::Tier2, 2, 0},
-        {"armor_frontier_ranger_tier3", "Frontier Ranger Ward", "辺境猟兵の守衣", UnitClass::FrontierRanger,
-         ArmorTier::Tier3, 1, 2},
-
-        {"armor_banner_bearer_tier1", "Banner Bearer Vest", "旗手の胴衣", UnitClass::BannerBearer,
-         ArmorTier::Tier1, 1, 1},
-        {"armor_banner_bearer_tier2", "Banner Bearer Bastion Plate", "旗手の防塁甲", UnitClass::BannerBearer,
-         ArmorTier::Tier2, 2, 0},
-        {"armor_banner_bearer_tier3", "Banner Bearer Ward", "旗手の守衣", UnitClass::BannerBearer,
-         ArmorTier::Tier3, 1, 3},
-
-        {"armor_battle_mage_tier1", "Battle Mage Robe", "戦闘魔導士の外衣", UnitClass::BattleMage,
-         ArmorTier::Tier1, 1, 1},
-        {"armor_battle_mage_tier2", "Battle Mage Plated Robe", "戦闘魔導士の重衣", UnitClass::BattleMage,
-         ArmorTier::Tier2, 2, 0},
-        {"armor_battle_mage_tier3", "Battle Mage Sanctum Ward", "戦闘魔導士の聖堂守衣", UnitClass::BattleMage,
-         ArmorTier::Tier3, 1, 3},
+// docs/implementation_status.md「データ/ロジック分離方針」: データ本体は
+// data/armor.json(36件、docs/deep_layers.md「兵種専用3防具」の12兵種×3Tier)
+// へ切り出し済み。ここにはstruct定義・JSONローダー・参照ロジックだけを残す。
+// Base DEF/RES: Tier1 balanced (1/1)、Tier2 DEF特化(2/0、"引き換えにRES低め")、
+// Tier3 RES寄り(1/2)がデフォルトだが、VeteranGuard/Spearman/HeavyInfantryは
+// Tier2が(3/0)、DawnChirurgeon/BannerBearer/BattleMageはTier3が(1/3)という
+// per-class tweak(docs/implementation_status.md「防具設定レビュー」#3)が
+// data/armor.jsonの数値そのものに反映されている。
+inline UnitClass unitClassFromArmorJsonString(const std::string& name) {
+    static const std::unordered_map<std::string, UnitClass> table = {
+        {"MarchCaptain", UnitClass::MarchCaptain},   {"VeteranGuard", UnitClass::VeteranGuard},
+        {"WatchArcher", UnitClass::WatchArcher},     {"FrontierScout", UnitClass::FrontierScout},
+        {"Spearman", UnitClass::Spearman},           {"DawnChirurgeon", UnitClass::DawnChirurgeon},
+        {"HeavyInfantry", UnitClass::HeavyInfantry}, {"FrontierEngineer", UnitClass::FrontierEngineer},
+        {"MessengerCavalry", UnitClass::MessengerCavalry}, {"FrontierRanger", UnitClass::FrontierRanger},
+        {"BannerBearer", UnitClass::BannerBearer},   {"BattleMage", UnitClass::BattleMage},
     };
+    auto it = table.find(name);
+    return it != table.end() ? it->second : UnitClass::MarchCaptain;
+}
+
+inline ArmorTier armorTierFromJsonString(const std::string& name) {
+    if (name == "Tier2") return ArmorTier::Tier2;
+    if (name == "Tier3") return ArmorTier::Tier3;
+    return ArmorTier::Tier1;
+}
+
+inline std::vector<ArmorDefinition> loadArmorFromJson() {
+    std::vector<ArmorDefinition> armors;
+    // cwd is always the repo root at runtime - same convention as every
+    // other data/*.json load (see skillRegistry()/facilityNodeRegistry()).
+    std::ifstream file("data/armor.json");
+    if (!file.is_open()) {
+        std::cerr << "Failed to open data file: data/armor.json" << std::endl;
+        return armors;
+    }
+    nlohmann::json parsed;
+    try {
+        file >> parsed;
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to parse JSON file data/armor.json: " << e.what() << std::endl;
+        return armors;
+    }
+    for (const auto& a : parsed.at("armor")) {
+        ArmorDefinition def;
+        def.id = a.at("id").get<std::string>();
+        def.nameEn = a.at("nameEn").get<std::string>();
+        def.nameJa = a.at("nameJa").get<std::string>();
+        def.unitClass = unitClassFromArmorJsonString(a.at("unitClass").get<std::string>());
+        def.tier = armorTierFromJsonString(a.at("tier").get<std::string>());
+        def.baseDef = a.at("baseDef").get<int>();
+        def.baseRes = a.at("baseRes").get<int>();
+        armors.push_back(std::move(def));
+    }
+    return armors;
+}
+
+inline const std::vector<ArmorDefinition>& armorRegistry() {
+    static const std::vector<ArmorDefinition> armors = loadArmorFromJson();
     return armors;
 }
 

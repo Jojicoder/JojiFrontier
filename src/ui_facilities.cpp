@@ -81,9 +81,12 @@ void drawFacilityTooltip(jf::FacilityId facility, const jf::BaseState& base, Vec
     float y = std::min(mouse.y + 16.0f, kScreenHeight - height - 12.0f);
     Rectangle rect{x, y, width, height};
     drawCard(rect, Color{19, 23, 33, 255}, kColorAccentGold, 0.06f);
-    const std::string title = facilityIdNameFor(facility) + "  " +
-                              tr("ui.facilities.branches_unlocked", {{"count", std::to_string(facilityLevel(base, facility))}});
-    drawText(title, static_cast<int>(x + 22), static_cast<int>(y + 18), 18, kColorAccentGold);
+    // 「解放済み分岐 N」は施設一覧のカード本体に既に表示されている
+    // (drawFacilitiesList()側)ため、このツールチップでは重複表示せず
+    // 施設名だけにする - ユーザー指摘「91とか4とかって何？」は、この
+    // カウントがクラフト/装飾品ノードも1件ずつ数えた合計で、意味のある
+    // 「分岐」数として読めていなかったことによる。
+    drawText(facilityIdNameFor(facility), static_cast<int>(x + 22), static_cast<int>(y + 18), 18, kColorAccentGold);
     const bool constructed = facilityIsConstructed(base, facility);
     drawText(constructed ? tr("ui.facility_node.constructed") : tr("ui.facility_node.not_constructed"),
              static_cast<int>(x + 22), static_cast<int>(y + 62), 12,
@@ -351,6 +354,93 @@ std::string weaponSummaryLine(const jf::Weapon& weapon) {
            tr("ui.unit_screen.diff.range_prefix") + weaponRangeText(weapon);
 }
 
+std::string weaponDamageTypeName(jf::DamageType type) {
+    return type == jf::DamageType::Physical ? tr("ui.weapon_tooltip.physical") : tr("ui.weapon_tooltip.magical");
+}
+
+std::vector<std::string> weaponDetailLines(const jf::Weapon& weapon) {
+    std::vector<std::string> details;
+    if (weapon.moveModifier != 0)
+        details.push_back(tr("ui.weapon_tooltip.move_modifier",
+                             {{"value", (weapon.moveModifier > 0 ? "+" : "") + std::to_string(weapon.moveModifier)}}));
+    if (weapon.braceBoost) details.push_back(tr("ui.weapon_tooltip.brace_boost"));
+    if (weapon.causesKnockback)
+        details.push_back(weapon.firstHitOnly ? tr("ui.weapon_tooltip.knockback_first")
+                                              : tr("ui.weapon_tooltip.knockback"));
+    for (jf::StatusEffectType status : weapon.onHitStatuses) {
+        std::string label;
+        switch (status) {
+            case jf::StatusEffectType::Poison: label = tr("status.poison.label"); break;
+            case jf::StatusEffectType::Burn: label = tr("status.burn.label"); break;
+            case jf::StatusEffectType::MoveDown: label = tr("status.move_down.label"); break;
+            case jf::StatusEffectType::DefenseDown: label = tr("status.def_down.label"); break;
+            case jf::StatusEffectType::Stagger: label = tr("status.stagger.label"); break;
+        }
+        details.push_back(weapon.firstHitOnly ? tr("ui.weapon_tooltip.status_first", {{"status", label}})
+                                              : tr("ui.weapon_tooltip.status", {{"status", label}}));
+    }
+    if (weapon.healAmountOverride > 0)
+        details.push_back(tr("ui.weapon_tooltip.heal_amount",
+                             {{"value", std::to_string(weapon.healAmountOverride)}}));
+    if (weapon.healGrantsResistanceUp) details.push_back(tr("ui.weapon_tooltip.heal_res_up"));
+    if (weapon.healGrantsMoveUp) details.push_back(tr("ui.weapon_tooltip.heal_move_up"));
+    if (weapon.fieldRepairAmountOverride > 0)
+        details.push_back(tr("ui.weapon_tooltip.repair_amount",
+                             {{"value", std::to_string(weapon.fieldRepairAmountOverride)}}));
+    if (weapon.splashDamage > 0)
+        details.push_back(tr("ui.weapon_tooltip.splash", {{"value", std::to_string(weapon.splashDamage)}}));
+    if (weapon.pullsAtRangeTwo) details.push_back(tr("ui.weapon_tooltip.pull_range_two"));
+    if (weapon.trailblazeOnMove) details.push_back(tr("ui.weapon_tooltip.trailblaze"));
+    return details;
+}
+
+std::vector<TooltipLine> weaponTooltipLines(const std::string& weaponId, const jf::Weapon& weapon, bool available) {
+    std::vector<TooltipLine> lines;
+    lines.push_back({weaponNameFor(weaponId, weaponEnglishName(weaponId)), kColorAccentGold, 16});
+    lines.push_back({tr("ui.weapon_tooltip.stats",
+                        {{"might", std::to_string(weapon.might)},
+                         {"range", weaponRangeText(weapon)},
+                         {"type", weaponDamageTypeName(weapon.damageType)}}),
+                     Color{170, 180, 195, 255}, 12});
+
+    const std::vector<std::string> details = weaponDetailLines(weapon);
+    if (details.empty()) {
+        lines.push_back({tr("ui.weapon_tooltip.no_special"), kColorTextPrimary, 13});
+    } else {
+        for (const std::string& detail : details) lines.push_back({detail, kColorTextPrimary, 13});
+    }
+    if (!available) lines.push_back({tr("ui.weapon_tooltip.locked"), Color{225, 120, 120, 255}, 12});
+    return lines;
+}
+
+std::string armorTierName(jf::ArmorTier tier) {
+    switch (tier) {
+        case jf::ArmorTier::Tier1: return tr("ui.armor_tooltip.tier1");
+        case jf::ArmorTier::Tier2: return tr("ui.armor_tooltip.tier2");
+        case jf::ArmorTier::Tier3: return tr("ui.armor_tooltip.tier3");
+    }
+    return "";
+}
+
+std::vector<TooltipLine> armorTooltipLines(const jf::ArmorDefinition& armor, int level, bool available) {
+    std::vector<TooltipLine> lines;
+    lines.push_back({pick(armor.nameEn, armor.nameJa), kColorAccentGold, 16});
+    lines.push_back({tr("ui.armor_tooltip.stats",
+                        {{"level", std::to_string(level)},
+                         {"def", std::to_string(jf::armorDefBonusAtLevel(armor, level))},
+                         {"res", std::to_string(jf::armorResBonusAtLevel(armor, level))}}),
+                     Color{170, 180, 195, 255}, 12});
+    lines.push_back({armorTierName(armor.tier), kColorTextPrimary, 13});
+    if (armor.tier == jf::ArmorTier::Tier1)
+        lines.push_back({tr("ui.armor_tooltip.tier1_detail"), kColorTextPrimary, 13});
+    else if (armor.tier == jf::ArmorTier::Tier2)
+        lines.push_back({tr("ui.armor_tooltip.tier2_detail"), kColorTextPrimary, 13});
+    else
+        lines.push_back({tr("ui.armor_tooltip.tier3_detail"), kColorTextPrimary, 13});
+    if (!available) lines.push_back({tr("ui.armor_tooltip.locked"), Color{225, 120, 120, 255}, 12});
+    return lines;
+}
+
 // "変わる戦術": numeric stat deltas (both directions) plus any effect tags the
 // hovered weapon adds. "失うもの": effect tags only the current weapon has.
 void weaponDiffLines(const jf::Weapon& current, const jf::Weapon& hovered, std::vector<std::string>& tactics,
@@ -518,7 +608,9 @@ void drawEquipmentDiffPanel(jf::GameApp& app, const EquipmentHover& hover, Recta
 // 分岐の他兵種一般化"). Node id -> weapon id is the "craft_" prefix stripped,
 // which matches every entry in facilityNodeRegistry() by construction.
 std::optional<EquipmentHover> drawForgeEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, float x,
-                                                       float y, float width, Vector2 mouse, bool clicked) {
+                                                       float y, float width, Vector2 mouse, bool clicked,
+                                                       std::vector<TooltipLine>& tooltipLines,
+                                                       float* outBottomY = nullptr) {
     drawSectionHeading(tr("ui.forge.equipment_heading"), static_cast<int>(x),
                        static_cast<int>(y), 18);
     const jf::BaseState& base = app.baseState();
@@ -558,23 +650,70 @@ std::optional<EquipmentHover> drawForgeEquipmentPanel(jf::GameApp& app, const jf
         // hovered candidate other than the currently-equipped one, available or
         // not, previews what changes - previewing a not-yet-craftable branch is
         // useful too, so hover isn't gated on `available`.
-        if (candidate.id != current && CheckCollisionPointRec(mouse, rect))
-            hover = EquipmentHover{EquipmentHoverKind::Weapon, current, candidate.id, "", "", "", ""};
+        if (CheckCollisionPointRec(mouse, rect)) {
+            if (candidate.id != current)
+                hover = EquipmentHover{EquipmentHoverKind::Weapon, current, candidate.id, "", "", "", ""};
+            auto weaponIt = app.gameData().weaponsById.find(candidate.id);
+            if (weaponIt != app.gameData().weaponsById.end())
+                tooltipLines = weaponTooltipLines(candidate.id, weaponIt->second, available);
+        }
     }
 
     by += static_cast<float>((candidates.size() + 1) / 2) * 46.0f + 20.0f;
-    bool traitUnlocked = base.unlockedNodeIds.count("trait_hide_wrapped_grip") > 0;
-    bool traitEquipped = app.equippedTraits().count(unit.id) > 0;
-    Rectangle traitRect{x, by, 280, 34};
-    if (traitUnlocked) {
-        if (button(traitRect, tr(traitEquipped ? "ui.facilities.unequip_trait" : "ui.facilities.equip_trait"), mouse,
-                  clicked)) {
-            app.equipTuningTraitForUnit(unit.id,
-                                        traitEquipped ? jf::TuningTraitId::None : jf::TuningTraitId::HideWrappedGrip);
+    // 装飾品(調整特性)候補一覧: ユーザー要望「もっと増やしたい」で単一トグル
+    // ボタンから武器/防具候補と同じ「クリックで切替」グリッドに変更。装備中の
+    // ものをクリックすると解除、それ以外をクリックすると切替。
+    struct TraitCandidate { std::string nodeId; jf::TuningTraitId traitId; const char* nameKey; const char* tipKey; };
+    static const std::array<TraitCandidate, 3> kTraitCandidates{
+        TraitCandidate{"trait_hide_wrapped_grip", jf::TuningTraitId::HideWrappedGrip,
+                       "ui.facilities.trait_name_hide_wrapped_grip", "ui.facilities.trait_tip_hide_wrapped_grip"},
+        TraitCandidate{"trait_scorch_guard_wrap", jf::TuningTraitId::ScorchGuardWrap,
+                       "ui.facilities.trait_name_scorch_guard_wrap", "ui.facilities.trait_tip_scorch_guard_wrap"},
+        TraitCandidate{"trait_charm_of_might", jf::TuningTraitId::CharmOfMight,
+                       "ui.facilities.trait_name_charm_of_might", "ui.facilities.trait_tip_charm_of_might"},
+    };
+    auto equippedTraitIt = app.equippedTraits().find(unit.id);
+    jf::TuningTraitId equippedTraitId =
+        equippedTraitIt != app.equippedTraits().end() ? equippedTraitIt->second : jf::TuningTraitId::None;
+    {
+        std::string statusLabel = tr("ui.facilities.armor_none");
+        for (const TraitCandidate& c : kTraitCandidates) {
+            if (c.traitId == equippedTraitId) {
+                statusLabel = tr(c.nameKey);
+                break;
+            }
         }
-    } else {
-        disabledButton(traitRect, tr("ui.facilities.trait_locked"));
+        drawText(tr("ui.facilities.current_trait_prefix") + statusLabel, static_cast<int>(x),
+                 static_cast<int>(by), 13, kColorTextMuted);
     }
+    by += 24.0f;
+    // 3列並びで1行に収める(2列だと3個目が2行目に落ち、パネル下のスキル欄と
+    // 干渉するため - 見切れバグの再発防止)。
+    const float traitCandidateWidth = (width - 16.0f) / 3.0f;
+    for (std::size_t index = 0; index < kTraitCandidates.size(); ++index) {
+        const TraitCandidate& candidate = kTraitCandidates[index];
+        bool candidateUnlocked = base.unlockedNodeIds.count(candidate.nodeId) > 0;
+        Rectangle rect{x + static_cast<float>(index) * (traitCandidateWidth + 8.0f), by, traitCandidateWidth, 34};
+        std::string label = tr(candidate.nameKey);
+        if (candidateUnlocked) {
+            if (button(rect, label, mouse, clicked)) {
+                app.equipTuningTraitForUnit(
+                    unit.id, equippedTraitId == candidate.traitId ? jf::TuningTraitId::None : candidate.traitId);
+            }
+        } else {
+            disabledButton(rect, label);
+        }
+        if (CheckCollisionPointRec(mouse, rect)) {
+            if (const jf::FacilityNode* traitNode = jf::findFacilityNode(candidate.nodeId)) {
+                tooltipLines = {{pick(traitNode->nameEn, traitNode->nameJa), kColorAccentGold, 16},
+                               {pick(traitNode->effectEn, traitNode->effectJa), kColorTextPrimary, 13}};
+                tooltipLines.push_back({tr(candidate.tipKey), kColorTextMuted, 12});
+                if (!candidateUnlocked)
+                    tooltipLines.push_back({tr("ui.facilities.trait_locked"), Color{225, 120, 120, 255}, 12});
+            }
+        }
+    }
+    by += 34.0f + 20.0f;
 
     // M10-B (docs/deep_layers.md「防具システム(新設)」): armor equip panel,
     // mirroring the weapon panel above but simpler - armor has no "class base
@@ -611,25 +750,71 @@ std::optional<EquipmentHover> drawForgeEquipmentPanel(jf::GameApp& app, const jf
         // M10-E: diff preview, mirroring the weapon panel's hover rule above -
         // any hovered candidate other than the currently-equipped armor
         // previews it, available or not.
-        if (armor->id != currentArmorId && CheckCollisionPointRec(mouse, rect))
-            hover = EquipmentHover{EquipmentHoverKind::Armor, "", "", "", "", currentArmorId, armor->id};
+        if (CheckCollisionPointRec(mouse, rect)) {
+            if (armor->id != currentArmorId)
+                hover = EquipmentHover{EquipmentHoverKind::Armor, "", "", "", "", currentArmorId, armor->id};
+            tooltipLines = armorTooltipLines(*armor, base.armorLevel(armor->id), craftedUnlocked);
+        }
     }
     by += static_cast<float>((armorCandidates.size() + 1) / 2) * 46.0f + 20.0f;
 
-    bool armorTraitUnlocked = base.unlockedNodeIds.count("armor_trait_ward_step") > 0;
-    bool armorTraitEquipped = app.equippedArmorTraits().count(unit.id) > 0;
-    Rectangle armorTraitRect{x, by, 280, 34};
-    if (armorTraitUnlocked) {
-        if (button(armorTraitRect,
-                   tr(armorTraitEquipped ? "ui.facilities.unequip_armor_trait" : "ui.facilities.equip_armor_trait"),
-                   mouse, clicked)) {
-            app.equipArmorTraitForUnit(
-                unit.id, armorTraitEquipped ? jf::ArmorTuningTraitId::None : jf::ArmorTuningTraitId::WardStep);
+    struct ArmorTraitCandidate {
+        std::string nodeId;
+        jf::ArmorTuningTraitId traitId;
+        const char* nameKey;
+        const char* tipKey;
+    };
+    static const std::array<ArmorTraitCandidate, 3> kArmorTraitCandidates{
+        ArmorTraitCandidate{"armor_trait_ward_step", jf::ArmorTuningTraitId::WardStep,
+                           "ui.facilities.trait_name_ward_step", "ui.facilities.trait_tip_ward_step"},
+        ArmorTraitCandidate{"armor_trait_sturdy_sash", jf::ArmorTuningTraitId::SturdySash,
+                           "ui.facilities.trait_name_sturdy_sash", "ui.facilities.trait_tip_sturdy_sash"},
+        ArmorTraitCandidate{"armor_trait_vital_charm", jf::ArmorTuningTraitId::VitalCharm,
+                           "ui.facilities.trait_name_vital_charm", "ui.facilities.trait_tip_vital_charm"},
+    };
+    auto equippedArmorTraitIt = app.equippedArmorTraits().find(unit.id);
+    jf::ArmorTuningTraitId equippedArmorTraitId = equippedArmorTraitIt != app.equippedArmorTraits().end()
+                                                      ? equippedArmorTraitIt->second
+                                                      : jf::ArmorTuningTraitId::None;
+    {
+        std::string statusLabel = tr("ui.facilities.armor_none");
+        for (const ArmorTraitCandidate& c : kArmorTraitCandidates) {
+            if (c.traitId == equippedArmorTraitId) {
+                statusLabel = tr(c.nameKey);
+                break;
+            }
         }
-    } else {
-        disabledButton(armorTraitRect, tr("ui.facilities.armor_trait_locked"));
+        drawText(tr("ui.facilities.current_trait_prefix") + statusLabel, static_cast<int>(x),
+                 static_cast<int>(by), 13, kColorTextMuted);
     }
+    by += 24.0f;
+    for (std::size_t index = 0; index < kArmorTraitCandidates.size(); ++index) {
+        const ArmorTraitCandidate& candidate = kArmorTraitCandidates[index];
+        bool candidateUnlocked = base.unlockedNodeIds.count(candidate.nodeId) > 0;
+        Rectangle rect{x + static_cast<float>(index) * (traitCandidateWidth + 8.0f), by, traitCandidateWidth, 34};
+        std::string label = tr(candidate.nameKey);
+        if (candidateUnlocked) {
+            if (button(rect, label, mouse, clicked)) {
+                app.equipArmorTraitForUnit(unit.id, equippedArmorTraitId == candidate.traitId
+                                                       ? jf::ArmorTuningTraitId::None
+                                                       : candidate.traitId);
+            }
+        } else {
+            disabledButton(rect, label);
+        }
+        if (CheckCollisionPointRec(mouse, rect)) {
+            if (const jf::FacilityNode* armorTraitNode = jf::findFacilityNode(candidate.nodeId)) {
+                tooltipLines = {{pick(armorTraitNode->nameEn, armorTraitNode->nameJa), kColorAccentGold, 16},
+                               {pick(armorTraitNode->effectEn, armorTraitNode->effectJa), kColorTextPrimary, 13}};
+                tooltipLines.push_back({tr(candidate.tipKey), kColorTextMuted, 12});
+                if (!candidateUnlocked)
+                    tooltipLines.push_back({tr("ui.facilities.armor_trait_locked"), Color{225, 120, 120, 255}, 12});
+            }
+        }
+    }
+    by += 34.0f;
 
+    if (outBottomY) *outBottomY = by;
     return hover;
 }
 
@@ -639,7 +824,8 @@ std::optional<EquipmentHover> drawForgeEquipmentPanel(jf::GameApp& app, const jf
 // panel, cooperation tactics, and exploration-ability sections from the full spec
 // are out of scope for this Slice; only the 2 skill slots are wired here.
 std::optional<EquipmentHover> drawSkillEquipmentPanel(jf::GameApp& app, const jf::UnitTemplate& unit, float x,
-                                                       float y, float width, Vector2 mouse, bool clicked) {
+                                                       float y, float width, Vector2 mouse, bool clicked,
+                                                       std::vector<TooltipLine>& tooltipLines) {
     drawSectionHeading(tr("ui.unit_screen.skills_heading"), static_cast<int>(x), static_cast<int>(y), 18);
     const jf::BaseState& base = app.baseState();
     const std::vector<const jf::SkillDefinition*> classSkills = jf::skillsForClass(unit.classId);
@@ -658,7 +844,6 @@ std::optional<EquipmentHover> drawSkillEquipmentPanel(jf::GameApp& app, const jf
     // the full skillTooltipLines() (same component the Battle skill menu
     // uses) alongside the diff panel rather than trying to fit everything
     // into the fixed quadrant.
-    std::vector<TooltipLine> skillHoverLines;
     const float candidateWidth = (width - 3 * 10.0f) / 4.0f;
     for (int slot = 0; slot < 2; ++slot) {
         float slotY = y + 30 + static_cast<float>(slot) * 70.0f;
@@ -693,7 +878,7 @@ std::optional<EquipmentHover> drawSkillEquipmentPanel(jf::GameApp& app, const jf
                 std::string reason = equippedElsewhere  ? tr("ui.unit_screen.skill_equipped_elsewhere")
                                      : !trainingUnlocked ? tr("ui.unit_screen.needs_training")
                                                         : "";
-                skillHoverLines = skillTooltipLines(*skill, available && !equippedElsewhere, reason, reason);
+                tooltipLines = skillTooltipLines(*skill, available && !equippedElsewhere, reason, reason);
             }
         }
         Rectangle clearRect{x + 3 * (candidateWidth + 10.0f), slotY + 24, candidateWidth, 34};
@@ -703,7 +888,7 @@ std::optional<EquipmentHover> drawSkillEquipmentPanel(jf::GameApp& app, const jf
             app.equipSkillForUnit(unit.id, slot, "");
         }
     }
-    if (!skillHoverLines.empty()) drawTooltipBox(mouse, skillHoverLines);
+
     return hover;
 }
 
@@ -748,11 +933,19 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     // "武器、特性、スキルを選ぶと...") is known before deciding what to show there.
     // Drawing order doesn't affect the two cards' on-screen position (they
     // occupy disjoint rectangles), only which data is ready in time.
-    Rectangle equipment{548, 104, 690, 666};
+    Rectangle equipment{548, 104, 690, 684};
     drawCard(equipment, kColorCard, kColorBorderSoft, 0.04f);
     std::optional<EquipmentHover> hover;
+    std::vector<TooltipLine> tooltipLines;
+    // 武器/防具の装飾品候補が増えたことで武器・防具パネルの実高さがクラス次第で
+    // 伸びるようになった(防具3種持ちのクラス等) - 下の装備スキル欄を固定y=608に
+    // 置いたままだと重なって見切れるため、実際の描画下端をdrawForgeEquipmentPanel()
+    // から受け取って動的に配置する(見切れバグの再発防止)。
+    float skillPanelY = 608.0f;
     if (classHasWeaponBranchRecipes(unit->classId)) {
-        hover = drawForgeEquipmentPanel(app, *unit, 580, 136, 626, mouse, clicked);
+        float forgeBottomY = 0.0f;
+        hover = drawForgeEquipmentPanel(app, *unit, 580, 136, 626, mouse, clicked, tooltipLines, &forgeBottomY);
+        skillPanelY = std::max(skillPanelY, forgeBottomY + 20.0f);
         if (!app.baseState().constructedFacilityIds.count("simple_forge"))
             drawText(tr("ui.unit_screen.needs_forge"),
                      580, 390, 14, Color{205, 135, 135, 255});
@@ -764,7 +957,8 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         drawText(tr("ui.unit_screen.no_alt_equipment"),
                  580, 246, 14, kColorTextMuted);
     }
-    std::optional<EquipmentHover> skillHover = drawSkillEquipmentPanel(app, *unit, 580, 572, 626, mouse, clicked);
+    std::optional<EquipmentHover> skillHover =
+        drawSkillEquipmentPanel(app, *unit, 580, skillPanelY, 626, mouse, clicked, tooltipLines);
     if (!hover) hover = skillHover;
 
     // docs/character_progression.md「ユニットページ」一覧「比較対象を1人固定できる」:
@@ -806,6 +1000,7 @@ void drawUnitScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         Rectangle diffPanel{42, 620, 470, 150};
         drawEquipmentDiffPanel(app, *hover, diffPanel);
     }
+    if (!tooltipLines.empty()) drawTooltipBox(mouse, tooltipLines);
 }
 
 // The facility card grid (list view, shown when no facility is visited
@@ -834,13 +1029,13 @@ void drawFacilitiesList(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
         drawCard(card, kColorCard, kColorBorderSoft, 0.04f);
         drawText(facilityIdNameFor(facility), static_cast<int>(card.x + 22), static_cast<int>(card.y + 18),
                  21, kColorTextPrimary);
+        // 「解放済み分岐 N」は削除(ユーザー指摘「91とか4とかって何？」):
+        // クラフト/装飾品ノードも1件ずつ数えた素の合計で、装飾品拡張
+        // (docs/implementation_status.md「装飾品拡張メモ」)以降は91のような
+        // 大きい数字になり、意味のある「分岐」進捗として読めなくなっていた。
         const bool constructed = facilityIsConstructed(base, facility);
-        const std::string branchesLabel =
-            tr("ui.facilities.branches_unlocked", {{"count", std::to_string(facilityLevel(base, facility))}});
-        drawText(branchesLabel, static_cast<int>(card.x + 22), static_cast<int>(card.y + 59), 14, kColorAccentGold);
-        const int statusX = static_cast<int>(card.x + 22) + textWidth(branchesLabel, 14) + 24;
         drawText(constructed ? tr("ui.facility_node.constructed") : tr("ui.facility_node.not_constructed"),
-                 statusX, static_cast<int>(card.y + 59), 14,
+                 static_cast<int>(card.x + 22), static_cast<int>(card.y + 59), 14,
                  constructed ? Color{105, 205, 145, 255} : Color{180, 125, 125, 255});
         Rectangle visitRect{card.x + card.width - 174.0f, card.y + 82.0f, 150.0f, 40.0f};
         if (button(visitRect, "Visit", "訪れる", mouse, clicked)) {
@@ -867,13 +1062,10 @@ void drawFacilityDetail(jf::GameApp& app, Vector2 mouse, bool clicked, const jf:
                                       ? tr("ui.forge.craft_prefix") + classNameFor(app.gameData(), *gBaseScreen.forgeCraftClass)
                                       : facilityIdNameFor(facility);
     drawText(pageTitle, 38, 24, 28, kColorTextPrimary);
-    drawText(tr("ui.facilities.branches_unlocked", {{"count", std::to_string(facilityLevel(base, facility))}}),
-             38, 64, 16, kColorAccentGold);
-    // Was a fixed-x (138) placement beside "解放済み分岐 N" - collided with it
-    // whenever N's digit count made that gold label wider than 100px, and
-    // this role text is itself multi-line (embedded "\n", e.g.
-    // facility.command_post.role), so it also needs its own vertical room
-    // rather than sharing the header row. Moved to its own row below,
+    // 「解放済み分岐 N」の表示は削除(ユーザー指摘「91とか4とかって何？」、
+    // 上のdrawFacilitiesList()と同じ理由)。role文が multi-line
+    // (embedded "\n", e.g. facility.command_post.role) なので
+    // その分の縦スペースは維持する。
     // wrapped to the available width; the section heading/node list below it
     // are pushed down by the actual wrapped line count (same "measure, then
     // offset" shape as drawBaseRegionList()'s dynamic bottom-Y fix) instead

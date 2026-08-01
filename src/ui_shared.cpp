@@ -313,7 +313,14 @@ void loadAppFont() {
                       "埋没聖堂前線拠点(仮実装)"
                       "崩れた礼拝堂避難者"
                       "写本庫遺跡片"
-                      "封鎖回廊聖堂器材高品質鉄材";
+                      "封鎖回廊聖堂器材高品質鉄材"
+                      // docs/deep_layers.md: 灰枝の森・深層/最深層のミッション名/
+                      // 地域表示名(missionNameJa/RegionDescriptor::
+                      // displayNameJaはLocale Key経由ではない直書き文字列のため、
+                      // ここへ手動追加が必要 - class.wolf/ashenhorn_boar由来の
+                      // grapheme以外の新規文字だけを列挙)。
+                      "深層・狼の群れ(二陣)灰角大猪の眷属「片牙」頭目「森ノ主」"
+                      "最深層・灰角大猪の古老「朽木の王」";
     for (const jf::FacilityNode& node : jf::facilityNodeRegistry()) charsetSource += node.nameJa + node.effectJa;
     for (const jf::SkillDefinition& skill : jf::skillRegistry()) charsetSource += skill.nameJa + skill.effectJa;
     for (jf::UnitClass uc : {jf::UnitClass::MarchCaptain, jf::UnitClass::VeteranGuard,
@@ -513,6 +520,12 @@ std::string unitDisplayNameFor(const std::string& englishName) {
         {"Former Captain", "character.former_captain"},
         {"Wolf", "class.wolf"},
         {"Ashenhorn Boar", "class.ashenhorn_boar"},
+        // docs/deep_layers.md: 灰枝の森・深層/最深層の敵表示名。
+        {"Deepwood Wolf", "character.deepwood_wolf"},
+        {"Abyssal Wolf", "character.abyssal_wolf"},
+        {"Ashenhorn Kin, Tuskscar", "character.ashenhorn_kin_tuskscar"},
+        {"Ashenhorn Chief, Forestwarden", "character.ashenhorn_chief_forestwarden"},
+        {"Ashenhorn Elder, Rotwood King", "character.ashenhorn_elder_rotwood_king"},
         {"Ashiron Grubworm", "class.ashiron_grubworm"},
         {"Marsh-Fang Serpent", "class.marsh_fang_serpent"},
         {"Rock Borer", "character.rock_borer"},
@@ -582,6 +595,35 @@ std::string materialNameFor(const std::string& id) {
         "martyrs_ring", "crypt_holy_oil", "seal_sanctum_key",
         "officers_badge", "siege_grapnel", "frontline_command_seal",
         "outerwild_core", "point_of_no_return_crystal", "edge_anchor",
+        // docs/deep_layers.md「深層限定素材」: 灰枝の森(AshboughForest)の深層
+        // 専用素材、本編クリア後の任意周回コンテンツ用(2026-07-31、「1地域だけ
+        // 先に縦通しを作る」スコープ)。武器/防具Lv6〜20の専用材料 -
+        // WeaponLeveling.hpp/ArmorLeveling.hppのweaponDeepLevelUpCost()参照。
+        "ashbough_deep_core",
+        // ボス撃破限定のユニーク素材(深層内2体+最深層1体)。
+        "ashenhorn_deep_tusk", "ashenhorn_deep_horn", "ashenhorn_deep_relic",
+        // docs/prompts/deep_layer_materials_prompt.md経由で設計した残り9地域分
+        // (data/deep_layers.json)。灰枝の森と同じ「共通深層素材1種+ボス素材
+        // 3種」構成、実際の深層/最深層ダンジョン戦闘はまだ未実装(素材id・
+        // Lv6〜20の強化コスト計算にのみ使われる)。
+        "cinderwatch_deep_core", "march_captain_deep_clapper", "march_captain_deep_lens",
+        "march_captain_deep_watchseal",
+        "ashiron_deep_core", "ashiron_grubworm_deep_mandible", "ashiron_grubworm_deep_carapace",
+        "ashiron_grubworm_deep_heartstone",
+        "blackwater_deep_core", "marshfang_serpent_deep_fang", "marshfang_serpent_deep_scale",
+        "marshfang_serpent_deep_gall",
+        "windscar_deep_core", "plateau_courier_deep_spur", "plateau_courier_deep_rein",
+        "plateau_courier_deep_wayseal",
+        "oldsettlement_deep_core", "raid_leader_deep_firebrand", "raid_leader_deep_banner",
+        "raid_leader_deep_hearthseal",
+        "ember_ravine_deep_core", "redback_lizard_deep_tailspine", "redback_lizard_deep_throatstone",
+        "redback_lizard_deep_crownscale",
+        "dawn_sanctum_deep_core", "sanctum_retriever_deep_censer", "sanctum_retriever_deep_seal",
+        "sanctum_retriever_deep_reliquary",
+        "shattered_fort_deep_core", "fort_captain_deep_shieldboss", "fort_captain_deep_gatekey",
+        "fort_captain_deep_commandseal",
+        "mapped_edge_deep_core", "frontier_beast_deep_claw", "frontier_beast_deep_waystone",
+        "frontier_beast_deep_anchor",
     };
     return known.count(id) ? tr("material." + id) : id;
 }
@@ -669,6 +711,8 @@ std::string outpostStageNameFor(jf::OutpostStage stage) {
         case jf::OutpostStage::PioneerOutpost: return tr("outpost_stage.pioneer_outpost");
         case jf::OutpostStage::FrontierSettlement: return tr("outpost_stage.frontier_settlement");
         case jf::OutpostStage::PioneerCity: return tr("outpost_stage.pioneer_city");
+        case jf::OutpostStage::RelayOutpost: return tr("outpost_stage.relay_outpost");
+        case jf::OutpostStage::OutermostOutpost: return tr("outpost_stage.outermost_outpost");
     }
     return "";
 }
@@ -682,6 +726,8 @@ std::string outpostStageShortNameFor(jf::OutpostStage stage) {
         case jf::OutpostStage::PioneerOutpost: return tr("outpost_stage.pioneer_outpost.short");
         case jf::OutpostStage::FrontierSettlement: return tr("outpost_stage.frontier_settlement.short");
         case jf::OutpostStage::PioneerCity: return tr("outpost_stage.pioneer_city.short");
+        case jf::OutpostStage::RelayOutpost: return tr("outpost_stage.relay_outpost.short");
+        case jf::OutpostStage::OutermostOutpost: return tr("outpost_stage.outermost_outpost.short");
     }
     return "";
 }
@@ -766,8 +812,12 @@ void disabledButton(Rectangle rect, const std::string& label) {
              static_cast<int>(rect.y + (rect.height - displayFontSize(fontSize)) / 2), fontSize, kColorTextFaint);
 }
 
-// Small panel anchored beside the cursor, flipped to stay on-screen near
-// the edges. Purely informational - it never affects input handling.
+// Small panel anchored beside the cursor. Always placed to the right of the
+// cursor (never flips to the left) so it never covers a sibling
+// button/candidate the player might hover next - near the right screen edge
+// it just clamps closer to the cursor instead of jumping to the other side.
+// Vertical placement still flips upward near the bottom edge. Purely
+// informational - it never affects input handling.
 void drawTooltipBox(Vector2 mouse, const std::vector<TooltipLine>& lines) {
     if (lines.empty()) return;
 
@@ -793,7 +843,9 @@ void drawTooltipBox(Vector2 mouse, const std::vector<TooltipLine>& lines) {
 
     float x = mouse.x + kOffset;
     float y = mouse.y + kOffset;
-    if (x + boxWidth > static_cast<float>(kScreenWidth) - 8.0f) x = mouse.x - boxWidth - kOffset;
+    // Clamp against the right edge instead of flipping to the cursor's left
+    // (see this function's own header comment on why).
+    x = std::min(x, static_cast<float>(kScreenWidth) - boxWidth - 8.0f);
     if (y + totalHeight > static_cast<float>(kScreenHeight) - 8.0f) y = mouse.y - totalHeight - kOffset;
     x = std::max(x, 8.0f);
     y = std::max(y, 8.0f);

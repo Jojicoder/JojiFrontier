@@ -438,6 +438,22 @@ void BattleController::markActionResolved(Unit& unit, ActionKind actionKind) {
     BattleEvent event{battle_.issueEventId(), actionId,
                       ActionResolvedEvent{actionId, unit.id, unit.team, actionKind, unit.position}};
     handleObjectiveEvent(battle_.missionState(), event);
+
+    // ユーザー要望「スキル発動時のメッセージも表示して」: every skill "shape"
+    // branch (SkillCharges等)funnels through here via finishPlayerAction(),
+    // so this is the one place that can report it without duplicating the
+    // event in every branch. pendingSkillSlot_ is still the slot that was
+    // just used - every call site clears it to -1 only AFTER
+    // finishPlayerAction() returns true (see chooseSkill()'s own callers).
+    if (actionKind == ActionKind::Skill && pendingSkillSlot_ >= 0 &&
+        static_cast<std::size_t>(pendingSkillSlot_) < unit.skillSlots.size()) {
+        const std::string& skillId = unit.skillSlots[static_cast<std::size_t>(pendingSkillSlot_)].skillId;
+        if (!skillId.empty()) {
+            lastSkillUserId_ = unit.id;
+            lastSkillId_ = skillId;
+            ++skillEventId_;
+        }
+    }
 }
 
 // Returns true once `unit`'s action is fully concluded (every existing call
@@ -657,11 +673,29 @@ void BattleController::chooseCooperation() {
         pendingCooperationId_ = id;
         inputState_ = BattleInputState::SelectCooperationTarget;
         return;
+    } else if (id == "paired_cross_observation") {
+        // 交差観測: 距離3以内の敵1体を対象選択させる - read_quarry(獲物を読む)
+        // と同じ射程3の基準を流用。
+        cooperationTargetTiles_.clear();
+        for (const Unit& unit : battle_.units()) {
+            if (unit.team == actor.team || !unit.isAlive()) continue;
+            if (manhattanDistance(actor.position, unit.position) <= 3) cooperationTargetTiles_.push_back(unit.position);
+        }
+        if (cooperationTargetTiles_.empty()) return;
+        pendingCooperationId_ = id;
+        inputState_ = BattleInputState::SelectCooperationTarget;
+        return;
     } else {
-        return; // paired_cross_observation (unreachable - hasBattleEffect already false above) or unknown id
+        return; // unknown id
     }
 
     battle_.markCooperationUsed();
+    // ユーザー要望「連携作戦の発動自体にもメッセージを」: `id` here is always
+    // one of the 3 immediate-effect pairs (fallback_line/signal_ward/
+    // braced_breakthrough) - the target-selecting ones return earlier above
+    // and report from selectCooperationTarget() instead.
+    lastCooperationId_ = id;
+    ++cooperationEventId_;
     if (!finishPlayerAction(actor, ActionKind::Cooperation)) return;
     selectedUnit_ = nullptr;
     reachableTiles_.clear();
@@ -685,6 +719,30 @@ void BattleController::selectCooperationTarget(GridPos pos) {
         // choice), burn only if poison wasn't present.
         if (target->poisonRemainingProcs > 0) target->poisonRemainingProcs = 0;
         else if (target->burnRemainingProcs > 0) target->burnRemainingProcs = 0;
+    } else if (cooperationId == "paired_cross_observation") {
+        Unit* target = battle_.unitAt(pos);
+        if (!target || target->team == selectedUnit_->team) return;
+        // 交差観測本体: takeEnemyTurn()には「決めるだけ、実行しない」モードが
+        // 無いため、BattleStateを丸ごと複製し、複製上でだけ対象の1ターンを
+        // 実際に走らせて結果(移動先/攻撃対象)を読み取り、複製は破棄する。
+        // 本番のbattle_・乱数消費・他ユニットへは一切影響しない。
+        BattleState preview = battle_;
+        Unit* previewTarget = preview.findUnit(target->id);
+        CooperationRevealResult result;
+        result.targetEnemyId = target->id;
+        if (previewTarget) {
+            const GridPos before = previewTarget->position;
+            Unit* attacked = takeEnemyTurn(preview, *previewTarget);
+            if (previewTarget->position != before) {
+                result.willMove = true;
+                result.moveTo = previewTarget->position;
+            }
+            if (attacked) {
+                result.willAttack = true;
+                result.attackTargetId = attacked->id;
+            }
+        }
+        battle_.setCooperationReveal(result);
     } else if (cooperationId == "paired_rapid_works") {
         BattleObjectTeam team =
             selectedUnit_->team == Team::Player ? BattleObjectTeam::Player : BattleObjectTeam::Enemy;
@@ -695,6 +753,12 @@ void BattleController::selectCooperationTarget(GridPos pos) {
     }
 
     battle_.markCooperationUsed();
+    // paired_cross_observation already has its own dedicated message (see
+    // cooperationEventId()'s own comment) - skip the generic one for it.
+    if (cooperationId != "paired_cross_observation") {
+        lastCooperationId_ = cooperationId;
+        ++cooperationEventId_;
+    }
     Unit& actor = *selectedUnit_;
     pendingCooperationId_.clear();
     cooperationTargetTiles_.clear();
@@ -1933,6 +1997,19 @@ void BattleController::update(float dt) {
             lastDamage_ = std::max(0, before - attacked->currentHp);
             lastAttackHit_ = lastDamage_ > 0;
         }
+        // ユーザー要望「敵もお願い」: an enemy's action could equally be a
+        // boss special move that also happens to deal damage (attacked
+        // non-null above) or a Support/heal action (attacked stays null) -
+        // either way BattleState::lastEnemyActionKind() (stamped by
+        // finishEnemyAction() regardless of which branch ran) tells us it was
+        // Skill-shaped. No per-skill id exists for enemy "skills" the way
+        // player skillSlots do, so lastSkillId_ is left empty and
+        // ui_battle.cpp falls back to a generic phrasing keyed off that.
+        if (battle_.lastEnemyActionKind() == ActionKind::Skill) {
+            lastSkillUserId_ = next->id;
+            lastSkillId_.clear();
+            ++skillEventId_;
+        }
         enemyActionTimer_ = kEnemyActionDelay;
 
         syncObjectiveProgress(battle_);
@@ -2012,7 +2089,7 @@ void BattleController::update(float dt) {
         for (const BattleObjectId& id : expiredScorchMarkIds) {
             if (BattleObjectState* object = battle_.findObject(id)) {
                 if (Unit* occupant = battle_.unitAt(object->position); occupant && occupant->isAlive())
-                    applyBurn(*occupant);
+                    applyBurn(battle_, *occupant);
                 object->durability = 0;
                 object->state = BattleObjectStateKind::Destroyed;
                 handleObjectiveEvent(battle_.missionState(),

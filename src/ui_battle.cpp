@@ -276,6 +276,92 @@ std::vector<jf::GridPos> detectAndAnnounceBattleEvents(const jf::BattleControlle
         }
     }
 
+    // ユーザー要望「スキル発動時のメッセージも表示して」: same one-shot-event
+    // polling idiom as the attack detection above, keyed off
+    // BattleController::skillEventId().
+    static std::uint64_t lastSeenSkillEvent = 0;
+    if (controller.skillEventId() != lastSeenSkillEvent) {
+        lastSeenSkillEvent = controller.skillEventId();
+        if (const jf::Unit* user = battle.findUnit(controller.lastSkillUserId())) {
+            if (controller.lastSkillId().empty()) {
+                // Enemy "skill" (boss special move, or the generic AI's
+                // Support/heal branch) - no per-skill id/registry exists for
+                // these the way player skillSlots do (see BattleState::
+                // lastEnemyActionKind()'s own comment), so this is a generic
+                // fallback rather than a named skill line.
+                pushBattleMessage(
+                    tr("battle.enemy_skill_used", {{"user", unitDisplayNameFor(user->name)}}),
+                    Color{215, 170, 140, 255});
+            } else {
+                const jf::SkillDefinition* skill = jf::findSkill(controller.lastSkillId());
+                std::string skillName = skill ? pick(skill->nameEn, skill->nameJa) : controller.lastSkillId();
+                pushBattleMessage(
+                    tr("battle.skill_used", {{"user", unitDisplayNameFor(user->name)}, {"skill", skillName}}),
+                    Color{180, 220, 190, 255});
+            }
+        }
+    }
+
+    // ユーザー要望「装飾品の無効化発動にもメッセージを」: same one-shot idiom,
+    // keyed off BattleState::AccessoryNegateEvent - Hide-Wrapped Grip/Ward
+    // Step/Scorch-Guard Wrap already worked mechanically, they just had no
+    // visible feedback the moment they actually triggered.
+    static int lastSeenAccessoryNegateEvent = 0;
+    const jf::AccessoryNegateEvent& negate = battle.accessoryNegate();
+    if (negate.eventId != 0 && negate.eventId != lastSeenAccessoryNegateEvent) {
+        lastSeenAccessoryNegateEvent = negate.eventId;
+        if (const jf::Unit* target = battle.findUnit(negate.unitId)) {
+            std::string targetName = unitDisplayNameFor(target->name);
+            const char* key = negate.kind == jf::AccessoryNegateKind::Knockback ? "battle.accessory_negate_knockback"
+                              : negate.kind == jf::AccessoryNegateKind::Status  ? "battle.accessory_negate_status"
+                                                                                : "battle.accessory_negate_burn";
+            pushBattleMessage(tr(key, {{"target", targetName}}), Color{140, 200, 225, 255});
+        }
+    }
+
+    // ユーザー要望「連携作戦の発動自体にもメッセージを」: same one-shot idiom,
+    // keyed off BattleController::cooperationEventId(). Reuses the same
+    // `ui.cooperation.<id>` name key the prep screen's cooperation picker
+    // already shows, so there's a single source of truth for the display
+    // name.
+    static std::uint64_t lastSeenCooperationEvent = 0;
+    if (controller.cooperationEventId() != lastSeenCooperationEvent) {
+        lastSeenCooperationEvent = controller.cooperationEventId();
+        std::string cooperationName = tr("ui.cooperation." + controller.lastCooperationId());
+        pushBattleMessage(tr("battle.cooperation_used", {{"name", cooperationName}}), Color{200, 180, 235, 255});
+    }
+
+    // ユーザー要望「毒・炎上の継続ダメージにもメッセージを」: same one-shot
+    // idiom, but a batch (see StatusTickDamage's own comment) since Poison
+    // ticks the whole team at once - each entry gets its own banner line.
+    static int lastSeenStatusTickEvent = 0;
+    if (battle.statusTickEventId() != lastSeenStatusTickEvent) {
+        lastSeenStatusTickEvent = battle.statusTickEventId();
+        for (const jf::StatusTickDamage& tick : battle.statusTickDamage()) {
+            if (const jf::Unit* target = battle.findUnit(tick.unitId)) {
+                std::string targetName = unitDisplayNameFor(target->name);
+                if (tick.kind == jf::StatusTickKind::Poison) {
+                    pushBattleMessage(
+                        tr("battle.poison_tick_message", {{"target", targetName}, {"damage", std::to_string(tick.damage)}}),
+                        Color{150, 200, 130, 255});
+                } else {
+                    pushBattleMessage(
+                        tr("battle.burn_tick_message", {{"target", targetName}, {"damage", std::to_string(tick.damage)}}),
+                        Color{235, 150, 60, 255});
+                }
+                if (!target->isAlive()) {
+                    pushBattleMessage(fallenMessageText(targetName), Color{225, 90, 90, 255});
+                    lowHpWarnedUnits().erase(target->id);
+                } else {
+                    float hpRatio = static_cast<float>(target->currentHp) / static_cast<float>(target->stats.maxHp);
+                    if (hpRatio <= kLowHpRatioThreshold && lowHpWarnedUnits().insert(target->id).second) {
+                        pushBattleMessage(lowHpMessageText(targetName), Color{235, 140, 90, 255});
+                    }
+                }
+            }
+        }
+    }
+
     // Detect a wave's Scheduled -> Announced transition and surface it as a
     // one-shot banner (see reinforcementUiStates() above for why polling,
     // not the event itself, is the read path).
@@ -286,6 +372,32 @@ std::vector<jf::GridPos> detectAndAnnounceBattleEvents(const jf::BattleControlle
             pushBattleMessage(reinforcementAnnouncedMessageText(wave.spawnRound), Color{235, 190, 120, 255});
         }
         it->second = wave.state;
+    }
+
+    // `paired_cross_observation`(交差観測): same one-shot-value polling idiom
+    // as the Boss telegraph/enrage states below, keyed off
+    // CooperationRevealResult::revealId (0 = nothing revealed yet this
+    // battle, see its own comment in BattleState.hpp).
+    static int lastSeenCooperationRevealId = 0;
+    const jf::CooperationRevealResult& reveal = battle.cooperationReveal();
+    if (reveal.revealId != 0 && reveal.revealId != lastSeenCooperationRevealId) {
+        lastSeenCooperationRevealId = reveal.revealId;
+        if (const jf::Unit* revealedUnit = battle.findUnit(reveal.targetEnemyId)) {
+            std::string targetName = unitDisplayNameFor(revealedUnit->name);
+            if (reveal.willAttack) {
+                const jf::Unit* victim = battle.findUnit(reveal.attackTargetId);
+                std::string victimName = victim ? unitDisplayNameFor(victim->name) : targetName;
+                pushBattleMessage(tr("battle.cross_observation_attack",
+                                    {{"target", targetName}, {"victim", victimName}}),
+                                  Color{170, 210, 235, 255});
+            } else if (reveal.willMove) {
+                pushBattleMessage(tr("battle.cross_observation_move", {{"target", targetName}}),
+                                  Color{170, 210, 235, 255});
+            } else {
+                pushBattleMessage(tr("battle.cross_observation_wait", {{"target", targetName}}),
+                                  Color{170, 210, 235, 255});
+            }
+        }
     }
 
     // Same idea for a Boss's telegraphed charge (docs/boss_common_rules.md's
