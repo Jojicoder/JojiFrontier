@@ -2512,6 +2512,11 @@ static ExplorationTemplate explorationTemplateForStageId(const std::string& id) 
     return ExplorationTemplate::OpenField;
 }
 
+UnitClass scoutRouteClassForStage(const StageDescriptor& stage) {
+    if (stage.scoutRouteRequiredClass) return *stage.scoutRouteRequiredClass;
+    return explorationTemplateDefaultClass(explorationTemplateForStageId(stage.id));
+}
+
 ExplorationOutcome stageRouteOutcome(const StageDescriptor& stage, ExplorationChoice choice) {
     for (const auto& [routeChoice, outcome] : stage.routeOutcomes) {
         if (routeChoice == choice) return outcome;

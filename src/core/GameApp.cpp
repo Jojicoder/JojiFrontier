@@ -933,9 +933,7 @@ bool GameApp::chooseExplorationRoute(ExplorationChoice choice) {
         return false;
     const StageDescriptor stage = currentStage();
     if (choice == ExplorationChoice::ScoutRoute && stage.scoutRouteDisabled) return false;
-    if (choice == ExplorationChoice::ScoutRoute &&
-        !partyHasClass(stage.scoutRouteRequiredClass.value_or(UnitClass::FrontierScout)))
-        return false;
+    if (choice == ExplorationChoice::ScoutRoute && !partyHasClass(scoutRouteClassForStage(stage))) return false;
     if (currentSiteAccess() == SiteAccessState::Secured) return false;
 
     isReconnaissanceRun_ = false;

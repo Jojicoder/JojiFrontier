@@ -477,7 +477,7 @@
   "exploration.side_path_effect": "All surviving allies HP -2 / One fewer enemy",
   "exploration.scout_route": "[Scout] Recon from high ground",
   "exploration.scout_route_effect": "No attrition / Free placement in left 3 columns",
-  "exploration.scout_route_locked": "Requires a Frontier Scout in the party",
+  "exploration.scout_route_locked": "Requires a {class} in the party",
   "ui.deployment.title": "PRE-BATTLE DEPLOYMENT",
   "ui.deployment.instructions": "Place your 4 allies on passable tiles in the left 3 columns.",
   "ui.deployment.enemy_forces": "Enemy Forces (forecast)",

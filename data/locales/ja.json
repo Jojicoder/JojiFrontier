@@ -477,7 +477,7 @@
   "exploration.side_path_effect": "生存中の味方全員 HP -2 / 敵1体減少",
   "exploration.scout_route": "【斥候】高所から偵察",
   "exploration.scout_route_effect": "消耗なし / 左3列に自由配置",
-  "exploration.scout_route_locked": "編成に辺境斥候が必要",
+  "exploration.scout_route_locked": "編成に{class}が必要",
   "ui.deployment.title": "出撃配置",
   "ui.deployment.instructions": "左3列の通行可能マスに味方4人を配置してください。",
   "ui.deployment.enemy_forces": "敵勢力(予告)",

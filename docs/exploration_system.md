@@ -292,6 +292,25 @@ OpenField、`include/jf/core/Exploration.hpp`)へ置き換えた。
 `ash_road`のように複数地域で使い回されている汎用`terrainProfileId`は地形の手がかりに
 ならないため、`stage.id`側の命名(既に地域・用途を反映した命名規則)をキーにした。
 
+## 兵種専用選択肢の一般化(2026-08-02実装、Phase 2)
+
+調査で、UI側(`ui_exploration.cpp`)がルートC(斥候ルート)のボタン有効/無効を常に
+`partyHasFrontierScout()`で判定していた実バグが見つかった。`StageDescriptor::
+scoutRouteRequiredClass`で個別に他兵種を要求する15地点では、実際のクリック処理
+(`GameApp::chooseExplorationRoute()`)は正しい兵種をチェックしていたのに、ボタンの
+表示だけは辺境斥候の有無で決まっていた(誤って有効/無効に見えるボタンが存在した)。
+
+- UIを`app.currentStageScoutRouteRequiredClass()`(実際のゲート判定と同じ値)へ修正。
+- ロック時の案内文も固定の「編成に辺境斥候が必要」から、実際に必要な兵種名を
+  埋め込む形(`exploration.scout_route_locked`、`{class}`プレースホルダ)へ変更。
+- `scoutRouteRequiredClass`未設定の地点(大多数)についても、単純にFrontierScout
+  既定にせず、`ExplorationTemplate`ごとに`docs/exploration_system.md`「兵種による
+  探索能力」の対応表に沿った既定兵種を割り当てた
+  (`explorationTemplateDefaultClass()`、`Exploration.hpp`; Mine/Ruins→辺境工兵、
+  Marsh→辺境猟兵、Settlement→暁の衛生兵、OpenField→重装兵、Forest/Mountain/
+  Fortification→辺境斥候のまま)。地点固有の`scoutRouteRequiredClass`は引き続き
+  最優先。
+
 ## 実装順
 
 1. Exploration Event、Choice、Outcomeのデータモデル

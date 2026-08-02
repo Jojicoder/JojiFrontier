@@ -114,15 +114,26 @@ void drawExplorationScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
     Rectangle scoutRect{360, 400, 560, 90};
     std::string scoutLabel =
         "C. " + (isAshbough ? tr("exploration.ashbough_scout_route") : tr("exploration.scout_route"));
-    if (app.partyHasFrontierScout()) {
+    // docs/prompts/exploration_system_improvement_prompt.md(2026-08-02、
+    // Phase 2): this used to always check partyHasFrontierScout() even on
+    // the 15 stages whose StageDescriptor::scoutRouteRequiredClass names a
+    // different class - chooseExplorationRoute() (GameApp.cpp) already
+    // checked the real per-stage class, so the button could show enabled
+    // for the wrong party (silent failure on click) or disabled for a party
+    // that actually qualified. Check the same class the click handler does.
+    const jf::UnitClass requiredScoutClass = app.currentStageScoutRouteRequiredClass();
+    if (app.partyHasClass(requiredScoutClass)) {
         if (button(scoutRect, scoutLabel, mouse, clicked))
             app.chooseExplorationRoute(jf::ExplorationChoice::ScoutRoute);
         drawText(isAshbough ? tr("exploration.ashbough_scout_route_effect") : tr("exploration.scout_route_effect"),
                  382, 470, 15, kColorTextMuted);
     } else {
         disabledButton(scoutRect, scoutLabel);
-        drawText(tr("exploration.scout_route_locked"), 382, 470, 15,
-                 Color{200, 110, 110, 255});
+        // 2026-08-02(Phase 2): the old fixed "requires a Frontier Scout"
+        // text was wrong on any of the 15 bespoke stages that actually
+        // require a different class - name the real required class instead.
+        drawText(tr("exploration.scout_route_locked", {{"class", classNameFor(app.gameData(), requiredScoutClass)}}),
+                 382, 470, 15, Color{200, 110, 110, 255});
     }
 }
 

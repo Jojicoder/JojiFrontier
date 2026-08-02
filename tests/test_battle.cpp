@@ -513,6 +513,21 @@ int main() {
         const jf::ExplorationOutcome overridden =
             jf::stageRouteOutcome(overriddenMineStage, jf::ExplorationChoice::CollapsedSidePath);
         assert(overridden.partyDamage == 5 && overridden.extraBarrierCount == 0);
+
+        // docs/prompts/exploration_system_improvement_prompt.md(2026-08-02,
+        // Phase 2): scoutRouteClassForStage() defaults by template instead of
+        // hardcoding FrontierScout, but a stage's own explicit
+        // scoutRouteRequiredClass still wins.
+        assert(jf::scoutRouteClassForStage(mineStage) == jf::UnitClass::FrontierEngineer);
+        assert(jf::scoutRouteClassForStage(fortStage) == jf::UnitClass::FrontierScout);
+        assert(jf::scoutRouteClassForStage(openStage) == jf::UnitClass::HeavyInfantry);
+        jf::StageDescriptor marshStage;
+        marshStage.id = "blackwater_test_stub";
+        assert(jf::scoutRouteClassForStage(marshStage) == jf::UnitClass::FrontierRanger);
+        jf::StageDescriptor explicitOverrideStage;
+        explicitOverrideStage.id = "quarry_but_actually_special";
+        explicitOverrideStage.scoutRouteRequiredClass = jf::UnitClass::BattleMage;
+        assert(jf::scoutRouteClassForStage(explicitOverrideStage) == jf::UnitClass::BattleMage);
     }
 
     {

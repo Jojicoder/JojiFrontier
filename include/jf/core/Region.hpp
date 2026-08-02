@@ -386,6 +386,15 @@ std::optional<RegionId> regionIdFromStringStrict(const std::string& id);
 // method.
 ExplorationOutcome stageRouteOutcome(const StageDescriptor& stage, ExplorationChoice choice);
 
+// docs/prompts/exploration_system_improvement_prompt.md(2026-08-02、
+// Phase 2): the class option C (ScoutRoute) is gated on. Returns
+// `stage.scoutRouteRequiredClass` verbatim if the stage sets one (hand-
+// authored stages keep their own choice); otherwise derives a sensible
+// default from the same stage.id-based ExplorationTemplate heuristic
+// stageRouteOutcome() uses, instead of hardcoding FrontierScout for every
+// stage regardless of theme.
+UnitClass scoutRouteClassForStage(const StageDescriptor& stage);
+
 // Additive reward computation (docs/regions/ashbough_forest.md): base loot,
 // plus this route's delta (if any), plus the survey bonus if that stage
 // defines a survey objective and it succeeded. Never returns a negative or

@@ -215,6 +215,13 @@ public:
     // regions/ashbough_forest.md "薬草の沢"'s Dawn Chirurgeon route) via
     // StageDescriptor::scoutRouteRequiredClass.
     bool partyHasClass(UnitClass unitClass) const;
+    // 2026-08-02(Phase 2, docs/prompts/exploration_system_improvement_
+    // prompt.md): lets the UI check the SAME per-stage class
+    // chooseExplorationRoute() gates option C on, instead of hardcoding
+    // FrontierScout regardless of what the current stage actually requires.
+    UnitClass currentStageScoutRouteRequiredClass() const {
+        return scoutRouteClassForStage(currentStage());
+    }
 
     // Exploration -> either straight to Battle (Frontal/Side routes) or to
     // PreBattleDeployment (Scout route, which requires a Frontier Scout).

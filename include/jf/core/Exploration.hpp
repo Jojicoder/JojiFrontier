@@ -2,6 +2,8 @@
 
 #include <optional>
 
+#include "jf/core/UnitClass.hpp"
+
 namespace jf {
 
 enum class ExplorationChoice { FrontalAdvance, CollapsedSidePath, ScoutRoute };
@@ -120,6 +122,34 @@ inline ExplorationOutcome explorationTemplateOutcome(ExplorationTemplate tmpl, E
             return {};
     }
     return {};
+}
+
+// docs/prompts/exploration_system_improvement_prompt.md(2026-08-02、Phase 2):
+// which class's route-C flavor best fits each template, per docs/
+// exploration_system.md「兵種による探索能力」(辺境斥候=偵察・隠し道・高所観測、
+// 辺境工兵=障害物・機械・遺跡装置、辺境猟兵=追跡・狩猟・野生生物、暁の衛生兵=
+// 負傷者・医療記録、重装兵=瓦礫除去・強行突破・重量物運搬). Used only as the
+// DEFAULT for stages that don't set StageDescriptor::scoutRouteRequiredClass
+// explicitly - a hand-authored stage's own choice always wins.
+inline UnitClass explorationTemplateDefaultClass(ExplorationTemplate tmpl) {
+    switch (tmpl) {
+        case ExplorationTemplate::Mine:
+        case ExplorationTemplate::Ruins:
+            return UnitClass::FrontierEngineer; // 障害物・機械・遺跡装置
+        case ExplorationTemplate::Marsh:
+            return UnitClass::FrontierRanger; // 追跡・狩猟・野生生物(黒水低湿地=辺境猟兵の所属地域と一致)
+        case ExplorationTemplate::Settlement:
+            return UnitClass::DawnChirurgeon; // 負傷者・医療記録
+        case ExplorationTemplate::OpenField:
+            return UnitClass::HeavyInfantry; // 瓦礫除去・強行突破
+        case ExplorationTemplate::Forest:
+            // 灰枝の森(辺境斥候の発見・所属地域)がこのテンプレートの唯一の
+            // 実例のため、既定はFrontierScoutのまま変更しない。
+        case ExplorationTemplate::Mountain:
+        case ExplorationTemplate::Fortification:
+            return UnitClass::FrontierScout; // 偵察・隠し道・高所観測(既定と同じ)
+    }
+    return UnitClass::FrontierScout;
 }
 
 } // namespace jf
