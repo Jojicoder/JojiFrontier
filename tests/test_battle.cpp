@@ -482,6 +482,40 @@ int main() {
     }
 
     {
+        // docs/prompts/exploration_system_improvement_prompt.md(2026-08-02,
+        // Phase 1): stageRouteOutcome() falls back to a stage.id-keyed
+        // ExplorationTemplate heuristic (not the old universal
+        // cinderwatchOutcome()) whenever a stage has no matching
+        // routeOutcomes entry for the chosen choice - spot-check a few
+        // representative ids across templates.
+        jf::StageDescriptor mineStage;
+        mineStage.id = "quarry_test_stub";
+        const jf::ExplorationOutcome mineCollapsed =
+            jf::stageRouteOutcome(mineStage, jf::ExplorationChoice::CollapsedSidePath);
+        assert(mineCollapsed.extraBarrierCount == 1); // Mine template's own touch, not the old default
+
+        jf::StageDescriptor fortStage;
+        fortStage.id = "fort_test_stub";
+        const jf::ExplorationOutcome fortFrontal =
+            jf::stageRouteOutcome(fortStage, jf::ExplorationChoice::FrontalAdvance);
+        assert(fortFrontal.enableReinforcementWave); // Fortification punishes the head-on approach
+
+        jf::StageDescriptor openStage;
+        openStage.id = "mapped_edge_test_stub";
+        const jf::ExplorationOutcome openCollapsed =
+            jf::stageRouteOutcome(openStage, jf::ExplorationChoice::CollapsedSidePath);
+        assert(openCollapsed.partyDamage == 1); // OpenField's milder detour cost
+
+        // A stage.routeOutcomes entry still wins over the template fallback.
+        jf::StageDescriptor overriddenMineStage;
+        overriddenMineStage.id = "quarry_test_stub_overridden";
+        overriddenMineStage.routeOutcomes = {{jf::ExplorationChoice::CollapsedSidePath, {.partyDamage = 5}}};
+        const jf::ExplorationOutcome overridden =
+            jf::stageRouteOutcome(overriddenMineStage, jf::ExplorationChoice::CollapsedSidePath);
+        assert(overridden.partyDamage == 5 && overridden.extraBarrierCount == 0);
+    }
+
+    {
         const auto a = jf::cinderwatchOutcome(jf::ExplorationChoice::FrontalAdvance);
         const auto b = jf::cinderwatchOutcome(jf::ExplorationChoice::CollapsedSidePath);
         assert(a.partyDamage == 0 && a.enemiesRemoved == 0);
@@ -878,7 +912,12 @@ int main() {
             assert(app.screen() == jf::Screen::PreBattleDeployment);
             assert(app.deploymentPlayers().size() == 4);
             assert(app.deploymentEnemyPreview().size() == 3);
-            assert(app.deploymentMaxColumn() == 2);
+            // docs/prompts/exploration_system_improvement_prompt.md(2026-08-02):
+            // ashroad_watch has no custom routeOutcomes entry, so it now
+            // falls back to the Fortification exploration template (narrower
+            // col 0-1 scouted zone) instead of the old universal
+            // cinderwatchOutcome() default (col 0-2).
+            assert(app.deploymentMaxColumn() == 1);
         }
         {
             jf::GameApp app(scoutData);

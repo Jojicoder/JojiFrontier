@@ -2482,11 +2482,41 @@ std::vector<DiscoveryId> computeStageDiscoveries(const StageDescriptor& stage, E
     return result;
 }
 
+// docs/prompts/exploration_system_improvement_prompt.md(2026-08-02、Phase 1):
+// heuristic stage.id -> ExplorationTemplate mapping, used only as the
+// fallback for stages with no hand-authored `routeOutcomes` entry for the
+// chosen ExplorationChoice. Matched by substring since ids already carry a
+// clear regional/thematic prefix (e.g. "quarry_", "mapped_edge_") - no need
+// for a second per-stage data field. Order matters where prefixes could
+// otherwise collide (none currently do).
+static ExplorationTemplate explorationTemplateForStageId(const std::string& id) {
+    auto has = [&](const char* needle) { return id.find(needle) != std::string::npos; };
+    if (has("quarry") || has("vein") || has("hoist") || has("collapse_core") || has("cliff_cart"))
+        return ExplorationTemplate::Mine;
+    if (has("blackwater") || has("mire") || has("reedway") || has("resin_grove") || has("sunken") ||
+        has("herb_islet") || has("split_convoy"))
+        return ExplorationTemplate::Marsh;
+    if (has("windscar") || has("plateau") || has("windwatch") || has("ember") || has("ravine") ||
+        has("sulfur") || has("heatwork") || has("redheat") || has("ash_crystal") || has("ashsealed"))
+        return ExplorationTemplate::Mountain;
+    if (has("sanctum") || has("dawn_altar") || has("collapsed_nave") || has("sealed_passage"))
+        return ExplorationTemplate::Ruins;
+    if (has("settlement") || has("granary") || has("gathering_hall") || has("common_well") ||
+        has("outer_fence") || has("dawn_defense"))
+        return ExplorationTemplate::Settlement;
+    if (has("fort_") || has("cinderwatch") || has("ashroad_watch") || has("old_barracks") ||
+        has("ironwatch") || has("signal_tower") || has("last_signal"))
+        return ExplorationTemplate::Fortification;
+    if (has("mapped_edge")) return ExplorationTemplate::OpenField;
+    if (has("ashbough") || has("herbwater") || has("brokenwood")) return ExplorationTemplate::Forest;
+    return ExplorationTemplate::OpenField;
+}
+
 ExplorationOutcome stageRouteOutcome(const StageDescriptor& stage, ExplorationChoice choice) {
     for (const auto& [routeChoice, outcome] : stage.routeOutcomes) {
         if (routeChoice == choice) return outcome;
     }
-    return cinderwatchOutcome(choice);
+    return explorationTemplateOutcome(explorationTemplateForStageId(stage.id), choice);
 }
 
 std::string siteAccessKey(RegionId regionId, const std::string& stageId) {

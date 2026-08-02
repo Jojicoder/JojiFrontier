@@ -273,6 +273,25 @@ ja: 【斥候】高所から偵察
 英語対応を将来追加しても、日本語UIへ内部IDや英語文を暗黙表示しない。日本語文の欠落は
 開発時に検出する。
 
+## 探索テンプレート(2026-08-02実装、Phase 1)
+
+`docs/prompts/exploration_system_improvement_prompt.md`の調査で、本編62地点のうち
+`routeOutcomes`(選択肢ごとの個別効果)を実際に定義しているのは15地点だけで、残り47地点は
+単一の`cinderwatchOutcome()`へフォールバックしていたことが判明した(地域・地形の違いが
+探索結果へ一切反映されない)。この単一フォールバックを、地形テーマ別の8種類
+(`ExplorationTemplate`: Forest/Mountain/Mine/Marsh/Ruins/Settlement/Fortification/
+OpenField、`include/jf/core/Exploration.hpp`)へ置き換えた。
+
+- `stage.routeOutcomes`に該当choiceの個別設定があれば従来どおりそれを最優先する。
+- 無ければ`stage.id`の部分一致(`quarry`→Mine、`blackwater`→Marsh等、
+  `explorationTemplateForStageId()`、`Region.cpp`)からテンプレートを推定し、
+  そのテンプレートの既定`ExplorationOutcome`を適用する。
+- 既存の`ExplorationOutcome`の7フィールドのみを使用し、スキーマ拡張はしていない
+  (Phase 2以降で検討: 敵編成入れ替え・報酬/発見物分岐・UI自動生成等)。
+
+`ash_road`のように複数地域で使い回されている汎用`terrainProfileId`は地形の手がかりに
+ならないため、`stage.id`側の命名(既に地域・用途を反映した命名規則)をキーにした。
+
 ## 実装順
 
 1. Exploration Event、Choice、Outcomeのデータモデル

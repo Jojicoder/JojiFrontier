@@ -45,4 +45,81 @@ inline ExplorationOutcome cinderwatchOutcome(ExplorationChoice choice) {
     return {};
 }
 
+// docs/prompts/exploration_system_improvement_prompt.md(2026-08-02設計・
+// Phase 1「最初に実装すべき変更」): 本編62地点のうち`routeOutcomes`を個別
+// 設定しているのは15地点だけで、残りは全て単一の`cinderwatchOutcome()`へ
+// フォールバックしていた(地形や地域の違いが探索結果へ一切反映されない)。
+// この単一フォールバックを、地形テーマ別の8種類のテンプレートへ置き換える。
+// 既存の`ExplorationOutcome`の7フィールドだけを使い(スキーマ拡張はしない)、
+// `stageRouteOutcome()`側でstage.idからテンプレートを推定して適用する
+// (`explorationTemplateForStageId()`、Region.cpp)。
+enum class ExplorationTemplate {
+    Forest,        // 灰枝の森系: 木々・獣道
+    Mountain,      // 風裂き高原/燼火峡谷系: 断崖・強風・熱気
+    Mine,          // 灰鉄採石場系: 坑道・崩落・狭所
+    Marsh,         // 黒水低湿地系: 泥濘・水路
+    Ruins,         // 埋没聖堂系: 崩れた遺構
+    Settlement,    // 旧辺境集落系: 建物・生活区画
+    Fortification, // 沈黙した監視所群/破砕された前線砦系: 城壁・監視塔
+    OpenField,     // 地図外縁系: 開けた荒野
+};
+
+inline ExplorationOutcome explorationTemplateOutcome(ExplorationTemplate tmpl, ExplorationChoice choice) {
+    switch (tmpl) {
+        case ExplorationTemplate::Forest:
+            if (choice == ExplorationChoice::CollapsedSidePath) return {.partyDamage = 2, .enemiesRemoved = 1};
+            if (choice == ExplorationChoice::ScoutRoute) return {.enableFreeDeployment = true, .deploymentMaxColumn = 2};
+            return {};
+        case ExplorationTemplate::Mountain:
+            // Steep/exposed ground: the side detour costs more attrition,
+            // and the scouted ridge line only leaves room for a narrow
+            // formation (col 0-1) instead of the usual 3-wide zone.
+            if (choice == ExplorationChoice::CollapsedSidePath) return {.partyDamage = 3, .enemiesRemoved = 1};
+            if (choice == ExplorationChoice::ScoutRoute) return {.enableFreeDeployment = true, .deploymentMaxColumn = 1};
+            return {};
+        case ExplorationTemplate::Mine:
+            // Tight tunnels: both the shortcut and the scouted route drag an
+            // extra piece of rubble/support timber onto the field.
+            if (choice == ExplorationChoice::CollapsedSidePath)
+                return {.partyDamage = 1, .enemiesRemoved = 1, .extraBarrierCount = 1};
+            if (choice == ExplorationChoice::ScoutRoute)
+                return {.enableFreeDeployment = true, .deploymentMaxColumn = 2, .extraBarrierCount = 1};
+            return {};
+        case ExplorationTemplate::Marsh:
+            // Wading straight through draws attention over time; the two
+            // alternate routes avoid that but keep the usual tradeoffs.
+            if (choice == ExplorationChoice::FrontalAdvance) return {.enableReinforcementWave = true};
+            if (choice == ExplorationChoice::CollapsedSidePath) return {.partyDamage = 2, .enemiesRemoved = 1};
+            if (choice == ExplorationChoice::ScoutRoute) return {.enableFreeDeployment = true, .deploymentMaxColumn = 2};
+            return {};
+        case ExplorationTemplate::Ruins:
+            // Collapsed side passages leave debris behind as an extra
+            // Barrier, same idea as Mine but without the tunnel penalty on
+            // the scouted route.
+            if (choice == ExplorationChoice::CollapsedSidePath)
+                return {.partyDamage = 2, .enemiesRemoved = 1, .extraBarrierCount = 1};
+            if (choice == ExplorationChoice::ScoutRoute) return {.enableFreeDeployment = true, .deploymentMaxColumn = 2};
+            return {};
+        case ExplorationTemplate::Settlement:
+            if (choice == ExplorationChoice::CollapsedSidePath) return {.partyDamage = 2, .enemiesRemoved = 1};
+            if (choice == ExplorationChoice::ScoutRoute) return {.enableFreeDeployment = true, .deploymentMaxColumn = 2};
+            return {};
+        case ExplorationTemplate::Fortification:
+            // Assaulting the gate head-on draws garrison reinforcements;
+            // breaching a side wall costs more attrition than usual, and the
+            // scouted approach is cramped by the wall itself.
+            if (choice == ExplorationChoice::FrontalAdvance) return {.enableReinforcementWave = true};
+            if (choice == ExplorationChoice::CollapsedSidePath) return {.partyDamage = 3, .enemiesRemoved = 1};
+            if (choice == ExplorationChoice::ScoutRoute) return {.enableFreeDeployment = true, .deploymentMaxColumn = 1};
+            return {};
+        case ExplorationTemplate::OpenField:
+            // Exposed, few complications: the mildest detour cost of any
+            // template.
+            if (choice == ExplorationChoice::CollapsedSidePath) return {.partyDamage = 1, .enemiesRemoved = 1};
+            if (choice == ExplorationChoice::ScoutRoute) return {.enableFreeDeployment = true, .deploymentMaxColumn = 2};
+            return {};
+    }
+    return {};
+}
+
 } // namespace jf
