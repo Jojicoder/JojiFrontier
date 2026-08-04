@@ -2517,6 +2517,10 @@ UnitClass scoutRouteClassForStage(const StageDescriptor& stage) {
     return explorationTemplateDefaultClass(explorationTemplateForStageId(stage.id));
 }
 
+ExplorationTemplate explorationTemplateForStage(const StageDescriptor& stage) {
+    return explorationTemplateForStageId(stage.id);
+}
+
 ExplorationOutcome stageRouteOutcome(const StageDescriptor& stage, ExplorationChoice choice) {
     for (const auto& [routeChoice, outcome] : stage.routeOutcomes) {
         if (routeChoice == choice) return outcome;

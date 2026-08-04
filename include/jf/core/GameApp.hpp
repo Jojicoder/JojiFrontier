@@ -5,6 +5,7 @@
 #include <memory>
 #include <cstdint>
 #include <optional>
+#include <random>
 #include <string>
 #include <stdexcept>
 #include <unordered_map>
@@ -222,6 +223,40 @@ public:
     UnitClass currentStageScoutRouteRequiredClass() const {
         return scoutRouteClassForStage(currentStage());
     }
+    // 2026-08-02(Phase 2続き): what picking `choice` would actually do on the
+    // CURRENT stage, without committing to it - lets the UI describe each
+    // route's real effect (buildExplorationEffectLines(), ui_shared.cpp)
+    // instead of a fixed per-region text string.
+    ExplorationOutcome explorationOutcomeForChoice(ExplorationChoice choice) const {
+        if (const ExplorationChoiceOption* opt = rolledOptionForChoice(choice)) return opt->outcome;
+        return stageRouteOutcome(currentStage(), choice);
+    }
+    // docs/prompts/exploration_randomization_prompt.md(2026-08-02設計):
+    // the 47 template-fallback stages (no hand-authored routeOutcomes) roll
+    // 3 of that template's 4 candidate options fresh every time the current
+    // stage id changes (see rolledOptionForChoice(), GameApp.cpp) instead of
+    // always showing the same fixed A/B/C content. The 15 hand-authored
+    // stages are untouched - rolledOptionForChoice() returns nullptr for
+    // them and every accessor here falls back to the old fixed behavior.
+    // Generalizes the old "only option C can require a class" rule: any
+    // slot's rolled option may carry its own requiredClass.
+    std::optional<UnitClass> requiredClassForChoice(ExplorationChoice choice) const {
+        if (const ExplorationChoiceOption* opt = rolledOptionForChoice(choice)) return opt->requiredClass;
+        if (choice == ExplorationChoice::ScoutRoute) return scoutRouteClassForStage(currentStage());
+        return std::nullopt;
+    }
+    // The Locale Key for `choice`'s current label - either the rolled
+    // option's own key, or (unrolled/fixed stages) the original fixed
+    // per-slot key.
+    std::string explorationChoiceLabelKey(ExplorationChoice choice) const {
+        if (const ExplorationChoiceOption* opt = rolledOptionForChoice(choice)) return std::string(opt->labelKey);
+        switch (choice) {
+            case ExplorationChoice::FrontalAdvance: return "exploration.frontal_advance";
+            case ExplorationChoice::CollapsedSidePath: return "exploration.side_path";
+            case ExplorationChoice::ScoutRoute: return "exploration.scout_route";
+        }
+        return "exploration.frontal_advance";
+    }
 
     // Exploration -> either straight to Battle (Frontal/Side routes) or to
     // PreBattleDeployment (Scout route, which requires a Frontier Scout).
@@ -378,6 +413,16 @@ private:
     // wrapper over ExpeditionService's computeCurrentStage().
     StageDescriptor currentStage() const { return computeCurrentStage(expedition_, data_); }
 
+    // docs/prompts/exploration_randomization_prompt.md(2026-08-02設計):
+    // rolls (and caches, per stage id) 3 of the current template's 4
+    // candidate ExplorationChoiceOptions the first time this stage is seen;
+    // returns nullptr for the 15 hand-authored stages (StageDescriptor::
+    // routeOutcomes set), which stay fixed. `mutable` since this is called
+    // from const accessors (explorationOutcomeForChoice() etc.) that only
+    // read the current roll - the cache itself is an implementation detail,
+    // not player-visible state, so it isn't part of SaveSystem.
+    const ExplorationChoiceOption* rolledOptionForChoice(ExplorationChoice choice) const;
+
     GameData data_;
     std::uint32_t expeditionSeed_ = 0;
     std::unique_ptr<BattleController> battleController_;
@@ -397,6 +442,15 @@ private:
     // needed at proceedToCamp() time to compute the route-adjusted reward
     // (docs/regions/ashbough_forest.md's per-route loot table).
     ExplorationChoice lastExplorationChoice_ = ExplorationChoice::FrontalAdvance;
+    // rolledOptionForChoice()'s cache: which stage id the current roll is
+    // for, the roll itself (nullopt for a hand-authored stage or before the
+    // first roll), and the RNG it's drawn from. Not restored by
+    // SaveSystem/save-loading - a reload naturally re-rolls on next access,
+    // which matches "re-rolls every time the site is reached" rather than
+    // needing its own persistence.
+    mutable std::string rolledExplorationStageId_;
+    mutable std::optional<std::array<ExplorationChoiceOption, 3>> rolledExplorationChoices_;
+    mutable std::mt19937_64 explorationRng_{std::random_device{}()};
     // Set by chooseReconnaissance(): this stage's win only grants ordinary-
     // material rewards (no survey bonus, no discoveries, no further
     // site-access promotion), since the site is already Secured.

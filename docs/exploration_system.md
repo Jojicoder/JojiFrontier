@@ -87,6 +87,18 @@ enum class SiteAccessState {
 
 安全通過中も次の遠征状態をそのまま維持する。
 
+### 灰枝の森の確保済み地点からの深層ショートカット
+
+灰枝の森自身のSecured地点画面には「深層へ行く」「最深層へ行く」ボタンがあり、
+拠点の地域一覧を経由せず直接深層遠征を開始できる(`GameApp::
+startDeepLayerExpeditionFromSecuredSite()`)。2026-08-02までは`isRegionUnlocked()`
+だけで出し分けており、この地点を通るたび(この画面を再訪するたび)毎回表示されて
+いた。**一度でもその深層地域へ入ったら、以降は二度と表示しない**よう変更した
+(`BaseState::deepLayerRegionsEntered`、`GameApp::startExpedition()`内で該当
+RegionIdなら記録、このショートカット経由でも拠点の地域一覧経由でもどちらでも
+記録される)。一度入った後は拠点の地域一覧から通常通り選ぶ。セーブ/ロードでも
+維持される(`SaveSystem.cpp`の`deepLayerRegionsEntered`)。
+
 - 現在HPと戦闘不能状態
 - 遠征Bagと各消耗品の残数
 - Pending Loot、Pending Discoveries、Pending地域進行、保護対象
@@ -310,6 +322,88 @@ scoutRouteRequiredClass`で個別に他兵種を要求する15地点では、実
   Marsh→辺境猟兵、Settlement→暁の衛生兵、OpenField→重装兵、Forest/Mountain/
   Fortification→辺境斥候のまま)。地点固有の`scoutRouteRequiredClass`は引き続き
   最優先。
+
+## UI文言のOutcomeからの自動生成(2026-08-02実装、Phase 2続き)
+
+47地点で使い回されていた固定の効果説明文言(`exploration.frontal_effect`等)を、実際の
+`ExplorationOutcome`から組み立てる要約文へ置き換えた(`buildExplorationEffectSummary()`、
+`ui_shared.cpp`)。`partyDamage`/`enemiesRemoved`/`enableFreeDeployment`/
+`restrictedAutoSpawnMaxColumn`/`extraBarrierCount`/`startingHeatLevel`/
+`enableReinforcementWave`の各フィールドのうち既定値でないものだけを「・」区切りで表示し、
+どれも既定値なら「戦闘条件に変化なし」を明示する(空Outcomeが未実装なのか意図的な
+無効果なのか区別できなかった問題への簡易対応)。灰枝の森は既存の物語的な説明文言に
+実際の効果を括弧書きで併記する形にし、それ以外の地点は要約文をそのまま表示する。
+`GameApp::explorationOutcomeForChoice(choice)`(新設)がUIから「選ぶとどうなるか」を
+プレビューする唯一の窓口。
+
+### テスト可能性の向上(2026-08-02追加)
+
+`buildExplorationEffectSummary()`自体は`ui_shared.cpp`(raylib依存のUI層)にあり、
+ヘッドレスな`jf_battle_tests`からは直接検証できない。そこで「どのフィールドが
+非デフォルトか」「危険度(tone: Neutral/Benefit/Caution/Danger)」を判定する部分だけを
+`jf::summarizeExplorationOutcome()`(`include/jf/core/Exploration.hpp`、jf_lib側の
+純粋ロジック)として切り出した。`ExplorationEffectSummary{hasEffect, tokens}`を返し、
+各`ExplorationEffectToken{kind, tone, amount}`は文字列もColorも持たない。UI側の
+`buildExplorationEffectSummary()`はこのtokenをLocale Keyへ機械的に変換して結合する
+だけの薄いラッパーになった。toneは`partyDamage>=3`ならDanger、`enableReinforcementWave`
+は常にDanger、敵削減/自由配置はBenefit、拘束配置/開始熱量はCaution、障害物追加は
+Neutralという固定ルール(今はまだ文字色には反映していない - 色分け表示は
+`docs/prompts/exploration_effect_summary_improvement_prompt.md`の項目2として未着手)。
+`tests/test_battle.cpp`にkind/tone/hasEffectの単体・組み合わせテストを追加済み。
+
+### tone→文字色の反映(2026-08-02追加、項目2)
+
+上記の`tone`を実際の描画色へ反映した。`explorationEffectToneColor(ExplorationEffectTone)`
+(`ui_shared.cpp`)がBenefit=緑系、Caution=黄橙系、Danger=赤系、Neutral=既存の
+`kColorTextMuted`へ変換し、`buildExplorationEffectDisplayTokens()`が各tokenを
+`{text, color}`のペアへ変換、`drawExplorationEffectTokens()`が「・」区切り(常に
+`kColorTextMuted`)を挟みつつ各tokenをそれぞれの色で描画する。灰枝の森は既存の
+物語文言の後に括弧書きで色付きtokenを続ける(`ui_exploration.cpp`の`drawRouteEffect`
+ラムダ)。危険度判定ロジック自体(tone決定)は`jf_lib`側にあるため既存テストで
+検証済みで、この描画関数自体はraylib依存のためヘッドレステスト対象外(目視未確認)。
+
+## 探索選択肢のランダム化(2026-08-02実装)
+
+`docs/prompts/exploration_randomization_prompt.md`(2026-08-02設計)に基づき、
+テンプレートフォールバック地点(本編62地点中47地点、`routeOutcomes`未定義)の
+3択が、その地点に到達するたび(厳密には現在のstage idがキャッシュと変わるたび)
+再抽選されるようにした。**既存15地点の手作り`routeOutcomes`は対象外**で、常に
+固定のまま。
+
+- `jf::ExplorationChoiceOption{id, labelKey, outcome, requiredClass}`
+  (`Exploration.hpp`) - 1候補の中身。
+- `jf::explorationOptionPool(ExplorationTemplate)` - 各テンプレートの4候補
+  (既存の正面/脇道/斥候3つ + 新規候補1つ)。新規候補は8つ追加
+  (`exploration.option.*`のLocale Key、`data/locales/{ja,en}.json`)。
+- `jf::rollExplorationChoices(tmpl, rng)` - 4候補から2候補を実際にコイントスで
+  入れ替える、**枠の役割を固定した**ロジック。スロットA(正面)は常に`pool[0]`
+  (兵種ゲートなし)。新規候補が兵種ゲートを持つ場合のみスロットC(斥候)と
+  入れ替わり候補になり(かつ`pool[2]`と同じ兵種を要求するよう設計- 例:
+  Ruins/Settlementの新規候補は本来の第一候補と別の兵種にしていたが、後で
+  同じ兵種に統一)、持たない場合のみスロットB(脇道)と入れ替わる。
+  **これによりスロットCの必要兵種は再抽選をまたいで絶対に変わらない** -
+  `stage.scoutRouteDisabled`や全既存テストが前提とする「斥候ルートは特定
+  兵種でゲートされる」という不変条件を壊さないための設計上の制約。
+  - 検討時の失敗: 最初は4候補から3候補を選んでスロット順もシャッフルする
+    設計だったが、`ashroad_watch`(砦テンプレート)のテストが約1/2の確率で
+    失敗するようになった - 斥候ルートの効果(自由配置)がスロットCから
+    別スロットへ移動してしまい、「斥候ルート=自由配置」という各所の前提が
+    崩れたため。今の「役割固定・コイントス1回」方式に縮小して解決。
+- `GameApp::rolledOptionForChoice(choice)`(private) - 現在のstage idごとに
+  キャッシュし、hand-authoredな地点(`stage.routeOutcomes`が空でない)では
+  常に`nullptr`を返す。`explorationOutcomeForChoice()`/
+  `requiredClassForChoice()`/`explorationChoiceLabelKey()`が全てこれ経由で
+  「ロール済みならそれを使う、無ければ既存の固定ロジックにフォールバック」
+  という形に一般化された。
+- `ui_exploration.cpp`は3スロット全てに`requiredClassForChoice()`による
+  ゲート判定を一般化(以前はスロットCだけがゲート対象だった)。
+
+既知の制約: 戦利品/発見物(`computeStageVictoryLoot()`等)は`ExplorationChoice`
+(スロット識別子)自体をキーにしており、ロールされた中身とは連動しない - つまり
+スロットBの中身が「脇道(HP-2)」と「茂みを盾に(障害物+2)」のどちらであっても、
+そのスロットの戦利品テーブルは変わらない。これは今回のスコープ(`ExplorationOutcome`
+は変更しない)を守った結果の副作用で、表示された効果と得られる戦利品の結びつきが
+今後どこまで必要かは未検討。
 
 ## 実装順
 

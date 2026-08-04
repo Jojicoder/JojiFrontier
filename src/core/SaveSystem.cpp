@@ -315,6 +315,8 @@ std::string serializeSave(const SaveData& save) {
     for (const LootStack& stack : save.base.storage) storage.push_back({{"id", stack.id}, {"quantity", stack.quantity}});
     json completedRegions = json::array();
     for (RegionId id : save.base.completedRegionIds) completedRegions.push_back(toString(id));
+    json deepLayerRegionsEntered = json::array();
+    for (RegionId id : save.base.deepLayerRegionsEntered) deepLayerRegionsEntered.push_back(toString(id));
 
     json root = {
         {"schemaVersion", save.schemaVersion},
@@ -334,6 +336,7 @@ std::string serializeSave(const SaveData& save) {
             {"builtNodes", save.base.constructedFacilityIds},
             {"siteAccess", siteAccessMapToJson(save.base.siteAccess)},
             {"completedRegions", completedRegions},
+            {"deepLayerRegionsEntered", deepLayerRegionsEntered},
             {"itemStorage", itemStorageToJson(save.base.itemStorage)},
             {"weaponLevels", save.base.weaponLevels},
             {"armorLevels", save.base.armorLevels},
@@ -488,6 +491,21 @@ std::optional<SaveData> deserializeSave(const std::string& jsonText, std::string
                 save.base.completedRegionIds.insert(*regionId);
             }
         }
+        if (base.contains("deepLayerRegionsEntered")) {
+            if (!base["deepLayerRegionsEntered"].is_array())
+                throw std::runtime_error("Invalid deepLayerRegionsEntered");
+            for (const json& entry : base["deepLayerRegionsEntered"]) {
+                auto regionId = regionIdFromStringStrict(entry.get<std::string>());
+                if (!regionId) throw std::runtime_error("Unknown region id in deepLayerRegionsEntered");
+                save.base.deepLayerRegionsEntered.insert(*regionId);
+            }
+        }
+        // Absent on an older save (before this field existed): defaults to
+        // empty, which just means the shortcut button reappears once on
+        // Ashbough Forest's Secured-site screen even for a save that already
+        // entered a deep layer under the old always-shown behavior -
+        // harmless (clicking it again is a no-op re-entry), not worth a
+        // migration.
         save.base.unlockedNodeIds.insert("operations_tent");
         save.base.unlockedNodeIds.insert("communal_tent");
 

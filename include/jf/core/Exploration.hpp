@@ -1,6 +1,11 @@
 #pragma once
 
+#include <algorithm>
+#include <array>
 #include <optional>
+#include <random>
+#include <string_view>
+#include <vector>
 
 #include "jf/core/UnitClass.hpp"
 
@@ -150,6 +155,181 @@ inline UnitClass explorationTemplateDefaultClass(ExplorationTemplate tmpl) {
             return UnitClass::FrontierScout; // 偵察・隠し道・高所観測(既定と同じ)
     }
     return UnitClass::FrontierScout;
+}
+
+// docs/prompts/exploration_randomization_prompt.md(2026-08-02設計): one
+// candidate for a template-fallback stage's 3-choice screen. `id` is a
+// stable identifier (test/debug use only, not shown to the player);
+// `labelKey` is the Locale Key for the button's label text.
+struct ExplorationChoiceOption {
+    std::string_view id;
+    std::string_view labelKey;
+    ExplorationOutcome outcome;
+    std::optional<UnitClass> requiredClass;
+};
+
+// The 4 candidates for one template: the template's existing 3 (frontal/
+// side-path/scout, unchanged) plus 1 new option with a different tradeoff.
+// Kept at 4 (not the prompt's suggested 5-6) so the added candidates and
+// their Locale Keys stay a one-per-template, reviewable amount of new
+// content rather than ~40 new strings; more can be appended later without
+// changing rollExplorationChoices()'s logic.
+inline std::array<ExplorationChoiceOption, 4> explorationOptionPool(ExplorationTemplate tmpl) {
+    const ExplorationChoiceOption frontal{"frontal", "exploration.frontal_advance",
+                                          explorationTemplateOutcome(tmpl, ExplorationChoice::FrontalAdvance),
+                                          std::nullopt};
+    const ExplorationChoiceOption side{"side_path", "exploration.side_path",
+                                       explorationTemplateOutcome(tmpl, ExplorationChoice::CollapsedSidePath),
+                                       std::nullopt};
+    const ExplorationChoiceOption scout{"scout_route", "exploration.scout_route",
+                                        explorationTemplateOutcome(tmpl, ExplorationChoice::ScoutRoute),
+                                        explorationTemplateDefaultClass(tmpl)};
+    switch (tmpl) {
+        case ExplorationTemplate::Forest:
+            return {frontal, side, scout,
+                    ExplorationChoiceOption{"forest_brush_cover", "exploration.option.forest_brush_cover",
+                                            ExplorationOutcome{.extraBarrierCount = 2}, std::nullopt}};
+        case ExplorationTemplate::Mountain:
+            return {frontal, side, scout,
+                    ExplorationChoiceOption{"mountain_leeward_hollow", "exploration.option.mountain_leeward_hollow",
+                                            ExplorationOutcome{.restrictedAutoSpawnMaxColumn = 2}, std::nullopt}};
+        case ExplorationTemplate::Mine:
+            return {frontal, side, scout,
+                    ExplorationChoiceOption{"mine_engineer_breach", "exploration.option.mine_engineer_breach",
+                                            ExplorationOutcome{.enemiesRemoved = 1, .extraBarrierCount = 1},
+                                            UnitClass::FrontierEngineer}};
+        case ExplorationTemplate::Marsh:
+            return {frontal, side, scout,
+                    ExplorationChoiceOption{"marsh_ranger_ford", "exploration.option.marsh_ranger_ford",
+                                            ExplorationOutcome{.restrictedAutoSpawnMaxColumn = 2},
+                                            UnitClass::FrontierRanger}};
+        case ExplorationTemplate::Ruins:
+            // Same requiredClass as `scout` (both FrontierEngineer, per
+            // explorationTemplateDefaultClass(Ruins)) so rollExplorationChoices()
+            // swapping this in for slot C never changes which class the
+            // stage's gated slot requires - only its effect.
+            return {frontal, side, scout,
+                    ExplorationChoiceOption{"ruins_seal_reading", "exploration.option.ruins_seal_reading",
+                                            ExplorationOutcome{.restrictedAutoSpawnMaxColumn = 2},
+                                            UnitClass::FrontierEngineer}};
+        case ExplorationTemplate::Settlement:
+            // Same requiredClass as `scout` (DawnChirurgeon), same reason.
+            return {frontal, side, scout,
+                    ExplorationChoiceOption{"settlement_rally", "exploration.option.settlement_rally",
+                                            ExplorationOutcome{.restrictedAutoSpawnMaxColumn = 2},
+                                            UnitClass::DawnChirurgeon}};
+        case ExplorationTemplate::Fortification:
+            return {frontal, side, scout,
+                    ExplorationChoiceOption{"fort_signal_tower", "exploration.option.fort_signal_tower",
+                                            ExplorationOutcome{.enemiesRemoved = 1, .enableReinforcementWave = true},
+                                            std::nullopt}};
+        case ExplorationTemplate::OpenField:
+            return {frontal, side, scout,
+                    ExplorationChoiceOption{"open_dust_rush", "exploration.option.open_dust_rush",
+                                            ExplorationOutcome{.enableFreeDeployment = true,
+                                                               .deploymentMaxColumn = 2, .startingHeatLevel = 1},
+                                            std::nullopt}};
+    }
+    return {frontal, side, scout, frontal};
+}
+
+// Rolls which 2 of the pool's 4 candidates are actually shown, keeping the
+// 3 UI slots' ROLES fixed: slot A (index 0, FrontalAdvance) is always
+// `pool[0]` (never class-gated, matching every existing assumption that at
+// least one route is always pickable regardless of party composition);
+// exactly one of slot B (CollapsedSidePath) or slot C (ScoutRoute) becomes a
+// coin flip against `pool[3]`, depending on whether `pool[3]` is class-gated
+// - an ungated 4th candidate only ever replaces the ungated slot B, and a
+// gated one only ever replaces the gated slot C (see explorationOptionPool()
+// comments: every gated 4th candidate requires the SAME class as
+// `pool[2]`/scout_route for its template). This means `requiredClassForChoice
+// (ExplorationChoice::ScoutRoute)` never changes across a reroll - only the
+// concrete effect behind it might - so `stage.scoutRouteDisabled` and every
+// existing "does this stage's ScoutRoute need a Scout?" check keeps working
+// unmodified. Deterministic given a seeded RandomEngine, so this is directly
+// unit-testable without raylib/GameApp.
+template <class RandomEngine>
+std::array<ExplorationChoiceOption, 3> rollExplorationChoices(ExplorationTemplate tmpl, RandomEngine& rng) {
+    const std::array<ExplorationChoiceOption, 4> pool = explorationOptionPool(tmpl);
+    std::array<ExplorationChoiceOption, 3> result{pool[0], pool[1], pool[2]};
+    std::uniform_int_distribution<int> coinFlip(0, 1);
+    if (coinFlip(rng) == 1) {
+        if (pool[3].requiredClass) {
+            result[2] = pool[3];
+        } else {
+            result[1] = pool[3];
+        }
+    }
+    return result;
+}
+
+// docs/prompts/exploration_effect_summary_improvement_prompt.md(2026-08-02
+// 設計、項目4「テスト可能性の向上」): buildExplorationEffectSummary()
+// (src/ui_shared.cpp, raylib依存のUI層でヘッドレステスト不可)から、
+// 「どのフィールドが非デフォルトか」「危険度(tone)」を判定する部分だけを
+// jf_lib側の純粋ロジックとして切り出したもの。実際の文言・配色はUI層が
+// kind/toneから作る - このstruct自体は文字列もColorも持たない。
+enum class ExplorationEffectTone { Neutral, Benefit, Caution, Danger };
+
+enum class ExplorationEffectKind {
+    PartyDamage,
+    EnemiesRemoved,
+    FreeDeployment,
+    RestrictedDeployment,
+    ExtraBarrier,
+    StartingHeat,
+    ReinforcementWave,
+};
+
+struct ExplorationEffectToken {
+    ExplorationEffectKind kind;
+    ExplorationEffectTone tone;
+    // {n}-substitution amount for kinds that carry a count; unused (0) for
+    // boolean-only kinds like ReinforcementWave.
+    int amount = 0;
+};
+
+struct ExplorationEffectSummary {
+    bool hasEffect = false;
+    std::vector<ExplorationEffectToken> tokens;
+};
+
+// Tone assignment reflects docs/prompts/exploration_effect_summary_improvement_prompt.md's
+// item 2 rules: attrition scales Caution->Danger with severity, anything
+// that helps the party is Benefit, a placement constraint or an early heat
+// handicap is Caution, and an enemy reinforcement wave is always Danger.
+inline ExplorationEffectSummary summarizeExplorationOutcome(const ExplorationOutcome& outcome) {
+    ExplorationEffectSummary summary;
+    if (outcome.partyDamage > 0) {
+        const ExplorationEffectTone tone =
+            outcome.partyDamage >= 3 ? ExplorationEffectTone::Danger : ExplorationEffectTone::Caution;
+        summary.tokens.push_back({ExplorationEffectKind::PartyDamage, tone, outcome.partyDamage});
+    }
+    if (outcome.enemiesRemoved > 0) {
+        summary.tokens.push_back(
+            {ExplorationEffectKind::EnemiesRemoved, ExplorationEffectTone::Benefit, outcome.enemiesRemoved});
+    }
+    if (outcome.enableFreeDeployment) {
+        summary.tokens.push_back(
+            {ExplorationEffectKind::FreeDeployment, ExplorationEffectTone::Benefit, outcome.deploymentMaxColumn + 1});
+    }
+    if (outcome.restrictedAutoSpawnMaxColumn) {
+        summary.tokens.push_back({ExplorationEffectKind::RestrictedDeployment, ExplorationEffectTone::Caution,
+                                  *outcome.restrictedAutoSpawnMaxColumn + 1});
+    }
+    if (outcome.extraBarrierCount > 0) {
+        summary.tokens.push_back(
+            {ExplorationEffectKind::ExtraBarrier, ExplorationEffectTone::Neutral, outcome.extraBarrierCount});
+    }
+    if (outcome.startingHeatLevel > 0) {
+        summary.tokens.push_back(
+            {ExplorationEffectKind::StartingHeat, ExplorationEffectTone::Caution, outcome.startingHeatLevel});
+    }
+    if (outcome.enableReinforcementWave) {
+        summary.tokens.push_back({ExplorationEffectKind::ReinforcementWave, ExplorationEffectTone::Danger, 0});
+    }
+    summary.hasEffect = !summary.tokens.empty();
+    return summary;
 }
 
 } // namespace jf

@@ -531,6 +531,87 @@ int main() {
     }
 
     {
+        // docs/prompts/exploration_effect_summary_improvement_prompt.md(2026-08-02
+        // 設計、項目4「テスト可能性の向上」): summarizeExplorationOutcome()は
+        // buildExplorationEffectSummary()(src/ui_shared.cpp、raylib依存で
+        // jf_battle_testsからテスト不可)から切り出した純ロジック。ここで
+        // 直接検証する。
+        const jf::ExplorationEffectSummary empty = jf::summarizeExplorationOutcome(jf::ExplorationOutcome{});
+        assert(!empty.hasEffect);
+        assert(empty.tokens.empty());
+
+        const jf::ExplorationEffectSummary caution =
+            jf::summarizeExplorationOutcome(jf::ExplorationOutcome{.partyDamage = 2});
+        assert(caution.hasEffect);
+        assert(caution.tokens.size() == 1);
+        assert(caution.tokens[0].kind == jf::ExplorationEffectKind::PartyDamage);
+        assert(caution.tokens[0].tone == jf::ExplorationEffectTone::Caution);
+        assert(caution.tokens[0].amount == 2);
+
+        const jf::ExplorationEffectSummary danger =
+            jf::summarizeExplorationOutcome(jf::ExplorationOutcome{.partyDamage = 3});
+        assert(danger.tokens[0].tone == jf::ExplorationEffectTone::Danger);
+
+        const jf::ExplorationEffectSummary reinforcement =
+            jf::summarizeExplorationOutcome(jf::ExplorationOutcome{.enableReinforcementWave = true});
+        assert(reinforcement.tokens.size() == 1);
+        assert(reinforcement.tokens[0].kind == jf::ExplorationEffectKind::ReinforcementWave);
+        assert(reinforcement.tokens[0].tone == jf::ExplorationEffectTone::Danger);
+
+        const jf::ExplorationEffectSummary combo = jf::summarizeExplorationOutcome(
+            jf::ExplorationOutcome{.partyDamage = 2, .enemiesRemoved = 1, .enableFreeDeployment = true,
+                                  .deploymentMaxColumn = 2});
+        assert(combo.tokens.size() == 3);
+        assert(combo.tokens[0].kind == jf::ExplorationEffectKind::PartyDamage);
+        assert(combo.tokens[1].kind == jf::ExplorationEffectKind::EnemiesRemoved &&
+              combo.tokens[1].tone == jf::ExplorationEffectTone::Benefit);
+        assert(combo.tokens[2].kind == jf::ExplorationEffectKind::FreeDeployment && combo.tokens[2].amount == 3);
+    }
+
+    {
+        // docs/prompts/exploration_randomization_prompt.md(2026-08-02設計):
+        // rollExplorationChoices() is pure/deterministic given a seeded RNG,
+        // so it's directly testable without GameApp/raylib.
+        for (int tmplIndex = 0; tmplIndex < 8; ++tmplIndex) {
+            const auto tmpl = static_cast<jf::ExplorationTemplate>(tmplIndex);
+            const auto pool = jf::explorationOptionPool(tmpl);
+            // Slot A never requires a class - at least one route must always
+            // be pickable regardless of party composition.
+            assert(!pool[0].requiredClass);
+            // Every gated 4th candidate (pool[3]) requires the exact same
+            // class as pool[2] (scout_route), so rerolling slot C never
+            // changes which class it gates on.
+            if (pool[3].requiredClass) assert(*pool[3].requiredClass == *pool[2].requiredClass);
+
+            bool sawSwap = false, sawNoSwap = false;
+            for (std::uint64_t seed = 0; seed < 50 && !(sawSwap && sawNoSwap); ++seed) {
+                std::mt19937_64 rng(seed);
+                const auto rolled = jf::rollExplorationChoices(tmpl, rng);
+                // Slot A is always pool[0], regardless of the roll.
+                assert(rolled[0].id == pool[0].id);
+                if (pool[3].requiredClass) {
+                    assert(rolled[1].id == pool[1].id);  // slot B never rerolls for these templates
+                    if (rolled[2].id == pool[3].id)
+                        sawSwap = true;
+                    else {
+                        assert(rolled[2].id == pool[2].id);
+                        sawNoSwap = true;
+                    }
+                } else {
+                    assert(rolled[2].id == pool[2].id);  // slot C never rerolls for these templates
+                    if (rolled[1].id == pool[3].id)
+                        sawSwap = true;
+                    else {
+                        assert(rolled[1].id == pool[1].id);
+                        sawNoSwap = true;
+                    }
+                }
+            }
+            assert(sawSwap && sawNoSwap);  // both outcomes are actually reachable
+        }
+    }
+
+    {
         const auto a = jf::cinderwatchOutcome(jf::ExplorationChoice::FrontalAdvance);
         const auto b = jf::cinderwatchOutcome(jf::ExplorationChoice::CollapsedSidePath);
         assert(a.partyDamage == 0 && a.enemiesRemoved == 0);
@@ -6545,24 +6626,33 @@ int main() {
     }
 
     {
-        // Rush route: one fewer wolf, HP-2 attrition, and the route's wood
-        // delta (-2) fully cancels the base reward's wood.
+        // Rush route: docs/prompts/exploration_randomization_prompt.md
+        // (2026-08-02設計) rerolls slot B (CollapsedSidePath) on the Forest
+        // template between the original side_path (HP-2, 1 fewer wolf) and
+        // the new forest_brush_cover (extraBarrierCount+2, no attrition) -
+        // read whichever one actually landed instead of hardcoding side_path's
+        // values, since which candidate is live can differ per run.
         jf::GameData data = makeFactoryData();
         jf::GameApp app(data);
         assert(app.startExpedition(jf::RegionId::AshboughForest));
+        const jf::ExplorationOutcome sideOutcome =
+            app.explorationOutcomeForChoice(jf::ExplorationChoice::CollapsedSidePath);
         assert(app.chooseExplorationRoute(jf::ExplorationChoice::CollapsedSidePath));
 
         int wolfCount = 0;
         for (const jf::Unit& unit : app.battle().battle().units()) {
             if (unit.team == jf::Team::Enemy) ++wolfCount;
-            else assert(unit.currentHp == unit.stats.maxHp - 2);
+            else assert(unit.currentHp == unit.stats.maxHp - sideOutcome.partyDamage);
         }
-        assert(wolfCount == 3);
+        assert(wolfCount == 4 - sideOutcome.enemiesRemoved);
 
         winCurrentBattle(app);
         app.proceedToCamp();
         bool hasWood = false;
         for (const auto& loot : app.expedition().pendingLoot) hasWood |= loot.id == "wood";
+        // The wood-loot delta is keyed on the route CHOICE (CollapsedSidePath)
+        // itself, not on which candidate got rolled into it, so this stays
+        // fixed regardless of the roll.
         assert(!hasWood); // base 2 - delta 2 = 0, dropped entirely
     }
 

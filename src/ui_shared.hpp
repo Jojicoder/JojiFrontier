@@ -13,6 +13,7 @@
 
 #include <optional>
 
+#include "jf/core/Exploration.hpp"
 #include "jf/core/Grid.hpp"
 #include "jf/core/Skill.hpp"
 #include "jf/data/GameData.hpp"
@@ -105,6 +106,33 @@ bool tileFromScreen(Vector2 mouse, jf::GridPos& out);
 Color teamColor(jf::Team team);
 
 std::string classNameFor(const jf::GameData& data, jf::UnitClass unitClass);
+
+// docs/prompts/exploration_system_improvement_prompt.md(2026-08-02、Phase 2
+// 続き): joins the outcome's actual (non-default) fields into one localized
+// summary string, e.g. "HP-2・敵-1", so the exploration screen can describe
+// what a route really does instead of a fixed per-region text. Returns the
+// "no change" text when every field is at its default (an empty
+// ExplorationOutcome{}).
+std::string buildExplorationEffectSummary(const jf::ExplorationOutcome& outcome);
+
+// docs/prompts/exploration_effect_summary_improvement_prompt.md(2026-08-02
+// 設計、項目2「要約文言の質の向上」): jf::summarizeExplorationOutcome()の
+// tone(危険度)を実際の文字色へ反映するための、色付きテキスト片の並び。
+// ロジック(tone判定)はjf_lib側、色そのものはこのUI層だけが知る。
+struct ExplorationEffectDisplayToken {
+    std::string text;
+    Color color;
+};
+Color explorationEffectToneColor(jf::ExplorationEffectTone tone);
+std::vector<ExplorationEffectDisplayToken> buildExplorationEffectDisplayTokens(
+    const jf::ExplorationOutcome& outcome);
+// Draws `tokens` left-to-right starting at (x, y), each in its own tone
+// color, with the standard "・" separator in kColorTextMuted between them;
+// returns the x just past the last token (for appending more text on the
+// same line, e.g. a closing ")"). Draws (and returns past) the "no change"
+// text in kColorTextMuted when `tokens` is empty.
+int drawExplorationEffectTokens(const std::vector<ExplorationEffectDisplayToken>& tokens, int x, int y,
+                                int fontSize);
 std::string classRoleFor(const jf::GameData& data, jf::UnitClass unitClass);
 std::string explorationAbilityFor(jf::UnitClass unitClass);
 std::string itemFullNameFor(jf::ItemType type);

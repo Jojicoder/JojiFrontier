@@ -4,6 +4,7 @@
 // behavior change.
 #include <raylib.h>
 
+#include <optional>
 #include <string>
 
 #include "jf/core/GameApp.hpp"
@@ -72,12 +73,21 @@ void drawExplorationScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
         // AshboughForest's own already-Secured site screen, gated the same
         // way the Base region list gates them (isRegionUnlocked()).
         if (isAshbough) {
-            if (app.isRegionUnlocked(jf::RegionId::AshboughForestDeep)) {
+            // 2026-08-02: only offer this shortcut before the player has
+            // ever entered that deep layer at least once (BaseState::
+            // deepLayerRegionsEntered) - previously it re-asked on every
+            // single visit to this already-Secured site. Once entered
+            // (through here or the Base region list), use the Base screen's
+            // region list instead.
+            const auto& enteredDeepLayers = app.baseState().deepLayerRegionsEntered;
+            if (app.isRegionUnlocked(jf::RegionId::AshboughForestDeep) &&
+               !enteredDeepLayers.count(jf::RegionId::AshboughForestDeep)) {
                 Rectangle deepRect{160, 550, 960, 90};
                 if (button(deepRect, tr("exploration.enter_deep_layer"), mouse, clicked))
                     app.startDeepLayerExpeditionFromSecuredSite(jf::RegionId::AshboughForestDeep);
             }
-            if (app.isRegionUnlocked(jf::RegionId::AshboughForestDeepest)) {
+            if (app.isRegionUnlocked(jf::RegionId::AshboughForestDeepest) &&
+               !enteredDeepLayers.count(jf::RegionId::AshboughForestDeepest)) {
                 Rectangle deepestRect{160, 655, 960, 90};
                 if (button(deepestRect, tr("exploration.enter_deepest_layer"), mouse, clicked))
                     app.startDeepLayerExpeditionFromSecuredSite(jf::RegionId::AshboughForestDeepest);
@@ -100,41 +110,66 @@ void drawExplorationScreen(jf::GameApp& app, Vector2 mouse, bool clicked) {
 
     Rectangle frontal{70, 225, 520, 120};
     Rectangle sidePath{650, 225, 520, 120};
-    if (button(frontal, isAshbough ? tr("exploration.ashbough_frontal") : "A. " + tr("exploration.frontal_advance"),
-              mouse, clicked))
-        app.chooseExplorationRoute(jf::ExplorationChoice::FrontalAdvance);
-    drawText(isAshbough ? tr("exploration.ashbough_frontal_effect") : tr("exploration.frontal_effect"),
-             92, 310, 15, kColorTextMuted);
-    if (button(sidePath, isAshbough ? tr("exploration.ashbough_side_path") : "B. " + tr("exploration.side_path"),
-              mouse, clicked))
-        app.chooseExplorationRoute(jf::ExplorationChoice::CollapsedSidePath);
-    drawText(isAshbough ? tr("exploration.ashbough_side_path_effect") : tr("exploration.side_path_effect"),
-             672, 310, 15, kColorTextMuted);
-
     Rectangle scoutRect{360, 400, 560, 90};
-    std::string scoutLabel =
-        "C. " + (isAshbough ? tr("exploration.ashbough_scout_route") : tr("exploration.scout_route"));
+
     // docs/prompts/exploration_system_improvement_prompt.md(2026-08-02、
-    // Phase 2): this used to always check partyHasFrontierScout() even on
-    // the 15 stages whose StageDescriptor::scoutRouteRequiredClass names a
-    // different class - chooseExplorationRoute() (GameApp.cpp) already
-    // checked the real per-stage class, so the button could show enabled
-    // for the wrong party (silent failure on click) or disabled for a party
-    // that actually qualified. Check the same class the click handler does.
-    const jf::UnitClass requiredScoutClass = app.currentStageScoutRouteRequiredClass();
-    if (app.partyHasClass(requiredScoutClass)) {
-        if (button(scoutRect, scoutLabel, mouse, clicked))
-            app.chooseExplorationRoute(jf::ExplorationChoice::ScoutRoute);
-        drawText(isAshbough ? tr("exploration.ashbough_scout_route_effect") : tr("exploration.scout_route_effect"),
-                 382, 470, 15, kColorTextMuted);
-    } else {
-        disabledButton(scoutRect, scoutLabel);
-        // 2026-08-02(Phase 2): the old fixed "requires a Frontier Scout"
-        // text was wrong on any of the 15 bespoke stages that actually
-        // require a different class - name the real required class instead.
-        drawText(tr("exploration.scout_route_locked", {{"class", classNameFor(app.gameData(), requiredScoutClass)}}),
-                 382, 470, 15, Color{200, 110, 110, 255});
-    }
+    // Phase 2続き)・docs/prompts/exploration_effect_summary_improvement_prompt.md
+    // (2026-08-02、項目2): describe what this route actually does (from its
+    // real ExplorationOutcome), coloring each effect by its tone (danger/
+    // caution/benefit/neutral) instead of one flat muted line. Ashbough
+    // Forest keeps its own narrative flavor text, with the colored effect
+    // tokens appended in parentheses; every other stage shows the tokens
+    // directly.
+    auto drawRouteEffect = [](bool ashboughFlavor, const std::string& flavorKey, int x, int y,
+                              const jf::ExplorationOutcome& outcome) {
+        int cursorX = x;
+        if (ashboughFlavor) {
+            const std::string flavor = tr(flavorKey) + "(";
+            drawText(flavor, cursorX, y, 15, kColorTextMuted);
+            cursorX += textWidth(flavor, 15);
+        }
+        cursorX = drawExplorationEffectTokens(buildExplorationEffectDisplayTokens(outcome), cursorX, y, 15);
+        if (ashboughFlavor) drawText(")", cursorX, y, 15, kColorTextMuted);
+    };
+    // docs/prompts/exploration_randomization_prompt.md(2026-08-02設計):
+    // any of the 3 slots may now be gated on a class (previously only slot
+    // C/ScoutRoute could be), since a template's rolled candidate for A or B
+    // can itself require one. requiredClassForChoice() returns nullopt for
+    // the old always-open cases (A/B on a hand-authored or unrolled stage),
+    // so this reduces to the pre-randomization behavior there.
+    auto drawGatedRoute = [&app, &mouse, clicked, &drawRouteEffect](Rectangle rect, const std::string& label,
+                                                                    jf::ExplorationChoice choice, bool ashboughFlavor,
+                                                                    const std::string& flavorKey, int textX,
+                                                                    int textY) {
+        const std::optional<jf::UnitClass> requiredClass = app.requiredClassForChoice(choice);
+        if (!requiredClass || app.partyHasClass(*requiredClass)) {
+            if (button(rect, label, mouse, clicked)) app.chooseExplorationRoute(choice);
+            drawRouteEffect(ashboughFlavor, flavorKey, textX, textY, app.explorationOutcomeForChoice(choice));
+        } else {
+            disabledButton(rect, label);
+            // 2026-08-02(Phase 2): name the actual required class instead of
+            // a fixed "requires a Frontier Scout" string.
+            drawText(tr("exploration.scout_route_locked", {{"class", classNameFor(app.gameData(), *requiredClass)}}),
+                     textX, textY, 15, Color{200, 110, 110, 255});
+        }
+    };
+
+    const std::string frontalLabel = isAshbough
+                                         ? tr("exploration.ashbough_frontal")
+                                         : "A. " + tr(app.explorationChoiceLabelKey(jf::ExplorationChoice::FrontalAdvance));
+    const std::string sidePathLabel =
+        isAshbough ? tr("exploration.ashbough_side_path")
+                   : "B. " + tr(app.explorationChoiceLabelKey(jf::ExplorationChoice::CollapsedSidePath));
+    const std::string scoutLabel =
+        "C. " + (isAshbough ? tr("exploration.ashbough_scout_route")
+                            : tr(app.explorationChoiceLabelKey(jf::ExplorationChoice::ScoutRoute)));
+
+    drawGatedRoute(frontal, frontalLabel, jf::ExplorationChoice::FrontalAdvance, isAshbough,
+                   "exploration.ashbough_frontal_effect", 92, 310);
+    drawGatedRoute(sidePath, sidePathLabel, jf::ExplorationChoice::CollapsedSidePath, isAshbough,
+                   "exploration.ashbough_side_path_effect", 672, 310);
+    drawGatedRoute(scoutRect, scoutLabel, jf::ExplorationChoice::ScoutRoute, isAshbough,
+                   "exploration.ashbough_scout_route_effect", 382, 470);
 }
 
 }  // namespace jfui

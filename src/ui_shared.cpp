@@ -427,6 +427,84 @@ std::string classNameFor(const jf::GameData& data, jf::UnitClass unitClass) {
     return tr(it->second.nameKey);
 }
 
+namespace {
+// Text-generation side of docs/prompts/exploration_effect_summary_improvement_prompt.md
+// 項目4: jf::summarizeExplorationOutcome()(jf_lib、ヘッドレステスト済み)が
+// 決めたkind/amountを、そのkindに対応するLocale Keyへ機械的に変換するだけ。
+// tone(危険度)は現状まだ文字色に反映していない(項目2は別途)。
+std::string explorationEffectTokenText(const jf::ExplorationEffectToken& token) {
+    switch (token.kind) {
+        case jf::ExplorationEffectKind::PartyDamage:
+            return tr("exploration.effect.party_damage", {{"n", std::to_string(token.amount)}});
+        case jf::ExplorationEffectKind::EnemiesRemoved:
+            return tr("exploration.effect.enemies_removed", {{"n", std::to_string(token.amount)}});
+        case jf::ExplorationEffectKind::FreeDeployment:
+            return tr("exploration.effect.free_deployment", {{"n", std::to_string(token.amount)}});
+        case jf::ExplorationEffectKind::RestrictedDeployment:
+            return tr("exploration.effect.restricted_deployment", {{"n", std::to_string(token.amount)}});
+        case jf::ExplorationEffectKind::ExtraBarrier:
+            return tr("exploration.effect.extra_barrier", {{"n", std::to_string(token.amount)}});
+        case jf::ExplorationEffectKind::StartingHeat:
+            return tr("exploration.effect.starting_heat", {{"n", std::to_string(token.amount)}});
+        case jf::ExplorationEffectKind::ReinforcementWave:
+            return tr("exploration.effect.reinforcement_wave");
+    }
+    return "";
+}
+}  // namespace
+
+std::string buildExplorationEffectSummary(const jf::ExplorationOutcome& outcome) {
+    const jf::ExplorationEffectSummary summary = jf::summarizeExplorationOutcome(outcome);
+    if (!summary.hasEffect) return tr("exploration.effect.no_change");
+    std::string joined;
+    for (std::size_t i = 0; i < summary.tokens.size(); ++i) {
+        if (i > 0) joined += tr("exploration.effect.separator");
+        joined += explorationEffectTokenText(summary.tokens[i]);
+    }
+    return joined;
+}
+
+Color explorationEffectToneColor(jf::ExplorationEffectTone tone) {
+    switch (tone) {
+        case jf::ExplorationEffectTone::Benefit: return Color{120, 205, 150, 255};
+        case jf::ExplorationEffectTone::Caution: return Color{225, 180, 90, 255};
+        case jf::ExplorationEffectTone::Danger: return Color{225, 100, 95, 255};
+        case jf::ExplorationEffectTone::Neutral: return kColorTextMuted;
+    }
+    return kColorTextMuted;
+}
+
+std::vector<ExplorationEffectDisplayToken> buildExplorationEffectDisplayTokens(
+    const jf::ExplorationOutcome& outcome) {
+    const jf::ExplorationEffectSummary summary = jf::summarizeExplorationOutcome(outcome);
+    std::vector<ExplorationEffectDisplayToken> displayTokens;
+    displayTokens.reserve(summary.tokens.size());
+    for (const jf::ExplorationEffectToken& token : summary.tokens) {
+        displayTokens.push_back({explorationEffectTokenText(token), explorationEffectToneColor(token.tone)});
+    }
+    return displayTokens;
+}
+
+int drawExplorationEffectTokens(const std::vector<ExplorationEffectDisplayToken>& tokens, int x, int y,
+                                int fontSize) {
+    if (tokens.empty()) {
+        const std::string noChange = tr("exploration.effect.no_change");
+        drawText(noChange, x, y, fontSize, kColorTextMuted);
+        return x + textWidth(noChange, fontSize);
+    }
+    const std::string separator = tr("exploration.effect.separator");
+    int cursorX = x;
+    for (std::size_t i = 0; i < tokens.size(); ++i) {
+        if (i > 0) {
+            drawText(separator, cursorX, y, fontSize, kColorTextMuted);
+            cursorX += textWidth(separator, fontSize);
+        }
+        drawText(tokens[i].text, cursorX, y, fontSize, tokens[i].color);
+        cursorX += textWidth(tokens[i].text, fontSize);
+    }
+    return cursorX;
+}
+
 // Status-effect UI (docs/status_effects.md "UI"): one badge per currently
 // active effect, in the doc's fixed display order.
 std::vector<StatusBadge> activeStatusBadges(const jf::Unit& unit) {

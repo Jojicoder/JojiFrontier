@@ -241,6 +241,16 @@ struct BaseState {
     // return - never inferred from SiteAccessState, and never removed.
     std::unordered_set<RegionId> completedRegionIds;
 
+    // docs/exploration_system.md「灰枝の森の確保済み地点からの深層ショートカット」:
+    // once the player has ever started an expedition into a given deep-layer
+    // region (via this shortcut or the Base region list, either counts -
+    // GameApp::startExpedition() records it regardless of entry point), the
+    // shortcut button for that region stops appearing on Ashbough Forest's
+    // own Secured-site screen - it only needs to be asked once, not every
+    // time the player passes back through that already-Secured site.
+    // Never removed once set.
+    std::unordered_set<RegionId> deepLayerRegionsEntered;
+
     // docs/roster_design.md「加入処理の共通ルール」: a candidate recorded here
     // is "加入可能候補" - permanent once a safe return commits it (see
     // ExpeditionState::pendingRecruitCandidateIds), never removed even by a

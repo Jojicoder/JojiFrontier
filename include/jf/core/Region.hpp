@@ -395,6 +395,13 @@ ExplorationOutcome stageRouteOutcome(const StageDescriptor& stage, ExplorationCh
 // stage regardless of theme.
 UnitClass scoutRouteClassForStage(const StageDescriptor& stage);
 
+// docs/prompts/exploration_randomization_prompt.md(2026-08-02設計): public
+// forwarding wrapper over Region.cpp's file-local explorationTemplateForStageId()
+// (same reason scoutRouteClassForStage() exists as a wrapper) - GameApp.cpp
+// needs the template itself, not just the class it maps to, to roll that
+// template's ExplorationChoiceOption pool.
+ExplorationTemplate explorationTemplateForStage(const StageDescriptor& stage);
+
 // Additive reward computation (docs/regions/ashbough_forest.md): base loot,
 // plus this route's delta (if any), plus the survey bonus if that stage
 // defines a survey objective and it succeeded. Never returns a negative or

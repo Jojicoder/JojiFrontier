@@ -787,6 +787,8 @@ bool GameApp::startExpedition(RegionId regionId) {
         if (it != roster_.end()) activeExpeditionData_.playerParty.push_back(*it);
     }
     if (activeExpeditionData_.playerParty.size() != 4) return false;
+    if (regionId == RegionId::AshboughForestDeep || regionId == RegionId::AshboughForestDeepest)
+        baseState_.deepLayerRegionsEntered.insert(regionId);
     expedition_ = ExpeditionState{};
     expedition_.regionId = regionId;
     if (usesRouteGraph(regionId)) expedition_.routeProgress = initialRouteProgress(regionId);
@@ -926,6 +928,22 @@ int GameApp::bulkPassSecuredSites() {
     return passed;
 }
 
+const ExplorationChoiceOption* GameApp::rolledOptionForChoice(ExplorationChoice choice) const {
+    const StageDescriptor stage = currentStage();
+    if (!stage.routeOutcomes.empty()) {
+        // Hand-authored stage: no roll, clear any stale cache from a
+        // previously-visited template stage.
+        rolledExplorationChoices_.reset();
+        rolledExplorationStageId_.clear();
+        return nullptr;
+    }
+    if (!rolledExplorationChoices_ || rolledExplorationStageId_ != stage.id) {
+        rolledExplorationStageId_ = stage.id;
+        rolledExplorationChoices_ = rollExplorationChoices(explorationTemplateForStage(stage), explorationRng_);
+    }
+    return &(*rolledExplorationChoices_)[static_cast<std::size_t>(choice)];
+}
+
 bool GameApp::chooseExplorationRoute(ExplorationChoice choice) {
     if (screen_ != Screen::Exploration || !currentStage().contentImplemented) return false;
     if (!expedition_.routeProgress && expedition_.stageIndex != 0 &&
@@ -933,12 +951,14 @@ bool GameApp::chooseExplorationRoute(ExplorationChoice choice) {
         return false;
     const StageDescriptor stage = currentStage();
     if (choice == ExplorationChoice::ScoutRoute && stage.scoutRouteDisabled) return false;
-    if (choice == ExplorationChoice::ScoutRoute && !partyHasClass(scoutRouteClassForStage(stage))) return false;
+    if (const std::optional<UnitClass> requiredClass = requiredClassForChoice(choice);
+        requiredClass && !partyHasClass(*requiredClass))
+        return false;
     if (currentSiteAccess() == SiteAccessState::Secured) return false;
 
     isReconnaissanceRun_ = false;
     lastExplorationChoice_ = choice;
-    ExplorationOutcome outcome = stageRouteOutcome(stage, choice);
+    ExplorationOutcome outcome = explorationOutcomeForChoice(choice);
     if (outcome.enableFreeDeployment) {
         deploymentOutcome_ = outcome;
         deploymentTerrain_ = generateFieldTerrain(activeExpeditionData_.terrainProfile(stage.terrainProfileId),
