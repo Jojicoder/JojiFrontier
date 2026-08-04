@@ -612,6 +612,60 @@ int main() {
     }
 
     {
+        // docs/prompts/exploration_randomization_prompt.md's roll is now
+        // seeded from (expeditionSeed_, stage.id) instead of a fresh
+        // std::random_device draw, so reloading a save while still standing
+        // on the same stage must reproduce the exact same roll rather than
+        // drawing a new one - a plain "reroll every access" would make the
+        // displayed options and their actual effects silently disagree
+        // across a save/reload.
+        auto sameOutcome = [](const jf::ExplorationOutcome& a, const jf::ExplorationOutcome& b) {
+            return a.partyDamage == b.partyDamage && a.enemiesRemoved == b.enemiesRemoved &&
+                  a.enableFreeDeployment == b.enableFreeDeployment && a.deploymentMaxColumn == b.deploymentMaxColumn &&
+                  a.restrictedAutoSpawnMaxColumn == b.restrictedAutoSpawnMaxColumn &&
+                  a.extraBarrierCount == b.extraBarrierCount && a.startingHeatLevel == b.startingHeatLevel &&
+                  a.enableReinforcementWave == b.enableReinforcementWave;
+        };
+
+        jf::GameData data = makeFactoryData();
+        jf::GameApp app(data);
+        assert(app.startExpedition(jf::RegionId::AshboughForest)); // first site's routes are template-fallback (Forest)
+        assert(app.screen() == jf::Screen::Exploration);
+
+        const jf::ExplorationOutcome frontalBefore =
+            app.explorationOutcomeForChoice(jf::ExplorationChoice::FrontalAdvance);
+        const jf::ExplorationOutcome sideBefore =
+            app.explorationOutcomeForChoice(jf::ExplorationChoice::CollapsedSidePath);
+        const jf::ExplorationOutcome scoutBefore =
+            app.explorationOutcomeForChoice(jf::ExplorationChoice::ScoutRoute);
+        const std::string frontalLabelBefore = app.explorationChoiceLabelKey(jf::ExplorationChoice::FrontalAdvance);
+        const std::string sideLabelBefore = app.explorationChoiceLabelKey(jf::ExplorationChoice::CollapsedSidePath);
+        const std::string scoutLabelBefore = app.explorationChoiceLabelKey(jf::ExplorationChoice::ScoutRoute);
+
+        jf::SaveData saved = app.createSaveData("en");
+        jf::GameApp restoredApp(data);
+        assert(restoredApp.applySaveData(saved));
+        assert(restoredApp.screen() == jf::Screen::Exploration);
+
+        assert(sameOutcome(restoredApp.explorationOutcomeForChoice(jf::ExplorationChoice::FrontalAdvance),
+                          frontalBefore));
+        assert(sameOutcome(restoredApp.explorationOutcomeForChoice(jf::ExplorationChoice::CollapsedSidePath),
+                          sideBefore));
+        assert(sameOutcome(restoredApp.explorationOutcomeForChoice(jf::ExplorationChoice::ScoutRoute), scoutBefore));
+        assert(restoredApp.explorationChoiceLabelKey(jf::ExplorationChoice::FrontalAdvance) == frontalLabelBefore);
+        assert(restoredApp.explorationChoiceLabelKey(jf::ExplorationChoice::CollapsedSidePath) == sideLabelBefore);
+        assert(restoredApp.explorationChoiceLabelKey(jf::ExplorationChoice::ScoutRoute) == scoutLabelBefore);
+        assert(restoredApp.requiredClassForChoice(jf::ExplorationChoice::ScoutRoute) ==
+              app.requiredClassForChoice(jf::ExplorationChoice::ScoutRoute));
+
+        // A brand new expedition attempt (fresh expeditionSeed_) at the same
+        // first stage is still free to roll differently - only same-seed
+        // reload is pinned. Not asserted here (both a re-roll and a repeat
+        // are valid outcomes of a coin flip), just documented: see
+        // rollExplorationChoices()'s own reachability test above for that.
+    }
+
+    {
         const auto a = jf::cinderwatchOutcome(jf::ExplorationChoice::FrontalAdvance);
         const auto b = jf::cinderwatchOutcome(jf::ExplorationChoice::CollapsedSidePath);
         assert(a.partyDamage == 0 && a.enemiesRemoved == 0);

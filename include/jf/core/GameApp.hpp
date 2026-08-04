@@ -443,14 +443,17 @@ private:
     // (docs/regions/ashbough_forest.md's per-route loot table).
     ExplorationChoice lastExplorationChoice_ = ExplorationChoice::FrontalAdvance;
     // rolledOptionForChoice()'s cache: which stage id the current roll is
-    // for, the roll itself (nullopt for a hand-authored stage or before the
-    // first roll), and the RNG it's drawn from. Not restored by
-    // SaveSystem/save-loading - a reload naturally re-rolls on next access,
-    // which matches "re-rolls every time the site is reached" rather than
-    // needing its own persistence.
+    // for, and the roll itself (nullopt for a hand-authored stage or before
+    // the first roll). Deterministically reseeded from (expeditionSeed_,
+    // stage.id) on every (re)computation - not its own persisted RNG state -
+    // so a save/reload while standing on the same stage reproduces the same
+    // roll (both expeditionSeed_ and stage.id are already stable across
+    // reload), while a brand new expedition attempt still rerolls (a fresh
+    // expeditionSeed_ is drawn by makeExpeditionSeed() each startExpedition()
+    // call, and a stage id is never revisited within one expedition -
+    // progression is strictly forward).
     mutable std::string rolledExplorationStageId_;
     mutable std::optional<std::array<ExplorationChoiceOption, 3>> rolledExplorationChoices_;
-    mutable std::mt19937_64 explorationRng_{std::random_device{}()};
     // Set by chooseReconnaissance(): this stage's win only grants ordinary-
     // material rewards (no survey bonus, no discoveries, no further
     // site-access promotion), since the site is already Secured.

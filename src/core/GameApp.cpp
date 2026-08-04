@@ -32,6 +32,20 @@ StageDescriptor idlePlaceholderStage(const GameData& data) {
 bool isDeepLayerRoutelessRegion(RegionId regionId) {
     return regionId == RegionId::AshboughForestDeep || regionId == RegionId::AshboughForestDeepest;
 }
+
+// docs/prompts/exploration_randomization_prompt.md: rolledOptionForChoice()
+// seeds its roll from stage.id, which must reproduce the exact same value
+// on a reload for the save-stability guarantee to hold. std::hash<std::string>
+// isn't standard-guaranteed to be stable across process runs/library
+// versions, so a fixed, explicit hash (FNV-1a 64-bit) is used instead.
+std::uint64_t stableStageIdHash(std::string_view value) {
+    std::uint64_t hash = 1469598103934665603ULL;
+    for (unsigned char c : value) {
+        hash ^= c;
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
 } // namespace
 
 GameApp::GameApp(GameData data) : data_(std::move(data)) {
@@ -939,7 +953,12 @@ const ExplorationChoiceOption* GameApp::rolledOptionForChoice(ExplorationChoice 
     }
     if (!rolledExplorationChoices_ || rolledExplorationStageId_ != stage.id) {
         rolledExplorationStageId_ = stage.id;
-        rolledExplorationChoices_ = rollExplorationChoices(explorationTemplateForStage(stage), explorationRng_);
+        // Deterministic per (expeditionSeed_, stage.id): reloading a save
+        // while standing on this stage reproduces the same roll instead of
+        // drawing a new one, since both inputs are already stable across
+        // reload (see GameApp.hpp's rolledExplorationStageId_ comment).
+        std::mt19937_64 rng(stableStageIdHash(stage.id) ^ (std::uint64_t(expeditionSeed_) * 0x9E3779B97F4A7C15ULL));
+        rolledExplorationChoices_ = rollExplorationChoices(explorationTemplateForStage(stage), rng);
     }
     return &(*rolledExplorationChoices_)[static_cast<std::size_t>(choice)];
 }
